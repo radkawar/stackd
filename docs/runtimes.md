@@ -7,9 +7,10 @@ The basic stackd API emulator needs **no Docker**. Start with [Getting started](
 Start with an installation and provisioning walkthrough, then use the flag
 reference below to combine the backends you need in one controller:
 
-- [Container and engine deployment](runtime-containers.md): rootful Docker,
-  installed helper/runtime images, Lambda/ECS/CodeBuild, native databases,
-  analytics, messaging engines, TLS, ALB helpers, and offline scanning.
+- [Container and engine deployment](runtime-containers.md): selected Docker
+  helper/runtime images, Lambda/ECS/CodeBuild, native databases, analytics,
+  messaging engines, TLS, ALB helpers, offline scanning, and a native macOS
+  controller / Docker Desktop recipe for opt-in Lambda/DynamoDB/Kinesis.
 - [VM and Kubernetes deployment](runtime-vms.md): QEMU/KVM host preparation,
   firmware and guest-image import, pinned k3d/k3s installation, local EKS access,
   and the additional EC2 worker-image/network setup for managed node groups.
@@ -38,11 +39,11 @@ Install the exact engine/helper images documented by each service, for the archi
 
 ## Shared Docker opt-in
 
-`-docker-host` defaults to empty, disabling container execution. An explicit Engine URL such as `unix:///var/run/docker.sock` constructs shared Lambda, ECS, CodeBuild, DynamoDB, Kinesis and ORC adapters. It is not a promise that only one selected service needs prerequisites: **the CLI constructs Lambda and ECS together**, so ECS host/toolkit requirements also apply when you only intend to use Lambda or a database adapter.
+`-docker-host` defaults to empty and selects Engine transport only when supplied. It does **not** enable Lambda, ECS, CodeBuild, DynamoDB, Kinesis or ORC inventory. Their independent flags are `-lambda-runtime`, `-ecs-runtime`, `-codebuild-runtime`, `-dynamodb-runtime`, `-kinesis-runtime` and `-inventory-orc-runtime`, all defaulting to false. Each constructs only its own real boundary; there is no implicit compatibility shim or image pull. The other service-specific selectors remain unchanged.
 
-The CLI's ECS integration requires local rootful Linux Docker, without user-namespace remapping, with systemd and cgroup v2. The pinned `compute/docker.ToolkitImage` must already be installed. See [ECS setup](ecs.md#setup-and-supported-execution) for its exact digest and host admission requirements. Containerized controllers must share the daemon host's existing `/run/lock` inode; privileged helper mounts are not exposed to task containers. Do not assume Docker Desktop, rootless Docker, arbitrary remote daemons or another container engine provides this contract.
+Only when `-ecs-runtime` is requested does ECS require local rootful Linux Docker, without user-namespace remapping, with systemd and cgroup v2, and the installed pinned `compute/docker.ToolkitImage`. See [ECS setup](ecs.md#setup-and-supported-execution). Containerized controllers for the original local-host consumers must share the daemon host's existing `/run/lock` inode; helper privileges/mounts are not exposed to task containers. ECS/EC2/EKS/ALB retain that local Linux host-security contract; it is not a promise of Docker Desktop, rootless Docker or arbitrary remote-engine support for those consumers.
 
-Lambda also needs its preinstalled disk-storage helper and a Linux daemon supporting privileged storage helpers, loop devices, ext4, `fallocate`, direct I/O and a daemon `/dev` bind. Function containers remain unprivileged. Its `/tmp` quota is disk-backed, not tmpfs charged against function memory. Read [Lambda setup](lambda.md#current-application-path) and [temporary storage/recovery](lambda.md#temporary-storage-and-crash-recovery) before enabling execution.
+Lambda requires its preinstalled storage image and static Linux telemetry helpers, plus a real Linux daemon supporting privileged storage helpers, loop devices, ext4, `fallocate`, direct I/O and a daemon `/dev` bind. Function containers remain unprivileged. Its `/tmp` quota is disk-backed, not tmpfs charged against function memory. On Docker Desktop these helpers execute **inside the actual Linux VM**, not on macOS. Lambda VPC networking uses real daemon/VM network namespaces, bridges and nftables with daemon identity and shared kernel `flock` ownership; it does not borrow a macOS host lock to pretend to own VM packet policy. Native macOS controller builds are supported, and opt-in Desktop Lambda/DynamoDB/Kinesis is the intended real-VM contract; no actual macOS run was observed for this documentation change. See the [Desktop recipe](runtime-containers.md#native-macos-controller-with-docker-desktop), [Lambda setup](lambda.md#current-application-path) and [storage/recovery](lambda.md#temporary-storage-and-crash-recovery). Missing capabilities fail explicitly; arbitrary remote engines are not promised.
 
 For ORC inventory encoding, explicitly build the existing encoder image before use:
 
@@ -50,24 +51,24 @@ For ORC inventory encoding, explicitly build the existing encoder image before u
 docker build -t stackd/orc:2.2.2 engine/orc
 ```
 
-This prepares that encoder only; it is not a stackd server image and does not install the other runtime prerequisites.
+This prepares that encoder only; enable it with `-docker-host <actual-engine-url> -inventory-orc-runtime`. It is not a stackd server image and does not install or enable other runtimes.
 
 ## Networking before execution
 
 The baseline API URL `http://127.0.0.1:4566` is for host-only clients. A normal Docker container cannot reach the host's loopback listener through its own `127.0.0.1`.
 
-After installing the shared prerequisites, the foreground launch below binds the API on all IPv4 interfaces and lets the CLI derive `http://host.docker.internal:4566` as its container-facing compute endpoint:
+After installing the Lambda prerequisites, this Lambda-only launch binds the API on all IPv4 interfaces and lets the CLI derive `http://host.docker.internal:4566` as its container-facing compute endpoint:
 
 ```sh
 ./bin/stackd -listen 0.0.0.0:4566 -database ./data/stackd.sqlite \
-  -docker-host unix:///var/run/docker.sock
+  -docker-host unix:///var/run/docker.sock -lambda-runtime
 ```
 
 This deliberately broadens network exposure; restrict the host/network boundary to trusted clients. Host tools may still use `http://127.0.0.1:4566` for local-only calls, but that origin is unsuitable for resource URLs that a container must later consume. For such workflows, choose an origin reachable from both host and containers, provision resources through that origin, and set `-public-endpoint` and `-compute-endpoint` to the corresponding reachable origins. For example, a queue URL created through a loopback endpoint can still direct an SDK inside Lambda back to container loopback, even when its default endpoint is correct. Do not patch returned URLs or inject per-handler SDK shims to conceal a routing mistake.
 
-`-public-endpoint` controls advertised URLs; `-compute-endpoint` controls the shared execution-facing AWS endpoint; neither changes where `-listen` binds. Without an explicit compute endpoint, `-docker-host` plus a loopback listener fails startup. Explicitly passing a loopback URL bypasses that default-selection check but does **not** make it reachable from a task. Some host-side engine guides use explicit loopback origins for controller-only access; that is not a general Lambda/ECS networking recipe.
+`-public-endpoint` controls advertised URLs; `-compute-endpoint` controls the execution-facing AWS endpoint; neither changes where `-listen` binds. Lambda, ECS, CodeBuild, Glue and EC2 guest execution request a default compute origin: without an explicit compute endpoint, a loopback listener fails that selection. `-docker-host` alone and DynamoDB/Kinesis-only launches do not impose this check. An explicit loopback URL does **not** make it reachable from a container. Some host-side engine guides use explicit loopback origins for controller-only access; that is not a general Lambda/ECS networking recipe.
 
-Lambda Runtime API callbacks are a fourth, separate connection: `-lambda-runtime-listen` binds the callback server and `-lambda-callback-host` advertises where its containers reach that server. Engine-specific endpoint/callback settings below also do not replace the main AWS API endpoint. HTTPS requires matching names and trusted CA material for every client that uses it; stackd does not rewrite host DNS or trust stores.
+Lambda Runtime API callbacks are a fourth, separate connection: `-lambda-runtime-listen` binds the callback server and `-lambda-callback-host` advertises where its actual container RIC/bootstrap reaches that server. Explicit `host.docker.internal` uses Desktop's container DNS without controller-side resolution or a shadow host mapping; empty callback host uses Linux host-gateway. Engine-specific settings below do not replace the main AWS API endpoint. HTTPS requires matching names and trusted CA material for every client; stackd does not rewrite host DNS or trust stores.
 
 ## Execution selection and prerequisites
 
@@ -75,12 +76,12 @@ Boolean runtime flags below default to `false`. Supplying `-docker-host` alone d
 
 | Workload | Opt-in and additional preparation | Detailed contract |
 | --- | --- | --- |
-| Lambda ZIP functions | Shared `-docker-host`; installed official runtime images, telemetry helpers and storage helper. | [Lambda](lambda.md#current-application-path) |
+| Lambda ZIP/image functions | `-docker-host -lambda-runtime`; installed official ZIP runtime images or customer image, Linux telemetry helpers and storage helper; toolkit for VPC networking. | [Lambda](lambda.md#current-application-path) |
 | Lambda managed instances | QEMU/EC2 plus a guest AMI containing official SSM, Docker, pinned runtimes and the compiled managed agent; explicit instance profile/type and runtime mappings. | [Managed guest deployment](runtime-vms.md#managed-instance-lambda) |
-| ECS tasks/services | Shared `-docker-host`; pinned toolkit, installed customer images, supported Linux Fargate/`awsvpc` configuration and IAM/network resources. | [ECS setup](ecs.md#setup-and-supported-execution) |
-| CodeBuild | Shared `-docker-host` and reachable compute endpoint; installed build images. `-codebuild-fleet-image` supplies an immutable local image for real idle fleet capacity. | [ECR and CodeBuild](behavior-references.md#ecr-and-codebuild) |
-| DynamoDB / Kinesis | Shared `-docker-host`; pinned native backends installed locally. | [DynamoDB](behavior-references.md#dynamodb-engine-references), [Kinesis](behavior-references.md#imported-record-engine-experiments) |
-| S3 ORC inventory | Shared `-docker-host`; explicitly build the encoder above. | [S3 inventory](cloudtrail.md) |
+| ECS tasks/services | `-docker-host -ecs-runtime`; local Linux host admission, pinned toolkit, installed customer images, supported Linux Fargate/`awsvpc` configuration and IAM/network resources. | [ECS setup](ecs.md#setup-and-supported-execution) |
+| CodeBuild | `-docker-host -codebuild-runtime` and reachable compute endpoint; installed build images. `-codebuild-fleet-image` supplies an immutable local image for real idle fleet capacity. | [ECR and CodeBuild](behavior-references.md#ecr-and-codebuild) |
+| DynamoDB / Kinesis | `-docker-host` plus `-dynamodb-runtime` and/or `-kinesis-runtime`; installed native DynamoDB Local / Apache Kafka images, not Lambda/ECS helpers. | [DynamoDB](behavior-references.md#dynamodb-engine-references), [Kinesis](behavior-references.md#imported-record-engine-experiments) |
+| S3 ORC inventory | `-docker-host -inventory-orc-runtime`; explicitly build the encoder above. | [S3 inventory](cloudtrail.md) |
 | Glue / Athena | `-glue-runtime` and/or `-athena-runtime`, plus Docker and the documented immutable images. | [Analytics engines and licensing](behavior-references.md#glue-and-athena-engines-evidence-and-boundaries) |
 | RDS | `-rds-runtime`, Docker, installed pinned PostgreSQL/MySQL images. | [RDS setup](rds.md#running-the-native-engines) |
 | DocumentDB compatibility | `-docdb-runtime`, Docker, installed pinned MongoDB compatibility image; this is not AWS DocumentDB's engine. | [DocumentDB setup](documentdb.md#native-setup) |
@@ -110,16 +111,17 @@ The table lists exact CLI defaults. “Empty override” means the adapter selec
 | Flags | Defaults and purpose |
 | --- | --- |
 | `-docker-host`, `-compute-endpoint` | Empty; explicit Docker Engine URL and reachable AWS origin. Compute default selection is described above. |
-| `-lambda-callback-host` | Empty uses Linux host-gateway for Runtime API callbacks. |
+| `-lambda-runtime`, `-ecs-runtime`, `-codebuild-runtime`, `-dynamodb-runtime`, `-kinesis-runtime`, `-inventory-orc-runtime` | All `false`; independently enable their real owners and require `-docker-host`. |
+| `-lambda-callback-host` | Empty uses Linux host-gateway; explicit `host.docker.internal` preserves Desktop's container DNS without host resolution/mapping. Requires `-lambda-runtime`. |
 | `-lambda-runtime-listen` | `0.0.0.0:0`; Runtime API bind address. |
-| `-lambda-telemetry-directory` | Empty uses the stackd executable's directory. |
+| `-lambda-telemetry-directory` | Empty uses the stackd executable's directory; contains static Linux helpers, including for a native macOS controller. Requires `-lambda-runtime` when supplied. |
 | `-lambda-keep-alive` | `10m`; warm idle lifetime in service time; `0` forces cold invocations. |
-| `-lambda-storage-image` | Empty override; installed immutable disk-storage helper. |
-| `-lambda-hot-reload-code`, `-lambda-hot-reload-layers` | Repeatable `unqualified-function-arn=/absolute/path`; no mappings by default; requires Docker. Development source directories, not deployment persistence. |
+| `-lambda-storage-image` | Empty override; installed immutable disk-storage helper. Requires `-lambda-runtime` when supplied. |
+| `-lambda-hot-reload-code`, `-lambda-hot-reload-layers` | Repeatable `unqualified-function-arn=/absolute/path`; no mappings by default; requires `-docker-host -lambda-runtime`. Development source directories, not deployment persistence. |
 | `-lambda-managed-image-id`, `-lambda-managed-instance-profile`, `-lambda-managed-instance-type` | Empty disables usable managed capacity; select an imported prepared AMI, guest instance-profile ARN and real EC2 guest type. |
 | `-lambda-managed-runtime-image` | Repeatable `runtime:architecture=image@sha256:digest` installed inside the guest; no default mappings. |
 | `-lambda-managed-agent-port` | `9443`; private guest HTTPS management port, requiring controller-to-guest admission. |
-| `-codebuild-fleet-image` | Empty; explicit installed local image ID/digest for real idle fleet capacity. |
+| `-codebuild-fleet-image` | Empty; explicit installed local image ID/digest for real idle fleet capacity. Requires `-codebuild-runtime`. |
 | `-ecr-scanner`, `-ecr-scanner-cache` | Both empty; executable and offline vulnerability DB cache, required together. |
 | `-glue-spark-image`, `-glue-python-image` | Empty immutable image overrides; require `-glue-runtime`. |
 | `-athena-image`, `-athena-hive-ddl-image` | Empty immutable Trino / Apache Spark DDL-parser image overrides; require `-athena-runtime`. |

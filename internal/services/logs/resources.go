@@ -60,6 +60,11 @@ func resourceName(name, kind string) *awswire.Error {
 	return nil
 }
 func (s *Service) authorize(r Reader, action string, g GroupRecord, stream string, tags map[string]string, keys []string) *awswire.Error {
+	if g.ID != "" {
+		if _, w := cloudFormationGroupClaim(r.Context(), g.CFNOwner, true); w != nil {
+			return w
+		}
+	}
 	arn := g.Key.ARN() + ":*"
 	switch action {
 	case "TagResource", "UntagResource", "ListTagsForResource", "PutSubscriptionFilter":

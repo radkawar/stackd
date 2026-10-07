@@ -53,7 +53,7 @@ func description(record Record, v Version) (*api.DocumentDescription, error) {
 	return out, nil
 }
 func (s *Service) getDocument(tx Transaction, in *api.GetDocumentRequest) (*api.GetDocumentResult, error) {
-	record, err := s.load(tx, "GetDocument", value(in.Name))
+	record, err := s.loadClaimed(tx, "GetDocument", value(in.Name))
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (s *Service) getDocument(tx Transaction, in *api.GetDocumentRequest) (*api.
 	return &api.GetDocumentResult{Name: new(api.DocumentARN(record.Key.Name)), Content: new(api.DocumentContent(content)), CreatedDate: new(api.DateTime(v.Created)), DocumentVersion: new(api.DocumentVersion(strconv.FormatInt(v.Key.Version, 10))), DocumentType: new(api.DocumentType(record.Type)), DocumentFormat: new(api.DocumentFormat(format)), Status: new(api.DocumentStatus(v.Status)), DisplayName: optional[api.DocumentDisplayName](v.DisplayName), VersionName: optional[api.DocumentVersionName](v.VersionName), Requires: documentRequires(record)}, nil
 }
 func (s *Service) describeDocument(tx Transaction, in *api.DescribeDocumentRequest) (*api.DescribeDocumentResult, error) {
-	record, err := s.load(tx, "DescribeDocument", value(in.Name))
+	record, err := s.loadClaimed(tx, "DescribeDocument", value(in.Name))
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (s *Service) describeDocument(tx Transaction, in *api.DescribeDocumentReque
 	return &api.DescribeDocumentResult{Document: doc}, err
 }
 func (s *Service) listVersions(tx Transaction, in *api.ListDocumentVersionsRequest) (*api.ListDocumentVersionsResult, error) {
-	record, err := s.load(tx, "ListDocumentVersions", value(in.Name))
+	record, err := s.loadClaimed(tx, "ListDocumentVersions", value(in.Name))
 	if err != nil {
 		return nil, err
 	}

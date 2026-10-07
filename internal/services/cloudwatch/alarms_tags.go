@@ -11,6 +11,11 @@ import (
 )
 
 func (s *Service) authorizeAlarm(r Reader, action string, alarm AlarmRecord, requested map[string]string, keys []string, wildcard bool) *awswire.Error {
+	if alarm.ID != "" {
+		if w := cloudFormationOwned(r.Context(), alarm.CFNOwner); w != nil {
+			return w
+		}
+	}
 	conditions := cloudwatchTagConditions(alarm.Tags, requested, keys)
 	if action == "PutMetricAlarm" || action == "PutCompositeAlarm" {
 		actions := make([]string, 0, len(alarm.Actions.Alarm)+len(alarm.Actions.OK)+len(alarm.Actions.InsufficientData))
@@ -31,9 +36,18 @@ func (s *Service) authorizeAlarm(r Reader, action string, alarm AlarmRecord, req
 func (s *Service) admitAlarmWrite(tx Transaction, action string, previous *AlarmRecord, next *AlarmRecord, input api.TagList) *awswire.Error {
 	var requested map[string]string
 	if previous != nil {
+		var w *awswire.Error
+		next.CFNOwner, w = cloudFormationClaim(tx.Context(), previous.CFNOwner, true)
+		if w != nil {
+			return w
+		}
 		next.Tags = maps.Clone(previous.Tags)
 	} else {
 		var w *awswire.Error
+		next.CFNOwner, w = cloudFormationClaim(tx.Context(), "", false)
+		if w != nil {
+			return w
+		}
 		requested, w = admitTags(input)
 		if w != nil {
 			return w

@@ -54,6 +54,11 @@ func (s *Service) createRouteResponse(tx Transaction, in *api.CreateRouteRespons
 	if err := validateRouteResponse(in); err != nil {
 		return nil, err
 	}
+	if v, found, err := recoverOwnedResource(tx, route.Key, tx.RouteResponses); err != nil {
+		return nil, err
+	} else if found {
+		return new(api.CreateRouteResponseOutput(routeResponseOutput(v))), nil
+	}
 	rows, err := tx.RouteResponses(route.Key)
 	if err != nil {
 		return nil, err

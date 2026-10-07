@@ -31,6 +31,7 @@ type OpensearchDomain struct {
 	Due            int64
 	Version        int64
 	ConfigVersion  int64
+	Ownership      string
 }
 
 type OpensearchPolicyPrincipal struct {

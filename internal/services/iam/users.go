@@ -114,6 +114,10 @@ func (s *Service) updateUser(ctx context.Context, a *account, m awsctx.Metadata)
 		if _, ok := g.Members[oldKey]; ok {
 			delete(g.Members, oldKey)
 			g.Members[newKey] = struct{}{}
+			if owner, exists := g.MemberOwners[oldKey]; exists {
+				delete(g.MemberOwners, oldKey)
+				g.MemberOwners[newKey] = owner
+			}
 		}
 	}
 	u.UserName, u.Path, u.Arn = newName, newPath, resourceARN(m, "user", newPath, newName)

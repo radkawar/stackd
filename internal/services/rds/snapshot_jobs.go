@@ -46,6 +46,7 @@ func (j snapshotJobs) Run(ctx context.Context, job scheduler.Job) error {
 	ctx = runtimeContext(ctx, k)
 	var v Snapshot
 	var source Database
+	detached := false
 	e = s.repository.View(ctx, func(r Reader) error {
 		var e error
 		v, e = r.Snapshot(k)
@@ -60,7 +61,23 @@ func (j snapshotJobs) Run(ctx context.Context, job scheduler.Job) error {
 			kind = "cluster"
 		}
 		source, e = r.Database(Key{Scope: k.Scope, Kind: kind, Name: v.Source})
-		return e
+		if e != nil {
+			return e
+		}
+		if kind == "cluster" {
+			all, e := r.Databases(k.Scope)
+			if e != nil {
+				return e
+			}
+			detached = true
+			for _, member := range all {
+				if member.Cluster == source.Key.Name {
+					detached = false
+					break
+				}
+			}
+		}
+		return nil
 	})
 	if errors.Is(e, ErrNotFound) {
 		return nil
@@ -88,7 +105,12 @@ func (j snapshotJobs) Run(ctx context.Context, job scheduler.Job) error {
 
 				spec := engine.Specification{ID: v.SourceRuntimeID, Engine: v.Engine, Database: v.DatabaseName, Username: user, Password: password, Parameters: v.Parameters}
 				nativeErr = s.runtime.Snapshot(ctx, spec, v.RuntimeID)
-				endpoint, readyErr = s.runtime.Ensure(ctx, spec)
+				// A detached cluster has no writer to restart. Snapshot itself
+				// verifies the retained native process/data; never Ensure an
+				// unprovisioned shell after a failed backup.
+				if !detached {
+					endpoint, readyErr = s.runtime.Ensure(ctx, spec)
+				}
 
 			} else {
 				readyErr = nativeErr
@@ -143,6 +165,14 @@ func (j snapshotJobs) Run(ctx context.Context, job scheduler.Job) error {
 		}
 		if src.RuntimeID != v.SourceRuntimeID || src.Operation != "snapshot" {
 			return nil
+		}
+		if detached {
+			src.Version++
+			src.Endpoint = engine.Endpoint{}
+			src.Status = "creating"
+			src.Operation = ""
+			src.Due = time.Time{}
+			return tx.PutDatabase(src)
 		}
 		src.Version++
 		src.Endpoint = endpoint

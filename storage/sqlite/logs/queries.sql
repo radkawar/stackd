@@ -9,10 +9,10 @@ SELECT * FROM logs_groups WHERE partition = sqlc.arg(partition) AND account_id =
  ORDER BY name LIMIT sqlc.arg(page_limit);
 
 -- name: PutGroup :exec
-INSERT INTO logs_groups (partition, account_id, region, name, id, created, sequence, retention_days)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO logs_groups (partition, account_id, region, name, id, created, sequence, retention_days, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, name) DO UPDATE SET
- sequence=excluded.sequence, retention_days=excluded.retention_days;
+ sequence=excluded.sequence, retention_days=excluded.retention_days, cfn_owner=excluded.cfn_owner;
 
 -- name: DeleteGroup :exec
 DELETE FROM logs_groups WHERE partition = ? AND account_id = ? AND region = ? AND name = ?;
@@ -48,10 +48,10 @@ SELECT * FROM logs_streams WHERE group_id = sqlc.arg(group_id)
  ORDER BY last_event DESC, name DESC LIMIT sqlc.arg(page_limit);
 
 -- name: PutStream :exec
-INSERT INTO logs_streams (group_id, name, id, created, first_event, last_event, last_ingestion, event_count)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO logs_streams (group_id, name, id, created, first_event, last_event, last_ingestion, event_count, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(group_id, name) DO UPDATE SET first_event=excluded.first_event, last_event=excluded.last_event,
- last_ingestion=excluded.last_ingestion, event_count=excluded.event_count;
+ last_ingestion=excluded.last_ingestion, event_count=excluded.event_count, cfn_owner=excluded.cfn_owner;
 
 -- name: DeleteStream :exec
 DELETE FROM logs_streams WHERE group_id = ? AND name = ?;
@@ -99,10 +99,10 @@ WHERE partition = sqlc.arg(partition) AND account_id = sqlc.arg(account_id) AND 
 ORDER BY name LIMIT sqlc.arg(page_limit);
 
 -- name: PutResourcePolicy :exec
-INSERT INTO logs_resource_policies (partition, account_id, region, policy_scope, name, group_id, document, updated, revision)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO logs_resource_policies (partition, account_id, region, policy_scope, name, group_id, document, updated, revision, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, policy_scope, name) DO UPDATE SET
- group_id=excluded.group_id, document=excluded.document, updated=excluded.updated, revision=excluded.revision;
+ group_id=excluded.group_id, document=excluded.document, updated=excluded.updated, revision=excluded.revision, cfn_owner=excluded.cfn_owner;
 
 -- name: DeleteResourcePolicy :exec
 DELETE FROM logs_resource_policies WHERE partition = ? AND account_id = ? AND region = ? AND policy_scope = ? AND name = ?;
@@ -117,12 +117,12 @@ ORDER BY name LIMIT sqlc.arg(page_limit);
 
 -- name: PutSubscription :exec
 INSERT INTO logs_subscriptions (group_id, name, id, pattern, destination_arn, apply_on_transformed_logs, distribution, field_selection, created, disabled_until,
- role_arn, target_arn, role_source_arn, sender_role_arn)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ role_arn, target_arn, role_source_arn, sender_role_arn, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(group_id, name) DO UPDATE SET pattern=excluded.pattern, destination_arn=excluded.destination_arn,
  apply_on_transformed_logs=excluded.apply_on_transformed_logs, distribution=excluded.distribution, field_selection=excluded.field_selection,
  created=excluded.created, disabled_until=excluded.disabled_until,
- role_arn=excluded.role_arn, target_arn=excluded.target_arn, role_source_arn=excluded.role_source_arn, sender_role_arn=excluded.sender_role_arn;
+ role_arn=excluded.role_arn, target_arn=excluded.target_arn, role_source_arn=excluded.role_source_arn, sender_role_arn=excluded.sender_role_arn, cfn_owner=excluded.cfn_owner;
 
 -- name: DeleteSubscription :exec
 DELETE FROM logs_subscriptions WHERE group_id = ? AND name = ?;
@@ -162,10 +162,10 @@ WHERE partition = sqlc.arg(partition) AND account_id = sqlc.arg(account_id) AND 
 ORDER BY name LIMIT sqlc.arg(page_limit);
 
 -- name: PutDestination :exec
-INSERT INTO logs_destinations (partition, account_id, region, name, target_arn, role_arn, access_policy, created)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO logs_destinations (partition, account_id, region, name, target_arn, role_arn, access_policy, created, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, name) DO UPDATE SET
- target_arn=excluded.target_arn, role_arn=excluded.role_arn, access_policy=excluded.access_policy;
+ target_arn=excluded.target_arn, role_arn=excluded.role_arn, access_policy=excluded.access_policy, cfn_owner=excluded.cfn_owner;
 
 -- name: DeleteDestination :exec
 DELETE FROM logs_destinations WHERE partition = ? AND account_id = ? AND region = ? AND name = ?;

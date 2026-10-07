@@ -107,5 +107,4 @@ if __name__ == '__main__':
     parser.add_argument('--protocol-probe', required=True)
     parser.add_argument('--state-directory', required=True)
     parser.add_argument('--docker-host', default='unix:///var/run/docker.sock')
-    parser.add_argument('--telemetry-directory', default='/home/r/dev/minor/stackd/bin')
     IncarnationProof(parser.parse_args()).run()

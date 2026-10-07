@@ -120,10 +120,15 @@ func (s *Service) createEventSourceMapping(ctx context.Context, in *api.CreateEv
 	for k, v := range in.Tags {
 		tags[string(k)] = string(v)
 	}
-	key := EventSourceMappingKey{Scope: scopeFor(ctx), UUID: uuid.NewString()}
+	claim, wire := mappingOwnerFor(ctx)
+	if wire != nil {
+		return nil, wire
+	}
 	conditions := map[string][]string{"lambda:FunctionArn": {ref.ARN()}}
 	var prepared FunctionRecord
-	err := s.repository.View(ctx, func(r Reader) error {
+	var retained EventSourceMappingRecord
+	var recovered bool
+	err := s.repository.Update(ctx, func(r Transaction) error {
 		if wire := s.authorize(r.Context(), "CreateEventSourceMapping", "*", nil, tags, conditions); wire != nil {
 			return wire
 		}
@@ -131,12 +136,26 @@ func (s *Service) createEventSourceMapping(ctx context.Context, in *api.CreateEv
 			return wire
 		}
 		var err error
+		retained, recovered, err = s.recoverMapping(r, claim, tags)
+		if err != nil {
+			return err
+		}
+		if recovered {
+			out = eventSourceMappingConfiguration(retained)
+			return s.recordCall(r.Context(), "CreateEventSourceMapping", in, out, nil)
+		}
 		prepared, err = mappingFunction(r, ref)
 		return err
 	})
 	if err != nil {
 		return nil, wireError(err)
 	}
+	if recovered {
+		filters, filterError := s.mappingFilters(ctx, retained, false)
+		mappingFilterResponse(out, filters, filterError)
+		return out, nil
+	}
+	key := EventSourceMappingKey{Scope: scopeFor(ctx), UUID: uuid.NewString()}
 	settings, wire := control.createSettings(in)
 	if wire != nil {
 		return nil, wire
@@ -169,6 +188,14 @@ func (s *Service) createEventSourceMapping(ctx context.Context, in *api.CreateEv
 		if wire := s.authorize(tx.Context(), "CreateEventSourceMapping", "*", nil, tags, conditions); wire != nil {
 			return wire
 		}
+		retained, recovered, err = s.recoverMapping(tx, claim, tags)
+		if err != nil {
+			return err
+		}
+		if recovered {
+			out = eventSourceMappingConfiguration(retained)
+			return s.recordCall(tx.Context(), "CreateEventSourceMapping", in, out, nil)
+		}
 		if len(tags) > 0 {
 			if wire := s.authorize(tx.Context(), "TagResource", key.ARN(), nil, tags, nil); wire != nil {
 				return wire
@@ -182,7 +209,7 @@ func (s *Service) createEventSourceMapping(ctx context.Context, in *api.CreateEv
 			return failure("ResourceConflictException", "Function configuration changed during event source mapping creation.", 409)
 		}
 		now := s.clock.Now()
-		v := EventSourceMappingRecord{Key: key, Function: ref, EventSourceARN: sourceARN, Version: 1, LastModified: now, Settings: settings, Tags: tags}
+		v := EventSourceMappingRecord{Key: key, Owner: claim.Owner, Function: ref, EventSourceARN: sourceARN, Version: 1, LastModified: now, Settings: settings, Tags: tags}
 		control.createTransition(&v, in.Enabled == nil || bool(*in.Enabled))
 		if err := mappingUnique(tx, v); err != nil {
 			return err
@@ -197,8 +224,13 @@ func (s *Service) createEventSourceMapping(ctx context.Context, in *api.CreateEv
 	if err != nil {
 		return nil, wireError(err)
 	}
-	committed = true
-	s.eventSourceMappingsChanged()
+	committed = !recovered
+	if recovered {
+		filters, filterError := s.mappingFilters(ctx, retained, false)
+		mappingFilterResponse(out, filters, filterError)
+	} else {
+		s.eventSourceMappingsChanged()
+	}
 	return out, nil
 }
 
@@ -209,6 +241,11 @@ func (s *Service) authorizedMapping(r Reader, key EventSourceMappingKey, action 
 	}
 	if wire := s.authorize(r.Context(), action, key.ARN(), v.Tags, nil, nil); wire != nil {
 		return v, wire
+	}
+	if err == nil {
+		if wire := requireMappingOwner(r.Context(), v); wire != nil {
+			return v, wire
+		}
 	}
 	return v, err
 }
@@ -382,6 +419,10 @@ func (s *Service) listEventSourceMappings(ctx context.Context, in *api.ListEvent
 		if wire := s.authorize(r.Context(), "ListEventSourceMappings", "*", nil, nil, nil); wire != nil {
 			return wire
 		}
+		claim, wire := mappingOwnerFor(r.Context())
+		if wire != nil {
+			return wire
+		}
 		if invalidMarker {
 			return nil
 		}
@@ -391,6 +432,9 @@ func (s *Service) listEventSourceMappings(ctx context.Context, in *api.ListEvent
 		}
 		last := ""
 		for _, v := range rows {
+			if claim.Owner != (MappingOwner{}) && (v.Owner != claim.Owner || claim.UUID != "" && v.Key.UUID != claim.UUID) {
+				continue
+			}
 			if v.Key.UUID <= after || (in.FunctionName != nil && v.Function != ref) || (in.EventSourceArn != nil && v.EventSourceARN != value(in.EventSourceArn)) {
 				continue
 			}

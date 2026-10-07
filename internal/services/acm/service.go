@@ -262,7 +262,7 @@ func (s *Service) owned(r Reader, op, arn string) (CertificateRecord, error) {
 	if e = s.authorize(r, op, arn, c.Tags, nil); e != nil {
 		return c, e
 	}
-	return c, nil
+	return c, observeCloudFormationOwner(r.Context(), c)
 }
 func (s *Service) users(r Reader, c CertificateRecord) ([]string, error) {
 	if s.usage == nil {

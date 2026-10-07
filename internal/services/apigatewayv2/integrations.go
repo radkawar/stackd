@@ -28,8 +28,8 @@ func integrationOutput(v IntegrationRecord) api.Integration {
 	return out
 }
 func validateIntegration(in *api.CreateIntegrationInput, protocol string) error {
-	// TODO: Comeback implement non-Lambda integrations, mappings,
-	// templates, TLS and configurable HTTP integration timeouts.
+	// TODO: Comeback implement non-Lambda integrations, mappings, templates
+	// and TLS.
 	if value(in.IntegrationType) != "AWS_PROXY" {
 		return unsupported("Only Lambda AWS_PROXY integrations are implemented")
 	}
@@ -56,8 +56,8 @@ func validateIntegration(in *api.CreateIntegrationInput, protocol string) error 
 		if in.PassthroughBehavior != nil {
 			return unsupported("HTTP integration passthrough behavior is not implemented")
 		}
-		if in.TimeoutInMillis != nil && int32(*in.TimeoutInMillis) != 30000 {
-			return unsupported("Custom HTTP integration timeouts are not implemented")
+		if in.TimeoutInMillis != nil && (*in.TimeoutInMillis < 50 || *in.TimeoutInMillis > 30000) {
+			return bad("HTTP integration timeout must be between 50 and 30000 milliseconds")
 		}
 	}
 	if arn := value(in.CredentialsArn); arn != "" && !authorizerRoleARN.MatchString(arn) {
@@ -78,6 +78,11 @@ func (s *Service) createIntegration(tx Transaction, in *api.CreateIntegrationInp
 	}
 	if err := s.passInvocationRole(tx, value(in.CredentialsArn)); err != nil {
 		return nil, err
+	}
+	if v, found, err := recoverOwnedResource(tx, owner.Key, tx.Integrations); err != nil {
+		return nil, err
+	} else if found {
+		return new(api.CreateIntegrationOutput(integrationOutput(v))), nil
 	}
 	id, err := controlID()
 	if err != nil {

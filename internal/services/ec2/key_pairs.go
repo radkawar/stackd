@@ -114,7 +114,18 @@ func (s *Service) createKeyPair(ctx context.Context, tx Transaction, in *api.Cre
 	if err != nil {
 		return nil, err
 	}
-	return &api.KeyPair{KeyPairId: pair.Data.KeyPairId, KeyName: pair.Data.KeyName, KeyFingerprint: pair.Data.KeyFingerprint, KeyMaterial: new(api.SensitiveUserData(material)), Tags: pair.Data.Tags}, nil
+	out := &api.KeyPair{KeyPairId: pair.Data.KeyPairId, KeyName: pair.Data.KeyName, KeyFingerprint: pair.Data.KeyFingerprint, KeyMaterial: new(api.SensitiveUserData(material)), Tags: pair.Data.Tags}
+	if err := retainKeyPairMaterial(ctx, out); err != nil {
+		return nil, err
+	}
+	if intent, ok := ctx.Value(cloudFormationOwnerKey{}).(cloudFormationIntent); ok && intent.create && intent.owner.ResourceType == "AWS::EC2::KeyPair" {
+		if sink, _ := ctx.Value(keyPairMaterialSinkKey{}).(func(context.Context, *api.KeyPair) error); sink != nil {
+			if err := tx.PutNetworkOwnerCreation(NetworkOwnerCreationRecord{Key: NetworkCreationKey{Scope: scopeFor(ctx), Action: "CloudFormationKeyPairMaterial", Token: intent.owner.Owner}, ResourceID: pair.Key.ID}); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return out, nil
 }
 
 func (s *Service) importKeyPair(ctx context.Context, tx Transaction, in *api.ImportKeyPairRequest) (*api.ImportKeyPairResult, error) {
@@ -290,6 +301,14 @@ func (s *Service) deleteKeyPair(ctx context.Context, tx Transaction, in *api.Del
 	}
 	out := &api.DeleteKeyPairResult{Return: new(api.Boolean(true))}
 	if exists {
+		if owned, ok := tx.(*cloudFormationTransaction); ok {
+			if err := owned.mutationTarget(pair.Key); err != nil {
+				return nil, err
+			}
+		}
+		if err := deleteKeyPairMaterial(ctx, pair.Key.ID); err != nil {
+			return nil, err
+		}
 		if err := tx.DeleteKeyPair(pair.Key); err != nil {
 			return nil, err
 		}

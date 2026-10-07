@@ -25,8 +25,8 @@ type User struct {
 	Emails                                                                                         []Email
 	NickName, ProfileURL, Title, UserType, PreferredLanguage, Locale, Timezone, Birthdate, Website string
 }
-type Group struct{ StoreID, ID, DisplayName, Description string }
-type Membership struct{ StoreID, ID, UserID, GroupID string }
+type Group struct{ StoreID, ID, DisplayName, Description, CloudFormationOwner string }
+type Membership struct{ StoreID, ID, UserID, GroupID, CloudFormationOwner string }
 
 type Reader interface {
 	Context() context.Context

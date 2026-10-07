@@ -36,7 +36,7 @@ endpoint = f'http://127.0.0.1:{port}'
 environment = {k: v for k, v in os.environ.items() if not k.startswith('AWS_')}
 environment.update(AWS_ACCESS_KEY_ID='test', AWS_SECRET_ACCESS_KEY='test', AWS_DEFAULT_REGION=args.region, AWS_EC2_METADATA_DISABLED='true')
 process = StackdProcess(state)
-command = [str(args.binary.resolve()), '-listen', f'0.0.0.0:{port}', '-public-endpoint', endpoint, '-database', str(state / 'state.sqlite'), '-clock-start', '2026-09-28T12:00:00Z', '-docker-host', args.docker_host, '-compute-endpoint', f'http://host.docker.internal:{port}']
+command = [str(args.binary.resolve()), '-listen', f'0.0.0.0:{port}', '-public-endpoint', endpoint, '-database', str(state / 'state.sqlite'), '-clock-start', '2026-09-28T12:00:00Z', '-docker-host', args.docker_host, '-codebuild-runtime', '-compute-endpoint', f'http://host.docker.internal:{port}']
 session = boto3.Session(aws_access_key_id='test', aws_secret_access_key='test', region_name=args.region)
 clients = {name: session.client(name, endpoint_url=endpoint, config=Config(retries={'total_max_attempts': 1}, read_timeout=60, s3={'addressing_style': 'path'})) for name in ('sts', 'iam', 's3', 'codepipeline', 'codebuild', 'appconfig', 'events', 'sqs', 'sns', 'cloudtrail', 'logs')}
 prefix = 'pipeline-smoke-' + uuid.uuid4().hex[:8]

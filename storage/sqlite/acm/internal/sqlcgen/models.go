@@ -35,6 +35,7 @@ type AcmCertificate struct {
 	CertificatePem     []byte
 	ChainPem           []byte
 	PrivateKeyPem      []byte
+	CfnOwner           string
 }
 
 type AcmRequestReceipt struct {

@@ -5,8 +5,9 @@ SELECT * FROM mq_brokers WHERE partition=? AND account_id=? AND region=? AND id=
 SELECT * FROM mq_brokers ORDER BY arn;
 
 -- name: PutBroker :exec
-INSERT INTO mq_brokers(partition,account_id,region,id,arn,name,engine,engine_version,instance_type,state,creator_request_id,username,password,operation,failure,version,created,due,endpoint_address,endpoint_console_url,endpoint_native_id,endpoint_ca_pem,maintenance_day,maintenance_time,maintenance_zone,maintenance_due,maintenance_adjustments,log_general,log_audit,log_pending_general,log_pending_audit,log_general_file_id,log_general_offset,log_audit_file_id,log_audit_offset,log_delivery_error,log_due)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+-- Ownership is written only by the inserting CreateBroker transaction.
+INSERT INTO mq_brokers(partition,account_id,region,id,arn,name,engine,engine_version,instance_type,state,creator_request_id,username,password,operation,failure,version,created,due,endpoint_address,endpoint_console_url,endpoint_native_id,endpoint_ca_pem,maintenance_day,maintenance_time,maintenance_zone,maintenance_due,maintenance_adjustments,log_general,log_audit,log_pending_general,log_pending_audit,log_general_file_id,log_general_offset,log_audit_file_id,log_audit_offset,log_delivery_error,log_due,ownership)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(partition,account_id,region,id) DO UPDATE SET arn=excluded.arn,name=excluded.name,engine=excluded.engine,engine_version=excluded.engine_version,instance_type=excluded.instance_type,state=excluded.state,creator_request_id=excluded.creator_request_id,username=excluded.username,password=excluded.password,operation=excluded.operation,failure=excluded.failure,version=excluded.version,created=excluded.created,due=excluded.due,endpoint_address=excluded.endpoint_address,endpoint_console_url=excluded.endpoint_console_url,endpoint_native_id=excluded.endpoint_native_id,endpoint_ca_pem=excluded.endpoint_ca_pem,maintenance_day=excluded.maintenance_day,maintenance_time=excluded.maintenance_time,maintenance_zone=excluded.maintenance_zone,maintenance_due=excluded.maintenance_due,maintenance_adjustments=excluded.maintenance_adjustments,log_general=excluded.log_general,log_audit=excluded.log_audit,log_pending_general=excluded.log_pending_general,log_pending_audit=excluded.log_pending_audit,log_general_file_id=excluded.log_general_file_id,log_general_offset=excluded.log_general_offset,log_audit_file_id=excluded.log_audit_file_id,log_audit_offset=excluded.log_audit_offset,log_delivery_error=excluded.log_delivery_error,log_due=excluded.log_due;
 
 -- name: DeleteBroker :exec
@@ -52,8 +53,9 @@ SELECT * FROM mq_configurations WHERE partition=? AND account_id=? AND region=? 
 SELECT * FROM mq_configurations ORDER BY arn;
 
 -- name: PutConfiguration :exec
-INSERT INTO mq_configurations(partition,account_id,region,id,arn,name,description,engine,engine_version,authentication_strategy,created)
-VALUES(?,?,?,?,?,?,?,?,?,?,?)
+-- Ownership is written only by the inserting CreateConfiguration transaction.
+INSERT INTO mq_configurations(partition,account_id,region,id,arn,name,description,engine,engine_version,authentication_strategy,created,ownership)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(partition,account_id,region,id) DO UPDATE SET arn=excluded.arn,name=excluded.name,description=excluded.description,engine=excluded.engine,engine_version=excluded.engine_version,authentication_strategy=excluded.authentication_strategy,created=excluded.created;
 
 -- name: DeleteConfiguration :exec

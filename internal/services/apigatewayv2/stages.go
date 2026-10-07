@@ -12,6 +12,18 @@ var stageNamePattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
 var stageVariableName = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
 var stageVariableValue = regexp.MustCompile(`^[A-Za-z0-9\-._~:/?#&=,]+$`)
 
+type declarativeStageKey struct{}
+
+// WithDeclarativeStage makes UpdateStage replace stage variables and route
+// settings with the request values, as a complete CloudFormation model does.
+func WithDeclarativeStage(ctx context.Context) context.Context {
+	return context.WithValue(ctx, declarativeStageKey{}, true)
+}
+func declarativeStage(ctx context.Context) bool {
+	v, _ := ctx.Value(declarativeStageKey{}).(bool)
+	return v
+}
+
 func stageOutput(v StageRecord, protocol string) api.Stage {
 	out := api.Stage{CreatedDate: new(v.Created), LastUpdatedDate: new(v.Updated), DefaultRouteSettings: &api.RouteSettings{}, RouteSettings: api.RouteSettingsMap{}}
 	flag(&out.DefaultRouteSettings.DetailedMetricsEnabled, boolean(v.DefaultRouteSettings.DetailedMetricsEnabled))
@@ -89,6 +101,11 @@ func (s *Service) createStage(tx Transaction, in *api.CreateStageInput) (*api.Cr
 	if err := validateStage(in, owner.ProtocolType); err != nil {
 		return nil, err
 	}
+	if v, found, err := recoverOwnedResource(tx, owner.Key, tx.Stages); err != nil {
+		return nil, err
+	} else if found {
+		return new(api.CreateStageOutput(stageOutput(v, owner.ProtocolType))), nil
+	}
 	key := ResourceKey{owner.Key, value(in.StageName)}
 	if _, err := tx.Stage(key); err == nil {
 		return nil, failure("ConflictException", "Stage already exists", 409)
@@ -135,6 +152,13 @@ func (s *Service) updateStage(tx Transaction, in *api.UpdateStageInput) (*api.Up
 	check := api.CreateStageInput{StageName: new(api.StringWithLengthBetween1And128(v.Key.ID)), AccessLogSettings: in.AccessLogSettings, ClientCertificateId: in.ClientCertificateId, DefaultRouteSettings: in.DefaultRouteSettings, RouteSettings: in.RouteSettings, StageVariables: in.StageVariables}
 	if err := validateStage(&check, owner.ProtocolType); err != nil {
 		return nil, err
+	}
+	if declarativeStage(tx.Context()) {
+		// CloudFormation declares the complete stage model. Stage variables and
+		// route settings omitted from it must be removed, not merged.
+		v.Variables = nil
+		v.DefaultRouteSettings = RouteSettings{}
+		v.RouteSettings = nil
 	}
 	wasAuto := v.AutoDeploy
 	if in.AutoDeploy != nil {

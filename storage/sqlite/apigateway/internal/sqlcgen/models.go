@@ -14,6 +14,9 @@ type ApigatewayAccount struct {
 	AccountID         string
 	Region            string
 	CloudwatchRoleArn string
+	CfnStackID        string
+	CfnLogicalID      string
+	CfnIncarnation    string
 }
 
 type ApigatewayApi struct {
@@ -29,6 +32,9 @@ type ApigatewayApi struct {
 	Disabled          bool
 	EffectiveDisabled bool
 	ApiKeySource      string
+	CfnStackID        string
+	CfnLogicalID      string
+	CfnIncarnation    string
 }
 
 type ApigatewayApiTag struct {
@@ -54,6 +60,9 @@ type ApigatewayAuthorizer struct {
 	ValidationExpression string
 	TtlSeconds           int64
 	CredentialsArn       string
+	CfnStackID           string
+	CfnLogicalID         string
+	CfnIncarnation       string
 }
 
 type ApigatewayAuthorizerCache struct {
@@ -93,17 +102,20 @@ type ApigatewayAuthorizerPool struct {
 }
 
 type ApigatewayClientKey struct {
-	Partition   string
-	AccountID   string
-	Region      string
-	ClientKeyID string
-	Name        sql.NullString
-	Description sql.NullString
-	CustomerID  sql.NullString
-	Value       string
-	Enabled     bool
-	Created     time.Time
-	Updated     time.Time
+	Partition      string
+	AccountID      string
+	Region         string
+	ClientKeyID    string
+	Name           sql.NullString
+	Description    sql.NullString
+	CustomerID     sql.NullString
+	Value          string
+	Enabled        bool
+	Created        time.Time
+	Updated        time.Time
+	CfnStackID     string
+	CfnLogicalID   string
+	CfnIncarnation string
 }
 
 type ApigatewayClientKeyStage struct {
@@ -126,14 +138,17 @@ type ApigatewayClientKeyTag struct {
 }
 
 type ApigatewayDeployment struct {
-	Partition    string
-	AccountID    string
-	Region       string
-	ApiID        string
-	DeploymentID string
-	Description  string
-	Created      time.Time
-	ApiKeySource string
+	Partition      string
+	AccountID      string
+	Region         string
+	ApiID          string
+	DeploymentID   string
+	Description    string
+	Created        time.Time
+	ApiKeySource   string
+	CfnStackID     string
+	CfnLogicalID   string
+	CfnIncarnation string
 }
 
 type ApigatewayDeploymentResource struct {
@@ -191,6 +206,9 @@ type ApigatewayMethod struct {
 	AuthorizerID      string
 	OperationName     string
 	ApiKeyRequired    bool
+	CfnStackID        string
+	CfnLogicalID      string
+	CfnIncarnation    string
 }
 
 type ApigatewayMethodScope struct {
@@ -234,14 +252,17 @@ type ApigatewayMetricSample struct {
 }
 
 type ApigatewayResource struct {
-	Partition  string
-	AccountID  string
-	Region     string
-	ApiID      string
-	ResourceID string
-	ParentID   string
-	PathPart   string
-	Path       string
+	Partition      string
+	AccountID      string
+	Region         string
+	ApiID          string
+	ResourceID     string
+	ParentID       string
+	PathPart       string
+	Path           string
+	CfnStackID     string
+	CfnLogicalID   string
+	CfnIncarnation string
 }
 
 type ApigatewayRouteIdentitySource struct {
@@ -292,6 +313,17 @@ type ApigatewayStage struct {
 	Updated                 time.Time
 	AccessLogDestinationArn string
 	AccessLogFormat         string
+	CfnStackID              string
+	CfnLogicalID            string
+	CfnIncarnation          string
+	Incarnation             int64
+}
+
+type ApigatewayStageSequence struct {
+	Partition string
+	AccountID string
+	Region    string
+	Value     int64
 }
 
 type ApigatewayStageTag struct {
@@ -325,26 +357,32 @@ type ApigatewayUsageDay struct {
 }
 
 type ApigatewayUsagePlan struct {
-	Partition     string
-	AccountID     string
-	Region        string
-	PlanID        string
-	Name          string
-	Description   sql.NullString
-	ThrottleBurst sql.NullInt64
-	ThrottleRate  sql.NullFloat64
-	QuotaLimit    sql.NullInt64
-	QuotaOffset   sql.NullInt64
-	QuotaPeriod   sql.NullString
+	Partition      string
+	AccountID      string
+	Region         string
+	PlanID         string
+	Name           string
+	Description    sql.NullString
+	ThrottleBurst  sql.NullInt64
+	ThrottleRate   sql.NullFloat64
+	QuotaLimit     sql.NullInt64
+	QuotaOffset    sql.NullInt64
+	QuotaPeriod    sql.NullString
+	CfnStackID     string
+	CfnLogicalID   string
+	CfnIncarnation string
 }
 
 type ApigatewayUsagePlanMembership struct {
-	Partition   string
-	AccountID   string
-	Region      string
-	PlanID      string
-	ClientKeyID string
-	Created     time.Time
+	Partition      string
+	AccountID      string
+	Region         string
+	PlanID         string
+	ClientKeyID    string
+	Created        time.Time
+	CfnStackID     string
+	CfnLogicalID   string
+	CfnIncarnation string
 }
 
 type ApigatewayUsagePlanMethodThrottle struct {

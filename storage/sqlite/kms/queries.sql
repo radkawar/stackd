@@ -114,8 +114,8 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 SELECT * FROM kms_keys WHERE partition = ? AND account = ? AND region = ? ORDER BY key_id;
 
 -- name: PutKey :exec
-INSERT INTO kms_keys (partition, account, region, key_id, arn, description, manager, state, created, deletion, available_at, pending_deletion_days, policy)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO kms_keys (partition, account, region, key_id, arn, description, manager, state, created, deletion, available_at, pending_deletion_days, policy, owner_stack_id, owner_logical_id, owner_token)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account, region, key_id) DO UPDATE SET
     arn = excluded.arn,
     description = excluded.description,
@@ -125,7 +125,10 @@ ON CONFLICT (partition, account, region, key_id) DO UPDATE SET
     deletion = excluded.deletion,
     available_at = excluded.available_at,
     pending_deletion_days = excluded.pending_deletion_days,
-    policy = excluded.policy;
+    policy = excluded.policy,
+    owner_stack_id = excluded.owner_stack_id,
+    owner_logical_id = excluded.owner_logical_id,
+    owner_token = excluded.owner_token;
 
 -- name: DeleteKey :exec
 DELETE FROM kms_keys WHERE partition = ? AND account = ? AND region = ? AND key_id = ?;

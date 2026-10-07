@@ -221,7 +221,7 @@ func cfnComputeTags(p map[string]any) (map[string]string, error) {
 		if !keyOK || !valueOK || key == "" {
 			return nil, fmt.Errorf("property Tags requires string Key and Value")
 		}
-		if strings.HasPrefix(strings.ToLower(key), "aws:") || strings.HasPrefix(key, cfnComputeTagPrefix) {
+		if strings.HasPrefix(strings.ToLower(key), "aws:") {
 			return nil, fmt.Errorf("reserved tag key %s", key)
 		}
 		if _, duplicate := tags[key]; duplicate {
@@ -231,29 +231,32 @@ func cfnComputeTags(p map[string]any) (map[string]string, error) {
 	}
 	return tags, nil
 }
-func cfnComputeOwnedTags(r cloudformation.ResourceRequest) map[string]string {
-	tags := make(map[string]string, len(r.Tags)+3)
+
+// cfnResourceTags merges only customer stack/resource tags. Native private claims
+// are carried by the owner context, never synthesized into public metadata.
+func cfnResourceTags(r cloudformation.ResourceRequest) map[string]string {
+	var tags map[string]string
+	if len(r.Tags) != 0 {
+		tags = make(map[string]string, len(r.Tags))
+	}
 	for key, value := range r.Tags {
 		tags[key] = value
 	}
-	resource, _ := cfnComputeTags(r.Properties)
-	for key, value := range resource {
-		tags[key] = value
-	}
-	tags[cfnComputeTagPrefix+"stack-id"] = r.StackID
-	tags[cfnComputeTagPrefix+"logical-id"] = r.LogicalID
-	tags[cfnComputeTagPrefix+"incarnation"] = r.Token
-	return tags
-}
-func cfnComputeOwnership(r cloudformation.ResourceRequest, tags map[string]string) error {
-	for key, value := range map[string]string{"stack-id": r.StackID, "logical-id": r.LogicalID, "incarnation": r.Token} {
-		if tags[cfnComputeTagPrefix+key] != value || value == "" {
-			return fmt.Errorf("resource %s is not owned by this stack resource incarnation", r.LogicalID)
+	if r.Properties["Tags"] != nil {
+		resource, _ := cfnComputeTags(r.Properties)
+		if len(resource) != 0 && tags == nil {
+			return resource
+		}
+		for key, value := range resource {
+			tags[key] = value
 		}
 	}
-	return nil
+	return tags
 }
 func cfnComputeTagList(tags map[string]string) []map[string]string {
+	if len(tags) == 0 {
+		return nil
+	}
 	keys := make([]string, 0, len(tags))
 	for key := range tags {
 		keys = append(keys, key)

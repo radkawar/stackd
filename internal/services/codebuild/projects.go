@@ -437,6 +437,7 @@ func (s *Service) batchGetProjects(ctx context.Context, tx Transaction, in *api.
 		if errors.Is(err, ErrNotFound) {
 			out.ProjectsNotFound = append(out.ProjectsNotFound, name)
 		} else {
+			observeCloudFormationResource(ctx, "Project", r.Key.Name, r.Ownership)
 			out.Projects = append(out.Projects, r.Data)
 		}
 	}

@@ -103,6 +103,10 @@ func stackOutput(v StackRecord) api.Stack {
 	if v.RoleARN != "" {
 		out.RoleARN = new(api.RoleARN(v.RoleARN))
 	}
+	if v.ParentID != "" {
+		out.ParentId = new(api.StackId(v.ParentID))
+		out.RootId = new(api.StackId(v.RootID))
+	}
 	for _, k := range slices.Sorted(maps.Keys(v.Outputs)) {
 		v := v.Outputs[k]
 		o := api.Output{OutputKey: new(api.OutputKey(k)), OutputValue: new(api.OutputValue(v.Value))}
@@ -123,7 +127,13 @@ func (s *Service) describeStacks(tx Transaction, in *api.DescribeStacksInput) (*
 		if e != nil {
 			return nil, e
 		}
+		if e = checkNestedStackOwner(tx, v); e != nil {
+			return nil, e
+		}
 		if e = s.authorize(tx, "DescribeStacks", v); e != nil {
+			return nil, e
+		}
+		if e = observeStackResource(tx, v); e != nil {
 			return nil, e
 		}
 		rows = append(rows, v)
@@ -136,7 +146,7 @@ func (s *Service) describeStacks(tx Transaction, in *api.DescribeStacksInput) (*
 			return nil, e
 		}
 		for _, v := range all {
-			if v.Deleted == nil {
+			if v.Deleted == nil && checkNestedStackOwner(tx, v) == nil {
 				rows = append(rows, v)
 			}
 		}
@@ -147,6 +157,13 @@ func (s *Service) describeStacks(tx Transaction, in *api.DescribeStacksInput) (*
 	}
 	out := &api.DescribeStacksOutput{Stacks: api.Stacks{}, NextToken: next}
 	for _, v := range rows {
+		if v.ParentID != "" {
+			root, err := tx.Stack(v.RootID)
+			if err != nil {
+				return nil, err
+			}
+			v.TerminationProtection = root.TerminationProtection
+		}
 		out.Stacks = append(out.Stacks, stackOutput(v))
 	}
 	return out, nil
@@ -161,7 +178,7 @@ func (s *Service) listStacks(tx Transaction, in *api.ListStacksInput) (*api.List
 	}
 	filtered := rows[:0]
 	for _, v := range rows {
-		if len(in.StackStatusFilter) == 0 || slices.Contains(in.StackStatusFilter, api.StackStatus(v.Status)) {
+		if checkNestedStackOwner(tx, v) == nil && (len(in.StackStatusFilter) == 0 || slices.Contains(in.StackStatusFilter, api.StackStatus(v.Status))) {
 			filtered = append(filtered, v)
 		}
 	}
@@ -172,6 +189,10 @@ func (s *Service) listStacks(tx Transaction, in *api.ListStacksInput) (*api.List
 	out := &api.ListStacksOutput{StackSummaries: api.StackSummaries{}, NextToken: next}
 	for _, v := range rows {
 		o := api.StackSummary{StackId: new(api.StackId(v.ID)), StackName: new(api.StackName(v.Name)), StackStatus: new(api.StackStatus(v.Status)), CreationTime: new(v.Created)}
+		if v.ParentID != "" {
+			o.ParentId = new(api.StackId(v.ParentID))
+			o.RootId = new(api.StackId(v.RootID))
+		}
 		if v.Description != "" {
 			o.TemplateDescription = new(api.TemplateDescription(v.Description))
 		}
@@ -509,6 +530,9 @@ func (s *Service) getTemplate(tx Transaction, in *api.GetTemplateInput) (*api.Ge
 			}
 			body = op.Template
 		}
+	}
+	if e = checkNestedStackOwner(tx, stack); e != nil {
+		return nil, e
 	}
 	if e = s.authorize(tx, "GetTemplate", stack); e != nil {
 		return nil, e

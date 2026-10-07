@@ -34,6 +34,24 @@ type EbsBlockPayload struct {
 	Data       []byte
 }
 
+type EbsCloudformationClaim struct {
+	Partition    string
+	AccountID    string
+	Region       string
+	ResourceType string
+	ResourceID   string
+	Owner        string
+}
+
+type EbsCloudformationCreation struct {
+	Partition    string
+	AccountID    string
+	Region       string
+	ResourceType string
+	Owner        string
+	ResourceID   string
+}
+
 type EbsEncryptionDefault struct {
 	Partition string
 	AccountID string
@@ -121,10 +139,13 @@ type EbsSnapshot struct {
 }
 
 type EbsSnapshotPublicAccess struct {
-	Partition string
-	AccountID string
-	Region    string
-	State     string
+	Partition      string
+	AccountID      string
+	Region         string
+	State          string
+	OwnerStackID   string
+	OwnerLogicalID string
+	OwnerToken     string
 }
 
 type EbsSnapshotShare struct {

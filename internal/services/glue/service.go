@@ -168,6 +168,7 @@ func runCommand[I, O any](s *Service, ctx context.Context, action string, in *I,
 	}
 	var out *O
 	err = s.repository.Attempt(ctx, func(tx Transaction) error {
+		tx = cloudFormationTransaction(tx, ctx)
 		route, err := s.routeCatalogCommand(tx.Context(), tx, action, in)
 		if err != nil {
 			return err
@@ -271,8 +272,9 @@ func scopeFor(ctx context.Context) Scope {
 	return Scope{Partition: m.Partition, AccountID: m.AccountID, Region: m.Region}
 }
 func catalogKey(ctx context.Context, id *api.CatalogIdString) CatalogKey {
-	scope := scopeFor(ctx)
-	catalog := value(id)
+	return catalogKeyIn(scopeFor(ctx), value(id))
+}
+func catalogKeyIn(scope Scope, catalog string) CatalogKey {
 	if catalog == "" {
 		catalog = scope.AccountID
 	}

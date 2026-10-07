@@ -235,6 +235,15 @@ func (s *Service) associateAddress(ctx context.Context, tx Transaction, in *api.
 	if err := s.authorizeWith(ctx, "AssociateAddress", "elastic-ip", row.Key.ID, row.Data.Tags, addressConditions(row.Data)); err != nil {
 		return nil, err
 	}
+	if source := str(row.Data.NetworkInterfaceId); source != "" {
+		owner, err := tx.NetworkInterface(key(ctx, source))
+		if err != nil {
+			return nil, err
+		}
+		if boolValue(owner.Data.RequesterManaged) && str(owner.Data.InterfaceType) == "nat_gateway" {
+			return nil, failure("DependencyViolation", "Elastic IP is owned by a NAT gateway; detach it with NAT gateway controls.")
+		}
+	}
 	if in.InstanceId != nil && in.NetworkInterfaceId != nil {
 		return nil, failure("InvalidParameterCombination", "Specify either InstanceId or NetworkInterfaceId, but not both.")
 	}
@@ -314,6 +323,9 @@ func (s *Service) associateAddress(ctx context.Context, tx Transaction, in *api.
 		if previous.Automatic {
 			previous.Data.PublicIp = nil
 		} else {
+			if err := relationAdmission(context.WithValue(ctx, relationOwnerKey{}, nil), tx, "EIPAssociation", previous.Key.ID, ""); err != nil {
+				return nil, err
+			}
 			clearAddressAssociation(&previous)
 		}
 		if err := tx.PutPublicAddress(previous); err != nil {
@@ -326,6 +338,9 @@ func (s *Service) associateAddress(ctx context.Context, tx Transaction, in *api.
 	}
 	row.Data.AssociationId = new(api.String(association))
 	row.Data.NetworkInterfaceId = new(api.String(eniID))
+	if err := relationAdmission(ctx, tx, "EIPAssociation", row.Key.ID, association); err != nil {
+		return nil, err
+	}
 	row.Data.PrivateIpAddress = new(api.String(ip))
 	if err := tx.PutPublicAddress(row); err != nil {
 		return nil, err
@@ -374,6 +389,15 @@ func (s *Service) disassociateAddress(ctx context.Context, tx Transaction, in *a
 	}
 	eniID := str(row.Data.NetworkInterfaceId)
 	if eniID != "" {
+		owner, err := tx.NetworkInterface(key(ctx, eniID))
+		if err != nil {
+			return nil, err
+		}
+		if boolValue(owner.Data.RequesterManaged) && str(owner.Data.InterfaceType) == "nat_gateway" {
+			return nil, failure("DependencyViolation", "Elastic IP is owned by a NAT gateway; detach it with NAT gateway controls.")
+		}
+	}
+	if eniID != "" {
 		if err := s.authorizeAddressInterface(ctx, tx, "DisassociateAddress", eniID); err != nil {
 			return nil, err
 		}
@@ -383,6 +407,9 @@ func (s *Service) disassociateAddress(ctx context.Context, tx Transaction, in *a
 		return nil, err
 	}
 	if err := restoreAutomaticPublicIPv4(ctx, tx, eniID); err != nil {
+		return nil, err
+	}
+	if err := relationAdmission(ctx, tx, "EIPAssociation", row.Key.ID, ""); err != nil {
 		return nil, err
 	}
 	if err := s.wakePublicNetwork(ctx, tx, eniID); err != nil {

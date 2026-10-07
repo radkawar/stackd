@@ -26,15 +26,23 @@ type ParameterRecord struct {
 	Key                                                    ParameterKey
 	ARN, Type, Tier, DataType, Description, AllowedPattern string
 	// Incarnation identifies creation, not a mutable parameter version.
-	Incarnation      string
-	CurrentVersion   int64
-	Tags             map[string]string
-	Policies         []ParameterPolicy
-	ResourcePolicies []ResourcePolicy
+	Incarnation string
+	// CloudFormationOwner is the private claim of the AWS::SSM::Parameter
+	// incarnation that created this parameter. It is fixed at creation, cannot
+	// be set through tags or wire input, and never reaches an AWS response.
+	CloudFormationOwner string
+	CurrentVersion      int64
+	Tags                map[string]string
+	Policies            []ParameterPolicy
+	ResourcePolicies    []ResourcePolicy
 }
 type ResourcePolicy struct {
 	ID, Hash string
 	Policy   authorization.BoundPolicy
+	// CloudFormationOwner is the private stack-resource incarnation claim of a
+	// policy created through AWS::SSM::ResourcePolicy. It never reaches an
+	// AWS response and is empty for policies created by the public API.
+	CloudFormationOwner string
 }
 
 // ParameterPolicy records native policy attributes and its retained delivery edge.

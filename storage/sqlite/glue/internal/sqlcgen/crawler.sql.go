@@ -32,7 +32,7 @@ func (q *Queries) DeleteGlueCrawler(ctx context.Context, arg DeleteGlueCrawlerPa
 }
 
 const getGlueCrawler = `-- name: GetGlueCrawler :one
-SELECT "partition", account_id, region, name, role, database_name, description, table_prefix, configuration, security_configuration, targets, classifiers, schema_change_policy, recrawl_policy, lake_formation, lineage, schedule, tags, state, version, created_at, updated_at, last_crawl, elapsed_ms, run_id, next_scheduled FROM glue_crawlers WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
+SELECT "partition", account_id, region, name, role, database_name, description, table_prefix, configuration, security_configuration, targets, classifiers, schema_change_policy, recrawl_policy, lake_formation, lineage, schedule, tags, state, version, created_at, updated_at, last_crawl, elapsed_ms, run_id, next_scheduled, cfn_owner FROM glue_crawlers WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
 `
 
 type GetGlueCrawlerParams struct {
@@ -77,6 +77,7 @@ func (q *Queries) GetGlueCrawler(ctx context.Context, arg GetGlueCrawlerParams) 
 		&i.ElapsedMs,
 		&i.RunID,
 		&i.NextScheduled,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -168,7 +169,7 @@ func (q *Queries) ListGlueCrawlerRuns(ctx context.Context, arg ListGlueCrawlerRu
 }
 
 const listGlueCrawlers = `-- name: ListGlueCrawlers :many
-SELECT "partition", account_id, region, name, role, database_name, description, table_prefix, configuration, security_configuration, targets, classifiers, schema_change_policy, recrawl_policy, lake_formation, lineage, schedule, tags, state, version, created_at, updated_at, last_crawl, elapsed_ms, run_id, next_scheduled FROM glue_crawlers WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
+SELECT "partition", account_id, region, name, role, database_name, description, table_prefix, configuration, security_configuration, targets, classifiers, schema_change_policy, recrawl_policy, lake_formation, lineage, schedule, tags, state, version, created_at, updated_at, last_crawl, elapsed_ms, run_id, next_scheduled, cfn_owner FROM glue_crawlers WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
 `
 
 type ListGlueCrawlersParams struct {
@@ -213,6 +214,7 @@ func (q *Queries) ListGlueCrawlers(ctx context.Context, arg ListGlueCrawlersPara
 			&i.ElapsedMs,
 			&i.RunID,
 			&i.NextScheduled,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -273,12 +275,13 @@ func (q *Queries) PendingGlueCrawlerRuns(ctx context.Context) ([]GlueCrawlerRun,
 }
 
 const putGlueCrawler = `-- name: PutGlueCrawler :exec
-INSERT INTO glue_crawlers (partition,account_id,region,name,role,database_name,description,table_prefix,configuration,security_configuration,targets,classifiers,schema_change_policy,recrawl_policy,lake_formation,lineage,schedule,tags,state,version,created_at,updated_at,last_crawl,elapsed_ms,run_id,next_scheduled)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+INSERT INTO glue_crawlers (cfn_owner,partition,account_id,region,name,role,database_name,description,table_prefix,configuration,security_configuration,targets,classifiers,schema_change_policy,recrawl_policy,lake_formation,lineage,schedule,tags,state,version,created_at,updated_at,last_crawl,elapsed_ms,run_id,next_scheduled)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(partition,account_id,region,name) DO UPDATE SET role=excluded.role,database_name=excluded.database_name,description=excluded.description,table_prefix=excluded.table_prefix,configuration=excluded.configuration,security_configuration=excluded.security_configuration,targets=excluded.targets,classifiers=excluded.classifiers,schema_change_policy=excluded.schema_change_policy,recrawl_policy=excluded.recrawl_policy,lake_formation=excluded.lake_formation,lineage=excluded.lineage,schedule=excluded.schedule,tags=excluded.tags,state=excluded.state,version=excluded.version,created_at=excluded.created_at,updated_at=excluded.updated_at,last_crawl=excluded.last_crawl,elapsed_ms=excluded.elapsed_ms,run_id=excluded.run_id,next_scheduled=excluded.next_scheduled
 `
 
 type PutGlueCrawlerParams struct {
+	CfnOwner              string
 	Partition             string
 	AccountID             string
 	Region                string
@@ -309,6 +312,7 @@ type PutGlueCrawlerParams struct {
 
 func (q *Queries) PutGlueCrawler(ctx context.Context, arg PutGlueCrawlerParams) error {
 	_, err := q.db.ExecContext(ctx, putGlueCrawler,
+		arg.CfnOwner,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -389,7 +393,7 @@ func (q *Queries) PutGlueCrawlerRun(ctx context.Context, arg PutGlueCrawlerRunPa
 }
 
 const scheduledGlueCrawlers = `-- name: ScheduledGlueCrawlers :many
-SELECT "partition", account_id, region, name, role, database_name, description, table_prefix, configuration, security_configuration, targets, classifiers, schema_change_policy, recrawl_policy, lake_formation, lineage, schedule, tags, state, version, created_at, updated_at, last_crawl, elapsed_ms, run_id, next_scheduled FROM glue_crawlers WHERE next_scheduled IS NOT NULL ORDER BY next_scheduled,partition,account_id,region,name
+SELECT "partition", account_id, region, name, role, database_name, description, table_prefix, configuration, security_configuration, targets, classifiers, schema_change_policy, recrawl_policy, lake_formation, lineage, schedule, tags, state, version, created_at, updated_at, last_crawl, elapsed_ms, run_id, next_scheduled, cfn_owner FROM glue_crawlers WHERE next_scheduled IS NOT NULL ORDER BY next_scheduled,partition,account_id,region,name
 `
 
 func (q *Queries) ScheduledGlueCrawlers(ctx context.Context) ([]GlueCrawler, error) {
@@ -428,6 +432,7 @@ func (q *Queries) ScheduledGlueCrawlers(ctx context.Context) ([]GlueCrawler, err
 			&i.ElapsedMs,
 			&i.RunID,
 			&i.NextScheduled,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}

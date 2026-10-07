@@ -115,7 +115,7 @@ class Proof:
         self.log = (self.state / f'controller-{self.starts}.log').open('wb')
         command = [str(Path(self.args.binary).resolve()), '-listen', f'0.0.0.0:{self.port}',
             '-public-endpoint', self.endpoint, '-compute-endpoint', self.compute,
-            '-database', str(self.database), '-docker-host', 'unix:///var/run/docker.sock',
+            '-database', str(self.database), '-docker-host', 'unix:///var/run/docker.sock', '-lambda-runtime',
             '-lambda-telemetry-directory', str(Path(self.args.telemetry_directory).resolve()),
             '-mq-runtime', '-mq-state-directory', str(self.state / 'native'),
             '-mq-tls-certificate', str(self.state / 'cert.pem'), '-mq-tls-key', str(self.state / 'key.pem')]

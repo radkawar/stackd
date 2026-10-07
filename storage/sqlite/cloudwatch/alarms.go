@@ -85,8 +85,9 @@ func (r reader) AlarmByID(id string) (domain.AlarmRecord, error) {
 
 func (r reader) alarm(row sqlcgen.CloudwatchAlarm) (domain.AlarmRecord, error) {
 	out := domain.AlarmRecord{
-		Key: domain.AlarmKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Name: row.Name},
-		ID:  row.ID, Version: uint64(row.Version), Created: row.Created, Updated: row.Updated,
+		CFNOwner: row.CfnOwner,
+		Key:      domain.AlarmKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Name: row.Name},
+		ID:       row.ID, Version: uint64(row.Version), Created: row.Created, Updated: row.Updated,
 		Description: alarmStringPointer(row.Description), ActionsEnabled: row.ActionsEnabled,
 		State:          domain.AlarmState{Value: row.StateValue, Reason: alarmStringPointer(row.StateReason), ReasonData: row.StateReasonData, Updated: row.StateUpdated, Transitioned: row.StateTransitioned, Origin: domain.AlarmOrigin{EventID: row.StateEventID, RequestID: row.StateRequestID}},
 		NextEvaluation: alarmTimePointer(row.NextEvaluation), SuppressionPhase: row.SuppressionPhase, SuppressionReason: row.SuppressionReason, SuppressionUntil: alarmTimePointer(row.SuppressionUntil),

@@ -128,6 +128,9 @@ func (s *Service) updateGroup(tx Transaction, in *api.UpdateGroupInput) (*api.Up
 	if e != nil {
 		return nil, e
 	}
+	if e := CheckCloudFormationOwner(tx.Context(), g.CloudFormationOwner); e != nil {
+		return nil, e
+	}
 	for _, op := range in.Operations {
 		v, e := patchString(op.AttributeValue)
 		if e != nil {

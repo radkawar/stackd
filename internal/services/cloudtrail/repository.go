@@ -60,6 +60,8 @@ type TrailRecord struct {
 	Key TrailKey
 	// ID fences delete/recreate independently of the reusable trail ARN.
 	ID string
+	// CFNOwner is a private creation claim, never supplied or changed by tags.
+	CFNOwner string
 	// OrganizationID binds management-owned trails to their organization lifetime.
 	OrganizationID string
 	Bucket, Prefix string
@@ -123,6 +125,7 @@ type Reader interface {
 	DigestReader
 	Context() context.Context
 	Trail(TrailKey) (TrailRecord, error)
+	TrailByOwner(partition, region, name, owner string) (TrailRecord, error)
 	Trails(partition, accountID string) ([]TrailRecord, error)
 	HasOrganizationTrails(partition string) (bool, error)
 	DeliveryStatus(trailID string, kind DestinationKind) (DeliveryStatus, error)

@@ -20,6 +20,7 @@ func (k CapacityProviderKey) ARN() string {
 // instance, ENI, EBS/KMS and actual guest lifecycle state.
 type CapacityProviderRecord struct {
 	Key                                                                      CapacityProviderKey
+	Owner                                                                    AdditionalOwner
 	Generation, State, StateReason                                           string
 	OperatorRoleARN, KMSKeyARN, Architecture                                 string
 	SubnetIDs, SecurityGroupIDs, AllowedInstanceTypes, ExcludedInstanceTypes []string

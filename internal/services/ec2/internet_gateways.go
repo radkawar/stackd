@@ -134,6 +134,9 @@ func (s *Service) attachInternetGateway(ctx context.Context, tx Transaction, req
 			}
 		}
 	}
+	if err := relationAdmission(ctx, tx, "VPCGatewayAttachment", id, "INTERNET_GATEWAY|"+vpcID); err != nil {
+		return nil, err
+	}
 	// EC2's native attachment state is "available", despite its Smithy enum.
 	gateway.Data.Attachments = api.InternetGatewayAttachmentList{{VpcId: new(api.String(vpcID)), State: new(api.AttachmentStatus("available"))}}
 	if err := tx.PutInternetGateway(gateway); err != nil {
@@ -169,6 +172,9 @@ func (s *Service) detachInternetGateway(ctx context.Context, tx Transaction, req
 		if str(eni.Data.VpcId) == vpcID {
 			return nil, failure("DependencyViolation", "The VPC has mapped public addresses; unmap them before detaching the internet gateway.")
 		}
+	}
+	if err := relationAdmission(ctx, tx, "VPCGatewayAttachment", id, ""); err != nil {
+		return nil, err
 	}
 	gateway.Data.Attachments = api.InternetGatewayAttachmentList{}
 	if err := tx.PutInternetGateway(gateway); err != nil {

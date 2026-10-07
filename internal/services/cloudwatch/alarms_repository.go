@@ -83,6 +83,7 @@ type AlarmState struct {
 // Exactly one configuration is present. Version fences scheduler selections;
 // a recreated name receives a new ID. Histories and accepted actions outlive it.
 type AlarmRecord struct {
+	CFNOwner          string
 	Key               AlarmKey
 	ID                string
 	Version           uint64

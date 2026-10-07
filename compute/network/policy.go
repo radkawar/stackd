@@ -63,6 +63,8 @@ func Rules(name string, network Specification, policy Policy, peer string, optio
 	}
 	fmt.Fprintf(&b, "ether daddr %s ether type ip ip daddr %s accept\n}\n}\n", mac, address)
 	fmt.Fprintf(&b, "table bridge %s {\n", name)
+	writeNATChains(&b, policy.NATRoutes)
+	writePrivateChains(&b, policy.PrivateRoutes)
 	for _, direction := range []string{"from", "to"} {
 		field, acl, sg, callbackMatch := "daddr", policy.ACLEgress, policy.SecurityEgress, fmt.Sprintf("ip daddr %s tcp dport %d", host, portNumber)
 		if direction == "to" {
@@ -72,7 +74,7 @@ func Rules(name string, network Specification, policy Policy, peer string, optio
 		// public-address installer moves an address to another attachment.
 		fmt.Fprintf(&b, "chain public_%s {\n", direction)
 		if !policy.PublicEgress || !policy.PublicIPv4.Is4() {
-			b.WriteString("counter drop\n")
+			writeNATAdmission(&b, policy.NATRoutes, direction)
 		}
 		b.WriteString("}\n")
 		// The reserved gateway is not a customer ENI. Host-local public DNAT
@@ -122,6 +124,7 @@ func Rules(name string, network Specification, policy Policy, peer string, optio
 				fmt.Fprintf(&b, "ip %s %s udp %s 53 return\nip %s %s tcp %s 53 return\n", field, dns, portField, field, dns, portField)
 			}
 		}
+		writePrivateAdmission(&b, policy.PrivateRoutes, direction, pool)
 		fmt.Fprintf(&b, "ip %s != %s jump public_%s\n", field, pool, direction)
 		if direction == "to" {
 			fmt.Fprintf(&b, "ct status dnat ct original ip daddr != %s jump public_to\n", pool)

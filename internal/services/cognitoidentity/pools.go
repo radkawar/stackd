@@ -85,13 +85,16 @@ func validatePool(p *api.IdentityPool) error {
 	}
 	return nil
 }
-func (s *Service) createPool(tx Transaction, in *api.CreateIdentityPoolInput) (*api.CreateIdentityPoolOutput, error) {
+func createConditions(in *api.CreateIdentityPoolInput) map[string][]string {
 	conditions := map[string][]string{}
 	for k, v := range in.IdentityPoolTags {
 		conditions["aws:RequestTag/"+string(k)] = []string{string(v)}
 		conditions["aws:TagKeys"] = append(conditions["aws:TagKeys"], string(k))
 	}
-	if e := s.authorize(tx, "cognito-identity:CreateIdentityPool", "*", conditions); e != nil {
+	return conditions
+}
+func (s *Service) createPool(tx Transaction, in *api.CreateIdentityPoolInput) (*api.CreateIdentityPoolOutput, error) {
+	if e := s.authorize(tx, "cognito-identity:CreateIdentityPool", "*", createConditions(in)); e != nil {
 		return nil, e
 	}
 	data := api.IdentityPool{IdentityPoolName: in.IdentityPoolName, AllowUnauthenticatedIdentities: in.AllowUnauthenticatedIdentities, AllowClassicFlow: in.AllowClassicFlow, SupportedLoginProviders: in.SupportedLoginProviders, DeveloperProviderName: in.DeveloperProviderName, OpenIdConnectProviderARNs: in.OpenIdConnectProviderARNs, CognitoIdentityProviders: in.CognitoIdentityProviders, SamlProviderARNs: in.SamlProviderARNs, IdentityPoolTags: in.IdentityPoolTags}
@@ -104,6 +107,8 @@ func (s *Service) createPool(tx Transaction, in *api.CreateIdentityPoolInput) (*
 	}
 	scope := scopeFor(tx.Context())
 	p := PoolRecord{Key: PoolKey{Scope: scope, ID: scope.Region + ":" + id.String()}, Name: value(in.IdentityPoolName), AllowUnauthenticated: in.AllowUnauthenticatedIdentities != nil && bool(*in.AllowUnauthenticatedIdentities), Providers: in.CognitoIdentityProviders, Tags: in.IdentityPoolTags}
+	// ownedCommand admitted a bound owner; the claim commits with the row.
+	p.Owner, _ = boundOwner(tx.Context())
 	if e := tx.PutPool(p); e != nil {
 		return nil, e
 	}

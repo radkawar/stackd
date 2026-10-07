@@ -34,15 +34,34 @@ func readTags(tx Reader, k Key) (map[string]string, error) {
 	case "db", "cluster":
 		v, err := tx.Database(k)
 		tags, e = v.Tags, err
+		if e == nil {
+			e = checkCloudFormationOwner(tx.Context(), k, v.Owner)
+		}
 	case "snapshot", "cluster-snapshot":
 		v, err := tx.Snapshot(k)
 		tags, e = v.Tags, err
+		if e == nil {
+			e = checkCloudFormationOwner(tx.Context(), k, v.Owner)
+		}
+		id := "db-" + v.SourceRuntimeID
+		if k.Kind == "cluster-snapshot" {
+			id = "cluster-" + v.SourceRuntimeID
+		}
+		if e == nil {
+			e = checkCloudFormationSnapshot(tx.Context(), k, id)
+		}
 	case "pg", "cluster-pg":
 		v, err := tx.ParameterGroup(k)
 		tags, e = v.Tags, err
+		if e == nil {
+			e = checkCloudFormationOwner(tx.Context(), k, v.Owner)
+		}
 	case "subgrp":
 		v, err := tx.SubnetGroup(k)
 		tags, e = v.Tags, err
+		if e == nil {
+			e = checkCloudFormationOwner(tx.Context(), k, v.Owner)
+		}
 
 	}
 	if errors.Is(e, ErrNotFound) {
@@ -111,7 +130,7 @@ func (s *Service) addTags(ctx context.Context, tx Transaction, in *api.AddTagsTo
 	}
 	maps.Copy(tags, added)
 	if len(tags) > 50 {
-		return nil, failure("InvalidParameterValue", "At most 50 tags are supported.")
+		return nil, failure("InvalidParameterValue", "At most 50 customer tags are supported.")
 	}
 	return &emptyResult{}, writeTags(tx, k, tags)
 }

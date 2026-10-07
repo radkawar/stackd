@@ -31,7 +31,8 @@ func NewHandler(s *Service, authentication apigatewayexec.Authenticator) *Handle
 // ServeExecution claims only URLs owned by a WebSocket API. In particular a
 // literal HTTP/REST /@connections route is not a management API request.
 func (h *Handler) ServeExecution(w http.ResponseWriter, r *http.Request) bool {
-	if !strings.HasPrefix(r.URL.Path, apigatewayexec.Prefix) || h.service.resolver == nil {
+	target, custom := apigatewayexec.CustomExecutionTarget(r.Context())
+	if (!custom && !strings.HasPrefix(r.URL.Path, apigatewayexec.Prefix)) || h.service.resolver == nil {
 		return false
 	}
 	path := strings.TrimPrefix(r.URL.EscapedPath(), apigatewayexec.Prefix)
@@ -41,6 +42,9 @@ func (h *Handler) ServeExecution(w http.ResponseWriter, r *http.Request) bool {
 	stage, stageErr := url.PathUnescape(stage)
 	if apiErr != nil || stageErr != nil {
 		return false
+	}
+	if custom {
+		apiID, stage, path = target.APIID, target.Stage, strings.TrimPrefix(target.Path, "/")
 	}
 	route, err := h.service.resolver.ResolveWebSocket(r.Context(), apiID, stage, "$connect", nil)
 	if errors.Is(err, apigatewayexec.ErrUnknownAPI) {

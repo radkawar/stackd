@@ -2,6 +2,7 @@ package cloudtrail
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"stackd/internal/awsctx"
@@ -101,6 +102,21 @@ func (s *Service) resolveTrail(r Reader, reference string) (TrailRecord, error) 
 	key, wire := keyFor(r.Context(), reference)
 	if wire != nil {
 		return TrailRecord{}, wire
+	}
+	if owner, ok := r.Context().Value(cloudFormationOwnerKey{}).(cloudFormationOwner); ok {
+		// An exact observation cannot disappear merely because a shadow or
+		// organization dependency stopped exposing the actual admitted row.
+		if strings.HasPrefix(reference, "arn:") {
+			return r.Trail(key)
+		}
+		trail, err := r.TrailByOwner(key.Partition, key.Region, key.Name, owner.Marker)
+		if err == nil || !errors.Is(err, ErrNotFound) {
+			return trail, err
+		}
+		trail, err = r.Trail(key)
+		if err == nil || !errors.Is(err, ErrNotFound) {
+			return trail, err
+		}
 	}
 	m := awsctx.FromContext(r.Context())
 	trails, err := visibleTrails(r, s.organizations, m.Partition, m.AccountID)

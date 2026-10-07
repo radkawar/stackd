@@ -31,6 +31,7 @@ func (r reader) VPCs(s domain.Scope) ([]domain.VPCRecord, error) {
 func (r reader) vpc(row sqlcgen.Ec2Vpc) (domain.VPCRecord, error) {
 	k := domain.ResourceKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.ResourceID}
 	out := domain.VPCRecord{Key: k}
+	out.CloudFormationOwner = cloudFormationOwner(row.CloudformationResourceType, row.CloudformationOwner)
 	d := &out.Data
 	d.CidrBlock = stringPointer[api.String](row.CidrBlock)
 	d.DhcpOptionsId = stringPointer[api.String](row.DhcpOptionsID)

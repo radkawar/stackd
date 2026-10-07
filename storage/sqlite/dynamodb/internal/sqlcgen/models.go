@@ -394,6 +394,9 @@ type DynamodbTable struct {
 	ReplicaLastSourceAt                time.Time
 	ReplicaUnauthorizedAt              sql.NullTime
 	ReplicaSettingsPending             bool
+	OwnerStackID                       string
+	OwnerLogicalID                     string
+	OwnerToken                         string
 }
 
 type DynamodbTag struct {

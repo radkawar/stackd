@@ -193,6 +193,13 @@ func (s *Service) updateAPIKey(tx Transaction, in *api.UpdateApiKeyRequest) (*ap
 			}
 			continue
 		}
+		if path == "/customerId" && value(patch.Op) == "remove" {
+			if patch.From != nil {
+				return nil, bad("Invalid patch operation for " + path)
+			}
+			row.CustomerID = nil
+			continue
+		}
 		next := ""
 		if err := replace(patch, &next); err != nil {
 			return nil, err

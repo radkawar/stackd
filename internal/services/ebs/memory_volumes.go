@@ -142,6 +142,12 @@ func (w memoryWriter) PutVolume(v VolumeRecord) error {
 	if err := w.tx.Check(true); err != nil {
 		return err
 	}
+	if prior, ok := w.s.volumes[v.Key]; ok && prior.CloudFormationOwner.Owner != "" {
+		if v.CloudFormationOwner.Owner != "" && v.CloudFormationOwner != prior.CloudFormationOwner {
+			return ownershipFailure()
+		}
+		v.CloudFormationOwner = prior.CloudFormationOwner
+	}
 	w.s.volumes[v.Key] = cloneVolume(v)
 	return nil
 }

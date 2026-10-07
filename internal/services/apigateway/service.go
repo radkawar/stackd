@@ -181,7 +181,7 @@ func register[I, O any](s *Service, action string, fn func(Transaction, *I) (*O,
 		var retained *awswire.Error
 		err = s.repository.Attempt(ctx, func(tx Transaction) error {
 			var err error
-			out, err = fn(tx, in)
+			out, err = fn(bindOwnership(tx), in)
 			if err != nil {
 				var partial *retainedFailure
 				if errors.As(err, &partial) {

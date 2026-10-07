@@ -60,8 +60,30 @@ func (s *Service) startTagSyncTask(tx Transaction, in *api.StartTagSyncTaskInput
 	id := uuid.New()
 	suffix := strings.ToLower(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(id[:]))
 	t := TagSyncTask{Scope: g.Scope, ARN: g.ARN + "/tag-sync-task/" + suffix, GroupARN: g.ARN, GroupName: g.Name, RoleARN: role.String(), Query: *query, UsesTag: usesTag, TagKey: value(in.TagKey), TagValue: value(in.TagValue), Status: "ACTIVE", Created: now, NextCheck: now, Version: 1}
-	if err := tx.PutTagSyncTask(t); err != nil {
-		return nil, err
+	replayed := false
+	if owner := cloudFormationOwner(tx.Context()); owner != "" {
+		// A recovered CloudFormation create observes the task this incarnation
+		// already started instead of starting a second synchronization.
+		t.ARN = CloudFormationTagSyncTaskARN(g.ARN, owner)
+		rows, err := tx.TagSyncTasks()
+		if err != nil {
+			return nil, err
+		}
+		for _, existing := range rows {
+			if existing.ARN != t.ARN {
+				continue
+			}
+			if existing.RoleARN != t.RoleARN || existing.UsesTag != t.UsesTag || existing.TagKey != t.TagKey || existing.TagValue != t.TagValue || value(existing.Query.Type) != value(t.Query.Type) || value(existing.Query.Query) != value(t.Query.Query) {
+				return nil, failure("BadRequestException", "The CloudFormation resource incarnation already started a different tag-sync task.")
+			}
+			t, replayed = existing, true
+			break
+		}
+	}
+	if !replayed {
+		if err := tx.PutTagSyncTask(t); err != nil {
+			return nil, err
+		}
 	}
 	out := &api.StartTagSyncTaskOutput{GroupArn: new(api.GroupArnV2(t.GroupARN)), GroupName: new(api.GroupName(t.GroupName)), TaskArn: new(api.TagSyncTaskArn(t.ARN)), RoleArn: in.RoleArn}
 	if usesTag {

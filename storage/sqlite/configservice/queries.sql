@@ -8,9 +8,9 @@ DELETE FROM config_tags WHERE partition=? AND account_id=? AND region=? AND arn=
 INSERT INTO config_tags (partition, account_id, region, arn, key, value) VALUES (?, ?, ?, ?, ?, ?);
 
 -- name: PutRecorder :one
-INSERT INTO config_recorders (partition, account_id, region, name, arn, role_arn, all_supported, include_global, recording, last_start, last_stop, last_status_change, last_status, last_error_code, last_error_message)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region) DO UPDATE SET name=excluded.name, arn=excluded.arn, role_arn=excluded.role_arn, all_supported=excluded.all_supported, include_global=excluded.include_global, recording=excluded.recording, last_start=excluded.last_start, last_stop=excluded.last_stop, last_status_change=excluded.last_status_change, last_status=excluded.last_status, last_error_code=excluded.last_error_code, last_error_message=excluded.last_error_message
+INSERT INTO config_recorders (cfn_started_on_create, cfn_start_on_create, cfn_owner, cfn_token, partition, account_id, region, name, arn, role_arn, all_supported, include_global, recording, last_start, last_stop, last_status_change, last_status, last_error_code, last_error_message)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region) DO UPDATE SET cfn_start_on_create=excluded.cfn_start_on_create, name=excluded.name, arn=excluded.arn, role_arn=excluded.role_arn, all_supported=excluded.all_supported, include_global=excluded.include_global, recording=excluded.recording, last_start=excluded.last_start, last_stop=excluded.last_stop, last_status_change=excluded.last_status_change, last_status=excluded.last_status, last_error_code=excluded.last_error_code, last_error_message=excluded.last_error_message
 RETURNING row_id;
 
 -- name: GetRecorder :one
@@ -20,8 +20,8 @@ SELECT * FROM config_recorders WHERE partition=? AND account_id=? AND region=?;
 DELETE FROM config_recorders WHERE partition=? AND account_id=? AND region=?;
 
 -- name: PutChannel :exec
-INSERT INTO config_channels (partition, account_id, region, name, bucket, prefix, kms_key_arn, topic_arn, frequency, last_attempt, last_success, next_delivery, status, error_code, error_message)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO config_channels (cfn_owner, cfn_token, partition, account_id, region, name, bucket, prefix, kms_key_arn, topic_arn, frequency, last_attempt, last_success, next_delivery, status, error_code, error_message)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region) DO UPDATE SET name=excluded.name, bucket=excluded.bucket, prefix=excluded.prefix, kms_key_arn=excluded.kms_key_arn, topic_arn=excluded.topic_arn, frequency=excluded.frequency, last_attempt=excluded.last_attempt, last_success=excluded.last_success, next_delivery=excluded.next_delivery, status=excluded.status, error_code=excluded.error_code, error_message=excluded.error_message;
 
 -- name: GetChannel :one
@@ -47,8 +47,8 @@ ON CONFLICT (partition, account_id, region, id) DO UPDATE SET channel_name=exclu
 SELECT * FROM config_deliveries ORDER BY due, partition, account_id, region, id;
 
 -- name: PutRule :one
-INSERT INTO config_rules (partition, account_id, region, name, id, arn, description, owner, source_identifier, parameters_present, resource_id, tag_key, tag_value, created_at, last_evaluation, last_reevaluation, error_code, error_message)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO config_rules (cfn_owner, cfn_token, partition, account_id, region, name, id, arn, description, owner, source_identifier, parameters_present, resource_id, tag_key, tag_value, created_at, last_evaluation, last_reevaluation, error_code, error_message)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, name) DO UPDATE SET id=excluded.id, arn=excluded.arn, description=excluded.description, owner=excluded.owner, source_identifier=excluded.source_identifier, parameters_present=excluded.parameters_present, resource_id=excluded.resource_id, tag_key=excluded.tag_key, tag_value=excluded.tag_value, created_at=excluded.created_at, last_evaluation=excluded.last_evaluation, last_reevaluation=excluded.last_reevaluation, error_code=excluded.error_code, error_message=excluded.error_message
 RETURNING row_id;
 
@@ -75,8 +75,8 @@ ON CONFLICT (partition, account_id, region, token) DO UPDATE SET rule_name=exclu
 SELECT * FROM config_evaluation_runs ORDER BY due, partition, account_id, region, token;
 
 -- name: PutAggregator :one
-INSERT INTO config_aggregators (partition, account_id, region, name, arn, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO config_aggregators (cfn_owner, cfn_token, partition, account_id, region, name, arn, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, name) DO UPDATE SET arn=excluded.arn, created_at=excluded.created_at, updated_at=excluded.updated_at
 RETURNING row_id;
 
@@ -87,8 +87,8 @@ SELECT * FROM config_aggregators WHERE partition=? AND account_id=? AND region=?
 DELETE FROM config_aggregators WHERE partition=? AND account_id=? AND region=? AND name=?;
 
 -- name: PutAggregationAuthorization :exec
-INSERT INTO config_aggregation_authorizations (partition, account_id, region, authorized_account_id, authorized_region, arn, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO config_aggregation_authorizations (cfn_owner, cfn_token, partition, account_id, region, authorized_account_id, authorized_region, arn, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, authorized_account_id, authorized_region) DO UPDATE SET arn=excluded.arn, created_at=excluded.created_at;
 
 -- name: ListAggregationAuthorizations :many

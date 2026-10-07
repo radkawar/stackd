@@ -53,6 +53,9 @@ func (s *Service) createQueue(r *http.Request, in *api.CreateQueueInput) (*api.C
 		return nil, err
 	}
 	if q := s.lookupQueue(key); q != nil {
+		if owner := queueOwner(r.Context()); owner != "" && q.creationOwner != owner {
+			return nil, failure("QueueNameExists", "A different queue incarnation already owns this name.")
+		}
 		// Compare attributes supplied on this request. Omitting attributes does not
 		// reset existing settings; supplied tags do not mutate an existing queue.
 		existing := q.attributes(s.now())
@@ -82,6 +85,7 @@ func (s *Service) createQueue(r *http.Request, in *api.CreateQueueInput) (*api.C
 	block, _ := aes.NewCipher(secret[:])
 	aead, _ := cipher.NewGCM(block)
 	q := &queue{key: key, id: identifier(), config: config, tags: cloneTags(in.Tags), created: now, modified: now, receipts: make(map[string]receipt), dedup: make(map[string]dedupRecord), attempts: make(map[string]receiveAttempt), secret: secret[:], messagesLoaded: true, queueRuntime: &queueRuntime{changed: make(chan struct{}), cipher: aead, keys: make(map[string]cachedKey)}}
+	q.creationOwner = queueOwner(r.Context())
 	s.queues[key] = q
 	s.runtimes[q.id] = q.queueRuntime
 	return &api.CreateQueueOutput{QueueUrl: str(localURL(r, key))}, nil
@@ -143,6 +147,13 @@ func (s *Service) setAttributes(r *http.Request, in *api.SetQueueAttributesInput
 	if err != nil {
 		return nil, err
 	}
+	if _, changesPolicy := in.Attributes["Policy"]; changesPolicy {
+		if owner := queuePolicyOwner(r.Context()); owner != "" {
+			if q.policyOwner != "" && q.policyOwner != owner || q.policyOwner == "" && q.config.policy != "" {
+				return nil, failure("AccessDenied", "The queue policy belongs to another resource incarnation.")
+			}
+		}
+	}
 	config, err := s.configure(r.Context(), q.key, q.config, in.Attributes, false)
 	if err != nil {
 		return nil, err
@@ -156,6 +167,12 @@ func (s *Service) setAttributes(r *http.Request, in *api.SetQueueAttributesInput
 		}
 	}
 	q.config = config
+	if _, changesPolicy := in.Attributes["Policy"]; changesPolicy {
+		q.policyOwner = queuePolicyOwner(r.Context())
+		if config.policy == "" {
+			q.policyOwner = ""
+		}
+	}
 	q.modified = s.now()
 	s.prune(q, s.now())
 	q.notify()

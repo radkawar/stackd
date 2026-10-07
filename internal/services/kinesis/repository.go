@@ -31,6 +31,7 @@ func (k StreamKey) ARN() string {
 // log. NextPartition allocates physical partitions without reusing closed shards.
 type StreamRecord struct {
 	Key             StreamKey
+	Owner           ResourceOwner
 	EngineID        string
 	Data            api.StreamDescriptionSummary
 	Pending         *StreamUpdate
@@ -109,8 +110,9 @@ func (k ConsumerKey) ARN() string {
 }
 
 type ConsumerRecord struct {
-	Key  ConsumerKey
-	Data api.ConsumerDescription
+	Key   ConsumerKey
+	Owner ResourceOwner
+	Data  api.ConsumerDescription
 	// DeleteAt retains the asynchronous deregistration deadline.
 	DeleteAt time.Time
 }
@@ -132,6 +134,7 @@ type TagRecord struct {
 // Policy.Document means deletion; Effective may still deny until PublishAt.
 type PolicyRecord struct {
 	Key       ResourceKey
+	Owner     ResourceOwner
 	Policy    authorization.BoundPolicy
 	Effective authorization.BoundPolicy
 	PublishAt time.Time

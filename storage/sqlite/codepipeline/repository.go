@@ -73,7 +73,7 @@ func (r reader) Pipelines(sc domain.Scope) ([]domain.Pipeline, error) {
 	}
 	out := make([]domain.Pipeline, 0, len(rows))
 	for _, row := range rows {
-		v := domain.Pipeline{Scope: sc, Name: row.Name, Incarnation: row.Incarnation, Version: int32(row.Version), CreatedAt: instant(row.CreatedAt), UpdatedAt: instant(row.UpdatedAt), PollingDisabledAt: instant(row.PollingDisabledAt), Tags: map[string]string{}}
+		v := domain.Pipeline{Scope: sc, Name: row.Name, Incarnation: row.Incarnation, Ownership: row.Ownership, LastUpdate: row.LastUpdate, Version: int32(row.Version), CreatedAt: instant(row.CreatedAt), UpdatedAt: instant(row.UpdatedAt), PollingDisabledAt: instant(row.PollingDisabledAt), Tags: map[string]string{}}
 		tags, err := r.q.ListTags(r.ctx, row.Incarnation)
 		if err != nil {
 			return nil, err
@@ -93,7 +93,7 @@ func (r reader) Pipelines(sc domain.Scope) ([]domain.Pipeline, error) {
 	return out, nil
 }
 func (w writer) PutPipeline(v domain.Pipeline) error {
-	if err := w.q.PutPipelines(w.ctx, sqlcgen.PutPipelinesParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, Name: v.Name, Incarnation: v.Incarnation, Version: int64(v.Version), CreatedAt: nanos(v.CreatedAt), UpdatedAt: nanos(v.UpdatedAt), PollingDisabledAt: nanos(v.PollingDisabledAt)}); err != nil {
+	if err := w.q.PutPipelines(w.ctx, sqlcgen.PutPipelinesParams{Ownership: v.Ownership, LastUpdate: v.LastUpdate, Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, Name: v.Name, Incarnation: v.Incarnation, Version: int64(v.Version), CreatedAt: nanos(v.CreatedAt), UpdatedAt: nanos(v.UpdatedAt), PollingDisabledAt: nanos(v.PollingDisabledAt)}); err != nil {
 		return err
 	}
 	if err := w.q.DeleteTags(w.ctx, v.Incarnation); err != nil {

@@ -35,10 +35,17 @@ func (s *Service) createDeployment(tx Transaction, in *api.CreateDeploymentReque
 	if value(in.StageName) == "" && (value(in.StageDescription) != "" || len(in.Variables) > 0) {
 		return nil, bad("Stage settings require a stage name")
 	}
+	var stage StageRecord
+	stageMissing := false
 	if value(in.StageName) != "" {
 		if err := validStage(value(in.StageName), mapIn(in.Variables)); err != nil {
 			return nil, err
 		}
+		stage, err = tx.Stage(StageKey{APIKey: owner.Key, Name: value(in.StageName)})
+		if err != nil && !errors.Is(err, ErrNotFound) {
+			return nil, err
+		}
+		stageMissing = errors.Is(err, ErrNotFound)
 	}
 	methods, err := tx.Methods(owner.Key)
 	if err != nil {
@@ -94,12 +101,12 @@ func (s *Service) createDeployment(tx Transaction, in *api.CreateDeploymentReque
 		return nil, err
 	}
 	if name := value(in.StageName); name != "" {
-		stage, err := tx.Stage(StageKey{APIKey: owner.Key, Name: name})
-		if err != nil && !errors.Is(err, ErrNotFound) {
-			return nil, err
-		}
-		if errors.Is(err, ErrNotFound) {
-			stage = StageRecord{Key: StageKey{APIKey: owner.Key, Name: name}, Created: row.Created, Variables: map[string]string{}, Tags: map[string]string{}}
+		if stageMissing {
+			incarnation, err := tx.NextStageIncarnation(owner.Key.Scope)
+			if err != nil {
+				return nil, err
+			}
+			stage = StageRecord{Key: StageKey{APIKey: owner.Key, Name: name}, Incarnation: incarnation, Created: row.Created, Variables: map[string]string{}, Tags: map[string]string{}}
 		}
 		stage.DeploymentID = id
 		stage.Updated = row.Created
@@ -245,7 +252,11 @@ func (s *Service) createStage(tx Transaction, in *api.CreateStageRequest) (*api.
 		return nil, err
 	}
 	now := s.clock.Now()
-	row := StageRecord{Key: key, DeploymentID: value(in.DeploymentId), Description: value(in.Description), Created: now, Updated: now, Variables: mapIn(in.Variables), Tags: tags}
+	incarnation, err := tx.NextStageIncarnation(owner.Key.Scope)
+	if err != nil {
+		return nil, err
+	}
+	row := StageRecord{Key: key, Incarnation: incarnation, DeploymentID: value(in.DeploymentId), Description: value(in.Description), Created: now, Updated: now, Variables: mapIn(in.Variables), Tags: tags}
 	if err := tx.PutStage(row); err != nil {
 		return nil, err
 	}

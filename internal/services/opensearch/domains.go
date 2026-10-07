@@ -39,7 +39,7 @@ func (s *Service) createDomain(ctx context.Context, tx Transaction, in *api.Crea
 		return nil, err
 	}
 	now := s.clock.Now()
-	v := Domain{Key: k, Incarnation: uuid.NewString(), EngineVersion: EngineVersion, Status: "creating", AccessPolicy: bound.Document, PolicyPrincipals: bound.PrincipalIDs, InstanceCount: 1, AdvancedOptions: options, Tags: tags, Created: now, Updated: now, Due: now, Version: 1, ConfigVersion: 1}
+	v := Domain{Key: k, Incarnation: uuid.NewString(), EngineVersion: EngineVersion, Status: "creating", AccessPolicy: bound.Document, PolicyPrincipals: bound.PrincipalIDs, InstanceCount: 1, AdvancedOptions: options, Tags: tags, Created: now, Updated: now, Due: now, Version: 1, ConfigVersion: 1, Ownership: cloudFormationOwner(ctx)}
 	if err = tx.PutDomain(v); err != nil {
 		return nil, err
 	}

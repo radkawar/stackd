@@ -65,6 +65,7 @@ func (s *Service) JobDriver() *scheduler.Driver { return s.jobs }
 func (s *Service) Close() error                 { s.jobs.Close(); return nil }
 
 func register[I, O any](s *Service, name string, fn func(Transaction, *I) (*O, *awswire.Error)) {
+	observeAdmission := name == "PutMetricAlarm" || name == "PutCompositeAlarm" || name == "PutDashboard"
 	s.operations[name] = func(ctx context.Context, input any) (any, *awswire.Error) {
 		var output *O
 		err := s.repository.Attempt(ctx, func(tx Transaction) error {
@@ -76,6 +77,9 @@ func register[I, O any](s *Service, name string, fn func(Transaction, *I) (*O, *
 			decoded, _ := awsapi.FromContext(tx.Context())
 			return s.record(tx.Context(), decoded, output, nil)
 		})
+		if err == nil && observeAdmission {
+			observeCloudFormationAdmission(ctx, name, input)
+		}
 		return output, wireError(err)
 	}
 }

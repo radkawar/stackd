@@ -29,6 +29,9 @@ func readAPIDestination(r Reader, k APIDestinationKey, action string) (APIDestin
 	if errors.Is(err, ErrNotFound) {
 		return v, failure("ResourceNotFoundException", "Failed to "+action+" the api-destination(s). An api-destination '"+k.Name+"' does not exist.")
 	}
+	if err == nil {
+		err = cloudFormationCheck(r.Context(), "ApiDestination", v.CFNOwner)
+	}
 	return v, err
 }
 
@@ -117,6 +120,7 @@ func (s *Service) createAPIDestination(ctx context.Context, in *api.CreateApiDes
 		return nil, rejected
 	}
 	v := APIDestinationRecord{Key: APIDestinationKey{scopeFor(ctx), value(in.Name)}, ID: identifier(), Description: value(in.Description), ConnectionARN: value(in.ConnectionArn), Endpoint: value(in.InvocationEndpoint), Method: value(in.HttpMethod), Rate: defaultAPIDestinationRate, Version: 1}
+	v.CFNOwner = cloudFormationClaim(ctx, "ApiDestination")
 	if in.InvocationRateLimitPerSecond != nil {
 		v.Rate = int(*in.InvocationRateLimitPerSecond)
 	}

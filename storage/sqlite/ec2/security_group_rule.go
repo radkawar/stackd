@@ -31,6 +31,7 @@ func (r reader) SecurityGroupRules(s domain.Scope) ([]domain.SecurityGroupRuleRe
 func (r reader) securityGroupRule(row sqlcgen.Ec2SecurityGroupRule) (domain.SecurityGroupRuleRecord, error) {
 	k := domain.ResourceKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.ResourceID}
 	out := domain.SecurityGroupRuleRecord{Key: k}
+	out.CloudFormationOwner = cloudFormationOwner(row.CloudformationResourceType, row.CloudformationOwner)
 	d := &out.Data
 	d.CidrIpv4 = stringPointer[api.String](row.CidrIpv4)
 	d.CidrIpv6 = stringPointer[api.String](row.CidrIpv6)

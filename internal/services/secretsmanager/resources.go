@@ -114,10 +114,19 @@ func (s *Service) createSecret(tx Transaction, in *api.CreateSecretInput) (*api.
 	scope := scopeFor(tx.Context())
 	secret := SecretRecord{Key: SecretKey{Scope: scope, Name: name}, Created: now, Changed: now, KMSKeyID: value(in.KmsKeyId), Type: value(in.Type)}
 	secret.OwningService = managedOwner(tx.Context())
+	if owner, owned, err := cloudFormationOwner(tx.Context()); err != nil {
+		return nil, err
+	} else if owned {
+		if owner.Aspect != "secret" {
+			return nil, failure("InvalidRequestException", "CreateSecret requires a private secret claim.")
+		}
+		secret.Ownership = owner.Claim
+	}
 	secret.ARN = fmt.Sprintf("arn:%s:secretsmanager:%s:%s:secret:%s-%s", scope.Partition, scope.Region, scope.AccountID, name, identifier()[:6])
 	existing, err := tx.Secret(secret.Key)
 	if err == nil {
 		secret.ARN, secret.Policy = existing.ARN, existing.Policy
+		secret.Ownership = existing.Ownership
 	} else if !errors.Is(err, ErrNotFound) {
 		return nil, err
 	}
@@ -176,6 +185,17 @@ func (s *Service) createSecret(tx Transaction, in *api.CreateSecretInput) (*api.
 		}
 	}
 	if err == nil {
+		if owner, owned, err := cloudFormationOwner(tx.Context()); err != nil {
+			return nil, err
+		} else if owned {
+			if existing.Deleted != nil {
+				return nil, failure("InvalidRequestException", "You can't create this secret because a secret with this name is already scheduled for deletion.")
+			}
+			if existing.Ownership != owner.Claim {
+				return nil, failure("InvalidRequestException", cloudFormationMismatch)
+			}
+			return &api.CreateSecretOutput{ARN: str[api.SecretARNType](existing.ARN), Name: str[api.SecretNameType](name)}, nil
+		}
 		if existing.Deleted != nil {
 			return nil, failure("InvalidRequestException", "You can't create this secret because a secret with this name is already scheduled for deletion.")
 		}

@@ -6,7 +6,7 @@ import (
 )
 
 func (r reader) loadExtension(v sqlcgen.AppconfigExtension) (domain.Extension, error) {
-	out := domain.Extension{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, ID: v.ID, Name: v.Name, Description: v.Description, ARN: v.Arn, Version: int32(v.Version)}
+	out := domain.Extension{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, ID: v.ID, Name: v.Name, Description: v.Description, ARN: v.Arn, Version: int32(v.Version), Ownership: domain.CloudFormationOwnership{Owner: v.CfnOwner, Token: v.CfnToken}}
 	actions, err := r.q.ListExtensionActions(r.ctx, v.RowID)
 	if err != nil {
 		return out, err
@@ -41,7 +41,7 @@ func (r reader) Extensions(s domain.Scope) ([]domain.Extension, error) {
 	return out, nil
 }
 func (w writer) PutExtension(v domain.Extension) error {
-	id, err := w.q.PutExtension(w.ctx, sqlcgen.PutExtensionParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, ID: v.ID, Name: v.Name, Description: v.Description, Arn: v.ARN, Version: int64(v.Version)})
+	id, err := w.q.PutExtension(w.ctx, sqlcgen.PutExtensionParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, ID: v.ID, Name: v.Name, Description: v.Description, Arn: v.ARN, Version: int64(v.Version), CfnOwner: v.Ownership.Owner, CfnToken: v.Ownership.Token})
 	if err != nil {
 		return err
 	}
@@ -70,7 +70,7 @@ func (w writer) DeleteExtension(s domain.Scope, iD string, version int32) error 
 }
 
 func (r reader) loadAssociation(v sqlcgen.AppconfigAssociation) (domain.Association, error) {
-	out := domain.Association{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, ID: v.ID, ARN: v.Arn, ExtensionID: v.ExtensionID, ExtensionARN: v.ExtensionArn, ResourceARN: v.ResourceArn, ExtensionVersion: int32(v.ExtensionVersion)}
+	out := domain.Association{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, ID: v.ID, ARN: v.Arn, ExtensionID: v.ExtensionID, ExtensionARN: v.ExtensionArn, ResourceARN: v.ResourceArn, ExtensionVersion: int32(v.ExtensionVersion), Ownership: domain.CloudFormationOwnership{Owner: v.CfnOwner, Token: v.CfnToken}}
 	parameters, err := r.q.ListAssociationParameters(r.ctx, v.RowID)
 	if err != nil {
 		return out, err
@@ -99,7 +99,7 @@ func (r reader) Associations(s domain.Scope) ([]domain.Association, error) {
 	return out, nil
 }
 func (w writer) PutAssociation(v domain.Association) error {
-	id, err := w.q.PutAssociation(w.ctx, sqlcgen.PutAssociationParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, ID: v.ID, Arn: v.ARN, ExtensionID: v.ExtensionID, ExtensionArn: v.ExtensionARN, ResourceArn: v.ResourceARN, ExtensionVersion: int64(v.ExtensionVersion)})
+	id, err := w.q.PutAssociation(w.ctx, sqlcgen.PutAssociationParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, ID: v.ID, Arn: v.ARN, ExtensionID: v.ExtensionID, ExtensionArn: v.ExtensionARN, ResourceArn: v.ResourceARN, ExtensionVersion: int64(v.ExtensionVersion), CfnOwner: v.Ownership.Owner, CfnToken: v.Ownership.Token})
 	if err != nil {
 		return err
 	}

@@ -21,6 +21,9 @@ func (s *Service) registerAccountOperations() {
 		if !ok {
 			return nil, failure("AccountNotFoundException", "The account does not exist in this organization.")
 		}
+		if err := accountClaimMutation(r, a); err != nil {
+			return nil, err
+		}
 		return &api.DescribeAccountOutput{Account: new(o.accountAPI(a))}, nil
 	})
 	register(s, "DescribeCreateAccountStatus", (*operationState).describeAccountStatus)
@@ -56,6 +59,9 @@ func (s *Service) registerAccountOperations() {
 		a, ok := o.accounts[inputString(in.AccountId)]
 		if !ok {
 			return nil, failure("AccountNotFoundException", "The account does not exist in this organization.")
+		}
+		if err := accountClaimMutation(r, a); err != nil {
+			return nil, err
 		}
 		if inputString(in.AccountId) == o.organization.MasterAccountID {
 			return nil, failure("ConstraintViolationException", "CANNOT_CLOSE_MANAGEMENT_ACCOUNT")
@@ -115,7 +121,7 @@ func (s *operationState) listAccounts(r *http.Request, in paginationInput, paren
 	}
 	items := make(api.Accounts, 0)
 	for id, a := range o.accounts {
-		if parent == "" || o.parents[id] == parent {
+		if (parent == "" || o.parents[id] == parent) && accountClaimVisible(r, a) {
 			items = append(items, o.accountAPI(a))
 		}
 	}
@@ -129,6 +135,9 @@ func (s *operationState) moveAccount(r *http.Request, in *api.MoveAccountInput) 
 	}
 	if _, ok := o.accounts[inputString(in.AccountId)]; !ok {
 		return nil, failure("AccountNotFoundException", "The account does not exist in this organization.")
+	}
+	if err := accountClaimMutation(r, o.accounts[inputString(in.AccountId)]); err != nil {
+		return nil, err
 	}
 	if !o.parentExists(inputString(in.SourceParentId)) {
 		return nil, failure("SourceParentNotFoundException", "The source parent does not exist.")
@@ -151,12 +160,20 @@ func (s *operationState) removeAccount(r *http.Request, o *orgState, id string) 
 	if _, ok := o.accounts[id]; !ok {
 		return failure("AccountNotFoundException", "The account does not exist in this organization.")
 	}
+	if err := accountClaimMutation(r, o.accounts[id]); err != nil {
+		return err
+	}
 	if id == o.organization.MasterAccountID {
 		return failure("ConstraintViolationException", "ACCOUNT_CANNOT_LEAVE_ORGANIZATION: Delete the organization to remove its management account.")
 	}
 	if len(o.delegates[id]) > 0 {
 		return failure("ConstraintViolationException", "CANNOT_REMOVE_DELEGATED_ADMINISTRATOR_FROM_ORG")
 	}
+	// Removing membership ends the claim; reinviting this account is a new
+	// native membership, never an adoption of the old creation receipt.
+	a := s.knownAccounts[id]
+	a.CloudFormationOwner, a.CloudFormationRegion = "", ""
+	s.knownAccounts[id] = a
 	delete(o.accounts, id)
 	s.removeEffectivePolicies(o, id, awsctx.FromContext(r.Context()))
 	delete(o.parents, id)

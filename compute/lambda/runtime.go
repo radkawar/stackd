@@ -22,13 +22,17 @@ type Executor interface {
 // Endpoint is the reachable stackd AWS API origin.
 type Specification struct {
 	FunctionARN, FunctionName, Runtime, Handler, Architecture string
-	Code                                                      []byte
-	Layers                                                    [][]byte
-	Variables                                                 map[string]string
-	Timeout                                                   time.Duration
-	MemoryMB, EphemeralMB                                     int
-	Credentials                                               Credentials
-	Endpoint                                                  string
+	// Image is an admitted immutable local Docker deployment. Nil selects ZIP.
+	Image                 *Image
+	ImageConfig           *ImageConfig
+	FunctionNetwork       FunctionNetworkLease
+	Code                  []byte
+	Layers                [][]byte
+	Variables             map[string]string
+	Timeout               time.Duration
+	MemoryMB, EphemeralMB int
+	Credentials           Credentials
+	Endpoint              string
 	// Provisioned starts customer Init and waits for the Runtime API and all
 	// extensions before Prepare succeeds, without sending a handler invocation.
 	Provisioned bool

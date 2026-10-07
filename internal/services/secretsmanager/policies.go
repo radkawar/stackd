@@ -61,6 +61,13 @@ func (s *Service) putResourcePolicy(tx Transaction, in *api.PutResourcePolicyInp
 	if err = checkWritable(tx.Context(), secret); err != nil {
 		return nil, err
 	}
+	replay, err := admitCloudFormationAspect(tx.Context(), &secret, "policy", secret.Policy.Document != "")
+	if err != nil {
+		return nil, err
+	}
+	if replay {
+		return &api.PutResourcePolicyOutput{ARN: str[api.SecretARNType](secret.ARN), Name: str[api.NameType](secret.Key.Name)}, nil
+	}
 	bound, err := s.bindSecretPolicy(tx, value(in.ResourcePolicy))
 	if err != nil {
 		return nil, err
@@ -96,6 +103,7 @@ func (s *Service) deleteResourcePolicy(tx Transaction, in *api.DeleteResourcePol
 		return nil, err
 	}
 	secret.Policy = authorization.BoundPolicy{}
+	secret.PolicyOwnership = CloudFormationOwnership{}
 	if err = tx.PutSecret(secret); err != nil {
 		return nil, err
 	}

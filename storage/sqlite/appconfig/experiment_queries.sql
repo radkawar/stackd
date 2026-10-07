@@ -1,6 +1,6 @@
 -- name: PutExperimentDefinition :one
-INSERT INTO appconfig_experiment_definitions (partition,account_id,region,application_id,id,snapshot_number,name,environment_id,profile_id,flag_key,audience_rule,audience_description,hypothesis,launch_criteria,kms_key_identifier,status,created_at,updated_at)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+INSERT INTO appconfig_experiment_definitions (partition,account_id,region,application_id,id,snapshot_number,name,environment_id,profile_id,flag_key,audience_rule,audience_description,hypothesis,launch_criteria,kms_key_identifier,status,created_at,updated_at,cfn_owner,cfn_token)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT (partition,account_id,region,application_id,id,snapshot_number) DO UPDATE SET name=excluded.name,environment_id=excluded.environment_id,profile_id=excluded.profile_id,flag_key=excluded.flag_key,audience_rule=excluded.audience_rule,audience_description=excluded.audience_description,hypothesis=excluded.hypothesis,launch_criteria=excluded.launch_criteria,kms_key_identifier=excluded.kms_key_identifier,status=excluded.status,created_at=excluded.created_at,updated_at=excluded.updated_at RETURNING row_id;
 
 -- name: ListExperimentDefinitions :many
@@ -34,8 +34,8 @@ INSERT INTO appconfig_experiment_attribute_items (attribute_row,ordinal,number_v
 SELECT * FROM appconfig_experiment_attribute_items WHERE attribute_row=? ORDER BY ordinal;
 
 -- name: PutExperimentRun :one
-INSERT INTO appconfig_experiment_runs (definition_row,number,description,status,exposure,has_overrides,has_result,executive_summary,reasons_to_launch,reasons_not_to_launch,started_at,updated_at,ended_at)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+INSERT INTO appconfig_experiment_runs (definition_row,number,description,status,exposure,has_overrides,has_result,executive_summary,reasons_to_launch,reasons_not_to_launch,started_at,updated_at,ended_at,cfn_owner,cfn_token)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(definition_row,number) DO UPDATE SET description=excluded.description,status=excluded.status,exposure=excluded.exposure,has_overrides=excluded.has_overrides,has_result=excluded.has_result,executive_summary=excluded.executive_summary,reasons_to_launch=excluded.reasons_to_launch,reasons_not_to_launch=excluded.reasons_not_to_launch,started_at=excluded.started_at,updated_at=excluded.updated_at,ended_at=excluded.ended_at RETURNING row_id;
 
 -- name: ListExperimentRuns :many

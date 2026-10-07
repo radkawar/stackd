@@ -25,6 +25,8 @@ type ContainerHostConfig struct {
 	Memory, MemorySwap, CPUPeriod, CPUQuota, PidsLimit int64
 	MemoryReservation, CPUShares                       int64    `json:",omitempty"`
 	CapAdd, CapDrop, SecurityOpt, ExtraHosts           []string `json:",omitempty"`
+	DNS                                                []string `json:"Dns,omitempty"`
+	DNSSearch                                          []string `json:"DnsSearch,omitempty"`
 	Mounts                                             []ContainerMount
 	LogConfig                                          ContainerLogConfig
 }

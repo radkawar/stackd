@@ -13,6 +13,7 @@ const (
 // IPList retains source intent separately from the last ingested range snapshot.
 // Only ACTIVE lists participate in detection. Version fences asynchronous work.
 type IPList struct {
+	CFNOwnership CloudFormationOwnership
 	Scope
 	DetectorID, ID, ARN, Name, Format          string
 	Kind                                       IPListKind

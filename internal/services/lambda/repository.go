@@ -28,7 +28,13 @@ type FunctionRecord struct {
 	Key                                               FunctionKey
 	Version                                           uint64
 	Runtime, Handler, Role, Description, Architecture string
-	DeadLetterARN                                     string
+	// Image retains the deployed image ID, never a mutable tag resolution.
+	Image              *runtime.Image
+	ImageConfig        *api.ImageConfig
+	NetworkIncarnation string
+	VpcConfig          FunctionNetworkConfiguration
+	Owner              FunctionOwner
+	DeadLetterARN      string
 	// LogGroup is empty for the derived /aws/lambda/<name> destination.
 	LogGroup                                string
 	Logging                                 runtime.LoggingConfig

@@ -31,6 +31,7 @@ func (r reader) RouteTables(s domain.Scope) ([]domain.RouteTableRecord, error) {
 func (r reader) routeTable(row sqlcgen.Ec2RouteTable) (domain.RouteTableRecord, error) {
 	k := domain.ResourceKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.ResourceID}
 	out := domain.RouteTableRecord{Key: k}
+	out.CloudFormationOwner = cloudFormationOwner(row.CloudformationResourceType, row.CloudformationOwner)
 	d := &out.Data
 	d.OwnerId = stringPointer[api.String](row.OwnerID)
 	d.RouteTableId = stringPointer[api.String](row.RouteTableID)

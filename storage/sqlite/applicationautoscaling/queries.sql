@@ -1,10 +1,13 @@
 -- name: PutTarget :one
 INSERT INTO aas_targets (
+ ownership,
  partition, account_id, region, namespace, resource_id, dimension, native_id, origin_event_id, reconcile_at, creation_time, max_capacity, min_capacity, predicted_capacity, data_resource_id, role_arn, data_dimension, target_arn, data_namespace, has_suspended_state, suspended_in, suspended_out, suspended_scheduled, has_tags
 ) VALUES (
+ sqlc.arg(ownership),
  sqlc.arg(partition), sqlc.arg(account_id), sqlc.arg(region), sqlc.arg(namespace), sqlc.arg(resource_id), sqlc.arg(dimension), sqlc.arg(native_id), sqlc.arg(origin_event_id), sqlc.arg(reconcile_at), sqlc.arg(creation_time), sqlc.arg(max_capacity), sqlc.arg(min_capacity), sqlc.arg(predicted_capacity), sqlc.arg(data_resource_id), sqlc.arg(role_arn), sqlc.arg(data_dimension), sqlc.arg(target_arn), sqlc.arg(data_namespace), sqlc.arg(has_suspended_state), sqlc.arg(suspended_in), sqlc.arg(suspended_out), sqlc.arg(suspended_scheduled), sqlc.arg(has_tags)
 )
 ON CONFLICT(partition, account_id, region, namespace, resource_id, dimension) DO UPDATE SET
+ ownership = excluded.ownership,
  native_id = excluded.native_id,
  origin_event_id = excluded.origin_event_id,
  reconcile_at = excluded.reconcile_at,
@@ -40,13 +43,16 @@ ORDER BY partition, account_id, region, namespace, resource_id, dimension LIMIT 
 
 -- name: PutPolicy :one
 INSERT INTO aas_policies (
+ ownership,
  partition, account_id, region, namespace, resource_id, dimension, name, managed_action_id, last_scale_at, last_scale_from, last_scale_to, creation_time, policy_arn, policy_name, policy_type, data_resource_id, data_dimension, data_namespace, has_alarms, has_step, step_adjustment_type, step_cooldown, step_aggregation_type, step_min_adjustment, has_steps, has_tracking, disable_scale_in, scale_in_cooldown, scale_out_cooldown, target_value, has_predefined, predefined_metric_type, resource_label, has_custom, custom_metric_name, custom_namespace, custom_statistic, custom_unit, has_custom_dimensions, has_metric_queries
  , pending_activity_id
 ) VALUES (
+ sqlc.arg(ownership),
  sqlc.arg(partition), sqlc.arg(account_id), sqlc.arg(region), sqlc.arg(namespace), sqlc.arg(resource_id), sqlc.arg(dimension), sqlc.arg(name), sqlc.arg(managed_action_id), sqlc.arg(last_scale_at), sqlc.arg(last_scale_from), sqlc.arg(last_scale_to), sqlc.arg(creation_time), sqlc.arg(policy_arn), sqlc.arg(policy_name), sqlc.arg(policy_type), sqlc.arg(data_resource_id), sqlc.arg(data_dimension), sqlc.arg(data_namespace), sqlc.arg(has_alarms), sqlc.arg(has_step), sqlc.arg(step_adjustment_type), sqlc.arg(step_cooldown), sqlc.arg(step_aggregation_type), sqlc.arg(step_min_adjustment), sqlc.arg(has_steps), sqlc.arg(has_tracking), sqlc.arg(disable_scale_in), sqlc.arg(scale_in_cooldown), sqlc.arg(scale_out_cooldown), sqlc.arg(target_value), sqlc.arg(has_predefined), sqlc.arg(predefined_metric_type), sqlc.arg(resource_label), sqlc.arg(has_custom), sqlc.arg(custom_metric_name), sqlc.arg(custom_namespace), sqlc.arg(custom_statistic), sqlc.arg(custom_unit), sqlc.arg(has_custom_dimensions), sqlc.arg(has_metric_queries)
  , sqlc.arg(pending_activity_id)
 )
 ON CONFLICT(partition, account_id, region, namespace, resource_id, dimension, name) DO UPDATE SET
+ ownership = excluded.ownership,
  managed_action_id = excluded.managed_action_id,
  last_scale_at = excluded.last_scale_at,
  last_scale_from = excluded.last_scale_from,

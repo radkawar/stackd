@@ -236,6 +236,8 @@ func cloneUser(u User) User {
 func cloneGroup(g Group) Group {
 	g.IdentityPolicies = cloneIdentityPolicies(g.IdentityPolicies)
 	g.Members = maps.Clone(g.Members)
+	g.MemberOwners = maps.Clone(g.MemberOwners)
+	g.MembershipClaims = maps.Clone(g.MembershipClaims)
 	return g
 }
 func cloneRole(r Role) Role {
@@ -269,5 +271,5 @@ func clonePolicy(p ManagedPolicy) ManagedPolicy {
 	return p
 }
 func cloneIdentityPolicies(p IdentityPolicies) IdentityPolicies {
-	return IdentityPolicies{Inline: maps.Clone(p.Inline), Attached: maps.Clone(p.Attached)}
+	return IdentityPolicies{Inline: maps.Clone(p.Inline), Attached: maps.Clone(p.Attached), InlineOwners: maps.Clone(p.InlineOwners), AttachedOwners: maps.Clone(p.AttachedOwners), CloudFormationOwner: p.CloudFormationOwner}
 }

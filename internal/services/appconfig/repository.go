@@ -10,6 +10,7 @@ type Scope struct{ Partition, AccountID, Region string }
 type Application struct {
 	Scope
 	ID, Name, Description string
+	Ownership             CloudFormationOwnership
 }
 type Monitor struct{ AlarmARN, RoleARN string }
 type Environment struct {
@@ -17,6 +18,7 @@ type Environment struct {
 	ApplicationID, ID, Name, Description, State string
 	Monitors                                    []Monitor
 	CreatedAt, LastPoll                         time.Time
+	Ownership                                   CloudFormationOwnership
 }
 type Validator struct{ Type, Content string }
 type Profile struct {
@@ -25,6 +27,7 @@ type Profile struct {
 	Validators                                                                                             []Validator
 	CreatedAt, LastPoll                                                                                    time.Time
 	NextVersion                                                                                            int32
+	Ownership                                                                                              CloudFormationOwnership
 }
 type HostedVersion struct {
 	Scope
@@ -32,12 +35,14 @@ type HostedVersion struct {
 	Number                                            int32
 	Description, ContentType, VersionLabel, KMSKeyARN string
 	Content                                           []byte
+	Ownership                                         CloudFormationOwnership
 }
 type Strategy struct {
 	Scope
 	ID, Name, Description, GrowthType, ReplicateTo string
 	DurationMinutes, FinalBakeMinutes              int32
 	GrowthFactor                                   float64
+	Ownership                                      CloudFormationOwnership
 }
 type DeploymentEvent struct {
 	Type, Description, TriggeredBy string
@@ -68,6 +73,7 @@ type Deployment struct {
 	Events                            []DeploymentEvent
 	Extensions                        []AppliedExtension
 	DynamicParameters                 map[string][]string
+	Ownership                         CloudFormationOwnership
 }
 type Session struct {
 	Scope
@@ -87,12 +93,14 @@ type Extension struct {
 	Version                    int32
 	Actions                    []ExtensionAction
 	Parameters                 []ExtensionParameter
+	Ownership                  CloudFormationOwnership
 }
 type Association struct {
 	Scope
 	ID, ARN, ExtensionID, ExtensionARN, ResourceARN string
 	ExtensionVersion                                int32
 	Parameters                                      map[string]string
+	Ownership                                       CloudFormationOwnership
 }
 type Settings struct {
 	Scope

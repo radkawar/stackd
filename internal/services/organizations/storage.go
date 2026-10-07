@@ -23,6 +23,9 @@ type AccountCreationRecord struct {
 	// Origin survives worker recovery without retaining credentials. Older
 	// stored jobs have no request origin; recovery must not invent one.
 	RequestID, RequestRegion, ActorARN string
+	// The trusted account incarnation is admitted with this receipt and copied
+	// to the resulting membership only after native IAM provisioning commits.
+	CloudFormationOwner string
 }
 type PolicyRecord = policy
 type PolicyTypeRecord = policyType
@@ -38,7 +41,8 @@ type ServiceAccessRecord struct {
 
 // ResourcePolicyRecord is the organization's singleton delegation policy.
 // An empty ID denotes absence; tags use the ordinary resource-tag records.
-type ResourcePolicyRecord struct{ ID, ARN, Content string }
+// CloudFormationOwner is a private incarnation claim, never a public tag.
+type ResourcePolicyRecord struct{ ID, ARN, Content, CloudFormationOwner string }
 
 type DelegationRecord struct {
 	AccountID, Principal string

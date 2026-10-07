@@ -172,6 +172,11 @@ func (s *Service) createAuthorizer(tx Transaction, in *api.CreateAuthorizerInput
 	if err := s.passInvocationRole(tx, value(in.AuthorizerCredentialsArn)); err != nil {
 		return nil, err
 	}
+	if v, found, err := recoverOwnedResource(tx, owner.Key, tx.Authorizers); err != nil {
+		return nil, err
+	} else if found {
+		return new(api.CreateAuthorizerOutput(authorizerOutput(v, owner.ProtocolType))), nil
+	}
 	authorizers, err := tx.Authorizers(owner.Key)
 	if err != nil {
 		return nil, err

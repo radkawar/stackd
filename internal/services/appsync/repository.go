@@ -16,27 +16,33 @@ func (k Key) ARN() string {
 }
 
 type APIRecord struct {
-	Key           Key
-	API           api.GraphqlApi
-	Schema        string
-	SchemaStatus  string
-	SchemaDetails []byte
+	Key             Key
+	API             api.GraphqlApi
+	Schema          string
+	SchemaStatus    string
+	SchemaDetails   []byte
+	SchemaOwnership string
+	Ownership       string
 }
 type DataSourceRecord struct {
 	API        Key
 	DataSource api.DataSource
+	Ownership  string
 }
 type ResolverRecord struct {
-	API      Key
-	Resolver api.Resolver
+	API       Key
+	Resolver  api.Resolver
+	Ownership string
 }
 type FunctionRecord struct {
-	API      Key
-	Function api.FunctionConfiguration
+	API       Key
+	Function  api.FunctionConfiguration
+	Ownership string
 }
 type APIKeyRecord struct {
-	API Key
-	Key api.ApiKey
+	API       Key
+	Key       api.ApiKey
+	Ownership string
 }
 
 type Repository interface {

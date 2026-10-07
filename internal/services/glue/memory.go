@@ -86,6 +86,10 @@ func (w memoryWriter) PutCatalog(v CatalogRecord) error {
 	if err := w.tx.Check(true); err != nil {
 		return err
 	}
+	// Like the SQLite row, a private claim is immutable while its row exists.
+	if old, ok := w.s.catalogs[v.Key]; ok {
+		v.CFNOwner = old.CFNOwner
+	}
 	w.s.catalogs[v.Key] = cloneCatalogRecord(v)
 	return nil
 }
@@ -127,6 +131,9 @@ func (r memoryReader) Database(key DatabaseKey) (DatabaseRecord, error) {
 func (w memoryWriter) PutDatabase(v DatabaseRecord) error {
 	if err := w.tx.Check(true); err != nil {
 		return err
+	}
+	if old, ok := w.s.databases[v.Key]; ok {
+		v.CFNOwner = old.CFNOwner
 	}
 	w.s.databases[v.Key] = cloneDatabaseRecord(v)
 	return nil

@@ -191,7 +191,7 @@ func (w memoryWriter) PutParameter(v ParameterRecord) error {
 		return err
 	}
 	if current, exists := w.s.parameters[v.Key]; exists {
-		v.Incarnation = current.Incarnation
+		v.Incarnation, v.CloudFormationOwner = current.Incarnation, current.CloudFormationOwner
 	}
 	w.s.parameters[v.Key] = cloneStoredParameter(v)
 	return nil

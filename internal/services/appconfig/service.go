@@ -189,6 +189,9 @@ func command[I, O any](s *Service, action string, fn func(context.Context, *I) (
 	}
 }
 func (s *Service) authorize(ctx context.Context, action, resource string, tags map[string]string) error {
+	if _, _, err := cloudFormationOwnership(ctx); err != nil {
+		return err
+	}
 	values := requestTagContext(ctx)
 	for k, v := range tags {
 		values["aws:ResourceTag/"+k] = []string{v}

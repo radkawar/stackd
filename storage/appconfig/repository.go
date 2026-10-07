@@ -11,27 +11,28 @@ import (
 )
 
 type (
-	Repository         = domain.Repository
-	Reader             = domain.Reader
-	Transaction        = domain.Transaction
-	Scope              = domain.Scope
-	Application        = domain.Application
-	Environment        = domain.Environment
-	Monitor            = domain.Monitor
-	Profile            = domain.Profile
-	Validator          = domain.Validator
-	HostedVersion      = domain.HostedVersion
-	Strategy           = domain.Strategy
-	Deployment         = domain.Deployment
-	DeploymentEvent    = domain.DeploymentEvent
-	ActionInvocation   = domain.ActionInvocation
-	AppliedExtension   = domain.AppliedExtension
-	Session            = domain.Session
-	Extension          = domain.Extension
-	ExtensionAction    = domain.ExtensionAction
-	ExtensionParameter = domain.ExtensionParameter
-	Association        = domain.Association
-	Settings           = domain.Settings
+	Repository              = domain.Repository
+	Reader                  = domain.Reader
+	Transaction             = domain.Transaction
+	Scope                   = domain.Scope
+	CloudFormationOwnership = domain.CloudFormationOwnership
+	Application             = domain.Application
+	Environment             = domain.Environment
+	Monitor                 = domain.Monitor
+	Profile                 = domain.Profile
+	Validator               = domain.Validator
+	HostedVersion           = domain.HostedVersion
+	Strategy                = domain.Strategy
+	Deployment              = domain.Deployment
+	DeploymentEvent         = domain.DeploymentEvent
+	ActionInvocation        = domain.ActionInvocation
+	AppliedExtension        = domain.AppliedExtension
+	Session                 = domain.Session
+	Extension               = domain.Extension
+	ExtensionAction         = domain.ExtensionAction
+	ExtensionParameter      = domain.ExtensionParameter
+	Association             = domain.Association
+	Settings                = domain.Settings
 )
 
 // NewMemory enlists AppConfig in d. A nil domain creates an independent owner.

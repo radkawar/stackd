@@ -68,6 +68,7 @@ type SignerProfile struct {
 	RevokedBy        string
 	Certificate      []byte
 	PrivateKey       []byte
+	CfnOwner         string
 }
 
 type SignerProfileTag struct {

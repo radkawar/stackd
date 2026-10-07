@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	api "stackd/internal/awsapi/cognitoidp"
 )
@@ -118,8 +119,8 @@ func poolConfiguration(in *api.CreateUserPoolInput) (api.UserPoolType, error) {
 	if value(in.MfaConfiguration) != "" && value(in.MfaConfiguration) != "OFF" {
 		return unsupported("Multi-factor authentication")
 	}
-	if in.SmsConfiguration != nil || in.SmsAuthenticationMessage != nil || in.SmsVerificationMessage != nil || in.EmailVerificationMessage != nil || in.EmailVerificationSubject != nil {
-		return unsupported("Message delivery configuration")
+	if in.SmsConfiguration != nil || in.SmsAuthenticationMessage != nil || in.SmsVerificationMessage != nil {
+		return unsupported("SMS message delivery configuration")
 	}
 	if config := in.EmailConfiguration; config != nil {
 		mode := value(config.EmailSendingAccount)
@@ -133,13 +134,42 @@ func poolConfiguration(in *api.CreateUserPoolInput) (api.UserPoolType, error) {
 			return invalid("SourceArn is required with DEVELOPER email.")
 		}
 	}
-	if in.AdminCreateUserConfig != nil && in.AdminCreateUserConfig.InviteMessageTemplate != nil {
-		return unsupported("Invitation message templates")
+	if t := in.AdminCreateUserConfig; t != nil && t.InviteMessageTemplate != nil {
+		if t.InviteMessageTemplate.SMSMessage != nil {
+			return unsupported("SMS invitation messages")
+		}
+		if err := emailTemplate(value(t.InviteMessageTemplate.EmailMessage), value(t.InviteMessageTemplate.EmailSubject), true); err != nil {
+			return d, err
+		}
 	}
-	if in.VerificationMessageTemplate != nil {
-		v := in.VerificationMessageTemplate
-		if v.EmailMessage != nil || v.EmailSubject != nil || v.EmailMessageByLink != nil || v.EmailSubjectByLink != nil || v.SmsMessage != nil || (value(v.DefaultEmailOption) != "" && value(v.DefaultEmailOption) != "CONFIRM_WITH_CODE") {
-			return unsupported("Verification message templates")
+	verification := &api.VerificationMessageTemplateType{DefaultEmailOption: str[api.DefaultEmailOptionType]("CONFIRM_WITH_CODE")}
+	if v := in.VerificationMessageTemplate; v != nil {
+		if v.EmailMessageByLink != nil || v.EmailSubjectByLink != nil || (value(v.DefaultEmailOption) != "" && value(v.DefaultEmailOption) != "CONFIRM_WITH_CODE") {
+			return unsupported("Link verification messages")
+		}
+		if v.SmsMessage != nil {
+			return unsupported("SMS verification messages")
+		}
+		verification.EmailMessage, verification.EmailSubject = v.EmailMessage, v.EmailSubject
+	}
+	// The legacy members are aliases of the template's code-message members.
+	for _, alias := range []struct{ legacy, template *string }{
+		{(*string)(in.EmailVerificationMessage), (*string)(verification.EmailMessage)},
+		{(*string)(in.EmailVerificationSubject), (*string)(verification.EmailSubject)},
+	} {
+		if alias.legacy != nil && alias.template != nil && *alias.legacy != *alias.template {
+			return invalid("EmailVerificationMessage and EmailVerificationSubject must match VerificationMessageTemplate.")
+		}
+	}
+	if verification.EmailMessage == nil && in.EmailVerificationMessage != nil {
+		verification.EmailMessage = ptr(api.EmailVerificationMessageType(*in.EmailVerificationMessage))
+	}
+	if verification.EmailSubject == nil && in.EmailVerificationSubject != nil {
+		verification.EmailSubject = ptr(api.EmailVerificationSubjectType(*in.EmailVerificationSubject))
+	}
+	if verification.EmailMessage != nil || verification.EmailSubject != nil {
+		if err := emailTemplate(value(verification.EmailMessage), value(verification.EmailSubject), false); err != nil {
+			return d, err
 		}
 	}
 	if in.UserPoolAddOns != nil && (value(in.UserPoolAddOns.AdvancedSecurityMode) != "OFF" || in.UserPoolAddOns.AdvancedSecurityAdditionalFlows != nil) {
@@ -233,6 +263,7 @@ func poolConfiguration(in *api.CreateUserPoolInput) (api.UserPoolType, error) {
 		if in.AdminCreateUserConfig.UnusedAccountValidityDays != nil && *in.AdminCreateUserConfig.UnusedAccountValidityDays > 0 {
 			admin.UnusedAccountValidityDays = in.AdminCreateUserConfig.UnusedAccountValidityDays
 		}
+		admin.InviteMessageTemplate = in.AdminCreateUserConfig.InviteMessageTemplate
 	}
 	d = api.UserPoolType{
 		Name: in.PoolName, AliasAttributes: in.AliasAttributes, UsernameAttributes: in.UsernameAttributes, UsernameConfiguration: in.UsernameConfiguration,
@@ -244,12 +275,36 @@ func poolConfiguration(in *api.CreateUserPoolInput) (api.UserPoolType, error) {
 		KeyConfiguration:    &api.KeyConfigurationType{KeyType: str[api.EncryptionKeyType]("AWS_OWNED_KEY")},
 		MfaConfiguration:    str[api.UserPoolMfaType]("OFF"), UserPoolTags: in.UserPoolTags, UserPoolAddOns: in.UserPoolAddOns,
 		UserAttributeUpdateSettings: &api.UserAttributeUpdateSettingsType{AttributesRequireVerificationBeforeUpdate: api.AttributesRequireVerificationBeforeUpdateType{}},
-		VerificationMessageTemplate: &api.VerificationMessageTemplateType{DefaultEmailOption: str[api.DefaultEmailOptionType]("CONFIRM_WITH_CODE")},
+		VerificationMessageTemplate: verification,
+	}
+	if verification.EmailMessage != nil {
+		d.EmailVerificationMessage = ptr(api.EmailVerificationMessageType(*verification.EmailMessage))
+	}
+	if verification.EmailSubject != nil {
+		d.EmailVerificationSubject = ptr(api.EmailVerificationSubjectType(*verification.EmailSubject))
 	}
 	if in.EmailConfiguration != nil {
 		d.EmailConfiguration = in.EmailConfiguration
 	}
 	return d, nil
+}
+
+// emailTemplate validates the documented code placeholders. Invitations also
+// name the user. Messages are delivered as plain text by the email owner.
+func emailTemplate(message, subject string, invite bool) error {
+	invalid := func(text string) error { return failure("InvalidParameterException", text) }
+	if message != "" {
+		if utf8.RuneCountInString(message) < 6 || utf8.RuneCountInString(message) > 20000 || !strings.Contains(message, "{####}") {
+			return invalid("Email message must contain {####} and be 6 to 20000 characters.")
+		}
+		if invite && !strings.Contains(message, "{username}") {
+			return invalid("Invitation email message must contain {username} and {####}.")
+		}
+	}
+	if subject != "" && utf8.RuneCountInString(subject) > 140 {
+		return invalid("Email subject must be at most 140 characters.")
+	}
+	return nil
 }
 
 func poolPasswordPolicy(in *api.UserPoolPolicyType, admin *api.AdminCreateUserConfigType) (*api.UserPoolPolicyType, error) {
@@ -384,6 +439,9 @@ func (s *Service) deleteUserPool(tx Transaction, in *api.DeleteUserPoolInput) (*
 	}
 	if value(pool.Data.DeletionProtection) == "ACTIVE" {
 		return nil, failure("InvalidParameterException", "User pool deletion protection is active.")
+	}
+	if value(pool.Data.Domain) != "" {
+		return nil, failure("InvalidParameterException", "User pool cannot be deleted. It has a domain configured that should be deleted first.")
 	}
 	if err = tx.DeletePool(pool.Key); err != nil {
 		return nil, err

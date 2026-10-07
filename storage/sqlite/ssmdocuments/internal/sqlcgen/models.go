@@ -119,19 +119,20 @@ type SsmCommandTargetValue struct {
 }
 
 type SsmDocument struct {
-	ID                 int64
-	Partition          string
-	AccountID          string
-	Region             string
-	Name               string
-	DocumentUuid       string
-	DefaultVersion     int64
-	LatestVersion      int64
-	NextVersion        int64
-	DocumentType       string
-	SchemaName         string
-	SchemaVersion      int64
-	SchemaDocumentUuid string
+	ID                  int64
+	Partition           string
+	AccountID           string
+	Region              string
+	Name                string
+	DocumentUuid        string
+	DefaultVersion      int64
+	LatestVersion       int64
+	NextVersion         int64
+	DocumentType        string
+	SchemaName          string
+	SchemaVersion       int64
+	SchemaDocumentUuid  string
+	CloudformationOwner string
 }
 
 type SsmDocumentShare struct {

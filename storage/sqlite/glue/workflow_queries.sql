@@ -1,5 +1,5 @@
 -- name: WFWorkflowPut :exec
-INSERT INTO glue_workflow (partition, account_id, region, name, description, created, modified, max_concurrent) VALUES (sqlc.arg(partition), sqlc.arg(account_id), sqlc.arg(region), sqlc.arg(name), sqlc.arg(description), sqlc.arg(created), sqlc.arg(modified), sqlc.arg(max_concurrent))
+INSERT INTO glue_workflow (cfn_owner, partition, account_id, region, name, description, created, modified, max_concurrent) VALUES (sqlc.arg(cfn_owner), sqlc.arg(partition), sqlc.arg(account_id), sqlc.arg(region), sqlc.arg(name), sqlc.arg(description), sqlc.arg(created), sqlc.arg(modified), sqlc.arg(max_concurrent))
 ON CONFLICT (partition, account_id, region, name) DO UPDATE SET description = excluded.description, created = excluded.created, modified = excluded.modified, max_concurrent = excluded.max_concurrent;
 
 -- name: WFWorkflowDelete :exec
@@ -32,7 +32,7 @@ DELETE FROM glue_workflow_property WHERE partition = sqlc.arg(partition) AND acc
 SELECT * FROM glue_workflow_property WHERE partition = sqlc.arg(partition) AND account_id = sqlc.arg(account_id) AND region = sqlc.arg(region) AND name = sqlc.arg(name) ORDER BY partition, account_id, region, name, item_key;
 
 -- name: WFTriggerPut :exec
-INSERT INTO glue_trigger (partition, account_id, region, name, trigger_type, state, description, schedule, workflow_name, predicate_logical, predicate_present, next_fire) VALUES (sqlc.arg(partition), sqlc.arg(account_id), sqlc.arg(region), sqlc.arg(name), sqlc.arg(trigger_type), sqlc.arg(state), sqlc.arg(description), sqlc.arg(schedule), sqlc.arg(workflow_name), sqlc.arg(predicate_logical), sqlc.arg(predicate_present), sqlc.arg(next_fire))
+INSERT INTO glue_trigger (cfn_owner, partition, account_id, region, name, trigger_type, state, description, schedule, workflow_name, predicate_logical, predicate_present, next_fire) VALUES (sqlc.arg(cfn_owner), sqlc.arg(partition), sqlc.arg(account_id), sqlc.arg(region), sqlc.arg(name), sqlc.arg(trigger_type), sqlc.arg(state), sqlc.arg(description), sqlc.arg(schedule), sqlc.arg(workflow_name), sqlc.arg(predicate_logical), sqlc.arg(predicate_present), sqlc.arg(next_fire))
 ON CONFLICT (partition, account_id, region, name) DO UPDATE SET trigger_type = excluded.trigger_type, state = excluded.state, description = excluded.description, schedule = excluded.schedule, workflow_name = excluded.workflow_name, predicate_logical = excluded.predicate_logical, predicate_present = excluded.predicate_present, next_fire = excluded.next_fire;
 
 -- name: WFTriggerDelete :exec
@@ -85,7 +85,7 @@ DELETE FROM glue_trigger_condition WHERE partition = sqlc.arg(partition) AND acc
 SELECT * FROM glue_trigger_condition WHERE partition = sqlc.arg(partition) AND account_id = sqlc.arg(account_id) AND region = sqlc.arg(region) AND name = sqlc.arg(name) ORDER BY ordinal;
 
 -- name: WFSecurityConfigurationPut :exec
-INSERT INTO glue_security_configuration (partition, account_id, region, name, created, s3_mode, s3_key, logs_mode, logs_key, bookmarks_mode, bookmarks_key) VALUES (sqlc.arg(partition), sqlc.arg(account_id), sqlc.arg(region), sqlc.arg(name), sqlc.arg(created), sqlc.arg(s3_mode), sqlc.arg(s3_key), sqlc.arg(logs_mode), sqlc.arg(logs_key), sqlc.arg(bookmarks_mode), sqlc.arg(bookmarks_key))
+INSERT INTO glue_security_configuration (cfn_owner, partition, account_id, region, name, created, s3_mode, s3_key, logs_mode, logs_key, bookmarks_mode, bookmarks_key) VALUES (sqlc.arg(cfn_owner), sqlc.arg(partition), sqlc.arg(account_id), sqlc.arg(region), sqlc.arg(name), sqlc.arg(created), sqlc.arg(s3_mode), sqlc.arg(s3_key), sqlc.arg(logs_mode), sqlc.arg(logs_key), sqlc.arg(bookmarks_mode), sqlc.arg(bookmarks_key))
 ON CONFLICT (partition, account_id, region, name) DO UPDATE SET created = excluded.created, s3_mode = excluded.s3_mode, s3_key = excluded.s3_key, logs_mode = excluded.logs_mode, logs_key = excluded.logs_key, bookmarks_mode = excluded.bookmarks_mode, bookmarks_key = excluded.bookmarks_key;
 
 -- name: WFSecurityConfigurationDelete :exec

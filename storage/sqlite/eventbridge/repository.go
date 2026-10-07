@@ -50,6 +50,7 @@ func (r reader) bus(v sqlcgen.EventbridgeBus) (domain.BusRecord, error) {
 		return domain.BusRecord{}, err
 	}
 	out := domain.BusRecord{Key: domain.BusKey{Scope: domain.Scope{Partition: v.Partition, Account: v.Account, Region: v.Region}, Name: v.Name}, Description: v.Description, Created: v.Created, Modified: v.Modified, Tags: map[string]string{}, Policy: authorization.BoundPolicy{Document: v.Policy}}
+	out.CFNOwner = v.CfnOwner
 	out.KmsKeyIdentifier, out.DeadLetterARN = v.KmsKeyIdentifier, v.DeadLetterArn
 	out.ConfigurationDataKey, out.ConfigurationKeyARN = v.ConfigurationDataKey, v.ConfigurationKeyArn
 	for _, tag := range tags {
@@ -63,6 +64,16 @@ func (r reader) bus(v sqlcgen.EventbridgeBus) (domain.BusRecord, error) {
 		out.Policy.PrincipalIDs = make(map[string]string, len(principals))
 		for _, principal := range principals {
 			out.Policy.PrincipalIDs[principal.Arn] = principal.PrincipalID
+		}
+	}
+	statementOwners, err := r.q.GetBusPolicyStatementOwners(r.ctx, sqlcgen.GetBusPolicyStatementOwnersParams{Partition: v.Partition, Account: v.Account, Region: v.Region, BusName: v.Name})
+	if err != nil {
+		return domain.BusRecord{}, err
+	}
+	if len(statementOwners) > 0 {
+		out.PolicyStatementOwners = make(map[string]domain.PolicyStatementOwner, len(statementOwners))
+		for _, claim := range statementOwners {
+			out.PolicyStatementOwners[claim.StatementID] = domain.PolicyStatementOwner{CFNOwner: claim.CfnOwner}
 		}
 	}
 	return out, nil
@@ -95,6 +106,7 @@ func (r reader) rule(v sqlcgen.EventbridgeRule) (domain.RuleRecord, error) {
 		return domain.RuleRecord{}, err
 	}
 	out := domain.RuleRecord{Key: domain.RuleKey{Bus: domain.BusKey{Scope: domain.Scope{Partition: v.Partition, Account: v.Account, Region: v.Region}, Name: v.BusName}, Name: v.Name}, ManagedBy: v.ManagedBy, ArchiveID: v.ArchiveID, Pattern: v.Pattern, Description: v.Description, State: v.State, CreatedBy: v.CreatedBy, RoleARN: v.RoleArn, HasPattern: v.HasPattern, HasDescription: v.HasDescription, ScheduleExpression: v.ScheduleExpression.String, HasScheduleExpression: v.ScheduleExpression.Valid, Tags: map[string]string{}}
+	out.CFNOwner = v.CfnOwner
 	out.EncryptedPattern = v.EncryptedPattern
 	if v.NextScheduleSeconds.Valid {
 		due := time.Unix(v.NextScheduleSeconds.Int64, 0).UTC()
@@ -230,7 +242,7 @@ func delivery(v sqlcgen.EventbridgeDelivery) (domain.DeliveryRecord, error) {
 }
 func (w writer) PutBus(v domain.BusRecord) error {
 	k := v.Key
-	if err := w.q.PutBus(w.ctx, sqlcgen.PutBusParams{Partition: k.Partition, Account: k.Account, Region: k.Region, Name: k.Name, Description: v.Description, Created: v.Created, Modified: v.Modified, Policy: v.Policy.Document, KmsKeyIdentifier: v.KmsKeyIdentifier, DeadLetterArn: v.DeadLetterARN, ConfigurationDataKey: archiveBytes(v.ConfigurationDataKey), ConfigurationKeyArn: v.ConfigurationKeyARN}); err != nil {
+	if err := w.q.PutBus(w.ctx, sqlcgen.PutBusParams{Partition: k.Partition, Account: k.Account, Region: k.Region, Name: k.Name, Description: v.Description, Created: v.Created, Modified: v.Modified, Policy: v.Policy.Document, KmsKeyIdentifier: v.KmsKeyIdentifier, DeadLetterArn: v.DeadLetterARN, ConfigurationDataKey: archiveBytes(v.ConfigurationDataKey), ConfigurationKeyArn: v.ConfigurationKeyARN, CfnOwner: v.CFNOwner}); err != nil {
 		return err
 	}
 	if err := w.q.DeleteBusTags(w.ctx, sqlcgen.DeleteBusTagsParams{Partition: k.Partition, Account: k.Account, Region: k.Region, BusName: k.Name}); err != nil {
@@ -249,6 +261,14 @@ func (w writer) PutBus(v domain.BusRecord) error {
 			return err
 		}
 	}
+	if err := w.q.DeleteBusPolicyStatementOwners(w.ctx, sqlcgen.DeleteBusPolicyStatementOwnersParams{Partition: k.Partition, Account: k.Account, Region: k.Region, BusName: k.Name}); err != nil {
+		return err
+	}
+	for sid, owner := range v.PolicyStatementOwners {
+		if err := w.q.PutBusPolicyStatementOwner(w.ctx, sqlcgen.PutBusPolicyStatementOwnerParams{Partition: k.Partition, Account: k.Account, Region: k.Region, BusName: k.Name, StatementID: sid, CfnOwner: owner.CFNOwner}); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 func (w writer) DeleteBus(k domain.BusKey) error {
@@ -256,7 +276,7 @@ func (w writer) DeleteBus(k domain.BusKey) error {
 }
 func (w writer) PutRule(v domain.RuleRecord) error {
 	k := v.Key
-	if err := w.q.PutRule(w.ctx, sqlcgen.PutRuleParams{Partition: k.Bus.Partition, Account: k.Bus.Account, Region: k.Bus.Region, BusName: k.Bus.Name, Name: k.Name, ManagedBy: v.ManagedBy, ArchiveID: v.ArchiveID, Pattern: v.Pattern, Description: v.Description, State: v.State, CreatedBy: v.CreatedBy, RoleArn: v.RoleARN, HasPattern: v.HasPattern, HasDescription: v.HasDescription, ScheduleExpression: sql.NullString{String: v.ScheduleExpression, Valid: v.HasScheduleExpression}, NextScheduleSeconds: scheduleSeconds(v.NextSchedule), EncryptedPattern: archiveBytes(v.EncryptedPattern)}); err != nil {
+	if err := w.q.PutRule(w.ctx, sqlcgen.PutRuleParams{Partition: k.Bus.Partition, Account: k.Bus.Account, Region: k.Bus.Region, BusName: k.Bus.Name, Name: k.Name, ManagedBy: v.ManagedBy, ArchiveID: v.ArchiveID, Pattern: v.Pattern, Description: v.Description, State: v.State, CreatedBy: v.CreatedBy, RoleArn: v.RoleARN, HasPattern: v.HasPattern, HasDescription: v.HasDescription, ScheduleExpression: sql.NullString{String: v.ScheduleExpression, Valid: v.HasScheduleExpression}, NextScheduleSeconds: scheduleSeconds(v.NextSchedule), EncryptedPattern: archiveBytes(v.EncryptedPattern), CfnOwner: v.CFNOwner}); err != nil {
 		return err
 	}
 	if err := w.q.DeleteRuleTags(w.ctx, sqlcgen.DeleteRuleTagsParams{Partition: k.Bus.Partition, Account: k.Bus.Account, Region: k.Bus.Region, BusName: k.Bus.Name, RuleName: k.Name}); err != nil {

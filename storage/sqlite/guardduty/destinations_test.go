@@ -11,7 +11,7 @@ import (
 
 func destinationRecords(sc domain.Scope, id, finding string) (domain.PublishingDestination, domain.FindingExport) {
 	d, _, _ := records(sc)
-	v := domain.PublishingDestination{Scope: sc, DetectorID: d.ID, ID: id, ARN: d.ARN + "/publishingdestination/" + id, Type: "S3", ClientToken: "token-" + id, DestinationARN: "arn:aws:s3:::findings/prefix", KMSKeyARN: "arn:aws:kms:us-east-1:111111111111:key/key", Status: "UNABLE_TO_PUBLISH_FIX_DESTINATION_PROPERTY", Version: 7, Created: d.Created, Updated: d.Updated, FailureStarted: d.Updated.Add(time.Minute), Tags: map[string]string{"owner": "security"}}
+	v := domain.PublishingDestination{CFNOwnership: domain.CloudFormationOwnership{Owner: "destination-owner", Token: "destination-incarnation"}, Scope: sc, DetectorID: d.ID, ID: id, ARN: d.ARN + "/publishingdestination/" + id, Type: "S3", ClientToken: "token-" + id, DestinationARN: "arn:aws:s3:::findings/prefix", KMSKeyARN: "arn:aws:kms:us-east-1:111111111111:key/key", Status: "UNABLE_TO_PUBLISH_FIX_DESTINATION_PROPERTY", Version: 7, Created: d.Created, Updated: d.Updated, FailureStarted: d.Updated.Add(time.Minute), Tags: map[string]string{"owner": "security"}}
 	e := domain.FindingExport{Scope: sc, DetectorID: d.ID, DestinationID: id, FindingID: finding, ID: "export-" + finding, ObjectKey: "AWSLogs/" + finding, DestinationVersion: 7, Version: 9, Created: d.Created, Due: d.Updated.Add(time.Hour), LastPublished: d.Created.Add(-time.Hour), Payload: []byte(`{"id":"` + finding + `"}`)}
 	e.ParentEventID = "source-" + finding
 	return v, e

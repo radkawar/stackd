@@ -35,7 +35,7 @@ func (e *Evaluator) Authorize(ctx context.Context, request Request) *awswire.Err
 	m := awsctx.FromContext(ctx)
 	if m.SessionType == string(identity.SessionTypeEC2InstanceIdentity) {
 		if strings.EqualFold(request.Action, "sts:GetCallerIdentity") {
-			return nil
+			return authorizeNetworkEndpoint(ctx, request, policy.Principal{})
 		}
 		// Instance identity roles are not subject to identity/resource policy
 		// grants. Never resolve them as attached-profile IAM role sessions.
@@ -46,7 +46,7 @@ func (e *Evaluator) Authorize(ctx context.Context, request Request) *awswire.Err
 		return denied(err.Error())
 	}
 	if kind != "Anonymous" && strings.EqualFold(request.Action, "sts:GetCallerIdentity") {
-		return nil
+		return authorizeNetworkEndpoint(ctx, request, policy.Principal{})
 	}
 	set := PolicySet{}
 	if kind != "Account" && kind != "Service" && kind != "Anonymous" {
@@ -78,6 +78,18 @@ func (e *Evaluator) Authorize(ctx context.Context, request Request) *awswire.Err
 	resourceControls, err := e.resourceControlContext(ctx, owner, context)
 	if err != nil {
 		return denied("Unable to resolve resource controls: " + err.Error())
+	}
+	if guard := networkEndpointGuard(ctx); guard != nil {
+		values, rejected := guard.Context(ctx, request)
+		if rejected != nil {
+			return rejected
+		}
+		// The tunnel's infrastructure peer is not the customer's public source
+		// IP. Endpoint requests instead carry EC2's authoritative VpcSourceIp.
+		delete(context, "aws:sourceip")
+		for key, values := range values {
+			context[strings.ToLower(key)] = values
+		}
 	}
 	contextTypes := catalog.ContextTypes(context)
 	for key, kind := range request.ContextTypes {
@@ -156,7 +168,8 @@ func (e *Evaluator) Authorize(ctx context.Context, request Request) *awswire.Err
 		}
 		return denied(decision.Reason)
 	}
-	return nil
+	request.Context, request.ContextTypes = context, contextTypes
+	return authorizeNetworkEndpoint(ctx, request, snapshot.Principal)
 }
 
 func (e *Evaluator) organizationContext(ctx context.Context, values map[string][]string, subject string) error {

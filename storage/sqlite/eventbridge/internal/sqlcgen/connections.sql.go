@@ -76,7 +76,7 @@ func (q *Queries) DeleteConnectionParameters(ctx context.Context, connectionID s
 }
 
 const getConnection = `-- name: GetConnection :one
-SELECT "partition", account, region, name, id, description, authorization_type, state, state_reason, secret_arn, kms_key_identifier, username, api_key_name, client_id, authorization_endpoint, oauth_method, has_auth, has_invocation, has_oauth_http, created, modified, last_authorized, due_seconds, due_nanos, version FROM eventbridge_connections WHERE partition=? AND account=? AND region=? AND name=?
+SELECT "partition", account, region, name, id, description, authorization_type, state, state_reason, secret_arn, kms_key_identifier, username, api_key_name, client_id, authorization_endpoint, oauth_method, has_auth, has_invocation, has_oauth_http, created, modified, last_authorized, due_seconds, due_nanos, version, cfn_owner FROM eventbridge_connections WHERE partition=? AND account=? AND region=? AND name=?
 `
 
 type GetConnectionParams struct {
@@ -120,12 +120,13 @@ func (q *Queries) GetConnection(ctx context.Context, arg GetConnectionParams) (E
 		&i.DueSeconds,
 		&i.DueNanos,
 		&i.Version,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const getConnectionByID = `-- name: GetConnectionByID :one
-SELECT "partition", account, region, name, id, description, authorization_type, state, state_reason, secret_arn, kms_key_identifier, username, api_key_name, client_id, authorization_endpoint, oauth_method, has_auth, has_invocation, has_oauth_http, created, modified, last_authorized, due_seconds, due_nanos, version FROM eventbridge_connections WHERE id=?
+SELECT "partition", account, region, name, id, description, authorization_type, state, state_reason, secret_arn, kms_key_identifier, username, api_key_name, client_id, authorization_endpoint, oauth_method, has_auth, has_invocation, has_oauth_http, created, modified, last_authorized, due_seconds, due_nanos, version, cfn_owner FROM eventbridge_connections WHERE id=?
 `
 
 func (q *Queries) GetConnectionByID(ctx context.Context, id string) (EventbridgeConnection, error) {
@@ -157,6 +158,7 @@ func (q *Queries) GetConnectionByID(ctx context.Context, id string) (Eventbridge
 		&i.DueSeconds,
 		&i.DueNanos,
 		&i.Version,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -197,7 +199,7 @@ func (q *Queries) GetConnectionParameters(ctx context.Context, connectionID stri
 }
 
 const listConnections = `-- name: ListConnections :many
-SELECT "partition", account, region, name, id, description, authorization_type, state, state_reason, secret_arn, kms_key_identifier, username, api_key_name, client_id, authorization_endpoint, oauth_method, has_auth, has_invocation, has_oauth_http, created, modified, last_authorized, due_seconds, due_nanos, version FROM eventbridge_connections WHERE partition=? AND account=? AND region=? ORDER BY name
+SELECT "partition", account, region, name, id, description, authorization_type, state, state_reason, secret_arn, kms_key_identifier, username, api_key_name, client_id, authorization_endpoint, oauth_method, has_auth, has_invocation, has_oauth_http, created, modified, last_authorized, due_seconds, due_nanos, version, cfn_owner FROM eventbridge_connections WHERE partition=? AND account=? AND region=? ORDER BY name
 `
 
 type ListConnectionsParams struct {
@@ -241,6 +243,7 @@ func (q *Queries) ListConnections(ctx context.Context, arg ListConnectionsParams
 			&i.DueSeconds,
 			&i.DueNanos,
 			&i.Version,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -256,7 +259,7 @@ func (q *Queries) ListConnections(ctx context.Context, arg ListConnectionsParams
 }
 
 const nextConnectionJob = `-- name: NextConnectionJob :one
-SELECT "partition", account, region, name, id, description, authorization_type, state, state_reason, secret_arn, kms_key_identifier, username, api_key_name, client_id, authorization_endpoint, oauth_method, has_auth, has_invocation, has_oauth_http, created, modified, last_authorized, due_seconds, due_nanos, version FROM eventbridge_connections WHERE due_seconds IS NOT NULL ORDER BY due_seconds,due_nanos,id LIMIT 1
+SELECT "partition", account, region, name, id, description, authorization_type, state, state_reason, secret_arn, kms_key_identifier, username, api_key_name, client_id, authorization_endpoint, oauth_method, has_auth, has_invocation, has_oauth_http, created, modified, last_authorized, due_seconds, due_nanos, version, cfn_owner FROM eventbridge_connections WHERE due_seconds IS NOT NULL ORDER BY due_seconds,due_nanos,id LIMIT 1
 `
 
 func (q *Queries) NextConnectionJob(ctx context.Context) (EventbridgeConnection, error) {
@@ -288,14 +291,15 @@ func (q *Queries) NextConnectionJob(ctx context.Context) (EventbridgeConnection,
 		&i.DueSeconds,
 		&i.DueNanos,
 		&i.Version,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const putConnection = `-- name: PutConnection :exec
-INSERT INTO eventbridge_connections(partition,account,region,name,id,description,authorization_type,state,state_reason,secret_arn,kms_key_identifier,username,api_key_name,client_id,authorization_endpoint,oauth_method,has_auth,has_invocation,has_oauth_http,created,modified,last_authorized,due_seconds,due_nanos,version)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-ON CONFLICT(partition,account,region,name) DO UPDATE SET id=excluded.id,description=excluded.description,authorization_type=excluded.authorization_type,state=excluded.state,state_reason=excluded.state_reason,secret_arn=excluded.secret_arn,kms_key_identifier=excluded.kms_key_identifier,username=excluded.username,api_key_name=excluded.api_key_name,client_id=excluded.client_id,authorization_endpoint=excluded.authorization_endpoint,oauth_method=excluded.oauth_method,has_auth=excluded.has_auth,has_invocation=excluded.has_invocation,has_oauth_http=excluded.has_oauth_http,created=excluded.created,modified=excluded.modified,last_authorized=excluded.last_authorized,due_seconds=excluded.due_seconds,due_nanos=excluded.due_nanos,version=excluded.version
+INSERT INTO eventbridge_connections(partition,account,region,name,id,description,authorization_type,state,state_reason,secret_arn,kms_key_identifier,username,api_key_name,client_id,authorization_endpoint,oauth_method,has_auth,has_invocation,has_oauth_http,created,modified,last_authorized,due_seconds,due_nanos,version,cfn_owner)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+ON CONFLICT(partition,account,region,name) DO UPDATE SET id=excluded.id,description=excluded.description,authorization_type=excluded.authorization_type,state=excluded.state,state_reason=excluded.state_reason,secret_arn=excluded.secret_arn,kms_key_identifier=excluded.kms_key_identifier,username=excluded.username,api_key_name=excluded.api_key_name,client_id=excluded.client_id,authorization_endpoint=excluded.authorization_endpoint,oauth_method=excluded.oauth_method,has_auth=excluded.has_auth,has_invocation=excluded.has_invocation,has_oauth_http=excluded.has_oauth_http,created=excluded.created,modified=excluded.modified,last_authorized=excluded.last_authorized,due_seconds=excluded.due_seconds,due_nanos=excluded.due_nanos,version=excluded.version,cfn_owner=excluded.cfn_owner
 `
 
 type PutConnectionParams struct {
@@ -324,6 +328,7 @@ type PutConnectionParams struct {
 	DueSeconds            sql.NullInt64
 	DueNanos              int64
 	Version               sqlite.Uint64
+	CfnOwner              string
 }
 
 func (q *Queries) PutConnection(ctx context.Context, arg PutConnectionParams) error {
@@ -353,6 +358,7 @@ func (q *Queries) PutConnection(ctx context.Context, arg PutConnectionParams) er
 		arg.DueSeconds,
 		arg.DueNanos,
 		arg.Version,
+		arg.CfnOwner,
 	)
 	return err
 }

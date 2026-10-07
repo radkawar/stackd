@@ -86,9 +86,24 @@ func (s *Service) writeEventInvokeConfig(ctx context.Context, name, qualifier st
 		if wire := s.authorizeFunction(tx, action, ref, f, nil); wire != nil {
 			return wire
 		}
+		owner, creating, err := additionalOwnerFor(tx.Context())
+		if err != nil {
+			return err
+		}
 		current, err := tx.EventInvokeConfig(key)
 		if err != nil && !errors.Is(err, ErrNotFound) {
 			return err
+		}
+		if err == nil && !current.Deleted {
+			if err := requireAdditionalOwner(tx.Context(), current.Owner); err != nil {
+				return err
+			}
+			if creating {
+				v = current
+				return s.recordCall(tx.Context(), action, input, eventInvokeConfiguration(v), nil)
+			}
+		} else if owner != (AdditionalOwner{}) && !creating {
+			return ErrNotFound
 		}
 		if patch && (errors.Is(err, ErrNotFound) || current.Deleted) {
 			return ErrNotFound
@@ -97,6 +112,10 @@ func (s *Service) writeEventInvokeConfig(ctx context.Context, name, qualifier st
 			current.Effective = defaultEventInvokeSettings()
 		}
 		v = EventInvokeConfig{Key: key, Effective: current.Effective, Version: current.Version}
+		v.Owner = current.Owner
+		if current.Deleted || errors.Is(err, ErrNotFound) {
+			v.Owner = owner
+		}
 		if patch {
 			v.MaxAgeSeconds, v.MaxRetries, v.HasMaxAge, v.HasMaxRetries = current.MaxAgeSeconds, current.MaxRetries, current.HasMaxAge, current.HasMaxRetries
 			v.OnSuccessARN, v.OnFailureARN = current.OnSuccessARN, current.OnFailureARN
@@ -151,6 +170,9 @@ func (s *Service) getEventInvokeConfig(ctx context.Context, in *api.GetFunctionE
 		if err == nil && v.Deleted {
 			return ErrNotFound
 		}
+		if err == nil {
+			return requireAdditionalOwner(r.Context(), v.Owner)
+		}
 		return err
 	})
 	if err != nil {
@@ -178,6 +200,9 @@ func (s *Service) deleteEventInvokeConfig(ctx context.Context, in *api.DeleteFun
 		}
 		if v.Deleted {
 			return ErrNotFound
+		}
+		if err := requireAdditionalOwner(tx.Context(), v.Owner); err != nil {
+			return err
 		}
 		v.Deleted = true
 		if err := s.stageEventInvokeConfig(tx, &v); err != nil {

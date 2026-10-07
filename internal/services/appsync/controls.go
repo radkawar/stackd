@@ -37,6 +37,7 @@ func register[I, O any](s *Service, action string, f func(context.Context, Trans
 		err = preflightMapping(ctx, in)
 		if err == nil {
 			err = s.repository.Attempt(ctx, func(t Transaction) error {
+				t = bindCloudFormationOwnership(t)
 				var e error
 				out, e = f(t.Context(), t, in)
 				if e != nil {
@@ -173,11 +174,11 @@ func (s *Service) passRole(ctx context.Context, k Key, arn string) error {
 // Tokens contain an ordered cursor and exact request scope, not a mutable offset.
 func page[T any](items []T, token *api.PaginationToken, max *api.MaxResults, scope string, id func(T) string) ([]T, *api.PaginationToken, error) {
 	limit := 25
-	if max != nil {
+	if max != nil && *max != 0 {
 		limit = int(*max)
 	}
 	if limit < 1 || limit > 25 {
-		return nil, nil, bad("maxResults must be between 1 and 25.")
+		return nil, nil, bad("maxResults must be between 0 and 25.")
 	}
 	cursor := ""
 	if value(token) != "" {

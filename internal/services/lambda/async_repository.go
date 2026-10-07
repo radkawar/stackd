@@ -11,6 +11,7 @@ import (
 // Deleted hides a pending reset from the API; omission still uses service defaults.
 type EventInvokeConfig struct {
 	Key                        FunctionReference
+	Owner                      AdditionalOwner
 	Modified                   time.Time
 	MaxAgeSeconds, MaxRetries  int
 	HasMaxAge, HasMaxRetries   bool

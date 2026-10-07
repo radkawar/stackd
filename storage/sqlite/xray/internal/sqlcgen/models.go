@@ -17,6 +17,7 @@ type XrayGroup struct {
 	Name             string
 	FilterExpression string
 	Version          int64
+	CfnOwner         string
 }
 
 type XrayGroupMetric struct {
@@ -66,6 +67,7 @@ type XrayResourcePolicy struct {
 	Document  string
 	Revision  int64
 	Updated   time.Time
+	CfnOwner  string
 }
 
 type XraySamplingAttribute struct {
@@ -138,6 +140,7 @@ type XraySamplingRule struct {
 	BoostCooldownMinutes sql.NullInt64
 	Created              time.Time
 	Modified             time.Time
+	CfnOwner             string
 }
 
 type XraySamplingStatistic struct {

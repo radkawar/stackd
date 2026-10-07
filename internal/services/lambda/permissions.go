@@ -129,10 +129,16 @@ func (s *Service) authorizeFunctionPolicy(ctx context.Context, function Function
 	for key, values := range extra {
 		conditions[key] = values
 	}
-	return s.authorizer.Authorize(ctx, authorization.Request{
+	if wire := s.authorizer.Authorize(ctx, authorization.Request{
 		Action: "lambda:" + action, ResourceARN: arn, ResourceAccountID: function.Key.Account,
 		ResourcePolicies: []authorization.BoundPolicy{{Document: current.Document, PrincipalIDs: current.PrincipalIDs}}, Context: conditions,
-	})
+	}); wire != nil {
+		return wire
+	}
+	if function.Revision != "" {
+		return requireFunctionOwner(ctx, function.Owner)
+	}
+	return nil
 }
 
 func loadPermissionDocument(r PolicyReader, key FunctionReference) (FunctionPolicy, permissionDocument, error) {

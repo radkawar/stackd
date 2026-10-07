@@ -1,5 +1,5 @@
 -- name: PutDetector :exec
-INSERT INTO guardduty_detectors (partition, account_id, region, id, arn, status, frequency, service_role, client_token, created, updated, features_present, tags_present) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO guardduty_detectors (cfn_owner, cfn_token, partition, account_id, region, id, arn, status, frequency, service_role, client_token, created, updated, features_present, tags_present) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, id) DO UPDATE SET arn=excluded.arn, status=excluded.status, frequency=excluded.frequency, service_role=excluded.service_role, client_token=excluded.client_token, created=excluded.created, updated=excluded.updated, features_present=excluded.features_present, tags_present=excluded.tags_present;
 
 -- name: GetDetector :one
@@ -50,7 +50,7 @@ SELECT id, name FROM guardduty_observation_threat_lists WHERE partition=? AND ac
 DELETE FROM guardduty_observation_threat_lists WHERE partition=? AND account_id=? AND region=? AND detector_id=? AND id=?;
 
 -- name: PutFilter :exec
-INSERT INTO guardduty_filters (partition, account_id, region, detector_id, name, arn, action, description, client_token, description_set, rank, version, created, updated, criteria_present, tags_present) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO guardduty_filters (cfn_owner, cfn_token, partition, account_id, region, detector_id, name, arn, action, description, client_token, description_set, rank, version, created, updated, criteria_present, tags_present) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, detector_id, name) DO UPDATE SET arn=excluded.arn, action=excluded.action, description=excluded.description, client_token=excluded.client_token, description_set=excluded.description_set, rank=excluded.rank, version=excluded.version, created=excluded.created, updated=excluded.updated, criteria_present=excluded.criteria_present, tags_present=excluded.tags_present;
 
 -- name: GetFilter :one

@@ -26,6 +26,9 @@ func (s *Service) loadSnapshot(ctx context.Context, r Reader, action, name strin
 }
 func snapshotDTO(v Snapshot, detail bool) *api.Snapshot {
 	out := &api.Snapshot{Name: new(api.String(v.Key.Name)), ARN: new(api.String(v.Key.ARN())), Status: new(api.String(v.Status)), Source: new(api.String("manual")), ClusterConfiguration: &api.ClusterConfiguration{Name: new(api.String(v.Source)), Engine: new(api.String(v.Engine)), EngineVersion: new(api.String(v.EngineVersion)), NodeType: new(api.String(v.NodeType)), NumShards: new(api.IntegerOptional(v.Shards)), ParameterGroupName: new(api.String(v.ParameterGroup))}}
+	// All admitted native clusters use in-memory t4g nodes; snapshot capabilities
+	// inherit their source rather than advertising unavailable r6gd tiering.
+	out.DataTiering = new(api.DataTieringStatusFALSE)
 	if detail {
 		for i := int32(0); i < v.Shards; i++ {
 			out.ClusterConfiguration.Shards = append(out.ClusterConfiguration.Shards, api.ShardDetail{Name: new(api.String(fmt.Sprintf("%04d", i+1))), SnapshotCreationTime: new(api.TStamp(v.Created)), Configuration: &api.ShardConfiguration{ReplicaCount: new(api.IntegerOptional(v.Replicas)), Slots: new(api.String(fmt.Sprintf("%d-%d", 16384*i/v.Shards, 16384*(i+1)/v.Shards-1)))}})
@@ -105,6 +108,8 @@ func (s *Service) copySnapshot(ctx context.Context, tx Transaction, in *api.Copy
 	}
 	v := source
 	v.Key = k
+	// A copy is a new direct-API row; the source's private claim is not portable.
+	v.CloudFormationOwner = ""
 	v.CopySource = source.RuntimeID
 	v.RuntimeID = incarnation()
 	v.Operation = "copy"

@@ -12,6 +12,7 @@ type (
 	Transaction          = domain.Transaction
 	Scope                = domain.Scope
 	StreamKey            = domain.StreamKey
+	ResourceOwner        = domain.ResourceOwner
 	StreamRecord         = domain.StreamRecord
 	StreamUpdate         = domain.StreamUpdate
 	StreamQuery          = domain.StreamQuery

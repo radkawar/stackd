@@ -100,6 +100,9 @@ func cloneFunction(v FunctionRecord) FunctionRecord {
 	v.Reference = cloneS3Reference(v.Reference)
 	v.Durable = cloneDurableConfig(v.Durable)
 	v.Capacity = cloneCapacityFunction(v.Capacity)
+	v.Image = cloneDeploymentImage(v.Image)
+	v.ImageConfig = cloneImageConfig(v.ImageConfig)
+	v.VpcConfig = cloneFunctionNetwork(v.VpcConfig)
 	return v
 }
 func (r memoryReader) Function(k FunctionKey) (FunctionRecord, error) {

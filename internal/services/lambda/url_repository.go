@@ -19,6 +19,7 @@ type FunctionURLSettings struct {
 
 type FunctionURLRecord struct {
 	Key                 FunctionReference
+	Owner               AdditionalOwner
 	ID                  string
 	Created, Modified   time.Time
 	Settings, Effective FunctionURLSettings

@@ -44,6 +44,7 @@ func (r reader) streams(rows []sqlcgen.KinesisStream) ([]domain.StreamRecord, er
 func (r reader) stream(row sqlcgen.KinesisStream) (domain.StreamRecord, error) {
 	k := domain.StreamKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Name: row.Name}
 	out := domain.StreamRecord{Key: k, EngineID: row.EngineID, NextPartition: int32(row.NextPartition), RetentionNextAt: row.RetentionNextAt.UTC()}
+	out.Owner = domain.ResourceOwner{StackID: row.OwnerStackID, LogicalID: row.OwnerLogicalID, Token: row.OwnerToken}
 	out.Data = api.StreamDescriptionSummary{
 		ChannelCount:            integerPointer[api.ChannelCountObject](row.ChannelCount),
 		ConsumerCount:           integerPointer[api.ConsumerCountObject](row.ConsumerCount),
@@ -146,6 +147,9 @@ func (w writer) PutStream(v domain.StreamRecord) error {
 		p.WarmTarget = nullableInteger(d.WarmThroughput.TargetMiBps)
 	}
 	if err := w.q.PutStream(w.ctx, p); err != nil {
+		return err
+	}
+	if err := w.q.SetStreamOwner(w.ctx, sqlcgen.SetStreamOwnerParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, OwnerStackID: v.Owner.StackID, OwnerLogicalID: v.Owner.LogicalID, OwnerToken: v.Owner.Token}); err != nil {
 		return err
 	}
 	if err := w.q.DeleteMonitoringMetrics(w.ctx, sqlcgen.DeleteMonitoringMetricsParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name}); err != nil {

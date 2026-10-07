@@ -302,6 +302,7 @@ func (s *Service) runInvocation(v InvocationRecord) {
 		}
 		admitted = true
 		slot = s.invocationExecutionLocked(FunctionVersionKey{FunctionKey: v.Key, Version: f.Version}, v.Reference())
+		slot.image = f.Image
 		return nil
 	})
 	s.mu.Unlock()

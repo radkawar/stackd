@@ -11,6 +11,7 @@ import (
 func (r reader) usagePlan(row sqlcgen.ApigatewayUsagePlan) (domain.UsagePlanRecord, error) {
 	key := domain.PlanKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.PlanID}
 	out := domain.UsagePlanRecord{Key: key, Name: row.Name, Description: stringPointer(row.Description)}
+	out.Ownership = domain.Ownership{StackID: row.CfnStackID, LogicalID: row.CfnLogicalID, Incarnation: row.CfnIncarnation}
 	if row.ThrottleBurst.Valid {
 		out.Throttle = &domain.UsageThrottle{Burst: int32(row.ThrottleBurst.Int64), Rate: row.ThrottleRate.Float64}
 	}
@@ -88,6 +89,7 @@ func (r reader) UsagePlansForKey(key domain.ClientKey) ([]domain.UsagePlanRecord
 func (w writer) PutUsagePlan(row domain.UsagePlanRecord) error {
 	key := row.Key
 	in := sqlcgen.PutUsagePlanParams{Partition: key.Partition, AccountID: key.AccountID, Region: key.Region, PlanID: key.ID, Name: row.Name, Description: stringColumn(row.Description)}
+	in.CfnStackID, in.CfnLogicalID, in.CfnIncarnation = row.Ownership.StackID, row.Ownership.LogicalID, row.Ownership.Incarnation
 	if row.Throttle != nil {
 		in.ThrottleBurst = sql.NullInt64{Int64: int64(row.Throttle.Burst), Valid: true}
 		in.ThrottleRate = sql.NullFloat64{Float64: row.Throttle.Rate, Valid: true}
@@ -129,11 +131,11 @@ func (w writer) DeleteUsagePlan(key domain.PlanKey) error {
 }
 
 func (r reader) UsagePlanMembership(plan domain.PlanKey, clientKeyID string) (domain.UsagePlanMembership, error) {
-	created, err := r.q.GetUsagePlanMembership(r.ctx, sqlcgen.GetUsagePlanMembershipParams{Partition: plan.Partition, AccountID: plan.AccountID, Region: plan.Region, PlanID: plan.ID, ClientKeyID: clientKeyID})
+	row, err := r.q.GetUsagePlanMembership(r.ctx, sqlcgen.GetUsagePlanMembershipParams{Partition: plan.Partition, AccountID: plan.AccountID, Region: plan.Region, PlanID: plan.ID, ClientKeyID: clientKeyID})
 	if err != nil {
 		return domain.UsagePlanMembership{}, missing(err)
 	}
-	return domain.UsagePlanMembership{Plan: plan, ClientKeyID: clientKeyID, Created: created}, nil
+	return domain.UsagePlanMembership{Ownership: domain.Ownership{StackID: row.CfnStackID, LogicalID: row.CfnLogicalID, Incarnation: row.CfnIncarnation}, Plan: plan, ClientKeyID: clientKeyID, Created: row.Created}, nil
 }
 
 func (r reader) UsagePlanKeys(plan domain.PlanKey) ([]domain.ClientKeyRecord, error) {
@@ -154,7 +156,7 @@ func (r reader) UsagePlanKeys(plan domain.PlanKey) ([]domain.ClientKeyRecord, er
 
 func (w writer) PutUsagePlanMembership(row domain.UsagePlanMembership) error {
 	key := row.Plan
-	return w.q.PutUsagePlanMembership(w.ctx, sqlcgen.PutUsagePlanMembershipParams{Partition: key.Partition, AccountID: key.AccountID, Region: key.Region, PlanID: key.ID, ClientKeyID: row.ClientKeyID, Created: row.Created})
+	return w.q.PutUsagePlanMembership(w.ctx, sqlcgen.PutUsagePlanMembershipParams{CfnStackID: row.Ownership.StackID, CfnLogicalID: row.Ownership.LogicalID, CfnIncarnation: row.Ownership.Incarnation, Partition: key.Partition, AccountID: key.AccountID, Region: key.Region, PlanID: key.ID, ClientKeyID: row.ClientKeyID, Created: row.Created})
 }
 
 func (w writer) DeleteUsagePlanMembership(plan domain.PlanKey, clientKeyID string) error {

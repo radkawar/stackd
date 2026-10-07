@@ -32,6 +32,7 @@ type SamplingRuleRecord struct {
 	Attributes    map[string]string
 	RateBoost     *api.SamplingRateBoost
 	Tags          map[string]string
+	CFNOwner      string
 	Created       time.Time
 	Modified      time.Time
 }

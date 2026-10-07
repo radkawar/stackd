@@ -49,6 +49,9 @@ func (s *Service) loadFilter(tx Reader, detector, name, action string) (Filter, 
 	if err != nil {
 		return f, invalid("The requested filter does not exist")
 	}
+	if err := checkCloudFormationOwnership(tx.Context(), f.CFNOwnership); err != nil {
+		return f, err
+	}
 	return f, nil
 }
 func registerFilters(s *Service) {
@@ -96,6 +99,9 @@ func registerFilters(s *Service) {
 		out := &api.CreateFilterResponse{}
 		text(&out.Name, name)
 		if err == nil && token != "" && existing.ClientToken == token {
+			if e := checkCloudFormationOwnership(tx.Context(), existing.CFNOwnership); e != nil {
+				return nil, e
+			}
 			return out, nil
 		}
 		if err == nil {
@@ -114,6 +120,7 @@ func registerFilters(s *Service) {
 		}
 		now := s.clock.Now()
 		f := Filter{Scope: sc, DetectorID: id, Name: name, ARN: arn, Action: action, Description: value(in.Description), DescriptionSet: in.Description != nil, ClientToken: token, Rank: rank, Version: 1, Created: now, Updated: now, Criteria: api.CloneFindingCriteria(*in.FindingCriteria), Tags: tags}
+		f.CFNOwnership = creationOwnership(tx.Context())
 		if e := placeFilter(tx, filters, f, 0); e != nil {
 			return nil, e
 		}

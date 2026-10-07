@@ -40,6 +40,10 @@ func registerControls(s *Service) {
 }
 
 func (s *Service) createStream(ctx context.Context, tx Transaction, in *api.CreateStreamInput) (*api.CreateStreamOutput, error) {
+	claim, err := resourceOwnerFor(ctx)
+	if err != nil {
+		return nil, err
+	}
 	key, err := streamKey(ctx, value(in.StreamName), "")
 	if err != nil {
 		return nil, err
@@ -89,8 +93,8 @@ func (s *Service) createStream(ctx context.Context, tx Transaction, in *api.Crea
 	} else if !errors.Is(err, ErrNotFound) {
 		return nil, err
 	}
-	if s.runtime == nil {
-		return nil, failure("InternalFailureException", "Kinesis log runtime is not configured", 500)
+	if err = s.requireRuntime(); err != nil {
+		return nil, err
 	}
 	if in.WarmThroughputMiBps != nil {
 		if err = s.validateWarmThroughput(tx, key.Scope, mode, int32(*in.WarmThroughputMiBps)); err != nil {
@@ -102,7 +106,7 @@ func (s *Service) createStream(ctx context.Context, tx Transaction, in *api.Crea
 		return nil, err
 	}
 	now := s.clock.Now().UTC().Truncate(time.Millisecond)
-	record := StreamRecord{Key: key, EngineID: uuid.NewString(), NextPartition: count, Pending: &StreamUpdate{AcceptedAt: now}, Data: api.StreamDescriptionSummary{
+	record := StreamRecord{Key: key, Owner: claim.Owner, EngineID: uuid.NewString(), NextPartition: count, Pending: &StreamUpdate{AcceptedAt: now}, Data: api.StreamDescriptionSummary{
 		StreamName: new(api.StreamName(key.Name)), StreamARN: new(api.StreamARN(key.ARN())), StreamCreationTimestamp: &now,
 		StreamStatus: new(api.StreamStatusCREATING), StreamModeDetails: &api.StreamModeDetails{StreamMode: new(mode)},
 		RetentionPeriodHours: new(api.RetentionPeriodHours(24)), OpenShardCount: new(api.ShardCountObject(0)),
@@ -187,6 +191,9 @@ func (s *Service) deleteStream(ctx context.Context, tx Transaction, in *api.Dele
 		return &api.DeleteStreamOutput{}, nil
 	}
 	if err = requireActive(stream); err != nil {
+		return nil, err
+	}
+	if err = s.requireRuntime(); err != nil {
 		return nil, err
 	}
 	consumers, err := tx.Consumers(stream.Key)

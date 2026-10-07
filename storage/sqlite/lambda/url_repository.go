@@ -49,8 +49,9 @@ func (r reader) FunctionURLs(k domain.FunctionKey) ([]domain.FunctionURLRecord, 
 
 func functionURLRecord(v sqlcgen.LambdaFunctionUrl) (domain.FunctionURLRecord, error) {
 	out := domain.FunctionURLRecord{
-		Key: domain.FunctionReference{FunctionKey: domain.FunctionKey{Scope: domain.Scope{Partition: v.Partition, Account: v.Account, Region: v.Region}, Name: v.FunctionName}, Qualifier: v.Qualifier},
-		ID:  v.ID, Created: v.Created, Modified: v.Modified, AppliesAt: v.AppliesAt,
+		Key:   domain.FunctionReference{FunctionKey: domain.FunctionKey{Scope: domain.Scope{Partition: v.Partition, Account: v.Account, Region: v.Region}, Name: v.FunctionName}, Qualifier: v.Qualifier},
+		Owner: domain.AdditionalOwner{StackID: v.OwnerStackID, LogicalID: v.OwnerLogicalID, Token: v.OwnerToken},
+		ID:    v.ID, Created: v.Created, Modified: v.Modified, AppliesAt: v.AppliesAt,
 		Settings:  domain.FunctionURLSettings{AuthType: v.AuthType, InvokeMode: v.InvokeMode},
 		Effective: domain.FunctionURLSettings{AuthType: v.EffectiveAuthType, InvokeMode: v.EffectiveInvokeMode},
 	}
@@ -105,6 +106,7 @@ func (w writer) PutFunctionURL(v domain.FunctionURLRecord) error {
 	k := v.Key
 	params := sqlcgen.PutFunctionURLParams{
 		Partition: k.Partition, Account: k.Account, Region: k.Region, FunctionName: k.Name, Qualifier: k.Qualifier,
+		OwnerStackID: v.Owner.StackID, OwnerLogicalID: v.Owner.LogicalID, OwnerToken: v.Owner.Token,
 		ID: v.ID, Created: v.Created, Modified: v.Modified, AppliesAt: v.AppliesAt,
 		AuthType: v.Settings.AuthType, InvokeMode: v.Settings.InvokeMode,
 		EffectiveAuthType: v.Effective.AuthType, EffectiveInvokeMode: v.Effective.InvokeMode,

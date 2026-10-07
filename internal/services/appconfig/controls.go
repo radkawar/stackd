@@ -60,12 +60,12 @@ func notFound(err error) bool {
 
 // authorizeResource evaluates current IAM for one resource element of an
 // action, including that resource's current aws:ResourceTag values.
-func (s *Service) authorizeResource(r Reader, sc Scope, action, resource string) error {
+func (s *Service) authorizeResource(r Reader, sc Scope, action, resource string, claim CloudFormationOwnership) error {
 	tags, err := r.Tags(sc, resource)
 	if err != nil {
 		return err
 	}
-	return s.authorize(r.Context(), action, resource, tags)
+	return s.authorizePrivate(r.Context(), action, resource, tags, claim)
 }
 
 // controlApplication resolves an application and authorizes the application
@@ -82,7 +82,7 @@ func (s *Service) controlApplication(r Reader, sc Scope, action, id string) (App
 	if err != nil {
 		return Application{}, err
 	}
-	return app, s.authorizeResource(r, sc, action, appARN(sc, app.ID))
+	return app, s.authorizeResource(r, sc, action, appARN(sc, app.ID), app.Ownership)
 }
 
 func (s *Service) controlEnvironment(r Reader, sc Scope, action string, app Application, id string) (Environment, error) {
@@ -96,7 +96,7 @@ func (s *Service) controlEnvironment(r Reader, sc Scope, action string, app Appl
 	if err != nil {
 		return Environment{}, err
 	}
-	return env, s.authorizeResource(r, sc, action, envARN(sc, app.ID, env.ID))
+	return env, s.authorizeResource(r, sc, action, envARN(sc, app.ID, env.ID), env.Ownership)
 }
 
 func (s *Service) controlProfile(r Reader, sc Scope, action string, app Application, id string) (Profile, error) {
@@ -110,7 +110,7 @@ func (s *Service) controlProfile(r Reader, sc Scope, action string, app Applicat
 	if err != nil {
 		return Profile{}, err
 	}
-	return profile, s.authorizeResource(r, sc, action, profileARN(sc, app.ID, profile.ID))
+	return profile, s.authorizeResource(r, sc, action, profileARN(sc, app.ID, profile.ID), profile.Ownership)
 }
 
 // uniqueID allocates a native-shaped identifier absent from taken.

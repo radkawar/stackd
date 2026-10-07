@@ -18,6 +18,7 @@ func (k ServiceKey) ARN() string {
 // their immutable task definitions and execution settings across rolling updates.
 type ServiceRecord struct {
 	Key                  ServiceKey
+	Ownership            string
 	Data                 api.Service
 	CreateInput          api.CreateServiceInput
 	Deployments          []ServiceDeployment

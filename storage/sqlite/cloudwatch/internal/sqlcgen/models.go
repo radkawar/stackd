@@ -34,6 +34,7 @@ type CloudwatchAlarm struct {
 	SuppressionUntil    sql.NullTime
 	EvaluationEventID   string
 	EvaluationRequestID string
+	CfnOwner            string
 }
 
 type CloudwatchAlarmAction struct {
@@ -175,6 +176,7 @@ type CloudwatchDashboard struct {
 	Updated            time.Time
 	Size               int64
 	TaggingInitialized bool
+	CfnOwner           string
 }
 
 type CloudwatchDashboardTag struct {

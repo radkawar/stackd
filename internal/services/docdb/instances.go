@@ -54,6 +54,7 @@ func (s *Service) createInstance(ctx context.Context, tx Transaction, in *api.Cr
 		return nil, e
 	}
 	m := Instance{Key: k, Cluster: v.Key.Name, Class: value(in.DBInstanceClass), RuntimeID: id, Status: "creating", Created: s.clock.Now(), Tags: tags}
+	m.Owner = cloudFormationClaim(ctx, k)
 	v.Operation = "create"
 	if v.RestoreSnapshot != "" {
 		v.Operation = "restore"

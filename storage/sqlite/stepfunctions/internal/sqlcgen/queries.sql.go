@@ -368,7 +368,7 @@ func (q *Queries) DeleteVersion(ctx context.Context, arg DeleteVersionParams) (i
 }
 
 const getActivity = `-- name: GetActivity :one
-SELECT "partition", account_id, region, name, id, created, encryption_type, kms_key_arn, data_key_reuse_seconds FROM stepfunctions_activities WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
+SELECT "partition", account_id, region, name, id, created, encryption_type, kms_key_arn, data_key_reuse_seconds, cfn_owner FROM stepfunctions_activities WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
 `
 
 type GetActivityParams struct {
@@ -396,12 +396,13 @@ func (q *Queries) GetActivity(ctx context.Context, arg GetActivityParams) (Stepf
 		&i.EncryptionType,
 		&i.KmsKeyArn,
 		&i.DataKeyReuseSeconds,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const getAlias = `-- name: GetAlias :one
-SELECT "partition", account_id, region, machine_name, machine_id, name, description, created, updated FROM stepfunctions_aliases WHERE partition = ? AND account_id = ? AND region = ? AND machine_name = ? AND machine_id = ? AND name = ?
+SELECT "partition", account_id, region, machine_name, machine_id, name, description, created, updated, cfn_owner FROM stepfunctions_aliases WHERE partition = ? AND account_id = ? AND region = ? AND machine_name = ? AND machine_id = ? AND name = ?
 `
 
 type GetAliasParams struct {
@@ -433,6 +434,7 @@ func (q *Queries) GetAlias(ctx context.Context, arg GetAliasParams) (Stepfunctio
 		&i.Description,
 		&i.Created,
 		&i.Updated,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -601,7 +603,7 @@ func (q *Queries) GetHistoryEvent(ctx context.Context, arg GetHistoryEventParams
 }
 
 const getMachine = `-- name: GetMachine :one
-SELECT "partition", account_id, region, name, id, revision_id, type, status, created, version, delete_at, next_version, first_version_description FROM stepfunctions_machines WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
+SELECT "partition", account_id, region, name, id, revision_id, type, status, created, version, delete_at, next_version, first_version_description, cfn_owner FROM stepfunctions_machines WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
 `
 
 type GetMachineParams struct {
@@ -633,6 +635,7 @@ func (q *Queries) GetMachine(ctx context.Context, arg GetMachineParams) (Stepfun
 		&i.DeleteAt,
 		&i.NextVersion,
 		&i.FirstVersionDescription,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -834,7 +837,7 @@ func (q *Queries) GetTaskByToken(ctx context.Context, arg GetTaskByTokenParams) 
 }
 
 const getVersion = `-- name: GetVersion :one
-SELECT "partition", account_id, region, machine_name, machine_id, number, revision_id, created, description FROM stepfunctions_versions WHERE partition = ? AND account_id = ? AND region = ? AND machine_name = ? AND machine_id = ? AND number = ?
+SELECT "partition", account_id, region, machine_name, machine_id, number, revision_id, created, description, cfn_owner FROM stepfunctions_versions WHERE partition = ? AND account_id = ? AND region = ? AND machine_name = ? AND machine_id = ? AND number = ?
 `
 
 type GetVersionParams struct {
@@ -866,12 +869,13 @@ func (q *Queries) GetVersion(ctx context.Context, arg GetVersionParams) (Stepfun
 		&i.RevisionID,
 		&i.Created,
 		&i.Description,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const listActivities = `-- name: ListActivities :many
-SELECT "partition", account_id, region, name, id, created, encryption_type, kms_key_arn, data_key_reuse_seconds FROM stepfunctions_activities WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
+SELECT "partition", account_id, region, name, id, created, encryption_type, kms_key_arn, data_key_reuse_seconds, cfn_owner FROM stepfunctions_activities WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
 `
 
 type ListActivitiesParams struct {
@@ -899,6 +903,7 @@ func (q *Queries) ListActivities(ctx context.Context, arg ListActivitiesParams) 
 			&i.EncryptionType,
 			&i.KmsKeyArn,
 			&i.DataKeyReuseSeconds,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -1079,7 +1084,7 @@ func (q *Queries) ListAliasRoutes(ctx context.Context, arg ListAliasRoutesParams
 }
 
 const listAliases = `-- name: ListAliases :many
-SELECT "partition", account_id, region, machine_name, machine_id, name, description, created, updated FROM stepfunctions_aliases WHERE partition = ? AND account_id = ? AND region = ? AND machine_name = ? AND machine_id = ? ORDER BY name
+SELECT "partition", account_id, region, machine_name, machine_id, name, description, created, updated, cfn_owner FROM stepfunctions_aliases WHERE partition = ? AND account_id = ? AND region = ? AND machine_name = ? AND machine_id = ? ORDER BY name
 `
 
 type ListAliasesParams struct {
@@ -1115,6 +1120,7 @@ func (q *Queries) ListAliases(ctx context.Context, arg ListAliasesParams) ([]Ste
 			&i.Description,
 			&i.Created,
 			&i.Updated,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -1442,7 +1448,7 @@ func (q *Queries) ListMachineTags(ctx context.Context, arg ListMachineTagsParams
 }
 
 const listMachines = `-- name: ListMachines :many
-SELECT "partition", account_id, region, name, id, revision_id, type, status, created, version, delete_at, next_version, first_version_description FROM stepfunctions_machines WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
+SELECT "partition", account_id, region, name, id, revision_id, type, status, created, version, delete_at, next_version, first_version_description, cfn_owner FROM stepfunctions_machines WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
 `
 
 type ListMachinesParams struct {
@@ -1474,6 +1480,7 @@ func (q *Queries) ListMachines(ctx context.Context, arg ListMachinesParams) ([]S
 			&i.DeleteAt,
 			&i.NextVersion,
 			&i.FirstVersionDescription,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -1762,7 +1769,7 @@ func (q *Queries) ListRedriveRequests(ctx context.Context, arg ListRedriveReques
 }
 
 const listVersions = `-- name: ListVersions :many
-SELECT "partition", account_id, region, machine_name, machine_id, number, revision_id, created, description FROM stepfunctions_versions WHERE partition = ? AND account_id = ? AND region = ? AND machine_name = ? AND machine_id = ? ORDER BY number DESC
+SELECT "partition", account_id, region, machine_name, machine_id, number, revision_id, created, description, cfn_owner FROM stepfunctions_versions WHERE partition = ? AND account_id = ? AND region = ? AND machine_name = ? AND machine_id = ? ORDER BY number DESC
 `
 
 type ListVersionsParams struct {
@@ -1798,6 +1805,7 @@ func (q *Queries) ListVersions(ctx context.Context, arg ListVersionsParams) ([]S
 			&i.RevisionID,
 			&i.Created,
 			&i.Description,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -2062,7 +2070,7 @@ func (q *Queries) NextTaskTimeout(ctx context.Context) (NextTaskTimeoutRow, erro
 }
 
 const putActivity = `-- name: PutActivity :exec
-INSERT INTO stepfunctions_activities (partition, account_id, region, name, id, created, encryption_type, kms_key_arn, data_key_reuse_seconds) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO stepfunctions_activities (partition, account_id, region, name, id, created, encryption_type, kms_key_arn, data_key_reuse_seconds, cfn_owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, name) DO UPDATE SET id = excluded.id, created = excluded.created, encryption_type = excluded.encryption_type, kms_key_arn = excluded.kms_key_arn, data_key_reuse_seconds = excluded.data_key_reuse_seconds
 `
 
@@ -2076,6 +2084,7 @@ type PutActivityParams struct {
 	EncryptionType      string
 	KmsKeyArn           string
 	DataKeyReuseSeconds int64
+	CfnOwner            string
 }
 
 func (q *Queries) PutActivity(ctx context.Context, arg PutActivityParams) error {
@@ -2089,6 +2098,7 @@ func (q *Queries) PutActivity(ctx context.Context, arg PutActivityParams) error 
 		arg.EncryptionType,
 		arg.KmsKeyArn,
 		arg.DataKeyReuseSeconds,
+		arg.CfnOwner,
 	)
 	return err
 }
@@ -2119,9 +2129,9 @@ func (q *Queries) PutActivityTag(ctx context.Context, arg PutActivityTagParams) 
 }
 
 const putAlias = `-- name: PutAlias :exec
-INSERT INTO stepfunctions_aliases (partition, account_id, region, machine_name, machine_id, name, description, created, updated)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, machine_name, machine_id, name) DO UPDATE SET description = excluded.description, created = excluded.created, updated = excluded.updated
+INSERT INTO stepfunctions_aliases (partition, account_id, region, machine_name, machine_id, name, description, created, updated, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, machine_name, machine_id, name) DO UPDATE SET description = excluded.description, created = excluded.created, updated = excluded.updated, cfn_owner = excluded.cfn_owner
 `
 
 type PutAliasParams struct {
@@ -2134,6 +2144,7 @@ type PutAliasParams struct {
 	Description string
 	Created     time.Time
 	Updated     time.Time
+	CfnOwner    string
 }
 
 func (q *Queries) PutAlias(ctx context.Context, arg PutAliasParams) error {
@@ -2147,6 +2158,7 @@ func (q *Queries) PutAlias(ctx context.Context, arg PutAliasParams) error {
 		arg.Description,
 		arg.Created,
 		arg.Updated,
+		arg.CfnOwner,
 	)
 	return err
 }
@@ -2376,8 +2388,8 @@ func (q *Queries) PutFrameRetry(ctx context.Context, arg PutFrameRetryParams) er
 }
 
 const putMachine = `-- name: PutMachine :exec
-INSERT INTO stepfunctions_machines (partition, account_id, region, name, id, revision_id, type, status, created, version, delete_at, next_version, first_version_description)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO stepfunctions_machines (partition, account_id, region, name, id, revision_id, type, status, created, version, delete_at, next_version, first_version_description, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, name) DO UPDATE SET id = excluded.id, revision_id = excluded.revision_id, type = excluded.type, status = excluded.status, created = excluded.created, version = excluded.version, delete_at = excluded.delete_at, next_version = excluded.next_version, first_version_description = excluded.first_version_description
 `
 
@@ -2395,6 +2407,7 @@ type PutMachineParams struct {
 	DeleteAt                sql.NullTime
 	NextVersion             int64
 	FirstVersionDescription string
+	CfnOwner                string
 }
 
 func (q *Queries) PutMachine(ctx context.Context, arg PutMachineParams) error {
@@ -2412,6 +2425,7 @@ func (q *Queries) PutMachine(ctx context.Context, arg PutMachineParams) error {
 		arg.DeleteAt,
 		arg.NextVersion,
 		arg.FirstVersionDescription,
+		arg.CfnOwner,
 	)
 	return err
 }
@@ -2691,9 +2705,9 @@ func (q *Queries) PutTask(ctx context.Context, arg PutTaskParams) error {
 }
 
 const putVersion = `-- name: PutVersion :exec
-INSERT INTO stepfunctions_versions (partition, account_id, region, machine_name, machine_id, number, revision_id, created, description)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, machine_name, machine_id, number) DO UPDATE SET revision_id = excluded.revision_id, created = excluded.created, description = excluded.description
+INSERT INTO stepfunctions_versions (partition, account_id, region, machine_name, machine_id, number, revision_id, created, description, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, machine_name, machine_id, number) DO UPDATE SET revision_id = excluded.revision_id, created = excluded.created, description = excluded.description, cfn_owner = excluded.cfn_owner
 `
 
 type PutVersionParams struct {
@@ -2706,6 +2720,7 @@ type PutVersionParams struct {
 	RevisionID  string
 	Created     time.Time
 	Description string
+	CfnOwner    string
 }
 
 func (q *Queries) PutVersion(ctx context.Context, arg PutVersionParams) error {
@@ -2719,6 +2734,7 @@ func (q *Queries) PutVersion(ctx context.Context, arg PutVersionParams) error {
 		arg.RevisionID,
 		arg.Created,
 		arg.Description,
+		arg.CfnOwner,
 	)
 	return err
 }

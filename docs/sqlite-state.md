@@ -1319,3 +1319,43 @@ Attachment positions retain precedence within a target. Policy/hierarchy changes
 commit publication intents and typed journal events together; workers atomically
 publish the resulting view and event. [Effective-policy recovery](organizations-effective-policies.md)
 covers restart, rollback, revision conflicts and legacy regeneration.
+
+## Private CloudFormation creation claims
+
+Migrations 375 and 376 retain Secrets Manager and AppConfig creation claims in
+service-owned typed columns, committed with native state. Secrets Manager stores
+independent owner/token pairs for the secret, policy, rotation and attachment;
+attachment metadata remains typed. AppConfig stores owner/token pairs on each
+native resource family, including immutable hosted versions.
+
+Migrations 388–402 extend service-owned private claims and creation receipts for
+Lambda event-source mappings; EC2 networking, instances, launch templates and key
+pairs; EBS volumes and attachment slots; EventBridge rules and independent policy
+statements; EKS resources; Scheduler groups and schedules; Step Functions machines
+and activities; Pipes; Organizations accounts; and RAM permissions. Recovery
+matches the scoped native object or relationship incarnation, not a same-name
+replacement or a caller-supplied physical ID. EC2 termination tombstones are
+retained only for authorized deletion stabilization, never new creation recovery.
+
+Config recorder creation settings are nullable, typed private metadata, separate
+from mutable recording status and public tags. Legacy and ordinary native rows
+without a known `StartedOnCreate` setting do not acquire an invented value.
+
+Ordinary authorized native and Cloud Control updates preserve existing private
+claims. Removing a resource or relationship invalidates its claim; recreating the
+same public name, ARN or statement ID does not transfer the old stack's authority.
+Resource Groups stack membership resolves live private claims and canonical native
+identities from ledger candidates; public tags are not a membership proof.
+
+Lambda image retention stores the admitted source identity separately from its
+actual Docker-derived snapshot identity and private lease (schemas 389 and 402).
+Deployment and live execution roots drive collection outside repository
+transactions. Durable native image labels make a late commit discoverable after a
+lost response; cleanup removes only unreferenced owned artifacts, never a source
+image, foreign user reference or daemon-wide image inventory.
+
+Public tags on taggable resources are never backfilled into ownership authority.
+The AppConfig hosted-version migration moves its historical internal marker
+metadata because hosted versions are not public taggable resources. Recovery
+still requires current native authorization and the exact claim; SQLite
+persistence is not permission to adopt a same-name foreign row.

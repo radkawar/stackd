@@ -17,6 +17,17 @@ state. SQLite uses service-owned tables and SQLC queries, not opaque resource
 blobs. An execution pins its admitted revision and alias/version identity;
 later control changes do not rewrite that snapshot.
 
+CloudFormation StateMachine and Activity claims live on their native incarnation
+rows, alongside the existing private Version and Alias claims. Migration
+`395_stepfunctions_top_level_ownership.sql` does not infer owners from existing
+tags. Trusted creation admits a claim atomically; public tag edits and ordinary
+native/Cloud Control configuration updates cannot adopt or transfer it.
+Cloud Control creates can recover their own exact claim after a lost reply.
+Recovery and no-op mutations still require current native IAM. Qualified rows
+remain fenced by the actual machine ID, and retained executions continue to pin
+immutable revisions after updates or parent deletion/recreation. These local
+ownership guarantees do not establish complete CloudFormation or execution parity.
+
 State transitions commit resource changes, history, deadlines and service
 observations together. The scheduler discovers work from its resource owner.
 Waits, retries, task/heartbeat expiry and execution retention use the injected

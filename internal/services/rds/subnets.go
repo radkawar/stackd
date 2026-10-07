@@ -91,6 +91,11 @@ func (s *Service) createSubnetGroup(ctx context.Context, tx Transaction, in *api
 		return nil, e
 	}
 	v := SubnetGroup{Key: k, Description: description, VPCID: vpc, Subnets: subnets, Tags: tags}
+	v.ResourceID, e = incarnation()
+	if e != nil {
+		return nil, e
+	}
+	v.Owner = cloudFormationClaim(ctx, k)
 	if e = tx.PutSubnetGroup(v); e != nil {
 		return nil, e
 	}
@@ -107,6 +112,9 @@ func (s *Service) loadSubnetGroup(ctx context.Context, tx Reader, action, name s
 		e = notFound("subgrp")
 	}
 	if e != nil {
+		return v, e
+	}
+	if e = checkCloudFormationOwner(ctx, k, v.Owner); e != nil {
 		return v, e
 	}
 	return v, s.authorize(ctx, action, k, v.Tags, nil)

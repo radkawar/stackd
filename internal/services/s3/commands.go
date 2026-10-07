@@ -378,6 +378,9 @@ func (s *Service) bucket(tx Reader, c *apiCall, expected string) (BucketRecord, 
 	if expected != "" && expected != b.AccountID {
 		return b, denied()
 	}
+	if wire := checkBucketOwner(tx.Context(), b); wire != nil {
+		return b, wire
+	}
 	if wire := admitRequestPayment(tx.Context(), b); wire != nil {
 		return b, wire
 	}

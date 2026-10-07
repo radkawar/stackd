@@ -22,9 +22,10 @@ type Specification struct {
 	DomainName, Hostname       string
 	// PublicHostname is EC2's current public name. VPC DNS resolves it to the
 	// private address (split horizon); an empty value withdraws that record.
-	PublicHostname string
-	DNSSupport     bool
-	Policy         Policy
+	PublicHostname   string
+	DNSSupport       bool
+	Policy           Policy
+	ServiceEndpoints []ServiceEndpoint
 }
 
 // IPRule is a normalized IPv4 packet match. Protocol -1 matches all protocols;
@@ -48,6 +49,8 @@ type Policy struct {
 	Subnet                          netip.Prefix
 	SecurityIngress, SecurityEgress []IPRule
 	ACLIngress, ACLEgress           []ACLRule
+	NATRoutes                       []NATRoute
+	PrivateRoutes                   []PrivateRoute
 	// PublicIPv4 is allocated by EC2. PublicEgress additionally requires an
 	// active IGW route; neither a route nor assignment alone grants admission.
 	PublicIPv4   netip.Addr
@@ -60,5 +63,7 @@ func (p Policy) Equal(other Policy) bool {
 		slices.Equal(p.SecurityIngress, other.SecurityIngress) &&
 		slices.Equal(p.SecurityEgress, other.SecurityEgress) &&
 		slices.Equal(p.ACLIngress, other.ACLIngress) &&
-		slices.Equal(p.ACLEgress, other.ACLEgress)
+		slices.Equal(p.ACLEgress, other.ACLEgress) &&
+		equalNATRoutes(p.NATRoutes, other.NATRoutes) &&
+		slices.Equal(p.PrivateRoutes, other.PrivateRoutes)
 }

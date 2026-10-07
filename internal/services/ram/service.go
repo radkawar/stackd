@@ -19,6 +19,7 @@ import (
 	"stackd/internal/awscatalog"
 	"stackd/internal/awsctx"
 	"stackd/internal/awswire"
+	"stackd/internal/services/identitystore"
 	"stackd/journal"
 )
 
@@ -272,9 +273,12 @@ func receipt(tx Transaction, op string, token *api.String, in any) (Receipt, boo
 		return Receipt{}, false, e
 	}
 	hash := sha256.Sum256(data)
-	r := Receipt{Scope: scopeFor(tx.Context()), Operation: op, Token: string(*token), Hash: hex.EncodeToString(hash[:])}
+	r := Receipt{Scope: scopeFor(tx.Context()), Operation: op, Token: string(*token), Hash: hex.EncodeToString(hash[:]), CloudFormationOwner: identitystore.CloudFormationOwner(tx.Context())}
 	old, e := tx.Receipt(r.Scope, op, r.Token)
 	if e == nil {
+		if r.CloudFormationOwner != "" && r.CloudFormationOwner != old.CloudFormationOwner {
+			return r, false, notOwned("Operation receipt")
+		}
 		if old.Hash != r.Hash {
 			if op == "AssociateResourceSharePermission" || op == "DisassociateResourceSharePermission" {
 				return r, false, failure("InvalidClientTokenException", r.Token)

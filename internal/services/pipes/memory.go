@@ -180,6 +180,9 @@ func (r memoryWriter) PutPipe(p PipeRecord) error {
 	if e := r.t.Check(true); e != nil {
 		return e
 	}
+	if old, ok := r.s.pipes[p.Key]; ok && old.ID == p.ID {
+		p.CFNOwner = old.CFNOwner
+	}
 	r.s.pipes[p.Key] = clonePipe(Stored(p))
 	return nil
 }

@@ -69,6 +69,13 @@ func (s *Service) run(ctx context.Context, job scheduler.Job) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
+	var admission *cloudformation.ResourcePendingError
+	if errors.As(err, &admission) {
+		// The owner has not admitted this exact retained command. Keep APPLY
+		// or MUTATE intent; stabilization must never bypass admission.
+		op.Message = admission.Error()
+		return s.complete(ctx, job, op)
+	}
 	if err != nil {
 		op.Status = "FAILED"
 		op.Phase = "DONE"
@@ -106,7 +113,11 @@ func (s *Service) effect(ctx context.Context, op *RequestRecord) error {
 		if err != nil {
 			return err
 		}
-		op.Before = encode(cloudformation.WritableResourceProperties(op.TypeName, properties))
+		writable, err := cloudformation.WritableResourceProperties(op.TypeName, properties)
+		if err != nil {
+			return failure("GeneralServiceException", err.Error())
+		}
+		op.Before = encode(writable)
 		op.Desired = op.Before
 		// Commit existence and the exact admitted identity before deletion.
 		// A recovered delete may then observe absence without changing an
@@ -169,7 +180,7 @@ func handlerErrorCode(err error) string {
 		switch wire.Code {
 		case "AccessDenied", "AccessDeniedException", "UnauthorizedOperation":
 			return "AccessDenied"
-		case "NoSuchEntity", "NoSuchBucket", "NotFound", "ResourceNotFound", "ResourceNotFoundException", "QueueDoesNotExist", "AWS.SimpleQueueService.NonExistentQueue", "ParameterNotFound", "RepositoryNotFoundException":
+		case "NoSuchEntity", "NoSuchBucket", "NotFound", "EntityNotFoundException", "ResourceNotFound", "ResourceNotFoundException", "QueueDoesNotExist", "AWS.SimpleQueueService.NonExistentQueue", "ParameterNotFound", "RepositoryNotFoundException":
 			return "NotFound"
 		case "AlreadyExists", "AlreadyExistsException", "ResourceAlreadyExistsException", "BucketAlreadyExists", "BucketAlreadyOwnedByYou", "QueueNameExists", "EntityAlreadyExists", "ParameterAlreadyExists", "RepositoryAlreadyExistsException":
 			return "AlreadyExists"

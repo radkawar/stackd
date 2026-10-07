@@ -16,6 +16,7 @@ type Elbv2Listener struct {
 	CertificateID   string
 	Certificates    []byte
 	Actions         []byte
+	Ownership       string
 }
 
 type Elbv2LoadBalancer struct {
@@ -41,6 +42,7 @@ type Elbv2LoadBalancer struct {
 	NextReconcile      int64
 	Version            int64
 	NextMetricAt       int64
+	Ownership          string
 }
 
 type Elbv2Rule struct {
@@ -53,6 +55,7 @@ type Elbv2Rule struct {
 	IsDefault   int64
 	Conditions  []byte
 	Actions     []byte
+	Ownership   string
 }
 
 type Elbv2Target struct {
@@ -98,4 +101,5 @@ type Elbv2TargetGroup struct {
 	Matcher             string
 	LoadBalancerArns    []byte
 	DeregistrationDelay int64
+	Ownership           string
 }

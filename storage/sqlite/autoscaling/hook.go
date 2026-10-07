@@ -7,10 +7,8 @@ import (
 )
 
 func (r reader) hook(row sqlcgen.AsgHook) (domain.HookRecord, error) {
-	out := domain.HookRecord{
-		Key:     domain.HookKey{GroupKey: groupKey(row.Partition, row.AccountID, row.Region, row.GroupName), Name: row.Name},
-		GroupID: row.GroupID,
-	}
+	out := domain.HookRecord{Ownership: row.Ownership, Key: domain.HookKey{GroupKey: groupKey(row.Partition, row.AccountID, row.Region, row.GroupName), Name: row.Name},
+		GroupID: row.GroupID}
 	out.Data.AutoScalingGroupName = stringPointer[api.XmlStringMaxLen255](row.DataAutoScalingGroupName)
 	out.Data.DefaultResult = stringPointer[api.LifecycleActionResult](row.DataDefaultResult)
 	out.Data.GlobalTimeout = intPointer[api.GlobalTimeout](row.DataGlobalTimeout)
@@ -24,14 +22,12 @@ func (r reader) hook(row sqlcgen.AsgHook) (domain.HookRecord, error) {
 }
 
 func (w writer) PutHook(v domain.HookRecord) error {
-	p := sqlcgen.PutHookParams{
-		Partition: v.Key.Partition,
+	p := sqlcgen.PutHookParams{Ownership: v.Ownership, Partition: v.Key.Partition,
 		AccountID: v.Key.AccountID,
 		Region:    v.Key.Region,
 		GroupName: v.Key.GroupKey.Name,
 		Name:      v.Key.Name,
-		GroupID:   v.GroupID,
-	}
+		GroupID:   v.GroupID}
 	p.DataAutoScalingGroupName = nullableString(v.Data.AutoScalingGroupName)
 	p.DataDefaultResult = nullableString(v.Data.DefaultResult)
 	p.DataGlobalTimeout = nullableInt(v.Data.GlobalTimeout)

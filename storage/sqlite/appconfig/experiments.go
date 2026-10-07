@@ -30,7 +30,7 @@ func (r reader) ExperimentDefinitions(sc domain.Scope, app string) ([]domain.Exp
 	return out, nil
 }
 func (r reader) loadExperimentDefinition(v sqlcgen.AppconfigExperimentDefinition) (domain.ExperimentDefinition, error) {
-	out := domain.ExperimentDefinition{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, ApplicationID: v.ApplicationID, ID: v.ID, Name: v.Name, EnvironmentID: v.EnvironmentID, ProfileID: v.ProfileID, FlagKey: v.FlagKey, AudienceRule: v.AudienceRule, AudienceDescription: v.AudienceDescription, Hypothesis: v.Hypothesis, LaunchCriteria: v.LaunchCriteria, KMSKeyIdentifier: v.KmsKeyIdentifier, Status: v.Status, CreatedAt: v.CreatedAt, UpdatedAt: v.UpdatedAt}
+	out := domain.ExperimentDefinition{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, ApplicationID: v.ApplicationID, ID: v.ID, Name: v.Name, EnvironmentID: v.EnvironmentID, ProfileID: v.ProfileID, FlagKey: v.FlagKey, AudienceRule: v.AudienceRule, AudienceDescription: v.AudienceDescription, Hypothesis: v.Hypothesis, LaunchCriteria: v.LaunchCriteria, KMSKeyIdentifier: v.KmsKeyIdentifier, Status: v.Status, CreatedAt: v.CreatedAt, UpdatedAt: v.UpdatedAt, Ownership: domain.CloudFormationOwnership{Owner: v.CfnOwner, Token: v.CfnToken}}
 	rows, e := r.q.ListExperimentTreatments(r.ctx, v.RowID)
 	if e != nil {
 		return out, e
@@ -74,7 +74,7 @@ func (w writer) PutExperimentDefinition(v domain.ExperimentDefinition) error {
 	return e
 }
 func (w writer) putExperimentDefinition(v domain.ExperimentDefinition, snapshot int32) (int64, error) {
-	id, e := w.q.PutExperimentDefinition(w.ctx, sqlcgen.PutExperimentDefinitionParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, ApplicationID: v.ApplicationID, ID: v.ID, SnapshotNumber: int64(snapshot), Name: v.Name, EnvironmentID: v.EnvironmentID, ProfileID: v.ProfileID, FlagKey: v.FlagKey, AudienceRule: v.AudienceRule, AudienceDescription: v.AudienceDescription, Hypothesis: v.Hypothesis, LaunchCriteria: v.LaunchCriteria, KmsKeyIdentifier: v.KMSKeyIdentifier, Status: v.Status, CreatedAt: v.CreatedAt.UTC(), UpdatedAt: v.UpdatedAt.UTC()})
+	id, e := w.q.PutExperimentDefinition(w.ctx, sqlcgen.PutExperimentDefinitionParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, ApplicationID: v.ApplicationID, ID: v.ID, SnapshotNumber: int64(snapshot), Name: v.Name, EnvironmentID: v.EnvironmentID, ProfileID: v.ProfileID, FlagKey: v.FlagKey, AudienceRule: v.AudienceRule, AudienceDescription: v.AudienceDescription, Hypothesis: v.Hypothesis, LaunchCriteria: v.LaunchCriteria, KmsKeyIdentifier: v.KMSKeyIdentifier, Status: v.Status, CreatedAt: v.CreatedAt.UTC(), UpdatedAt: v.UpdatedAt.UTC(), CfnOwner: v.Ownership.Owner, CfnToken: v.Ownership.Token})
 	if e != nil {
 		return 0, e
 	}
@@ -126,7 +126,7 @@ func (r reader) ExperimentRuns(sc domain.Scope, app, id string) ([]domain.Experi
 	}
 	out := make([]domain.ExperimentRun, 0, len(rows))
 	for _, row := range rows {
-		v := domain.ExperimentRun{Scope: sc, ApplicationID: app, DefinitionID: id, Number: int32(row.Number), Description: row.Description, Status: row.Status, Exposure: row.Exposure, StartedAt: row.StartedAt, UpdatedAt: row.UpdatedAt, EndedAt: row.EndedAt}
+		v := domain.ExperimentRun{Scope: sc, ApplicationID: app, DefinitionID: id, Number: int32(row.Number), Description: row.Description, Status: row.Status, Exposure: row.Exposure, StartedAt: row.StartedAt, UpdatedAt: row.UpdatedAt, EndedAt: row.EndedAt, Ownership: domain.CloudFormationOwnership{Owner: row.CfnOwner, Token: row.CfnToken}}
 		snapshot, e := r.q.GetExperimentDefinitionRow(r.ctx, sqlcgen.GetExperimentDefinitionRowParams{Partition: sc.Partition, AccountID: sc.AccountID, Region: sc.Region, ApplicationID: app, ID: id, SnapshotNumber: row.Number})
 		if e != nil {
 			return nil, e
@@ -181,7 +181,7 @@ func (w writer) PutExperimentRun(v domain.ExperimentRun) error {
 	if _, e = w.putExperimentDefinition(v.Snapshot, v.Number); e != nil {
 		return e
 	}
-	p := sqlcgen.PutExperimentRunParams{DefinitionRow: definition.RowID, Number: int64(v.Number), Description: v.Description, Status: v.Status, Exposure: v.Exposure, HasOverrides: experimentBool(v.Overrides != nil), HasResult: experimentBool(v.Result != nil), StartedAt: v.StartedAt.UTC(), UpdatedAt: v.UpdatedAt.UTC(), EndedAt: v.EndedAt.UTC()}
+	p := sqlcgen.PutExperimentRunParams{DefinitionRow: definition.RowID, Number: int64(v.Number), Description: v.Description, Status: v.Status, Exposure: v.Exposure, HasOverrides: experimentBool(v.Overrides != nil), HasResult: experimentBool(v.Result != nil), StartedAt: v.StartedAt.UTC(), UpdatedAt: v.UpdatedAt.UTC(), EndedAt: v.EndedAt.UTC(), CfnOwner: v.Ownership.Owner, CfnToken: v.Ownership.Token}
 	if v.Result != nil {
 		p.ExecutiveSummary = v.Result.ExecutiveSummary
 		p.ReasonsToLaunch = v.Result.ReasonsToLaunch

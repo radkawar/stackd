@@ -71,6 +71,7 @@ func (r reader) accessPoint(row sqlcgen.S3AccessPoint) (domain.AccessPointRecord
 		Key:   domain.AccessPointKey{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region, Name: row.Name},
 		Alias: row.Alias, Bucket: domain.BucketKey{Partition: row.BucketPartition, Name: row.BucketName},
 		BucketAccountID: row.BucketAccountID, Created: row.Created, VPCID: row.VpcID,
+		CloudFormationOwner: row.CloudformationOwner,
 		PublicAccess: domain.PublicAccessBlock{
 			BlockPublicACLs: row.BlockPublicAcls, IgnorePublicACLs: row.IgnorePublicAcls,
 			BlockPublicPolicy: row.BlockPublicPolicy, RestrictPublicBuckets: row.RestrictPublicBuckets,
@@ -154,6 +155,7 @@ func (w writer) PutAccessPoint(v domain.AccessPointRecord) error {
 		BlockPublicAcls: v.PublicAccess.BlockPublicACLs, IgnorePublicAcls: v.PublicAccess.IgnorePublicACLs,
 		BlockPublicPolicy: v.PublicAccess.BlockPublicPolicy, RestrictPublicBuckets: v.PublicAccess.RestrictPublicBuckets,
 		PolicyDocument: v.Policy.Document, PolicyTrust: v.Policy.TrustPolicy,
+		CloudformationOwner: v.CloudFormationOwner,
 	}); err != nil {
 		return err
 	}
@@ -253,6 +255,7 @@ func (r reader) bucket(row sqlcgen.S3Bucket) (domain.BucketRecord, error) {
 		Key:       domain.BucketKey{Partition: row.Partition, Name: row.Name},
 		AccountID: row.AccountID, Region: row.Region, Created: row.Created, Ownership: row.Ownership, Versioning: row.Versioning,
 		Incarnation:         row.Incarnation,
+		CloudFormationOwner: row.CloudformationOwner, PolicyOwner: row.PolicyOwner,
 		EncryptionAlgorithm: row.EncryptionAlgorithm, KMSKeyID: row.KmsKeyID,
 		BucketKeyEnabled:   row.BucketKeyEnabled,
 		SSECustomerBlocked: row.SseCustomerBlocked,
@@ -532,8 +535,8 @@ func (w writer) PutBucket(v domain.BucketRecord) error {
 	}
 	if err := w.q.PutBucket(w.ctx, sqlcgen.PutBucketParams{
 		Partition: key.Partition, Name: key.Name, AccountID: v.AccountID, Region: v.Region,
-		Incarnation: v.Incarnation,
-		Created:     v.Created, PolicyDocument: v.Policy.Document, PolicyTrust: v.Policy.TrustPolicy, Ownership: v.Ownership, Versioning: v.Versioning,
+		Incarnation: v.Incarnation, CloudformationOwner: v.CloudFormationOwner, PolicyOwner: v.PolicyOwner,
+		Created: v.Created, PolicyDocument: v.Policy.Document, PolicyTrust: v.Policy.TrustPolicy, Ownership: v.Ownership, Versioning: v.Versioning,
 		EncryptionAlgorithm: v.EncryptionAlgorithm, KmsKeyID: v.KMSKeyID,
 		BucketKeyEnabled:   v.BucketKeyEnabled,
 		SseCustomerBlocked: v.SSECustomerBlocked,

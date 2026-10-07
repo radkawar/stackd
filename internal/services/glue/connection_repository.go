@@ -21,6 +21,7 @@ type ConnectionCrypto interface {
 }
 
 type ConnectionRecord struct {
+	CFNOwner       string
 	Key            ResourceKey
 	Connection     api.Connection
 	Tags           map[string]string

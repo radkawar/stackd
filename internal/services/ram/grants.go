@@ -433,6 +433,7 @@ func (s *Service) ResourceDeleted(ctx context.Context, arn string) error {
 					a.Status = "DISASSOCIATED"
 					a.StatusMessage = "The resource was deleted."
 					a.Updated = s.clock.Now()
+					a.CloudFormationOwner = ""
 					changed = true
 				}
 			}

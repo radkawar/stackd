@@ -5,8 +5,8 @@ SELECT * FROM docdb_cluster WHERE partition = ? AND account_id = ? AND region = 
 SELECT * FROM docdb_cluster ORDER BY partition,account_id,region,name;
 
 -- name: PutCluster :exec
-INSERT INTO docdb_cluster (partition, account_id, region, name, runtime_id, username, engine_version, status, operation, restore_snapshot, ciphertext, pending_ciphertext, address, port, replica_set, ca, requested_port, version, created, due, deletion_protection) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(partition,account_id,region,name) DO UPDATE SET runtime_id=excluded.runtime_id, username=excluded.username, engine_version=excluded.engine_version, status=excluded.status, operation=excluded.operation, restore_snapshot=excluded.restore_snapshot, ciphertext=excluded.ciphertext, pending_ciphertext=excluded.pending_ciphertext, address=excluded.address, port=excluded.port, replica_set=excluded.replica_set, ca=excluded.ca, requested_port=excluded.requested_port, version=excluded.version, created=excluded.created, due=excluded.due, deletion_protection=excluded.deletion_protection;
+INSERT INTO docdb_cluster (partition, account_id, region, name, runtime_id, username, engine_version, status, operation, restore_snapshot, ciphertext, pending_ciphertext, address, port, replica_set, ca, requested_port, version, created, due, deletion_protection, owner_stack_id, owner_logical_id, owner_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(partition,account_id,region,name) DO UPDATE SET runtime_id=excluded.runtime_id, username=excluded.username, engine_version=excluded.engine_version, status=excluded.status, operation=excluded.operation, restore_snapshot=excluded.restore_snapshot, ciphertext=excluded.ciphertext, pending_ciphertext=excluded.pending_ciphertext, address=excluded.address, port=excluded.port, replica_set=excluded.replica_set, ca=excluded.ca, requested_port=excluded.requested_port, version=excluded.version, created=excluded.created, due=excluded.due, deletion_protection=excluded.deletion_protection, owner_stack_id=excluded.owner_stack_id, owner_logical_id=excluded.owner_logical_id, owner_token=excluded.owner_token;
 
 -- name: DeleteCluster :exec
 DELETE FROM docdb_cluster WHERE partition = ? AND account_id = ? AND region = ? AND name = ?;
@@ -18,8 +18,8 @@ SELECT * FROM docdb_instance WHERE partition = ? AND account_id = ? AND region =
 SELECT * FROM docdb_instance ORDER BY partition,account_id,region,name;
 
 -- name: PutInstance :exec
-INSERT INTO docdb_instance (partition, account_id, region, name, cluster, class, runtime_id, status, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(partition,account_id,region,name) DO UPDATE SET cluster=excluded.cluster, class=excluded.class, runtime_id=excluded.runtime_id, status=excluded.status, created=excluded.created;
+INSERT INTO docdb_instance (partition, account_id, region, name, cluster, class, runtime_id, status, created, owner_stack_id, owner_logical_id, owner_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(partition,account_id,region,name) DO UPDATE SET cluster=excluded.cluster, class=excluded.class, runtime_id=excluded.runtime_id, status=excluded.status, created=excluded.created, owner_stack_id=excluded.owner_stack_id, owner_logical_id=excluded.owner_logical_id, owner_token=excluded.owner_token;
 
 -- name: DeleteInstance :exec
 DELETE FROM docdb_instance WHERE partition = ? AND account_id = ? AND region = ? AND name = ?;
@@ -31,8 +31,8 @@ SELECT * FROM docdb_snapshot WHERE partition = ? AND account_id = ? AND region =
 SELECT * FROM docdb_snapshot ORDER BY partition,account_id,region,name;
 
 -- name: PutSnapshot :exec
-INSERT INTO docdb_snapshot (partition, account_id, region, name, source, source_runtime_id, runtime_id, username, engine_version, status, operation, ciphertext, version, created, due) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(partition,account_id,region,name) DO UPDATE SET source=excluded.source, source_runtime_id=excluded.source_runtime_id, runtime_id=excluded.runtime_id, username=excluded.username, engine_version=excluded.engine_version, status=excluded.status, operation=excluded.operation, ciphertext=excluded.ciphertext, version=excluded.version, created=excluded.created, due=excluded.due;
+INSERT INTO docdb_snapshot (partition, account_id, region, name, source, source_runtime_id, runtime_id, username, engine_version, status, operation, ciphertext, version, created, due, owner_stack_id, owner_logical_id, owner_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(partition,account_id,region,name) DO UPDATE SET source=excluded.source, source_runtime_id=excluded.source_runtime_id, runtime_id=excluded.runtime_id, username=excluded.username, engine_version=excluded.engine_version, status=excluded.status, operation=excluded.operation, ciphertext=excluded.ciphertext, version=excluded.version, created=excluded.created, due=excluded.due, owner_stack_id=excluded.owner_stack_id, owner_logical_id=excluded.owner_logical_id, owner_token=excluded.owner_token;
 
 -- name: DeleteSnapshot :exec
 DELETE FROM docdb_snapshot WHERE partition = ? AND account_id = ? AND region = ? AND name = ?;

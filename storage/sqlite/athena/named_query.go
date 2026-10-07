@@ -44,6 +44,7 @@ func (r reader) NamedQueryByToken(scope domain.Scope, token string) (domain.Name
 
 func (r reader) namedQuery(row *sqlcgen.AthenaNamedQuery) (domain.NamedQueryRecord, error) {
 	var out domain.NamedQueryRecord
+	out.CFNOwner = row.CfnOwner
 	out.Key.Scope.Partition = row.KeyScopePartition
 	out.Key.Scope.AccountID = row.KeyScopeAccountID
 	out.Key.Scope.Region = row.KeyScopeRegion
@@ -61,6 +62,7 @@ func (r reader) namedQuery(row *sqlcgen.AthenaNamedQuery) (domain.NamedQueryReco
 
 func (w writer) PutNamedQuery(v domain.NamedQueryRecord) error {
 	var p sqlcgen.PutNamedQueryParams
+	p.CfnOwner = v.CFNOwner
 	p.KeyScopePartition = v.Key.Scope.Partition
 	p.KeyScopeAccountID = v.Key.Scope.AccountID
 	p.KeyScopeRegion = v.Key.Scope.Region

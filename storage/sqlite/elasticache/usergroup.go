@@ -28,7 +28,7 @@ func (r reader) UserGroups(sc domain.Scope) ([]domain.UserGroup, error) {
 	return out, nil
 }
 func (r reader) usergroup(row sqlcgen.ElasticacheUserGroup) (domain.UserGroup, error) {
-	v := domain.UserGroup{Key: domain.Key{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Kind: row.Kind, Name: row.Name}, Engine: row.Engine, Status: row.Status}
+	v := domain.UserGroup{Key: domain.Key{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Kind: row.Kind, Name: row.Name}, Engine: row.Engine, Status: row.Status, CloudFormationOwner: row.CloudformationOwner}
 	var e error
 	v.Tags, e = r.tags(v.Key)
 	if e != nil {
@@ -42,7 +42,7 @@ func (r reader) usergroup(row sqlcgen.ElasticacheUserGroup) (domain.UserGroup, e
 }
 func (w writer) PutUserGroup(v domain.UserGroup) error {
 	k := v.Key
-	if e := w.q.PutUserGroup(w.ctx, sqlcgen.PutUserGroupParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Kind: k.Kind, Name: k.Name, Engine: v.Engine, Status: v.Status}); e != nil {
+	if e := w.q.PutUserGroup(w.ctx, sqlcgen.PutUserGroupParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Kind: k.Kind, Name: k.Name, Engine: v.Engine, Status: v.Status, CloudformationOwner: v.CloudFormationOwner}); e != nil {
 		return e
 	}
 	if e := w.putTags(k, v.Tags); e != nil {

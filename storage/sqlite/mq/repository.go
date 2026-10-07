@@ -60,7 +60,7 @@ func (r reader) broker(row sqlcgen.MqBroker) (domain.BrokerRecord, error) {
 		ID:    row.ID, ARN: row.Arn, Name: row.Name, Engine: row.Engine, EngineVersion: row.EngineVersion,
 		InstanceType: row.InstanceType, State: row.State, CreatorRequestID: row.CreatorRequestID,
 		Username: row.Username, Password: row.Password, Operation: row.Operation, Failure: row.Failure,
-		Version: uint64(row.Version), Created: row.Created, Due: row.Due,
+		Version: uint64(row.Version), Created: row.Created, Due: row.Due, Ownership: row.Ownership,
 		Endpoint: domain.Endpoint{Address: row.EndpointAddress, ConsoleURL: row.EndpointConsoleUrl, NativeID: row.EndpointNativeID, CAPEM: row.EndpointCaPem},
 		Tags:     map[string]string{}, MaintenanceDay: row.MaintenanceDay, MaintenanceTime: row.MaintenanceTime,
 		MaintenanceZone: row.MaintenanceZone, MaintenanceDue: row.MaintenanceDue,
@@ -147,7 +147,7 @@ func (w writer) PutBroker(v domain.BrokerRecord) error {
 		LogPendingGeneral: pendingGeneral, LogPendingAudit: pendingAudit,
 		LogGeneralFileID: v.GeneralLogCursor.FileID, LogGeneralOffset: v.GeneralLogCursor.Offset,
 		LogAuditFileID: v.AuditLogCursor.FileID, LogAuditOffset: v.AuditLogCursor.Offset,
-		LogDeliveryError: v.LogDeliveryError, LogDue: v.LogDue,
+		LogDeliveryError: v.LogDeliveryError, LogDue: v.LogDue, Ownership: v.Ownership,
 	})
 	if err != nil {
 		return err
@@ -242,7 +242,7 @@ func (r reader) configuration(row sqlcgen.MqConfiguration) (domain.Configuration
 		Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region},
 		ID:    row.ID, ARN: row.Arn, Name: row.Name, Description: row.Description, Engine: row.Engine,
 		EngineVersion: row.EngineVersion, AuthenticationStrategy: row.AuthenticationStrategy,
-		Created: row.Created, Tags: map[string]string{},
+		Created: row.Created, Tags: map[string]string{}, Ownership: row.Ownership,
 	}
 	tags, err := r.q.ListConfigurationTags(r.ctx, v.ARN)
 	if err != nil {
@@ -268,7 +268,7 @@ func (w writer) PutConfiguration(v domain.ConfigurationRecord) error {
 	if err := w.q.PutConfiguration(w.ctx, sqlcgen.PutConfigurationParams{
 		Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, ID: v.ID, Arn: v.ARN,
 		Name: v.Name, Description: v.Description, Engine: v.Engine, EngineVersion: v.EngineVersion,
-		AuthenticationStrategy: v.AuthenticationStrategy, Created: v.Created,
+		AuthenticationStrategy: v.AuthenticationStrategy, Created: v.Created, Ownership: v.Ownership,
 	}); err != nil {
 		return err
 	}

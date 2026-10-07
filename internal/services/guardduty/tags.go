@@ -90,6 +90,20 @@ func (s *Service) taggedResource(tx Transaction, arn, action string, requested m
 	if err != nil {
 		return resource, invalid("The requested resource does not exist in this account and Region")
 	}
+	var owner CloudFormationOwnership
+	switch {
+	case resource.detector != nil:
+		owner = resource.detector.CFNOwnership
+	case resource.filter != nil:
+		owner = resource.filter.CFNOwnership
+	case resource.ipList != nil:
+		owner = resource.ipList.CFNOwnership
+	case resource.destination != nil:
+		owner = resource.destination.CFNOwnership
+	}
+	if e := checkCloudFormationOwnership(tx.Context(), owner); e != nil {
+		return resource, e
+	}
 	return resource, nil
 }
 func registerTags(s *Service) {

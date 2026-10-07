@@ -12,6 +12,12 @@ type Scope struct{ Partition, AccountID, Region string }
 
 // Recorder is the customer-managed recorder and its observed execution status.
 type Recorder struct {
+	CFNOwnership CloudFormationOwnership
+	// StartOnCreate is a private admitted recorder intent, not a customer tag.
+	StartOnCreate bool
+	// StartedOnCreate retains creation configuration independently of the consumed intent.
+	// Known is false for ordinary native creations and historical unobserved settings.
+	StartedOnCreate, StartedOnCreateKnown bool
 	Scope
 	Name, ARN, RoleARN                          string
 	AllSupported, IncludeGlobal, Recording      bool
@@ -21,6 +27,7 @@ type Recorder struct {
 }
 
 type Channel struct {
+	CFNOwnership CloudFormationOwnership
 	Scope
 	Name, Bucket, Prefix, KMSKeyARN, TopicARN, Frequency string
 	LastAttempt, LastSuccess, NextDelivery               time.Time
@@ -50,6 +57,7 @@ type Delivery struct {
 }
 
 type Rule struct {
+	CFNOwnership   CloudFormationOwnership
 	SourceMessages []string
 	Scope
 	Name, ID, ARN, Description, Owner, SourceIdentifier, InputParameters string
@@ -71,6 +79,7 @@ type EvaluationRun struct {
 	Status, ErrorCode, ErrorMessage string
 }
 type Aggregator struct {
+	CFNOwnership CloudFormationOwnership
 	Scope
 	Name, ARN            string
 	CreatedAt, UpdatedAt time.Time
@@ -78,6 +87,7 @@ type Aggregator struct {
 }
 type AggregationSource struct{ AccountID, Region string }
 type AggregationAuthorization struct {
+	CFNOwnership CloudFormationOwnership
 	Scope
 	AccountID, Region, ARN string
 	CreatedAt              time.Time

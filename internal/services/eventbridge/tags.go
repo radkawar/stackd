@@ -68,6 +68,16 @@ func (s *Service) tags(ctx context.Context, arn, action string, conditions map[s
 		if err != nil {
 			return err
 		}
+		if rule == nil {
+			if err := cloudFormationBusCheck(tx.Context(), b); err != nil {
+				return err
+			}
+			if change != nil {
+				if err := s.cloudFormationBusPolicyUpdateCheck(tx, b); err != nil {
+					return err
+				}
+			}
+		}
 		if tags == nil {
 			tags = map[string]string{}
 		}

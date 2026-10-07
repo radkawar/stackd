@@ -52,7 +52,7 @@ def main():
     def save():
         (state / "report.json").write_text(json.dumps(report, default=str, indent=2) + "\n")
     def start():
-        command = [str(Path(args.binary).resolve()), "-listen", f"0.0.0.0:{port}", "-public-endpoint", endpoint, "-database", str(state / "state.sqlite"), "-clock-start", "2026-09-28T12:00:00Z", "-docker-host", args.docker_host, "-compute-endpoint", f"http://host.docker.internal:{port}"]
+        command = [str(Path(args.binary).resolve()), "-listen", f"0.0.0.0:{port}", "-public-endpoint", endpoint, "-database", str(state / "state.sqlite"), "-clock-start", "2026-09-28T12:00:00Z", "-docker-host", args.docker_host, "-lambda-runtime", "-compute-endpoint", f"http://host.docker.internal:{port}"]
         if args.telemetry_directory:
             command += ["-lambda-telemetry-directory", args.telemetry_directory]
         controller.start(command, endpoint, environment=environment)

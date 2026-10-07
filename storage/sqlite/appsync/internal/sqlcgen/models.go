@@ -28,6 +28,8 @@ type AppsyncApi struct {
 	SchemaDefinition   string
 	SchemaStatus       string
 	SchemaDetails      []byte
+	SchemaOwnership    string
+	Ownership          string
 }
 
 type AppsyncAuth struct {
@@ -64,6 +66,7 @@ type AppsyncDataSource struct {
 	RdsDatabase  sql.NullString
 	RdsCluster   sql.NullString
 	RdsSchema    sql.NullString
+	Ownership    string
 }
 
 type AppsyncFunction struct {
@@ -80,6 +83,7 @@ type AppsyncFunction struct {
 	RequestTemplate  sql.NullString
 	ResponseTemplate sql.NullString
 	MaxBatchSize     sql.NullInt64
+	Ownership        string
 }
 
 type AppsyncKey struct {
@@ -88,6 +92,7 @@ type AppsyncKey struct {
 	Description sql.NullString
 	Expires     int64
 	Deletes     int64
+	Ownership   string
 }
 
 type AppsyncPipeline struct {
@@ -112,6 +117,7 @@ type AppsyncResolver struct {
 	ResponseTemplate sql.NullString
 	MaxBatchSize     sql.NullInt64
 	Metrics          sql.NullString
+	Ownership        string
 }
 
 type AppsyncTag struct {

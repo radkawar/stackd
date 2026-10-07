@@ -261,6 +261,7 @@ type PipesPipe struct {
 	EnrichmentHttpHeaders         string
 	EnrichmentHttpPaths           string
 	EnrichmentHttpQuery           string
+	CfnOwner                      string
 }
 
 type PipesTag struct {

@@ -18,6 +18,10 @@ import (
 // API's previously-tagged membership or GetResources exclusions. Tagging supplies
 // the common inventory, including its Sources; stack-only KMS aliases and qualified
 // Lambda resources use their own repositories. No state or List authority is copied.
+// Stack membership is proved only by each family's typed private CloudFormation
+// claim on the live native row; public tags and the stack ledger select nothing.
+// Families without such a claim (for example EC2 images/snapshots, ECS tasks
+// and Organizations roots) are never stack members.
 //
 // TODO: Comeback owners absent from tagging discovery (including nested-stack
 // deployments) cannot contribute stack members until they expose current typed
@@ -123,6 +127,10 @@ func (r ResourceGroupsResources) Stack(ctx context.Context, identifier string) (
 		if err != nil {
 			return err
 		}
+		privateOwners, err := r.privateOwners(ctx, stack, candidates)
+		if err != nil {
+			return err
+		}
 		seen := make(map[string]bool, len(candidates))
 		for _, candidate := range candidates {
 			if !candidate.Current || candidate.PhysicalID == "" || candidate.Status == "DELETE_COMPLETE" {
@@ -151,7 +159,7 @@ func (r ResourceGroupsResources) Stack(ctx context.Context, identifier string) (
 				continue
 			}
 			row, found := byARN[resourceARN]
-			if !found || row.Type != candidate.Type || seen[resourceARN] || !resourceGroupsStackOwner(stack, candidate, row) {
+			if !found || row.Type != candidate.Type || seen[resourceARN] || !resourceGroupsStackOwner(candidate, row, privateOwners) {
 				continue
 			}
 			seen[resourceARN] = true
@@ -166,15 +174,11 @@ func (r ResourceGroupsResources) Stack(ctx context.Context, identifier string) (
 	return result, err
 }
 
-func resourceGroupsStackOwner(stack cloudformation.StackRecord, candidate cloudformation.ResourceRecord, row resourcegroups.Resource) bool {
+func resourceGroupsStackOwner(candidate cloudformation.ResourceRecord, row resourcegroups.Resource, owners map[string]bool) bool {
 	if candidate.Type == "AWS::CloudFormation::Stack" {
 		return row.ARN == candidate.PhysicalID
 	}
-	request := cloudformation.ResourceRequest{StackID: stack.ID, LogicalID: candidate.LogicalID, Token: candidate.Token}
-	if candidate.Token == "" {
-		return false
-	}
-	return cfnMessagingOwned(row.Tags, request) == nil || cfnComputeOwnership(request, row.Tags) == nil
+	return owners[row.ARN]
 }
 
 func resourceGroupsStackARN(scope cloudformation.Scope, row cloudformation.ResourceRecord) string {
@@ -193,7 +197,20 @@ func resourceGroupsStackARN(scope cloudformation.Scope, row cloudformation.Resou
 	if row.Type == "AWS::KMS::Alias" {
 		return "arn:" + scope.Partition + ":kms:" + scope.Region + ":" + scope.Account + ":" + row.PhysicalID
 	}
+	// EC2 families whose physical ID is the native resource ID use the same
+	// canonical ARN as native discovery; the private owner still proves membership.
+	if kind := resourceGroupsEC2ARNKinds[row.Type]; kind != "" && row.PhysicalID != "" && !strings.Contains(row.PhysicalID, "/") {
+		return "arn:" + scope.Partition + ":ec2:" + scope.Region + ":" + scope.Account + ":" + kind + "/" + row.PhysicalID
+	}
 	return ""
+}
+
+var resourceGroupsEC2ARNKinds = map[string]string{
+	"AWS::EC2::VPC": "vpc", "AWS::EC2::Subnet": "subnet", "AWS::EC2::SecurityGroup": "security-group",
+	"AWS::EC2::RouteTable": "route-table", "AWS::EC2::InternetGateway": "internet-gateway", "AWS::EC2::NatGateway": "natgateway",
+	"AWS::EC2::VPCEndpoint": "vpc-endpoint", "AWS::EC2::NetworkInterface": "network-interface", "AWS::EC2::NetworkAcl": "network-acl",
+	"AWS::EC2::DHCPOptions": "dhcp-options", "AWS::EC2::Instance": "instance", "AWS::EC2::LaunchTemplate": "launch-template",
+	"AWS::EC2::Volume": "volume",
 }
 
 func resourceGroupsScope(m awsctx.Metadata, resourceARN, kind string) bool {

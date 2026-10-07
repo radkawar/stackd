@@ -102,6 +102,7 @@ func New(c Config) *Service {
 	return s
 }
 func register[I, O any](s *Service, name string, fn func(Transaction, *I) (*O, *awswire.Error)) {
+	observeAdmission := name == "CreateLogGroup"
 	s.operations[name] = func(ctx context.Context, in any) (any, *awswire.Error) {
 		var out *O
 		err := s.update(ctx, func(tx Transaction) (any, *awswire.Error) {
@@ -109,6 +110,11 @@ func register[I, O any](s *Service, name string, fn func(Transaction, *I) (*O, *
 			out, wire = fn(tx, in.(*I))
 			return out, wire
 		})
+		if err == nil && observeAdmission {
+			if owner, ok := ctx.Value(cloudFormationGroupOwnerKey{}).(cloudFormationOwner); ok && owner.Create {
+				observeCloudFormation(ctx, "LogGroup", value(in.(*api.CreateLogGroupRequest).LogGroupName), owner.Marker)
+			}
+		}
 		return out, wireError(err)
 	}
 }

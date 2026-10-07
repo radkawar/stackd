@@ -61,6 +61,7 @@ type key struct {
 	tags                             map[string]string
 	imports                          map[string]ImportedMaterialRecord
 	importParameters                 []ImportParametersRecord
+	owner                            KeyResourceOwner
 }
 
 func (k *key) currentMaterial() *KeyMaterialRecord {

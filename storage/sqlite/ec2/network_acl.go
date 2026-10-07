@@ -31,6 +31,7 @@ func (r reader) NetworkACLs(s domain.Scope) ([]domain.NetworkACLRecord, error) {
 func (r reader) networkAcl(row sqlcgen.Ec2NetworkAcl) (domain.NetworkACLRecord, error) {
 	k := domain.ResourceKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.ResourceID}
 	out := domain.NetworkACLRecord{Key: k}
+	out.CloudFormationOwner = cloudFormationOwner(row.CloudformationResourceType, row.CloudformationOwner)
 	d := &out.Data
 	d.IsDefault = boolPointer[api.Boolean](row.IsDefault)
 	d.NetworkAclId = stringPointer[api.String](row.NetworkAclID)

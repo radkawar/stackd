@@ -28,6 +28,7 @@ type KeyRecord struct {
 	Grants                               []GrantRecord
 	Imports                              []ImportedMaterialRecord
 	ImportParameters                     []ImportParametersRecord
+	Owner                                KeyResourceOwner
 }
 
 // KeySetRecord owns material and rotation once for a key ID. A single-Region

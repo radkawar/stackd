@@ -138,6 +138,15 @@ func (s *Service) tagTarget(r Reader, raw, action string, requested map[string]s
 	if missing || target.qualified && action != "ListTagsForResource" {
 		return target, resourceMissing(raw)
 	}
+	if target.machine != nil {
+		if err := cloudFormationCheck(r.Context(), "StateMachine", target.machine.CFNOwner); err != nil {
+			return target, err
+		}
+	} else if target.activity != nil {
+		if err := cloudFormationCheck(r.Context(), "Activity", target.activity.CFNOwner); err != nil {
+			return target, err
+		}
+	}
 	if target.qualified {
 		if number, ok := versionNumber(qualifier); ok {
 			_, err = r.Version(VersionKey{Machine: target.machine.Key, MachineID: target.machine.ID, Number: number})

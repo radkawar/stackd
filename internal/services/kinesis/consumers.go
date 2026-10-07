@@ -67,6 +67,9 @@ func (s *Service) consumer(ctx context.Context, r Reader, name, resource, stream
 	}
 	for _, record := range records {
 		if record.Key.Name == name {
+			if err := checkResourceOwner(ctx, r, ResourceKey{Scope: record.Key.Stream.Scope, ARN: record.Key.ARN()}, action); err != nil {
+				return ConsumerRecord{}, err
+			}
 			rememberResource(ctx, action, ResourceKey{Scope: record.Key.Stream.Scope, ARN: record.Key.ARN()})
 			return record, nil
 		}
@@ -75,6 +78,10 @@ func (s *Service) consumer(ctx context.Context, r Reader, name, resource, stream
 }
 
 func (s *Service) registerStreamConsumer(ctx context.Context, tx Transaction, in *api.RegisterStreamConsumerInput) (*api.RegisterStreamConsumerOutput, error) {
+	claim, err := resourceOwnerFor(ctx)
+	if err != nil {
+		return nil, err
+	}
 	name := value(in.ConsumerName)
 	if !streamNamePattern.MatchString(name) {
 		return nil, failure("ValidationException", "Invalid consumer name")
@@ -92,6 +99,10 @@ func (s *Service) registerStreamConsumer(ctx context.Context, tx Transaction, in
 		return nil, err
 	}
 	if err = requireActive(stream); err != nil {
+		return nil, err
+	}
+	// Consumers become ACTIVE only through native stream reconciliation.
+	if err = s.requireRuntime(); err != nil {
 		return nil, err
 	}
 	now := s.clock.Now()
@@ -138,7 +149,7 @@ func (s *Service) registerStreamConsumer(ctx context.Context, tx Transaction, in
 	if creating >= 5 {
 		return nil, failure("LimitExceededException", "Only five consumers can be in the CREATING state at the same time.")
 	}
-	record := ConsumerRecord{Key: consumerKey, Data: api.ConsumerDescription{ConsumerARN: new(api.ConsumerARN(consumerKey.ARN())), ConsumerName: new(api.ConsumerName(name)), ConsumerCreationTimestamp: &now, ConsumerStatus: new(api.ConsumerStatusCREATING), StreamARN: stream.Data.StreamARN}}
+	record := ConsumerRecord{Key: consumerKey, Owner: claim.Owner, Data: api.ConsumerDescription{ConsumerARN: new(api.ConsumerARN(consumerKey.ARN())), ConsumerName: new(api.ConsumerName(name)), ConsumerCreationTimestamp: &now, ConsumerStatus: new(api.ConsumerStatusCREATING), StreamARN: stream.Data.StreamARN}}
 	if err = tx.PutConsumer(record); err != nil {
 		return nil, err
 	}
@@ -169,6 +180,9 @@ func (s *Service) deregisterStreamConsumer(ctx context.Context, tx Transaction, 
 		return nil, err
 	}
 	if value(record.Data.ConsumerStatus) != "DELETING" {
+		if err = s.requireRuntime(); err != nil {
+			return nil, err
+		}
 		record.Data.ConsumerStatus = new(api.ConsumerStatusDELETING)
 		record.DeleteAt = s.clock.Now().Add(lifecycleDelay)
 		if err = tx.PutConsumer(record); err != nil {

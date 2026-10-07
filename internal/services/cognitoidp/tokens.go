@@ -294,7 +294,7 @@ func (s *Service) accessUser(r Reader, token string) (PoolRecord, ClientRecord, 
 		poolID = poolID[i+1:]
 	}
 	metadata := awsctx.FromContext(r.Context())
-	pool, err := r.PoolByID(metadata.Partition, metadata.Region, poolID)
+	pool, err := r.PoolByID(metadata.Partition, publicPoolRegion(r.Context(), poolID), poolID)
 	if errors.Is(err, ErrNotFound) {
 		return invalid("Invalid Access Token")
 	}

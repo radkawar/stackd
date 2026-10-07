@@ -18,6 +18,9 @@ func (s *Service) registerTagOperations() {
 		if !o.taggable(inputString(in.ResourceId)) {
 			return nil, failure("TargetNotFoundException", "The resource does not exist or does not support tags.")
 		}
+		if err := o.claimTagTarget(r, inputString(in.ResourceId), false); err != nil {
+			return nil, err
+		}
 		tags, err := mergeTags(o.tags[inputString(in.ResourceId)], in.Tags)
 		if err != nil {
 			return nil, err
@@ -32,6 +35,9 @@ func (s *Service) registerTagOperations() {
 		}
 		if !o.taggable(inputString(in.ResourceId)) {
 			return nil, failure("TargetNotFoundException", "The resource does not exist or does not support tags.")
+		}
+		if err := o.claimTagTarget(r, inputString(in.ResourceId), false); err != nil {
+			return nil, err
 		}
 		for _, key := range in.TagKeys {
 			if strings.HasPrefix(strings.ToLower(string(key)), "aws:") {
@@ -50,6 +56,9 @@ func (s *Service) registerTagOperations() {
 		}
 		if !o.taggable(inputString(in.ResourceId)) {
 			return nil, failure("TargetNotFoundException", "The resource does not exist or does not support tags.")
+		}
+		if err := o.claimTagTarget(r, inputString(in.ResourceId), true); err != nil {
+			return nil, err
 		}
 		items := make([]api.Tag, 0, len(o.tags[inputString(in.ResourceId)]))
 		for key, value := range o.tags[inputString(in.ResourceId)] {

@@ -165,6 +165,7 @@ func executePrepared[I, O any](s *Service, ctx context.Context, action string, i
 	}
 	if err == nil {
 		err = s.repository.Attempt(ctx, func(tx Transaction) error {
+			tx = bindCloudFormationOwnership(tx)
 			var err error
 			out, err = command(tx)
 			if err != nil {

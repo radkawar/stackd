@@ -135,6 +135,100 @@ func (q *Queries) DeleteGroup(ctx context.Context, arg DeleteGroupParams) error 
 	return err
 }
 
+const deleteIdentityProvider = `-- name: DeleteIdentityProvider :exec
+DELETE FROM cognitoidp_identity_providers WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND provider_name = ?
+`
+
+type DeleteIdentityProviderParams struct {
+	Partition    string
+	AccountID    string
+	Region       string
+	PoolID       string
+	ProviderName string
+}
+
+func (q *Queries) DeleteIdentityProvider(ctx context.Context, arg DeleteIdentityProviderParams) error {
+	_, err := q.db.ExecContext(ctx, deleteIdentityProvider,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.PoolID,
+		arg.ProviderName,
+	)
+	return err
+}
+
+const deleteMembershipOwner = `-- name: DeleteMembershipOwner :exec
+DELETE FROM cognitoidp_resource_owners WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND kind = 'membership' AND member_user = ? AND member_group = ?
+`
+
+type DeleteMembershipOwnerParams struct {
+	Partition   string
+	AccountID   string
+	Region      string
+	PoolID      string
+	MemberUser  string
+	MemberGroup string
+}
+
+func (q *Queries) DeleteMembershipOwner(ctx context.Context, arg DeleteMembershipOwnerParams) error {
+	_, err := q.db.ExecContext(ctx, deleteMembershipOwner,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.PoolID,
+		arg.MemberUser,
+		arg.MemberGroup,
+	)
+	return err
+}
+
+const deleteMembershipOwnersByGroup = `-- name: DeleteMembershipOwnersByGroup :exec
+DELETE FROM cognitoidp_resource_owners WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND kind = 'membership' AND member_group = ?
+`
+
+type DeleteMembershipOwnersByGroupParams struct {
+	Partition   string
+	AccountID   string
+	Region      string
+	PoolID      string
+	MemberGroup string
+}
+
+func (q *Queries) DeleteMembershipOwnersByGroup(ctx context.Context, arg DeleteMembershipOwnersByGroupParams) error {
+	_, err := q.db.ExecContext(ctx, deleteMembershipOwnersByGroup,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.PoolID,
+		arg.MemberGroup,
+	)
+	return err
+}
+
+const deleteMembershipOwnersByUser = `-- name: DeleteMembershipOwnersByUser :exec
+DELETE FROM cognitoidp_resource_owners WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND kind = 'membership' AND member_user = ?
+`
+
+type DeleteMembershipOwnersByUserParams struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	PoolID     string
+	MemberUser string
+}
+
+func (q *Queries) DeleteMembershipOwnersByUser(ctx context.Context, arg DeleteMembershipOwnersByUserParams) error {
+	_, err := q.db.ExecContext(ctx, deleteMembershipOwnersByUser,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.PoolID,
+		arg.MemberUser,
+	)
+	return err
+}
+
 const deletePool = `-- name: DeletePool :exec
 DELETE FROM cognitoidp_pools WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ?
 `
@@ -152,6 +246,56 @@ func (q *Queries) DeletePool(ctx context.Context, arg DeletePoolParams) error {
 		arg.AccountID,
 		arg.Region,
 		arg.PoolID,
+	)
+	return err
+}
+
+const deleteResourceOwner = `-- name: DeleteResourceOwner :exec
+DELETE FROM cognitoidp_resource_owners WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND kind = ? AND name = ?
+`
+
+type DeleteResourceOwnerParams struct {
+	Partition string
+	AccountID string
+	Region    string
+	PoolID    string
+	Kind      string
+	Name      string
+}
+
+func (q *Queries) DeleteResourceOwner(ctx context.Context, arg DeleteResourceOwnerParams) error {
+	_, err := q.db.ExecContext(ctx, deleteResourceOwner,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.PoolID,
+		arg.Kind,
+		arg.Name,
+	)
+	return err
+}
+
+const deleteResourceOwnersByPhysicalID = `-- name: DeleteResourceOwnersByPhysicalID :exec
+DELETE FROM cognitoidp_resource_owners WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND kind = ? AND physical_id = ?
+`
+
+type DeleteResourceOwnersByPhysicalIDParams struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	PoolID     string
+	Kind       string
+	PhysicalID string
+}
+
+func (q *Queries) DeleteResourceOwnersByPhysicalID(ctx context.Context, arg DeleteResourceOwnersByPhysicalIDParams) error {
+	_, err := q.db.ExecContext(ctx, deleteResourceOwnersByPhysicalID,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.PoolID,
+		arg.Kind,
+		arg.PhysicalID,
 	)
 	return err
 }
@@ -412,6 +556,43 @@ func (q *Queries) GetGroup(ctx context.Context, arg GetGroupParams) (CognitoidpG
 	return i, err
 }
 
+const getIdentityProvider = `-- name: GetIdentityProvider :one
+SELECT "partition", account_id, region, pool_id, provider_name, provider_type, provider_details, attribute_mapping, idp_identifiers, creation_date, last_modified_date FROM cognitoidp_identity_providers WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND provider_name = ?
+`
+
+type GetIdentityProviderParams struct {
+	Partition    string
+	AccountID    string
+	Region       string
+	PoolID       string
+	ProviderName string
+}
+
+func (q *Queries) GetIdentityProvider(ctx context.Context, arg GetIdentityProviderParams) (CognitoidpIdentityProvider, error) {
+	row := q.db.QueryRowContext(ctx, getIdentityProvider,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.PoolID,
+		arg.ProviderName,
+	)
+	var i CognitoidpIdentityProvider
+	err := row.Scan(
+		&i.Partition,
+		&i.AccountID,
+		&i.Region,
+		&i.PoolID,
+		&i.ProviderName,
+		&i.ProviderType,
+		&i.ProviderDetails,
+		&i.AttributeMapping,
+		&i.IdpIdentifiers,
+		&i.CreationDate,
+		&i.LastModifiedDate,
+	)
+	return i, err
+}
+
 const getPool = `-- name: GetPool :one
 SELECT "partition", account_id, region, pool_id, account_recovery_setting, admin_create_user_config, alias_attributes, arn, auto_verified_attributes, creation_date, custom_domain, deletion_protection, device_configuration, domain, email_configuration, email_configuration_failure, email_verification_message, email_verification_subject, estimated_number_of_users, issuer_configuration, key_configuration, lambda_config, last_modified_date, mfa_configuration, name, policies, schema_attributes, sms_authentication_message, sms_configuration, sms_configuration_failure, sms_verification_message, status, user_attribute_update_settings, user_pool_add_ons, user_pool_tags, user_pool_tier, username_attributes, username_configuration, verification_message_template, issuer_url FROM cognitoidp_pools WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ?
 `
@@ -430,6 +611,64 @@ func (q *Queries) GetPool(ctx context.Context, arg GetPoolParams) (CognitoidpPoo
 		arg.Region,
 		arg.PoolID,
 	)
+	var i CognitoidpPool
+	err := row.Scan(
+		&i.Partition,
+		&i.AccountID,
+		&i.Region,
+		&i.PoolID,
+		&i.AccountRecoverySetting,
+		&i.AdminCreateUserConfig,
+		&i.AliasAttributes,
+		&i.Arn,
+		&i.AutoVerifiedAttributes,
+		&i.CreationDate,
+		&i.CustomDomain,
+		&i.DeletionProtection,
+		&i.DeviceConfiguration,
+		&i.Domain,
+		&i.EmailConfiguration,
+		&i.EmailConfigurationFailure,
+		&i.EmailVerificationMessage,
+		&i.EmailVerificationSubject,
+		&i.EstimatedNumberOfUsers,
+		&i.IssuerConfiguration,
+		&i.KeyConfiguration,
+		&i.LambdaConfig,
+		&i.LastModifiedDate,
+		&i.MfaConfiguration,
+		&i.Name,
+		&i.Policies,
+		&i.SchemaAttributes,
+		&i.SmsAuthenticationMessage,
+		&i.SmsConfiguration,
+		&i.SmsConfigurationFailure,
+		&i.SmsVerificationMessage,
+		&i.Status,
+		&i.UserAttributeUpdateSettings,
+		&i.UserPoolAddOns,
+		&i.UserPoolTags,
+		&i.UserPoolTier,
+		&i.UsernameAttributes,
+		&i.UsernameConfiguration,
+		&i.VerificationMessageTemplate,
+		&i.IssuerUrl,
+	)
+	return i, err
+}
+
+const getPoolByDomain = `-- name: GetPoolByDomain :one
+SELECT "partition", account_id, region, pool_id, account_recovery_setting, admin_create_user_config, alias_attributes, arn, auto_verified_attributes, creation_date, custom_domain, deletion_protection, device_configuration, domain, email_configuration, email_configuration_failure, email_verification_message, email_verification_subject, estimated_number_of_users, issuer_configuration, key_configuration, lambda_config, last_modified_date, mfa_configuration, name, policies, schema_attributes, sms_authentication_message, sms_configuration, sms_configuration_failure, sms_verification_message, status, user_attribute_update_settings, user_pool_add_ons, user_pool_tags, user_pool_tier, username_attributes, username_configuration, verification_message_template, issuer_url FROM cognitoidp_pools WHERE partition = ? AND region = ? AND domain = ?
+`
+
+type GetPoolByDomainParams struct {
+	Partition string
+	Region    string
+	Domain    sql.NullString
+}
+
+func (q *Queries) GetPoolByDomain(ctx context.Context, arg GetPoolByDomainParams) (CognitoidpPool, error) {
+	row := q.db.QueryRowContext(ctx, getPoolByDomain, arg.Partition, arg.Region, arg.Domain)
 	var i CognitoidpPool
 	err := row.Scan(
 		&i.Partition,
@@ -530,6 +769,86 @@ func (q *Queries) GetPoolByID(ctx context.Context, arg GetPoolByIDParams) (Cogni
 		&i.UsernameConfiguration,
 		&i.VerificationMessageTemplate,
 		&i.IssuerUrl,
+	)
+	return i, err
+}
+
+const getPoolResourceOwner = `-- name: GetPoolResourceOwner :one
+SELECT "partition", account_id, region, pool_id, kind, name, physical_id, member_user, member_group, stack_id, logical_id, token FROM cognitoidp_resource_owners WHERE partition = ? AND account_id = ? AND region = ? AND kind = 'pool' AND stack_id = ? AND logical_id = ? AND token = ?
+`
+
+type GetPoolResourceOwnerParams struct {
+	Partition string
+	AccountID string
+	Region    string
+	StackID   string
+	LogicalID string
+	Token     string
+}
+
+func (q *Queries) GetPoolResourceOwner(ctx context.Context, arg GetPoolResourceOwnerParams) (CognitoidpResourceOwner, error) {
+	row := q.db.QueryRowContext(ctx, getPoolResourceOwner,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.StackID,
+		arg.LogicalID,
+		arg.Token,
+	)
+	var i CognitoidpResourceOwner
+	err := row.Scan(
+		&i.Partition,
+		&i.AccountID,
+		&i.Region,
+		&i.PoolID,
+		&i.Kind,
+		&i.Name,
+		&i.PhysicalID,
+		&i.MemberUser,
+		&i.MemberGroup,
+		&i.StackID,
+		&i.LogicalID,
+		&i.Token,
+	)
+	return i, err
+}
+
+const getResourceOwner = `-- name: GetResourceOwner :one
+SELECT "partition", account_id, region, pool_id, kind, name, physical_id, member_user, member_group, stack_id, logical_id, token FROM cognitoidp_resource_owners WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND kind = ? AND name = ?
+`
+
+type GetResourceOwnerParams struct {
+	Partition string
+	AccountID string
+	Region    string
+	PoolID    string
+	Kind      string
+	Name      string
+}
+
+func (q *Queries) GetResourceOwner(ctx context.Context, arg GetResourceOwnerParams) (CognitoidpResourceOwner, error) {
+	row := q.db.QueryRowContext(ctx, getResourceOwner,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.PoolID,
+		arg.Kind,
+		arg.Name,
+	)
+	var i CognitoidpResourceOwner
+	err := row.Scan(
+		&i.Partition,
+		&i.AccountID,
+		&i.Region,
+		&i.PoolID,
+		&i.Kind,
+		&i.Name,
+		&i.PhysicalID,
+		&i.MemberUser,
+		&i.MemberGroup,
+		&i.StackID,
+		&i.LogicalID,
+		&i.Token,
 	)
 	return i, err
 }
@@ -765,6 +1084,68 @@ func (q *Queries) ListClients(ctx context.Context, arg ListClientsParams) ([]Cog
 	return items, nil
 }
 
+const listClientsByIDInPartition = `-- name: ListClientsByIDInPartition :many
+SELECT "partition", account_id, region, pool_id, client_id, access_token_validity, allowed_o_auth_flows, allowed_o_auth_flows_user_pool_client, allowed_o_auth_scopes, analytics_configuration, auth_session_validity, callback_urls, client_name, client_secret, creation_date, default_redirect_uri, enable_propagate_additional_user_context_data, enable_token_revocation, explicit_auth_flows, id_token_validity, last_modified_date, logout_urls, prevent_user_existence_errors, read_attributes, refresh_token_rotation, refresh_token_validity, supported_identity_providers, token_validity_units, write_attributes FROM cognitoidp_clients WHERE partition = ? AND client_id = ? ORDER BY region, account_id
+`
+
+type ListClientsByIDInPartitionParams struct {
+	Partition string
+	ClientID  string
+}
+
+func (q *Queries) ListClientsByIDInPartition(ctx context.Context, arg ListClientsByIDInPartitionParams) ([]CognitoidpClient, error) {
+	rows, err := q.db.QueryContext(ctx, listClientsByIDInPartition, arg.Partition, arg.ClientID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CognitoidpClient{}
+	for rows.Next() {
+		var i CognitoidpClient
+		if err := rows.Scan(
+			&i.Partition,
+			&i.AccountID,
+			&i.Region,
+			&i.PoolID,
+			&i.ClientID,
+			&i.AccessTokenValidity,
+			&i.AllowedOAuthFlows,
+			&i.AllowedOAuthFlowsUserPoolClient,
+			&i.AllowedOAuthScopes,
+			&i.AnalyticsConfiguration,
+			&i.AuthSessionValidity,
+			&i.CallbackUrls,
+			&i.ClientName,
+			&i.ClientSecret,
+			&i.CreationDate,
+			&i.DefaultRedirectUri,
+			&i.EnablePropagateAdditionalUserContextData,
+			&i.EnableTokenRevocation,
+			&i.ExplicitAuthFlows,
+			&i.IDTokenValidity,
+			&i.LastModifiedDate,
+			&i.LogoutUrls,
+			&i.PreventUserExistenceErrors,
+			&i.ReadAttributes,
+			&i.RefreshTokenRotation,
+			&i.RefreshTokenValidity,
+			&i.SupportedIdentityProviders,
+			&i.TokenValidityUnits,
+			&i.WriteAttributes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listGroups = `-- name: ListGroups :many
 SELECT "partition", account_id, region, pool_id, group_name, creation_date, description, last_modified_date, precedence, role_arn FROM cognitoidp_groups WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? ORDER BY group_name
 `
@@ -857,6 +1238,57 @@ func (q *Queries) ListGroupsForUser(ctx context.Context, arg ListGroupsForUserPa
 			&i.LastModifiedDate,
 			&i.Precedence,
 			&i.RoleArn,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listIdentityProviders = `-- name: ListIdentityProviders :many
+SELECT "partition", account_id, region, pool_id, provider_name, provider_type, provider_details, attribute_mapping, idp_identifiers, creation_date, last_modified_date FROM cognitoidp_identity_providers WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? ORDER BY provider_name
+`
+
+type ListIdentityProvidersParams struct {
+	Partition string
+	AccountID string
+	Region    string
+	PoolID    string
+}
+
+func (q *Queries) ListIdentityProviders(ctx context.Context, arg ListIdentityProvidersParams) ([]CognitoidpIdentityProvider, error) {
+	rows, err := q.db.QueryContext(ctx, listIdentityProviders,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.PoolID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CognitoidpIdentityProvider{}
+	for rows.Next() {
+		var i CognitoidpIdentityProvider
+		if err := rows.Scan(
+			&i.Partition,
+			&i.AccountID,
+			&i.Region,
+			&i.PoolID,
+			&i.ProviderName,
+			&i.ProviderType,
+			&i.ProviderDetails,
+			&i.AttributeMapping,
+			&i.IdpIdentifiers,
+			&i.CreationDate,
+			&i.LastModifiedDate,
 		); err != nil {
 			return nil, err
 		}
@@ -1460,6 +1892,52 @@ func (q *Queries) PutGroup(ctx context.Context, arg PutGroupParams) error {
 	return err
 }
 
+const putIdentityProvider = `-- name: PutIdentityProvider :exec
+INSERT INTO cognitoidp_identity_providers (
+ partition, account_id, region, pool_id, provider_name, provider_type, provider_details, attribute_mapping, idp_identifiers, creation_date, last_modified_date
+) VALUES (
+ ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+)
+ON CONFLICT (partition, account_id, region, pool_id, provider_name) DO UPDATE SET
+ provider_type = excluded.provider_type,
+ provider_details = excluded.provider_details,
+ attribute_mapping = excluded.attribute_mapping,
+ idp_identifiers = excluded.idp_identifiers,
+ creation_date = excluded.creation_date,
+ last_modified_date = excluded.last_modified_date
+`
+
+type PutIdentityProviderParams struct {
+	Partition        string
+	AccountID        string
+	Region           string
+	PoolID           string
+	ProviderName     string
+	ProviderType     string
+	ProviderDetails  []byte
+	AttributeMapping []byte
+	IdpIdentifiers   []byte
+	CreationDate     sql.NullTime
+	LastModifiedDate sql.NullTime
+}
+
+func (q *Queries) PutIdentityProvider(ctx context.Context, arg PutIdentityProviderParams) error {
+	_, err := q.db.ExecContext(ctx, putIdentityProvider,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.PoolID,
+		arg.ProviderName,
+		arg.ProviderType,
+		arg.ProviderDetails,
+		arg.AttributeMapping,
+		arg.IdpIdentifiers,
+		arg.CreationDate,
+		arg.LastModifiedDate,
+	)
+	return err
+}
+
 const putPool = `-- name: PutPool :exec
 INSERT INTO cognitoidp_pools (
  partition, account_id, region, pool_id, account_recovery_setting, admin_create_user_config, alias_attributes, arn, auto_verified_attributes, creation_date, custom_domain, deletion_protection, device_configuration, domain, email_configuration, email_configuration_failure, email_verification_message, email_verification_subject, estimated_number_of_users, issuer_configuration, key_configuration, lambda_config, last_modified_date, mfa_configuration, name, policies, schema_attributes, sms_authentication_message, sms_configuration, sms_configuration_failure, sms_verification_message, status, user_attribute_update_settings, user_pool_add_ons, user_pool_tags, user_pool_tier, username_attributes, username_configuration, verification_message_template, issuer_url
@@ -1622,6 +2100,54 @@ func (q *Queries) PutRefreshToken(ctx context.Context, arg PutRefreshTokenParams
 		arg.ClientID,
 		arg.RefreshDigest,
 		arg.SessionID,
+	)
+	return err
+}
+
+const putResourceOwner = `-- name: PutResourceOwner :exec
+INSERT INTO cognitoidp_resource_owners (
+ partition, account_id, region, pool_id, kind, name, physical_id, member_user, member_group, stack_id, logical_id, token
+) VALUES (
+ ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+)
+ON CONFLICT (partition, account_id, region, pool_id, kind, name) DO UPDATE SET
+ physical_id = excluded.physical_id,
+ member_user = excluded.member_user,
+ member_group = excluded.member_group,
+ stack_id = excluded.stack_id,
+ logical_id = excluded.logical_id,
+ token = excluded.token
+`
+
+type PutResourceOwnerParams struct {
+	Partition   string
+	AccountID   string
+	Region      string
+	PoolID      string
+	Kind        string
+	Name        string
+	PhysicalID  string
+	MemberUser  string
+	MemberGroup string
+	StackID     string
+	LogicalID   string
+	Token       string
+}
+
+func (q *Queries) PutResourceOwner(ctx context.Context, arg PutResourceOwnerParams) error {
+	_, err := q.db.ExecContext(ctx, putResourceOwner,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.PoolID,
+		arg.Kind,
+		arg.Name,
+		arg.PhysicalID,
+		arg.MemberUser,
+		arg.MemberGroup,
+		arg.StackID,
+		arg.LogicalID,
+		arg.Token,
 	)
 	return err
 }

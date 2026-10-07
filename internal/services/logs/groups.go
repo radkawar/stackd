@@ -60,6 +60,11 @@ func (s *Service) createLogGroup(tx Transaction, in *api.CreateLogGroupRequest) 
 		return nil, w
 	}
 	g := GroupRecord{Key: k, ID: uuid.NewString(), Created: s.clock.Now().UnixMilli(), Tags: tags}
+	var claimWire *awswire.Error
+	g.CFNOwner, claimWire = cloudFormationGroupClaim(tx.Context(), "", false)
+	if claimWire != nil {
+		return nil, claimWire
+	}
 	if w := s.authorize(tx, "CreateLogGroup", g, "", tags, nil); w != nil {
 		return nil, w
 	}
@@ -71,7 +76,16 @@ func (s *Service) createLogGroup(tx Transaction, in *api.CreateLogGroupRequest) 
 			}
 		}
 	}
-	if _, err := tx.Group(k); err == nil {
+	if old, err := tx.Group(k); err == nil {
+		if _, constrained := tx.Context().Value(cloudFormationGroupOwnerKey{}).(cloudFormationOwner); constrained {
+			if _, w := cloudFormationGroupClaim(tx.Context(), old.CFNOwner, true); w != nil {
+				return nil, w
+			}
+			if w := s.authorize(tx, "CreateLogGroup", old, "", tags, nil); w != nil {
+				return nil, w
+			}
+			return &api.Unit{}, nil
+		}
 		return nil, failure("ResourceAlreadyExistsException", "The specified log group already exists.")
 	} else if !errors.Is(err, ErrNotFound) {
 		return nil, wireError(err)

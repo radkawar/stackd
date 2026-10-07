@@ -49,7 +49,11 @@ func (r reader) RegionalNetworkInterfaces(scope domain.Scope) ([]domain.NetworkI
 func (r reader) networkInterface(row sqlcgen.Ec2NetworkInterface) (domain.NetworkInterfaceRecord, error) {
 	k := domain.ResourceKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.ResourceID}
 	out := domain.NetworkInterfaceRecord{Key: k, TaskOwnerARN: row.TaskOwnerArn, TaskPublicNetworking: row.TaskPublicNetworking, SubnetOwnerAccountID: row.SubnetOwnerAccountID}
+	out.CloudFormationOwner = cloudFormationOwner(row.CloudformationResourceType, row.CloudformationOwner)
 	out.LambdaMappingOwnerARN = row.LambdaMappingOwnerArn
+	out.LambdaFunctionOwnerARN = row.LambdaFunctionOwnerArn
+	out.LambdaFunctionOwnerIncarnation = row.LambdaFunctionOwnerIncarnation
+	out.NetworkControlOwnerID = row.NetworkControlOwnerID
 	d := &out.Data
 	d.NetworkInterfaceId = stringPointer[api.String](row.NetworkInterfaceID)
 	d.OwnerId = stringPointer[api.String](row.OwnerID)
@@ -131,31 +135,34 @@ func (w writer) PutNetworkInterface(v domain.NetworkInterfaceRecord) error {
 	k, d := v.Key, &v.Data
 	params := sqlcgen.PutNetworkInterfaceParams{
 		Partition: k.Scope.Partition, AccountID: k.Scope.AccountID, Region: k.Scope.Region, ResourceID: k.ID,
-		SubnetOwnerAccountID:      v.SubnetOwnerAccountID,
-		TaskOwnerArn:              v.TaskOwnerARN,
-		TaskPublicNetworking:      v.TaskPublicNetworking,
-		LambdaMappingOwnerArn:     v.LambdaMappingOwnerARN,
-		AttachmentPresent:         d.Attachment != nil,
-		NetworkInterfaceID:        nullableString(d.NetworkInterfaceId),
-		OwnerID:                   nullableString(d.OwnerId),
-		RequesterID:               nullableString(d.RequesterId),
-		RequesterManaged:          nullableBool(d.RequesterManaged),
-		AvailabilityZone:          nullableString(d.AvailabilityZone),
-		AvailabilityZoneID:        nullableString(d.AvailabilityZoneId),
-		SubnetID:                  nullableString(d.SubnetId),
-		VpcID:                     nullableString(d.VpcId),
-		MacAddress:                nullableString(d.MacAddress),
-		Description:               nullableString(d.Description),
-		InterfaceType:             nullableString(d.InterfaceType),
-		SourceDestCheck:           nullableBool(d.SourceDestCheck),
-		Status:                    nullableString(d.Status),
-		PrivateIpAddress:          nullableString(d.PrivateIpAddress),
-		PrivateDnsName:            nullableString(d.PrivateDnsName),
-		GroupsPresent:             d.Groups != nil,
-		PrivateIpAddressesPresent: d.PrivateIpAddresses != nil,
-		Ipv6AddressesPresent:      d.Ipv6Addresses != nil,
-		TagsPresent:               d.TagSet != nil,
-		OperatorPresent:           d.Operator != nil,
+		SubnetOwnerAccountID:           v.SubnetOwnerAccountID,
+		TaskOwnerArn:                   v.TaskOwnerARN,
+		TaskPublicNetworking:           v.TaskPublicNetworking,
+		LambdaMappingOwnerArn:          v.LambdaMappingOwnerARN,
+		LambdaFunctionOwnerArn:         v.LambdaFunctionOwnerARN,
+		LambdaFunctionOwnerIncarnation: v.LambdaFunctionOwnerIncarnation,
+		NetworkControlOwnerID:          v.NetworkControlOwnerID,
+		AttachmentPresent:              d.Attachment != nil,
+		NetworkInterfaceID:             nullableString(d.NetworkInterfaceId),
+		OwnerID:                        nullableString(d.OwnerId),
+		RequesterID:                    nullableString(d.RequesterId),
+		RequesterManaged:               nullableBool(d.RequesterManaged),
+		AvailabilityZone:               nullableString(d.AvailabilityZone),
+		AvailabilityZoneID:             nullableString(d.AvailabilityZoneId),
+		SubnetID:                       nullableString(d.SubnetId),
+		VpcID:                          nullableString(d.VpcId),
+		MacAddress:                     nullableString(d.MacAddress),
+		Description:                    nullableString(d.Description),
+		InterfaceType:                  nullableString(d.InterfaceType),
+		SourceDestCheck:                nullableBool(d.SourceDestCheck),
+		Status:                         nullableString(d.Status),
+		PrivateIpAddress:               nullableString(d.PrivateIpAddress),
+		PrivateDnsName:                 nullableString(d.PrivateDnsName),
+		GroupsPresent:                  d.Groups != nil,
+		PrivateIpAddressesPresent:      d.PrivateIpAddresses != nil,
+		Ipv6AddressesPresent:           d.Ipv6Addresses != nil,
+		TagsPresent:                    d.TagSet != nil,
+		OperatorPresent:                d.Operator != nil,
 	}
 	if d.Attachment != nil {
 		params.AttachmentID = nullableString(d.Attachment.AttachmentId)

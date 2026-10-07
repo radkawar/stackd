@@ -79,7 +79,11 @@ func (s *Service) createSamplingRule(tx Transaction, in *api.CreateSamplingRuleR
 	if err != nil {
 		return nil, err
 	}
-	context := tagContext(nil, tags, nil)
+	existing, lookupErr := samplingRule(tx, key)
+	if lookupErr != nil && !errors.Is(lookupErr, ErrNotFound) {
+		return nil, lookupErr
+	}
+	context := tagContext(existing.Tags, tags, nil)
 	request := authorization.Request{Action: "xray:CreateSamplingRule", ResourceARN: key.ARN(), Context: context, ContextTypes: map[string]string{"aws:TagKeys": "stringList"}}
 	if err := s.authorizeResource(tx, request); err != nil {
 		return nil, err
@@ -93,9 +97,21 @@ func (s *Service) createSamplingRule(tx Transaction, in *api.CreateSamplingRuleR
 	if *input.Version != 1 {
 		return nil, failure("InvalidRequestException", "Sampling rule version must be 1")
 	}
-	if _, err := samplingRule(tx, key); err == nil {
-		return nil, failure("InvalidRequestException", "Sampling rule already exists")
-	} else if !errors.Is(err, ErrNotFound) {
+	if lookupErr == nil {
+		if _, ok := tx.Context().Value(cloudFormationOwnerKey{}).(cloudFormationOwner); !ok {
+			return nil, failure("InvalidRequestException", "Sampling rule already exists")
+		}
+		if _, err := cloudFormationClaim(tx.Context(), existing.CFNOwner, true); err != nil {
+			return nil, err
+		}
+		result := samplingRuleOutput(existing)
+		return &api.CreateSamplingRuleResult{SamplingRuleRecord: &result}, nil
+	}
+	if cloudFormationRecovering(tx.Context()) {
+		return nil, failure("ResourceNotFoundException", "Sampling rule does not exist", 404)
+	}
+	claim, err := cloudFormationClaim(tx.Context(), "", false)
+	if err != nil {
 		return nil, err
 	}
 	rows, err := tx.SamplingRules(key.Scope)
@@ -113,6 +129,7 @@ func (s *Service) createSamplingRule(tx Transaction, in *api.CreateSamplingRuleR
 	}
 	now := s.clock.Now().UTC().Truncate(time.Second)
 	row := SamplingRuleRecord{Key: key, Priority: int32(*input.Priority), FixedRate: float64(*input.FixedRate), ReservoirSize: int32(*input.ReservoirSize), Host: value(input.Host), HTTPMethod: value(input.HTTPMethod), ResourceARN: value(input.ResourceARN), ServiceName: value(input.ServiceName), ServiceType: value(input.ServiceType), URLPath: value(input.URLPath), Attributes: samplingAttributes(input.Attributes), RateBoost: input.SamplingRateBoost, Tags: tags, Created: now, Modified: now}
+	row.CFNOwner = claim
 	if err := validateSamplingRule(row); err != nil {
 		return nil, err
 	}
@@ -149,6 +166,9 @@ func (s *Service) updateSamplingRule(tx Transaction, in *api.UpdateSamplingRuleR
 	}
 	if err != nil {
 		return nil, failure("InvalidRequestException", "Sampling rule does not exist")
+	}
+	if _, err := cloudFormationClaim(tx.Context(), row.CFNOwner, true); err != nil {
+		return nil, err
 	}
 	if key.Name == "Default" && (input.Priority != nil || input.Host != nil || input.HTTPMethod != nil || input.ResourceARN != nil || input.ServiceName != nil || input.ServiceType != nil || input.URLPath != nil || input.Attributes != nil || input.SamplingRateBoost != nil) {
 		return nil, failure("InvalidRequestException", "Only the reservoir size and fixed rate of the default sampling rule can be modified")
@@ -229,6 +249,9 @@ func (s *Service) deleteSamplingRule(tx Transaction, in *api.DeleteSamplingRuleR
 	}
 	if err != nil {
 		return nil, failure("InvalidRequestException", "Sampling rule does not exist")
+	}
+	if _, err := cloudFormationClaim(tx.Context(), row.CFNOwner, true); err != nil {
+		return nil, err
 	}
 	if err := tx.DeleteSamplingRule(key); err != nil {
 		return nil, err

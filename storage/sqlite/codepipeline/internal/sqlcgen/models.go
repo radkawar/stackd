@@ -195,6 +195,8 @@ type CodepipelinePipeline struct {
 	CreatedAt         int64
 	UpdatedAt         int64
 	PollingDisabledAt int64
+	Ownership         string
+	LastUpdate        string
 }
 
 type CodepipelineRevision struct {

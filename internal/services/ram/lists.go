@@ -3,6 +3,7 @@ package ram
 import (
 	"slices"
 	api "stackd/internal/awsapi/ram"
+	"stackd/internal/services/identitystore"
 	"strings"
 )
 
@@ -62,6 +63,11 @@ func (s *Service) getResourceShares(tx Transaction, in *api.GetResourceSharesReq
 		if e != nil {
 			return nil, e
 		}
+		if exact, _ := tx.Context().Value(shareOwnerViewKey{}).(bool); exact {
+			if owner := identitystore.CloudFormationOwner(tx.Context()); owner != "" && owner != sh.CloudFormationOwner {
+				continue
+			}
+		}
 		if !ok || in.Name != nil && value(in.Name) != sh.Name || in.ResourceShareStatus != nil && value(in.ResourceShareStatus) != sh.Status || len(in.ResourceShareArns) > 0 && !slices.Contains(in.ResourceShareArns, api.String(sh.ARN)) || !tagsMatch(sh.Tags, in.TagFilters) {
 			continue
 		}
@@ -75,6 +81,9 @@ func (s *Service) getResourceShares(tx Transaction, in *api.GetResourceSharesReq
 			if !match {
 				continue
 			}
+		}
+		if e = s.authorize(tx, "GetResourceShares", sh.ARN, sh.Tags); e != nil {
+			return nil, e
 		}
 		v := apiShare(sh)
 		if value(in.ResourceOwner) != "SELF" {
@@ -103,6 +112,10 @@ func (s *Service) getResourceShareAssociations(tx Transaction, in *api.GetResour
 		if sh.Scope != sc || len(in.ResourceShareArns) > 0 && !slices.Contains(in.ResourceShareArns, api.String(sh.ARN)) {
 			continue
 		}
+		owner, filtered, e := ownedView(tx.Context(), sh)
+		if e != nil {
+			return nil, e
+		}
 		if kind == "RESOURCE" {
 			for _, a := range sh.Resources {
 				status := a.Status
@@ -115,7 +128,7 @@ func (s *Service) getResourceShareAssociations(tx Transaction, in *api.GetResour
 						status = "DISASSOCIATED"
 					}
 				}
-				if in.ResourceArn != nil && value(in.ResourceArn) != a.ARN || in.AssociationStatus != nil && value(in.AssociationStatus) != status {
+				if filtered && (a.Status == "DISASSOCIATED" || a.CloudFormationOwner != owner) || in.ResourceArn != nil && value(in.ResourceArn) != a.ARN || in.AssociationStatus != nil && value(in.AssociationStatus) != status {
 					continue
 				}
 				out = append(out, resourceAssociation(sh, a, status))
@@ -127,7 +140,7 @@ func (s *Service) getResourceShareAssociations(tx Transaction, in *api.GetResour
 				if e != nil {
 					return nil, e
 				}
-				if in.Principal != nil && value(in.Principal) != a.Principal || in.AssociationStatus != nil && value(in.AssociationStatus) != status {
+				if filtered && (status == "DISASSOCIATED" || a.CloudFormationOwner != owner) || in.Principal != nil && value(in.Principal) != a.Principal || in.AssociationStatus != nil && value(in.AssociationStatus) != status {
 					continue
 				}
 				out = append(out, apiAssociation(sh, a.Principal, kind, status, !a.Organization, a.Created, a.Updated))
@@ -295,6 +308,9 @@ func (s *Service) tagResource(tx Transaction, in *api.TagResourceRequest) (*api.
 		if e != nil {
 			return nil, e
 		}
+		if e = checkShareOwner(tx.Context(), sh); e != nil {
+			return nil, e
+		}
 		for k, v := range tags {
 			sh.Tags[k] = v
 		}
@@ -334,6 +350,9 @@ func (s *Service) untagResource(tx Transaction, in *api.UntagResourceRequest) (*
 	if strings.Contains(arn, ":resource-share/") {
 		sh, e := s.ownedShare(tx, arn, "UntagResource", true)
 		if e != nil {
+			return nil, e
+		}
+		if e = checkShareOwner(tx.Context(), sh); e != nil {
 			return nil, e
 		}
 		for _, k := range in.TagKeys {

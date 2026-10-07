@@ -61,6 +61,10 @@ type Metadata struct {
 	// InScopeOf is public audit scope supplied by internal EC2 identity
 	// authorities, never inferred from an ARN or accepted from HTTP.
 	InScopeOf journal.APIIdentityScope
+	// EndpointRegionImplicit marks an unsigned public request whose endpoint
+	// carries no region. Region is then the configured default, and an owner
+	// may resolve a bearer identifier (such as a Cognito app client) partition-wide.
+	EndpointRegionImplicit bool
 }
 
 // ServicePrincipal describes an AWS service, optionally acting for a source resource.

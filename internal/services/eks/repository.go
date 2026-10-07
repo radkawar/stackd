@@ -81,6 +81,8 @@ type Reader interface {
 	FargateReader
 	NodegroupReader
 	PodIdentityReader
+	CloudFormationCreation(CloudFormationCreationKey) (CloudFormationCreation, error)
+	CloudFormationCreations(Scope) ([]CloudFormationCreation, error)
 	Cluster(Key) (Cluster, error)
 	Clusters(Scope) ([]Cluster, error)
 	AllClusters() ([]Cluster, error)
@@ -97,6 +99,7 @@ type Transaction interface {
 	FargateTransaction
 	NodegroupTransaction
 	PodIdentityTransaction
+	PutCloudFormationCreation(CloudFormationCreation) error
 	PutCluster(Cluster) error
 	DeleteCluster(Key) error
 	PutAccessEntry(AccessEntry) error

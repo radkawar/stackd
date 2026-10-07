@@ -160,7 +160,7 @@ func (q *Queries) GetDeletedQueue(ctx context.Context, arg GetDeletedQueueParams
 }
 
 const getQueue = `-- name: GetQueue :one
-SELECT "partition", account, region, name, id, created, modified, purged, sequence, encryption_key, delay_seconds, maximum_message_size, retention_seconds, visibility_seconds, wait_seconds, fifo, content_deduplication, managed_sse, deduplication_scope, throughput, policy, kms_key, kms_reuse_seconds, dead_letter_target_arn, max_receive_count, redrive_permission, metric_active_until, next_metric_sample FROM sqs_queues WHERE partition = ? AND account = ? AND region = ? AND name = ?
+SELECT "partition", account, region, name, id, created, modified, purged, sequence, encryption_key, delay_seconds, maximum_message_size, retention_seconds, visibility_seconds, wait_seconds, fifo, content_deduplication, managed_sse, deduplication_scope, throughput, policy, kms_key, kms_reuse_seconds, dead_letter_target_arn, max_receive_count, redrive_permission, metric_active_until, next_metric_sample, creation_owner, policy_owner FROM sqs_queues WHERE partition = ? AND account = ? AND region = ? AND name = ?
 `
 
 type GetQueueParams struct {
@@ -207,6 +207,8 @@ func (q *Queries) GetQueue(ctx context.Context, arg GetQueueParams) (SqsQueue, e
 		&i.RedrivePermission,
 		&i.MetricActiveUntil,
 		&i.NextMetricSample,
+		&i.CreationOwner,
+		&i.PolicyOwner,
 	)
 	return i, err
 }
@@ -813,7 +815,7 @@ func (q *Queries) ListQueueTags(ctx context.Context, queueID string) ([]SqsQueue
 }
 
 const listQueues = `-- name: ListQueues :many
-SELECT "partition", account, region, name, id, created, modified, purged, sequence, encryption_key, delay_seconds, maximum_message_size, retention_seconds, visibility_seconds, wait_seconds, fifo, content_deduplication, managed_sse, deduplication_scope, throughput, policy, kms_key, kms_reuse_seconds, dead_letter_target_arn, max_receive_count, redrive_permission, metric_active_until, next_metric_sample FROM sqs_queues ORDER BY partition, region, account, name
+SELECT "partition", account, region, name, id, created, modified, purged, sequence, encryption_key, delay_seconds, maximum_message_size, retention_seconds, visibility_seconds, wait_seconds, fifo, content_deduplication, managed_sse, deduplication_scope, throughput, policy, kms_key, kms_reuse_seconds, dead_letter_target_arn, max_receive_count, redrive_permission, metric_active_until, next_metric_sample, creation_owner, policy_owner FROM sqs_queues ORDER BY partition, region, account, name
 `
 
 func (q *Queries) ListQueues(ctx context.Context) ([]SqsQueue, error) {
@@ -854,6 +856,8 @@ func (q *Queries) ListQueues(ctx context.Context) ([]SqsQueue, error) {
 			&i.RedrivePermission,
 			&i.MetricActiveUntil,
 			&i.NextMetricSample,
+			&i.CreationOwner,
+			&i.PolicyOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -993,7 +997,7 @@ func (q *Queries) ListRedriveSources(ctx context.Context, queueID string) ([]Sqs
 }
 
 const nextMetricQueue = `-- name: NextMetricQueue :one
-SELECT "partition", account, region, name, id, created, modified, purged, sequence, encryption_key, delay_seconds, maximum_message_size, retention_seconds, visibility_seconds, wait_seconds, fifo, content_deduplication, managed_sse, deduplication_scope, throughput, policy, kms_key, kms_reuse_seconds, dead_letter_target_arn, max_receive_count, redrive_permission, metric_active_until, next_metric_sample FROM sqs_queues WHERE next_metric_sample IS NOT NULL
+SELECT "partition", account, region, name, id, created, modified, purged, sequence, encryption_key, delay_seconds, maximum_message_size, retention_seconds, visibility_seconds, wait_seconds, fifo, content_deduplication, managed_sse, deduplication_scope, throughput, policy, kms_key, kms_reuse_seconds, dead_letter_target_arn, max_receive_count, redrive_permission, metric_active_until, next_metric_sample, creation_owner, policy_owner FROM sqs_queues WHERE next_metric_sample IS NOT NULL
 ORDER BY next_metric_sample, partition, account, region, name LIMIT 1
 `
 
@@ -1029,6 +1033,8 @@ func (q *Queries) NextMetricQueue(ctx context.Context) (SqsQueue, error) {
 		&i.RedrivePermission,
 		&i.MetricActiveUntil,
 		&i.NextMetricSample,
+		&i.CreationOwner,
+		&i.PolicyOwner,
 	)
 	return i, err
 }
@@ -1185,10 +1191,12 @@ func (q *Queries) PutMoveTask(ctx context.Context, arg PutMoveTaskParams) error 
 }
 
 const putQueue = `-- name: PutQueue :exec
-INSERT INTO sqs_queues (partition, account, region, name, id, created, modified, purged, sequence, encryption_key, delay_seconds, maximum_message_size, retention_seconds, visibility_seconds, wait_seconds, fifo, content_deduplication, managed_sse, deduplication_scope, throughput, policy, kms_key, kms_reuse_seconds, dead_letter_target_arn, max_receive_count, redrive_permission, metric_active_until, next_metric_sample)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO sqs_queues (partition, account, region, name, id, created, modified, purged, sequence, encryption_key, delay_seconds, maximum_message_size, retention_seconds, visibility_seconds, wait_seconds, fifo, content_deduplication, managed_sse, deduplication_scope, throughput, policy, kms_key, kms_reuse_seconds, dead_letter_target_arn, max_receive_count, redrive_permission, metric_active_until, next_metric_sample, creation_owner, policy_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account, region, name) DO UPDATE SET
     id = excluded.id,
+    creation_owner = excluded.creation_owner,
+    policy_owner = excluded.policy_owner,
     created = excluded.created,
     modified = excluded.modified,
     purged = excluded.purged,
@@ -1243,6 +1251,8 @@ type PutQueueParams struct {
 	RedrivePermission    string
 	MetricActiveUntil    sql.NullTime
 	NextMetricSample     sql.NullTime
+	CreationOwner        string
+	PolicyOwner          string
 }
 
 func (q *Queries) PutQueue(ctx context.Context, arg PutQueueParams) error {
@@ -1275,6 +1285,8 @@ func (q *Queries) PutQueue(ctx context.Context, arg PutQueueParams) error {
 		arg.RedrivePermission,
 		arg.MetricActiveUntil,
 		arg.NextMetricSample,
+		arg.CreationOwner,
+		arg.PolicyOwner,
 	)
 	return err
 }

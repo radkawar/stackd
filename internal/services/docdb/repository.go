@@ -24,6 +24,7 @@ func (k Key) ARN() string {
 // RuntimeID and Version fence completion against deletion, replacement and mutation.
 type Cluster struct {
 	Key                                                                    Key
+	Owner                                                                  CloudFormationOwner
 	RuntimeID, Username, EngineVersion, Status, Operation, RestoreSnapshot string
 	Ciphertext, PendingCiphertext                                          []byte
 	Endpoint                                                               engine.Endpoint
@@ -35,12 +36,14 @@ type Cluster struct {
 }
 type Instance struct {
 	Key                               Key
+	Owner                             CloudFormationOwner
 	Cluster, Class, RuntimeID, Status string
 	Created                           time.Time
 	Tags                              map[string]string
 }
 type Snapshot struct {
 	Key                                                                            Key
+	Owner                                                                          CloudFormationOwner
 	Source, SourceRuntimeID, RuntimeID, Username, EngineVersion, Status, Operation string
 	Ciphertext                                                                     []byte
 	Version                                                                        int64

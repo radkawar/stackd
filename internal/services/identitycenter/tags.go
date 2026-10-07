@@ -68,6 +68,9 @@ func (s *Service) tagResource(tx Transaction, instance, arn, action string, requ
 		if e = s.authorizeTags(tx.Context(), action, arn, v.Tags, requested); e != nil {
 			return nil, nil, e
 		}
+		if e = claimCheck(tx.Context(), v.CloudFormationOwner, action); e != nil {
+			return nil, nil, e
+		}
 		return v.Tags, func(tags map[string]string) error { v.Tags = tags; return tx.PutInstance(v) }, nil
 	}
 	p, e := tx.PermissionSet(arn)
@@ -82,6 +85,9 @@ func (s *Service) tagResource(tx Transaction, instance, arn, action string, requ
 		return nil, nil, ErrNotFound
 	}
 	if e = s.authorizeTags(tx.Context(), action, arn, p.Tags, requested); e != nil {
+		return nil, nil, e
+	}
+	if e = claimCheck(tx.Context(), p.CloudFormationOwner, action); e != nil {
 		return nil, nil, e
 	}
 	return p.Tags, func(tags map[string]string) error { p.Tags = tags; return tx.PutPermissionSet(p) }, nil

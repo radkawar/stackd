@@ -18,6 +18,7 @@ func (r reader) SAMLProvider(scope domain.Scope, key string) (domain.SAMLProvide
 		return result, err
 	}
 	var record domain.SAMLProviderRecord
+	record.CloudFormationOwner = row.CfnOwner
 	record.ARN = row.Arn
 	record.Name = row.Name
 	record.UUID = row.Uuid
@@ -72,7 +73,7 @@ func (w writer) PutSAMLProvider(scope domain.Scope, record domain.SAMLProviderRe
 	if _, err := w.q.DeleteSAMLProvider(w.ctx, sqlcgen.DeleteSAMLProviderParams{Partition: scope.Partition, Account: scope.AccountID, ResourceKey: record.ARN}); err != nil {
 		return err
 	}
-	if err := w.q.InsertSAMLProvider(w.ctx, sqlcgen.InsertSAMLProviderParams{Partition: scope.Partition, Account: scope.AccountID, ResourceKey: record.ARN, Arn: record.ARN, Name: record.Name, Uuid: record.UUID, MetadataDocument: record.MetadataDocument, AssertionEncryptionMode: record.AssertionEncryptionMode, CreatedAt: record.CreatedAt, ValidUntil: record.ValidUntil}); err != nil {
+	if err := w.q.InsertSAMLProvider(w.ctx, sqlcgen.InsertSAMLProviderParams{CfnOwner: record.CloudFormationOwner, Partition: scope.Partition, Account: scope.AccountID, ResourceKey: record.ARN, Arn: record.ARN, Name: record.Name, Uuid: record.UUID, MetadataDocument: record.MetadataDocument, AssertionEncryptionMode: record.AssertionEncryptionMode, CreatedAt: record.CreatedAt, ValidUntil: record.ValidUntil}); err != nil {
 		return err
 	}
 	if err := w.writeSAMLProviderIssuers(scope.Partition, scope.AccountID, record.ARN, record.Issuers); err != nil {

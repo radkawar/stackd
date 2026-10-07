@@ -8,6 +8,7 @@ import (
 func rowRouteResponse(row sqlcgen.Apigatewayv2RouteResponse) domain.RouteResponseRecord {
 	return domain.RouteResponseRecord{
 		Key:     domain.ResourceKey{APIKey: domain.APIKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.GatewayID}, ID: row.ID},
+		Owner:   domain.ResourceOwner{StackID: row.OwnerStackID, LogicalID: row.OwnerLogicalID, Token: row.OwnerToken},
 		RouteID: row.RouteID, ResponseKey: row.ResponseKey,
 	}
 }
@@ -34,7 +35,7 @@ func (r reader) RouteResponses(k domain.ResourceKey) ([]domain.RouteResponseReco
 
 func (w writer) PutRouteResponse(v domain.RouteResponseRecord) error {
 	k := v.Key
-	return w.q.PutRouteResponse(w.ctx, sqlcgen.PutRouteResponseParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, GatewayID: k.APIKey.ID, ID: k.ID, RouteID: v.RouteID, ResponseKey: v.ResponseKey})
+	return w.q.PutRouteResponse(w.ctx, sqlcgen.PutRouteResponseParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, GatewayID: k.APIKey.ID, ID: k.ID, RouteID: v.RouteID, ResponseKey: v.ResponseKey, OwnerStackID: v.Owner.StackID, OwnerLogicalID: v.Owner.LogicalID, OwnerToken: v.Owner.Token})
 }
 
 func (w writer) DeleteRouteResponse(k domain.ResourceKey) error {

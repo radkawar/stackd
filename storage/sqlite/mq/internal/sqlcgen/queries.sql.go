@@ -12,7 +12,7 @@ import (
 )
 
 const allBrokers = `-- name: AllBrokers :many
-SELECT "partition", account_id, region, id, arn, name, engine, engine_version, instance_type, state, creator_request_id, username, password, operation, failure, version, created, due, endpoint_address, endpoint_console_url, endpoint_native_id, endpoint_ca_pem, maintenance_day, maintenance_time, maintenance_zone, maintenance_due, maintenance_adjustments, log_general, log_audit, log_pending_general, log_pending_audit, log_general_file_id, log_general_offset, log_audit_file_id, log_audit_offset, log_delivery_error, log_due FROM mq_brokers ORDER BY arn
+SELECT "partition", account_id, region, id, arn, name, engine, engine_version, instance_type, state, creator_request_id, username, password, operation, failure, version, created, due, endpoint_address, endpoint_console_url, endpoint_native_id, endpoint_ca_pem, maintenance_day, maintenance_time, maintenance_zone, maintenance_due, maintenance_adjustments, log_general, log_audit, log_pending_general, log_pending_audit, log_general_file_id, log_general_offset, log_audit_file_id, log_audit_offset, log_delivery_error, log_due, ownership FROM mq_brokers ORDER BY arn
 `
 
 func (q *Queries) AllBrokers(ctx context.Context) ([]MqBroker, error) {
@@ -62,6 +62,7 @@ func (q *Queries) AllBrokers(ctx context.Context) ([]MqBroker, error) {
 			&i.LogAuditOffset,
 			&i.LogDeliveryError,
 			&i.LogDue,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -77,7 +78,7 @@ func (q *Queries) AllBrokers(ctx context.Context) ([]MqBroker, error) {
 }
 
 const allConfigurations = `-- name: AllConfigurations :many
-SELECT "partition", account_id, region, id, arn, name, description, engine, engine_version, authentication_strategy, created FROM mq_configurations ORDER BY arn
+SELECT "partition", account_id, region, id, arn, name, description, engine, engine_version, authentication_strategy, created, ownership FROM mq_configurations ORDER BY arn
 `
 
 func (q *Queries) AllConfigurations(ctx context.Context) ([]MqConfiguration, error) {
@@ -101,6 +102,7 @@ func (q *Queries) AllConfigurations(ctx context.Context) ([]MqConfiguration, err
 			&i.EngineVersion,
 			&i.AuthenticationStrategy,
 			&i.Created,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -203,7 +205,7 @@ func (q *Queries) DeleteConfigurationTags(ctx context.Context, arn string) error
 }
 
 const getBroker = `-- name: GetBroker :one
-SELECT "partition", account_id, region, id, arn, name, engine, engine_version, instance_type, state, creator_request_id, username, password, operation, failure, version, created, due, endpoint_address, endpoint_console_url, endpoint_native_id, endpoint_ca_pem, maintenance_day, maintenance_time, maintenance_zone, maintenance_due, maintenance_adjustments, log_general, log_audit, log_pending_general, log_pending_audit, log_general_file_id, log_general_offset, log_audit_file_id, log_audit_offset, log_delivery_error, log_due FROM mq_brokers WHERE partition=? AND account_id=? AND region=? AND id=?
+SELECT "partition", account_id, region, id, arn, name, engine, engine_version, instance_type, state, creator_request_id, username, password, operation, failure, version, created, due, endpoint_address, endpoint_console_url, endpoint_native_id, endpoint_ca_pem, maintenance_day, maintenance_time, maintenance_zone, maintenance_due, maintenance_adjustments, log_general, log_audit, log_pending_general, log_pending_audit, log_general_file_id, log_general_offset, log_audit_file_id, log_audit_offset, log_delivery_error, log_due, ownership FROM mq_brokers WHERE partition=? AND account_id=? AND region=? AND id=?
 `
 
 type GetBrokerParams struct {
@@ -259,12 +261,13 @@ func (q *Queries) GetBroker(ctx context.Context, arg GetBrokerParams) (MqBroker,
 		&i.LogAuditOffset,
 		&i.LogDeliveryError,
 		&i.LogDue,
+		&i.Ownership,
 	)
 	return i, err
 }
 
 const getConfiguration = `-- name: GetConfiguration :one
-SELECT "partition", account_id, region, id, arn, name, description, engine, engine_version, authentication_strategy, created FROM mq_configurations WHERE partition=? AND account_id=? AND region=? AND id=?
+SELECT "partition", account_id, region, id, arn, name, description, engine, engine_version, authentication_strategy, created, ownership FROM mq_configurations WHERE partition=? AND account_id=? AND region=? AND id=?
 `
 
 type GetConfigurationParams struct {
@@ -294,6 +297,7 @@ func (q *Queries) GetConfiguration(ctx context.Context, arg GetConfigurationPara
 		&i.EngineVersion,
 		&i.AuthenticationStrategy,
 		&i.Created,
+		&i.Ownership,
 	)
 	return i, err
 }
@@ -497,8 +501,8 @@ func (q *Queries) ListConfigurationTags(ctx context.Context, arn string) ([]List
 }
 
 const putBroker = `-- name: PutBroker :exec
-INSERT INTO mq_brokers(partition,account_id,region,id,arn,name,engine,engine_version,instance_type,state,creator_request_id,username,password,operation,failure,version,created,due,endpoint_address,endpoint_console_url,endpoint_native_id,endpoint_ca_pem,maintenance_day,maintenance_time,maintenance_zone,maintenance_due,maintenance_adjustments,log_general,log_audit,log_pending_general,log_pending_audit,log_general_file_id,log_general_offset,log_audit_file_id,log_audit_offset,log_delivery_error,log_due)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+INSERT INTO mq_brokers(partition,account_id,region,id,arn,name,engine,engine_version,instance_type,state,creator_request_id,username,password,operation,failure,version,created,due,endpoint_address,endpoint_console_url,endpoint_native_id,endpoint_ca_pem,maintenance_day,maintenance_time,maintenance_zone,maintenance_due,maintenance_adjustments,log_general,log_audit,log_pending_general,log_pending_audit,log_general_file_id,log_general_offset,log_audit_file_id,log_audit_offset,log_delivery_error,log_due,ownership)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(partition,account_id,region,id) DO UPDATE SET arn=excluded.arn,name=excluded.name,engine=excluded.engine,engine_version=excluded.engine_version,instance_type=excluded.instance_type,state=excluded.state,creator_request_id=excluded.creator_request_id,username=excluded.username,password=excluded.password,operation=excluded.operation,failure=excluded.failure,version=excluded.version,created=excluded.created,due=excluded.due,endpoint_address=excluded.endpoint_address,endpoint_console_url=excluded.endpoint_console_url,endpoint_native_id=excluded.endpoint_native_id,endpoint_ca_pem=excluded.endpoint_ca_pem,maintenance_day=excluded.maintenance_day,maintenance_time=excluded.maintenance_time,maintenance_zone=excluded.maintenance_zone,maintenance_due=excluded.maintenance_due,maintenance_adjustments=excluded.maintenance_adjustments,log_general=excluded.log_general,log_audit=excluded.log_audit,log_pending_general=excluded.log_pending_general,log_pending_audit=excluded.log_pending_audit,log_general_file_id=excluded.log_general_file_id,log_general_offset=excluded.log_general_offset,log_audit_file_id=excluded.log_audit_file_id,log_audit_offset=excluded.log_audit_offset,log_delivery_error=excluded.log_delivery_error,log_due=excluded.log_due
 `
 
@@ -540,8 +544,10 @@ type PutBrokerParams struct {
 	LogAuditOffset         int64
 	LogDeliveryError       string
 	LogDue                 time.Time
+	Ownership              string
 }
 
+// Ownership is written only by the inserting CreateBroker transaction.
 func (q *Queries) PutBroker(ctx context.Context, arg PutBrokerParams) error {
 	_, err := q.db.ExecContext(ctx, putBroker,
 		arg.Partition,
@@ -581,6 +587,7 @@ func (q *Queries) PutBroker(ctx context.Context, arg PutBrokerParams) error {
 		arg.LogAuditOffset,
 		arg.LogDeliveryError,
 		arg.LogDue,
+		arg.Ownership,
 	)
 	return err
 }
@@ -674,8 +681,8 @@ func (q *Queries) PutBrokerUserGroup(ctx context.Context, arg PutBrokerUserGroup
 }
 
 const putConfiguration = `-- name: PutConfiguration :exec
-INSERT INTO mq_configurations(partition,account_id,region,id,arn,name,description,engine,engine_version,authentication_strategy,created)
-VALUES(?,?,?,?,?,?,?,?,?,?,?)
+INSERT INTO mq_configurations(partition,account_id,region,id,arn,name,description,engine,engine_version,authentication_strategy,created,ownership)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(partition,account_id,region,id) DO UPDATE SET arn=excluded.arn,name=excluded.name,description=excluded.description,engine=excluded.engine,engine_version=excluded.engine_version,authentication_strategy=excluded.authentication_strategy,created=excluded.created
 `
 
@@ -691,8 +698,10 @@ type PutConfigurationParams struct {
 	EngineVersion          string
 	AuthenticationStrategy string
 	Created                time.Time
+	Ownership              string
 }
 
+// Ownership is written only by the inserting CreateConfiguration transaction.
 func (q *Queries) PutConfiguration(ctx context.Context, arg PutConfigurationParams) error {
 	_, err := q.db.ExecContext(ctx, putConfiguration,
 		arg.Partition,
@@ -706,6 +715,7 @@ func (q *Queries) PutConfiguration(ctx context.Context, arg PutConfigurationPara
 		arg.EngineVersion,
 		arg.AuthenticationStrategy,
 		arg.Created,
+		arg.Ownership,
 	)
 	return err
 }

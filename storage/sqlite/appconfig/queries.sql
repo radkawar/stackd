@@ -1,6 +1,6 @@
 -- name: PutApplication :exec
-INSERT INTO appconfig_applications (partition, account_id, region, id, name, description)
-VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO appconfig_applications (partition, account_id, region, id, name, description, cfn_owner, cfn_token)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, id) DO UPDATE SET name=excluded.name, description=excluded.description;
 
 -- name: ListApplications :many
@@ -10,8 +10,8 @@ SELECT * FROM appconfig_applications WHERE partition=? AND account_id=? AND regi
 DELETE FROM appconfig_applications WHERE partition=? AND account_id=? AND region=? AND id=?;
 
 -- name: PutEnvironment :one
-INSERT INTO appconfig_environments (partition, account_id, region, application_id, id, name, description, state, last_poll, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO appconfig_environments (partition, account_id, region, application_id, id, name, description, state, last_poll, created_at, cfn_owner, cfn_token)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, application_id, id) DO UPDATE SET name=excluded.name, description=excluded.description, state=excluded.state, last_poll=excluded.last_poll, created_at=excluded.created_at
 RETURNING row_id;
 
@@ -22,8 +22,8 @@ SELECT * FROM appconfig_environments WHERE partition=? AND account_id=? AND regi
 DELETE FROM appconfig_environments WHERE partition=? AND account_id=? AND region=? AND application_id=? AND id=?;
 
 -- name: PutProfile :one
-INSERT INTO appconfig_profiles (partition, account_id, region, application_id, id, name, description, location_uri, retrieval_role_arn, type, kms_key_identifier, kms_key_arn, last_poll, next_version, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO appconfig_profiles (partition, account_id, region, application_id, id, name, description, location_uri, retrieval_role_arn, type, kms_key_identifier, kms_key_arn, last_poll, next_version, created_at, cfn_owner, cfn_token)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, application_id, id) DO UPDATE SET name=excluded.name, description=excluded.description, location_uri=excluded.location_uri, retrieval_role_arn=excluded.retrieval_role_arn, type=excluded.type, kms_key_identifier=excluded.kms_key_identifier, kms_key_arn=excluded.kms_key_arn, last_poll=excluded.last_poll, next_version=excluded.next_version, created_at=excluded.created_at
 RETURNING row_id;
 
@@ -34,8 +34,8 @@ SELECT * FROM appconfig_profiles WHERE partition=? AND account_id=? AND region=?
 DELETE FROM appconfig_profiles WHERE partition=? AND account_id=? AND region=? AND application_id=? AND id=?;
 
 -- name: PutHostedVersion :exec
-INSERT INTO appconfig_hosted_versions (partition, account_id, region, application_id, profile_id, number, description, content_type, version_label, kms_key_arn, content)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO appconfig_hosted_versions (partition, account_id, region, application_id, profile_id, number, description, content_type, version_label, kms_key_arn, content, cfn_owner, cfn_token)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, application_id, profile_id, number) DO UPDATE SET description=excluded.description, content_type=excluded.content_type, version_label=excluded.version_label, kms_key_arn=excluded.kms_key_arn, content=excluded.content;
 
 -- name: ListHostedVersions :many
@@ -45,8 +45,8 @@ SELECT * FROM appconfig_hosted_versions WHERE partition=? AND account_id=? AND r
 DELETE FROM appconfig_hosted_versions WHERE partition=? AND account_id=? AND region=? AND application_id=? AND profile_id=? AND number=?;
 
 -- name: PutStrategy :exec
-INSERT INTO appconfig_strategies (partition, account_id, region, id, name, description, growth_type, replicate_to, duration_minutes, final_bake_minutes, growth_factor)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO appconfig_strategies (partition, account_id, region, id, name, description, growth_type, replicate_to, duration_minutes, final_bake_minutes, growth_factor, cfn_owner, cfn_token)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, id) DO UPDATE SET name=excluded.name, description=excluded.description, growth_type=excluded.growth_type, replicate_to=excluded.replicate_to, duration_minutes=excluded.duration_minutes, final_bake_minutes=excluded.final_bake_minutes, growth_factor=excluded.growth_factor;
 
 -- name: ListStrategies :many
@@ -56,8 +56,8 @@ SELECT * FROM appconfig_strategies WHERE partition=? AND account_id=? AND region
 DELETE FROM appconfig_strategies WHERE partition=? AND account_id=? AND region=? AND id=?;
 
 -- name: PutDeployment :one
-INSERT INTO appconfig_deployments (partition, account_id, region, application_id, environment_id, profile_id, strategy_id, number, previous_deployment, configuration_name, configuration_version, version_label, location_uri, description, content_type, state, type, experiment_flags, growth_type, kms_key_identifier, kms_key_arn, content, duration_minutes, final_bake_minutes, growth_factor, percentage, started_at, completed_at, due, generation, pipeline_action_id)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO appconfig_deployments (partition, account_id, region, application_id, environment_id, profile_id, strategy_id, number, previous_deployment, configuration_name, configuration_version, version_label, location_uri, description, content_type, state, type, experiment_flags, growth_type, kms_key_identifier, kms_key_arn, content, duration_minutes, final_bake_minutes, growth_factor, percentage, started_at, completed_at, due, generation, pipeline_action_id, cfn_owner, cfn_token)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, application_id, environment_id, number) DO UPDATE SET profile_id=excluded.profile_id, strategy_id=excluded.strategy_id, previous_deployment=excluded.previous_deployment, configuration_name=excluded.configuration_name, configuration_version=excluded.configuration_version, version_label=excluded.version_label, location_uri=excluded.location_uri, description=excluded.description, content_type=excluded.content_type, state=excluded.state, type=excluded.type, experiment_flags=excluded.experiment_flags, growth_type=excluded.growth_type, kms_key_identifier=excluded.kms_key_identifier, kms_key_arn=excluded.kms_key_arn, content=excluded.content, duration_minutes=excluded.duration_minutes, final_bake_minutes=excluded.final_bake_minutes, growth_factor=excluded.growth_factor, percentage=excluded.percentage, started_at=excluded.started_at, completed_at=excluded.completed_at, due=excluded.due, generation=excluded.generation, pipeline_action_id=excluded.pipeline_action_id
 RETURNING row_id;
 
@@ -82,8 +82,8 @@ SELECT * FROM appconfig_sessions WHERE partition=? AND account_id=? AND region=?
 DELETE FROM appconfig_sessions WHERE partition=? AND account_id=? AND region=? AND token=?;
 
 -- name: PutExtension :one
-INSERT INTO appconfig_extensions (partition, account_id, region, id, name, description, arn, version)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO appconfig_extensions (partition, account_id, region, id, name, description, arn, version, cfn_owner, cfn_token)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, id, version) DO UPDATE SET name=excluded.name, description=excluded.description, arn=excluded.arn
 RETURNING row_id;
 
@@ -94,8 +94,8 @@ SELECT * FROM appconfig_extensions WHERE partition=? AND account_id=? AND region
 DELETE FROM appconfig_extensions WHERE partition=? AND account_id=? AND region=? AND id=? AND version=?;
 
 -- name: PutAssociation :one
-INSERT INTO appconfig_associations (partition, account_id, region, id, arn, extension_id, extension_arn, resource_arn, extension_version)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO appconfig_associations (partition, account_id, region, id, arn, extension_id, extension_arn, resource_arn, extension_version, cfn_owner, cfn_token)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, id) DO UPDATE SET arn=excluded.arn, extension_id=excluded.extension_id, extension_arn=excluded.extension_arn, resource_arn=excluded.resource_arn, extension_version=excluded.extension_version
 RETURNING row_id;
 

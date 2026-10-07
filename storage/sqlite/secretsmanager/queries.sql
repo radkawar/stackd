@@ -19,8 +19,12 @@ INSERT INTO secretsmanager_secrets (
  partition, account_id, region, name, arn, type, description, kms_key_id, owning_service,
  created, changed, last_accessed, deleted, delete_after, tags_present, policy_document,
  policy_principals_present, policy_trust, rotation_enabled, rotation_lambda_arn,
- last_rotated, next_rotation, rotation_due, primary_region
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ last_rotated, next_rotation, rotation_due, primary_region,
+ cfn_owner, cfn_token, policy_owner, policy_token, rotation_owner, rotation_token,
+ attachment_owner, attachment_token, attachment_engine, attachment_host, attachment_port,
+ attachment_db_instance, attachment_db_cluster
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+ ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, name) DO UPDATE SET
  arn = excluded.arn, type = excluded.type, description = excluded.description,
  kms_key_id = excluded.kms_key_id, owning_service = excluded.owning_service,
@@ -30,7 +34,14 @@ ON CONFLICT(partition, account_id, region, name) DO UPDATE SET
  policy_principals_present = excluded.policy_principals_present, policy_trust = excluded.policy_trust,
  rotation_enabled = excluded.rotation_enabled, rotation_lambda_arn = excluded.rotation_lambda_arn,
  last_rotated = excluded.last_rotated, next_rotation = excluded.next_rotation,
- rotation_due = excluded.rotation_due, primary_region = excluded.primary_region;
+ rotation_due = excluded.rotation_due, primary_region = excluded.primary_region,
+ cfn_owner = excluded.cfn_owner, cfn_token = excluded.cfn_token,
+ policy_owner = excluded.policy_owner, policy_token = excluded.policy_token,
+ rotation_owner = excluded.rotation_owner, rotation_token = excluded.rotation_token,
+ attachment_owner = excluded.attachment_owner, attachment_token = excluded.attachment_token,
+ attachment_engine = excluded.attachment_engine, attachment_host = excluded.attachment_host,
+ attachment_port = excluded.attachment_port, attachment_db_instance = excluded.attachment_db_instance,
+ attachment_db_cluster = excluded.attachment_db_cluster;
 
 -- name: DeleteSecret :exec
 DELETE FROM secretsmanager_secrets

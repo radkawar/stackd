@@ -59,7 +59,7 @@ func (s *Service) splitShard(ctx context.Context, tx Transaction, in *api.SplitS
 	}
 	plan := topologyPlan{stream: stream, peak: int32(*stream.Data.OpenShardCount)}
 	plan.split(parent, boundary)
-	if err := plan.commit(tx, StreamUpdate{AcceptedAt: s.clock.Now()}); err != nil {
+	if err := plan.commit(s, tx, StreamUpdate{AcceptedAt: s.clock.Now()}); err != nil {
 		return nil, err
 	}
 	return &api.SplitShardOutput{}, nil
@@ -93,7 +93,7 @@ func (s *Service) mergeShards(ctx context.Context, tx Transaction, in *api.Merge
 	}
 	plan := topologyPlan{stream: stream, peak: int32(*stream.Data.OpenShardCount)}
 	plan.merge(left, right)
-	if err := plan.commit(tx, StreamUpdate{AcceptedAt: s.clock.Now()}); err != nil {
+	if err := plan.commit(s, tx, StreamUpdate{AcceptedAt: s.clock.Now()}); err != nil {
 		return nil, err
 	}
 	return &api.MergeShardsOutput{}, nil

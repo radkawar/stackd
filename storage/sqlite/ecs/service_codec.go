@@ -9,11 +9,9 @@ import (
 // Service and deployment resources are scalar columns plus typed nested configurations.
 // Deployments and observed tasks are owned child rows, not serialized resource records.
 func serviceRecord(row sqlcgen.EcsService) (domain.ServiceRecord, error) {
-	out := domain.ServiceRecord{
-		Key:             domain.ServiceKey{ClusterKey: domain.ClusterKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Name: row.ClusterName}, ServiceName: row.ServiceName},
+	out := domain.ServiceRecord{Ownership: row.Ownership, Key: domain.ServiceKey{ClusterKey: domain.ClusterKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Name: row.ClusterName}, ServiceName: row.ServiceName},
 		AcceptedEventID: row.AcceptedEventID, DrainAfter: row.DrainAfter,
-		NextMetricCollection: row.NextMetricCollection,
-	}
+		NextMetricCollection: row.NextMetricCollection}
 	out.Data.AvailabilityZoneRebalancing = stringPointer[api.AvailabilityZoneRebalancing](row.ServiceAvailabilityZoneRebalancing)
 	out.Data.ClusterArn = stringPointer[api.String](row.ServiceClusterArn)
 	out.Data.CreatedAt = timePointer(row.ServiceCreatedAt)
@@ -81,8 +79,7 @@ func serviceRecord(row sqlcgen.EcsService) (domain.ServiceRecord, error) {
 
 func serviceParams(v domain.ServiceRecord) (sqlcgen.PutServiceParams, error) {
 	k := v.Key
-	params := sqlcgen.PutServiceParams{
-		Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ClusterName: k.Name, ServiceName: k.ServiceName,
+	params := sqlcgen.PutServiceParams{Ownership: v.Ownership, Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ClusterName: k.Name, ServiceName: k.ServiceName,
 		AcceptedEventID: v.AcceptedEventID, DrainAfter: v.DrainAfter, DeploymentsPresent: v.Deployments != nil,
 		NextMetricCollection:                 v.NextMetricCollection,
 		ServiceAvailabilityZoneRebalancing:   nullableString(v.Data.AvailabilityZoneRebalancing),
@@ -121,8 +118,7 @@ func serviceParams(v domain.ServiceRecord) (sqlcgen.PutServiceParams, error) {
 		CreateRole:                           nullableString(v.CreateInput.Role),
 		CreateSchedulingStrategy:             nullableString(v.CreateInput.SchedulingStrategy),
 		CreateServiceName:                    nullableString(v.CreateInput.ServiceName),
-		CreateTaskDefinition:                 nullableString(v.CreateInput.TaskDefinition),
-	}
+		CreateTaskDefinition:                 nullableString(v.CreateInput.TaskDefinition)}
 	err := marshalFields(
 		jsonWriteField{&params.ServiceCapacityProviderStrategy, v.Data.CapacityProviderStrategy},
 		jsonWriteField{&params.ServiceCurrentServiceRevisions, v.Data.CurrentServiceRevisions},

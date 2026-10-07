@@ -56,11 +56,28 @@ func (s *Service) putPermission(ctx context.Context, in *api.PutPermissionInput)
 		if err != nil {
 			return err
 		}
+		if err := cloudFormationBusCheck(tx.Context(), bus); err != nil {
+			return err
+		}
+		cfnOwner, _ := tx.Context().Value(cloudFormationOwnerKey{}).(cloudFormationOwner)
+		if cfnOwner.Kind == "EventBusPolicy" && !full && value(in.StatementId) != cfnOwner.StatementID {
+			return failure("ValidationException", "StatementId must equal the configured StatementId.")
+		}
 		if full {
 			incoming, err = validatePermissionPolicy(value(in.Policy), key)
 			if err != nil {
 				return err
 			}
+			if err := cloudFormationBusPolicyReplaceable(tx.Context(), bus); err != nil {
+				return err
+			}
+		}
+		var cfnIncoming *permissionPolicy
+		if full {
+			cfnIncoming = &incoming
+		}
+		if err := cloudFormationPolicy(tx, &bus, cfnIncoming, false); err != nil {
+			return err
 		}
 		if !full && value(in.Principal) != "*" {
 			known, err := s.permissionAccountExists(tx.Context(), key.Partition, value(in.Principal))
@@ -100,6 +117,7 @@ func (s *Service) putPermission(ctx context.Context, in *api.PutPermissionInput)
 				document.Statements = append(document.Statements, statement)
 			}
 		}
+		retainPermissionStatementOwners(&bus, document)
 		data, err := json.Marshal(document)
 		if err != nil {
 			return err
@@ -107,6 +125,11 @@ func (s *Service) putPermission(ctx context.Context, in *api.PutPermissionInput)
 		if string(data) == bus.Policy.Document {
 			// AWS preserves bindings and modification time for an unchanged
 			// policy, including bindings to deleted IAM identities.
+			if cloudFormationClaim(tx.Context(), "EventBusPolicy") != "" {
+				if err := tx.PutBus(bus); err != nil {
+					return err
+				}
+			}
 			return s.recordCall(tx.Context(), "PutPermission", in, out, nil)
 		}
 		if len(data) > 10240 {
@@ -120,7 +143,26 @@ func (s *Service) putPermission(ctx context.Context, in *api.PutPermissionInput)
 			if s.binder == nil {
 				return unsupported("Event bus policy principal binding is not configured.")
 			}
-			bound, err = s.binder.BindResourcePolicy(tx.Context(), bound.Document, authorization.ResourcePolicyOptions{})
+			bindingDocument := bound.Document
+			cfnPolicy, _ := tx.Context().Value(cloudFormationOwnerKey{}).(cloudFormationOwner)
+			if cfnPolicy.Kind == "EventBusPolicy" {
+				bindingDocument = value(in.Policy)
+			}
+			admitted, bindErr := s.binder.BindResourcePolicy(tx.Context(), bindingDocument, authorization.ResourcePolicyOptions{})
+			err = bindErr
+			if err == nil {
+				if cfnPolicy.Kind == "EventBusPolicy" {
+					bound.PrincipalIDs, err = retainedPermissionBindings(bound.Document, bus.Policy.PrincipalIDs)
+					if err == nil {
+						if bound.PrincipalIDs == nil {
+							bound.PrincipalIDs = map[string]string{}
+						}
+						maps.Copy(bound.PrincipalIDs, admitted.PrincipalIDs)
+					}
+				} else {
+					bound = admitted
+				}
+			}
 			if err != nil {
 				if errors.Is(err, authorization.ErrInvalidPrincipal) {
 					return failure("ValidationException", "Policy contains an invalid principal")
@@ -167,11 +209,27 @@ func (s *Service) removePermission(ctx context.Context, in *api.RemovePermission
 		if err != nil {
 			return err
 		}
+		if err := cloudFormationBusCheck(tx.Context(), bus); err != nil {
+			return err
+		}
+		cfnOwner, _ := tx.Context().Value(cloudFormationOwnerKey{}).(cloudFormationOwner)
+		if cfnOwner.Kind == "EventBusPolicy" && (all || value(in.StatementId) != cfnOwner.StatementID) {
+			return failure("ValidationException", "StatementId must equal the configured StatementId.")
+		}
+		if err := cloudFormationPolicy(tx, &bus, nil, true); err != nil {
+			return err
+		}
+		if all {
+			if err := cloudFormationBusPolicyReplaceable(tx.Context(), bus); err != nil {
+				return err
+			}
+		}
 		if all {
 			if bus.Policy.Document == "" {
 				return s.recordCall(tx.Context(), "RemovePermission", in, out, nil)
 			}
 			bus.Policy = authorization.BoundPolicy{}
+			bus.PolicyStatementOwners = nil
 		} else {
 			document, err := readPermissionPolicy(bus.Policy.Document)
 			if err != nil {
@@ -188,6 +246,7 @@ func (s *Service) removePermission(ctx context.Context, in *api.RemovePermission
 			if !found {
 				return failure("ResourceNotFoundException", "Statement with the provided id does not exist.")
 			}
+			delete(bus.PolicyStatementOwners, value(in.StatementId))
 			bus.Policy = authorization.BoundPolicy{PrincipalIDs: bus.Policy.PrincipalIDs}
 			if len(document.Statements) != 0 {
 				data, err := json.Marshal(document)

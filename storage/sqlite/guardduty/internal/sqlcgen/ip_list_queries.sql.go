@@ -70,7 +70,7 @@ func (q *Queries) DeleteIPRanges(ctx context.Context, arg DeleteIPRangesParams) 
 }
 
 const getIPList = `-- name: GetIPList :one
-SELECT "partition", account_id, region, detector_id, kind, id, arn, name, format, location, expected_bucket_owner, client_token, status, version, due, tags_present FROM guardduty_ip_lists WHERE partition=? AND account_id=? AND region=? AND detector_id=? AND kind=? AND id=?
+SELECT "partition", account_id, region, detector_id, kind, id, arn, name, format, location, expected_bucket_owner, client_token, status, version, due, tags_present, cfn_owner, cfn_token FROM guardduty_ip_lists WHERE partition=? AND account_id=? AND region=? AND detector_id=? AND kind=? AND id=?
 `
 
 type GetIPListParams struct {
@@ -109,6 +109,8 @@ func (q *Queries) GetIPList(ctx context.Context, arg GetIPListParams) (Guardduty
 		&i.Version,
 		&i.Due,
 		&i.TagsPresent,
+		&i.CfnOwner,
+		&i.CfnToken,
 	)
 	return i, err
 }
@@ -141,7 +143,7 @@ func (q *Queries) ListIPListTags(ctx context.Context, arn string) ([]GuarddutyIp
 }
 
 const listIPLists = `-- name: ListIPLists :many
-SELECT "partition", account_id, region, detector_id, kind, id, arn, name, format, location, expected_bucket_owner, client_token, status, version, due, tags_present FROM guardduty_ip_lists WHERE partition=? AND account_id=? AND region=? AND detector_id=? ORDER BY kind, id
+SELECT "partition", account_id, region, detector_id, kind, id, arn, name, format, location, expected_bucket_owner, client_token, status, version, due, tags_present, cfn_owner, cfn_token FROM guardduty_ip_lists WHERE partition=? AND account_id=? AND region=? AND detector_id=? ORDER BY kind, id
 `
 
 type ListIPListsParams struct {
@@ -182,6 +184,8 @@ func (q *Queries) ListIPLists(ctx context.Context, arg ListIPListsParams) ([]Gua
 			&i.Version,
 			&i.Due,
 			&i.TagsPresent,
+			&i.CfnOwner,
+			&i.CfnToken,
 		); err != nil {
 			return nil, err
 		}
@@ -197,7 +201,7 @@ func (q *Queries) ListIPLists(ctx context.Context, arg ListIPListsParams) ([]Gua
 }
 
 const matchingIPLists = `-- name: MatchingIPLists :many
-SELECT l."partition", l.account_id, l.region, l.detector_id, l.kind, l.id, l.arn, l.name, l.format, l.location, l.expected_bucket_owner, l.client_token, l.status, l.version, l.due, l.tags_present FROM guardduty_ip_lists AS l
+SELECT l."partition", l.account_id, l.region, l.detector_id, l.kind, l.id, l.arn, l.name, l.format, l.location, l.expected_bucket_owner, l.client_token, l.status, l.version, l.due, l.tags_present, l.cfn_owner, l.cfn_token FROM guardduty_ip_lists AS l
 WHERE l.partition=? AND l.account_id=? AND l.region=? AND l.detector_id=? AND l.status='ACTIVE'
 AND (SELECT r.last_ip FROM guardduty_ip_ranges AS r
      WHERE r.partition=l.partition AND r.account_id=l.account_id AND r.region=l.region
@@ -247,6 +251,8 @@ func (q *Queries) MatchingIPLists(ctx context.Context, arg MatchingIPListsParams
 			&i.Version,
 			&i.Due,
 			&i.TagsPresent,
+			&i.CfnOwner,
+			&i.CfnToken,
 		); err != nil {
 			return nil, err
 		}
@@ -262,12 +268,14 @@ func (q *Queries) MatchingIPLists(ctx context.Context, arg MatchingIPListsParams
 }
 
 const putIPList = `-- name: PutIPList :exec
-INSERT INTO guardduty_ip_lists (partition, account_id, region, detector_id, kind, id, arn, name, format, location, expected_bucket_owner, client_token, status, version, due, tags_present)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO guardduty_ip_lists (cfn_owner, cfn_token, partition, account_id, region, detector_id, kind, id, arn, name, format, location, expected_bucket_owner, client_token, status, version, due, tags_present)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, detector_id, kind, id) DO UPDATE SET arn=excluded.arn, name=excluded.name, format=excluded.format, location=excluded.location, expected_bucket_owner=excluded.expected_bucket_owner, client_token=excluded.client_token, status=excluded.status, version=excluded.version, due=excluded.due, tags_present=excluded.tags_present
 `
 
 type PutIPListParams struct {
+	CfnOwner            string
+	CfnToken            string
 	Partition           string
 	AccountID           string
 	Region              string
@@ -288,6 +296,8 @@ type PutIPListParams struct {
 
 func (q *Queries) PutIPList(ctx context.Context, arg PutIPListParams) error {
 	_, err := q.db.ExecContext(ctx, putIPList,
+		arg.CfnOwner,
+		arg.CfnToken,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,

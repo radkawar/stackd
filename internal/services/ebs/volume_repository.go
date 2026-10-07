@@ -5,6 +5,7 @@ import (
 
 	ec2api "stackd/internal/awsapi/ec2"
 	kmsapi "stackd/internal/awsapi/kms"
+	"stackd/internal/services/ec2"
 )
 
 // VolumeKey identifies an account-owned regional disk; its zone is retained in
@@ -29,6 +30,7 @@ type VolumeConfiguration struct {
 // CreationInput retains admitted request identity for native client-token replay.
 type VolumeRecord struct {
 	Key                   VolumeKey
+	CloudFormationOwner   ec2.CloudFormationOwner
 	Configuration         VolumeConfiguration
 	ZoneName, ZoneID      string
 	SnapshotID, LineageID string

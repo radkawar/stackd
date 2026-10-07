@@ -152,6 +152,10 @@ func (s *Service) deleteAlias(ctx context.Context, in *kmsapi.DeleteAliasInput) 
 }
 
 func (s *Service) listAliases(ctx context.Context, in *kmsapi.ListAliasesInput) (*kmsapi.ListAliasesOutput, *awswire.Error) {
+	owner, ownerErr := aliasOwnerFor(ctx)
+	if ownerErr != nil {
+		return nil, ownerErr
+	}
 	st := s.store(ctx)
 	keyID := ""
 	if in.KeyId != nil {
@@ -163,7 +167,7 @@ func (s *Service) listAliases(ctx context.Context, in *kmsapi.ListAliasesInput) 
 	}
 	names := make([]string, 0, len(st.aliases))
 	for name, a := range st.aliases {
-		if keyID == "" || a.keyID == keyID {
+		if (keyID == "" || a.keyID == keyID) && (owner == (AliasOwner{}) || a.owner == owner) {
 			names = append(names, name)
 		}
 	}

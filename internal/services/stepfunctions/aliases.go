@@ -90,6 +90,9 @@ func (s *Service) createStateMachineAlias(tx Transaction, in *api.CreateStateMac
 	key := AliasKey{Machine: machine.Key, MachineID: machine.ID, Name: name}
 	previous, err := tx.Alias(key)
 	if err == nil {
+		if err := cloudFormationCheck(tx.Context(), "StateMachineAlias", previous.CFNOwner); err != nil {
+			return nil, err
+		}
 		if previous.Description != value(in.Description) || !slices.Equal(previous.Routes, routes) {
 			return nil, failure("ConflictException", "An alias with the same name and a different configuration already exists.", 400)
 		}
@@ -107,6 +110,7 @@ func (s *Service) createStateMachineAlias(tx Transaction, in *api.CreateStateMac
 	}
 	now := s.clock.Now().UTC()
 	alias := AliasRecord{Key: key, Description: value(in.Description), Created: now, Updated: now, Routes: routes}
+	alias.CFNOwner = cloudFormationClaim(tx.Context(), "StateMachineAlias")
 	if err := tx.PutAlias(alias); err != nil {
 		return nil, err
 	}
@@ -127,6 +131,9 @@ func (s *Service) controlAlias(r Reader, raw, action string, active bool) (Machi
 	alias, err := r.Alias(AliasKey{Machine: machine.Key, MachineID: machine.ID, Name: qualifier})
 	if errors.Is(err, ErrNotFound) {
 		return machine, AliasRecord{}, resourceMissing(raw)
+	}
+	if err == nil {
+		err = cloudFormationCheck(r.Context(), "StateMachineAlias", alias.CFNOwner)
 	}
 	return machine, alias, err
 }

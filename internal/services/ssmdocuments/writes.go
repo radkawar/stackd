@@ -16,13 +16,57 @@ func contentHash(content string) string {
 	return hex.EncodeToString(sum[:])
 }
 func (s *Service) createDocument(tx Transaction, in *api.CreateDocumentRequest) (*api.CreateDocumentResult, error) {
-	k, err := documentKey(tx.Context(), value(in.Name))
+	claim, claimed := cloudFormationDocumentOwner(tx.Context())
+	if claimed {
+		if out, recovered, err := s.recoverClaimedDocument(tx, in, claim); err != nil || recovered {
+			return out, err
+		}
+	}
+	record, v, err := s.admitDocument(tx, in, false)
 	if err != nil {
 		return nil, err
 	}
+	record.CloudFormationOwner = claim
+	return persistDocument(tx, record, v)
+}
+
+// recoverClaimedDocument returns, unchanged and under current CreateDocument
+// authority, the document this exact claim already created. A same-name
+// document with any other claim is left to ordinary DocumentAlreadyExists.
+func (s *Service) recoverClaimedDocument(tx Transaction, in *api.CreateDocumentRequest, claim string) (*api.CreateDocumentResult, bool, error) {
+	k, err := documentKey(tx.Context(), value(in.Name))
+	if err != nil {
+		return nil, false, nil
+	}
+	current, err := tx.Document(k)
+	if errors.Is(err, ErrNotFound) || err == nil && current.CloudFormationOwner != claim {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	if rejected := s.authorize(tx, "CreateDocument", current, nil); rejected != nil {
+		return nil, false, rejected
+	}
+	v, err := selectVersion(tx, current, "$DEFAULT", "")
+	if err != nil {
+		return nil, false, err
+	}
+	desc, err := description(current, v)
+	return &api.CreateDocumentResult{DocumentDescription: desc}, true, err
+}
+
+// admitDocument performs the real native admission without retiring or writing
+// any document state. Replacement uses the same authority and schema validation
+// as CreateDocument, but the existing name is held by its transaction.
+func (s *Service) admitDocument(r Reader, in *api.CreateDocumentRequest, replacing bool) (Record, Version, error) {
+	k, err := documentKey(r.Context(), value(in.Name))
+	if err != nil {
+		return Record{}, Version{}, err
+	}
 	tags, err := validateTags(in.Tags)
 	if err != nil {
-		return nil, err
+		return Record{}, Version{}, err
 	}
 	kind := value(in.DocumentType)
 	if kind == "" {
@@ -30,54 +74,62 @@ func (s *Service) createDocument(tx Transaction, in *api.CreateDocumentRequest) 
 	}
 	conditions := tagConditions(tags)
 	conditions["ssm:DocumentType"] = []string{kind}
-	record := Record{Key: k, Type: kind, DocumentID: uuid.NewString(), DefaultVersion: 1, LatestVersion: 1, NextVersion: 2, Tags: tags}
-	if err = s.authorize(tx, "CreateDocument", record, conditions); err != nil {
-		return nil, err
+	record := Record{Key: k, Type: kind, DefaultVersion: 1, LatestVersion: 1, NextVersion: 2, Tags: tags}
+	if err = s.authorize(r, "CreateDocument", record, conditions); err != nil {
+		return Record{}, Version{}, err
 	}
 	name := strings.ToLower(k.Name)
 	if strings.HasPrefix(name, "aws") || strings.HasPrefix(name, "amazon") || strings.HasPrefix(name, "amzn") {
-		return nil, failure("ValidationException", "Document name prefixes aws, amazon and amzn are reserved.")
+		return Record{}, Version{}, failure("ValidationException", "Document name prefixes aws, amazon and amzn are reserved.")
 	}
-	if _, err = tx.Document(k); err == nil {
-		return nil, failure("DocumentAlreadyExists", "A document with this name already exists.")
-	} else if !errors.Is(err, ErrNotFound) {
-		return nil, err
+	if !replacing {
+		if _, err = r.Document(k); err == nil {
+			return Record{}, Version{}, failure("DocumentAlreadyExists", "A document with this name already exists.")
+		} else if !errors.Is(err, ErrNotFound) {
+			return Record{}, Version{}, err
+		}
 	}
 	if kind != "Command" && kind != "ApplicationConfiguration" && kind != "ApplicationConfigurationSchema" && kind != "DeploymentStrategy" {
 		// TODO: Comeback: Automation, Session, Package and other document engines require their own execution owners.
-		return nil, failure("InvalidDocumentContent", "The document type is not supported.")
+		return Record{}, Version{}, failure("InvalidDocumentContent", "The document type is not supported.")
 	}
 	if len(in.Attachments) > 0 {
 		// TODO: Comeback: document attachments require their actual storage owner.
-		return nil, failure("InvalidDocumentContent", "Document attachments are not supported.")
+		return Record{}, Version{}, failure("InvalidDocumentContent", "Document attachments are not supported.")
 	}
 	if kind == "ApplicationConfiguration" {
-		if err = s.bindSchema(tx, &record, in.Requires); err != nil {
-			return nil, err
+		if err = s.bindSchema(r, &record, in.Requires); err != nil {
+			return Record{}, Version{}, err
 		}
 	} else if kind == "Command" && len(in.Requires) > 0 {
-		return nil, failure("InvalidDocumentContent", "Command document dependencies are not supported.")
+		return Record{}, Version{}, failure("InvalidDocumentContent", "Command document dependencies are not supported.")
 	}
 	format := value(in.DocumentFormat)
 	if format == "" {
 		format = "JSON"
 	}
-	if err = validateDocumentContent(tx, record, value(in.Content), format); err != nil {
-		return nil, err
+	if err = validateDocumentContent(r, record, value(in.Content), format); err != nil {
+		return Record{}, Version{}, err
 	}
 	now := s.clock.Now()
-	v := Version{Key: VersionKey{k, 1}, Content: value(in.Content), Format: format, Hash: contentHash(value(in.Content)), VersionName: value(in.VersionName), DisplayName: value(in.DisplayName), TargetType: value(in.TargetType), Created: now, Status: "Creating", ReadyAt: now}
-	if err = tx.PutDocument(record); err != nil {
+	v := Version{Key: VersionKey{k, 1}, Content: value(in.Content), Format: format, VersionName: value(in.VersionName), DisplayName: value(in.DisplayName), TargetType: value(in.TargetType), Created: now, Status: "Creating", ReadyAt: now}
+	return record, v, nil
+}
+
+func persistDocument(tx Transaction, record Record, v Version) (*api.CreateDocumentResult, error) {
+	record.DocumentID = uuid.NewString()
+	v.Hash = contentHash(v.Content)
+	if err := tx.PutDocument(record); err != nil {
 		return nil, err
 	}
-	if err = tx.InsertVersion(v); err != nil {
+	if err := tx.InsertVersion(v); err != nil {
 		return nil, err
 	}
 	desc, err := description(record, v)
 	return &api.CreateDocumentResult{DocumentDescription: desc}, err
 }
 func (s *Service) updateDocument(tx Transaction, in *api.UpdateDocumentRequest) (*api.UpdateDocumentResult, error) {
-	record, err := s.load(tx, "UpdateDocument", value(in.Name))
+	record, err := s.loadClaimed(tx, "UpdateDocument", value(in.Name))
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +207,7 @@ func (s *Service) updateDocument(tx Transaction, in *api.UpdateDocumentRequest) 
 	return &api.UpdateDocumentResult{DocumentDescription: desc}, err
 }
 func (s *Service) updateDefault(tx Transaction, in *api.UpdateDocumentDefaultVersionRequest) (*api.UpdateDocumentDefaultVersionResult, error) {
-	record, err := s.load(tx, "UpdateDocumentDefaultVersion", value(in.Name))
+	record, err := s.loadClaimed(tx, "UpdateDocumentDefaultVersion", value(in.Name))
 	if err != nil {
 		return nil, err
 	}
@@ -173,10 +225,14 @@ func (s *Service) updateDefault(tx Transaction, in *api.UpdateDocumentDefaultVer
 	return &api.UpdateDocumentDefaultVersionResult{Description: &api.DocumentDefaultVersionDescription{Name: new(api.DocumentName(record.Key.Name)), DefaultVersion: new(api.DocumentVersion(strconv.FormatInt(v.Key.Version, 10))), DefaultVersionName: optional[api.DocumentVersionName](v.VersionName)}}, nil
 }
 func (s *Service) deleteDocument(tx Transaction, in *api.DeleteDocumentRequest) (*api.DeleteDocumentResult, error) {
-	record, err := s.load(tx, "DeleteDocument", value(in.Name))
+	record, err := s.loadClaimed(tx, "DeleteDocument", value(in.Name))
 	if err != nil {
 		return nil, err
 	}
+	return deleteLoadedDocument(tx, record, in)
+}
+
+func deleteLoadedDocument(tx Transaction, record Record, in *api.DeleteDocumentRequest) (*api.DeleteDocumentResult, error) {
 	if record.Key.AccountID == "" {
 		return nil, failure("InvalidDocumentOperation", "AWS-owned documents cannot be deleted.")
 	}

@@ -41,7 +41,7 @@ func (r reader) row(k domain.Key) (sqlcgen.SsmDocument, error) {
 	return v, missing(e)
 }
 func (r reader) record(v sqlcgen.SsmDocument) (domain.Record, error) {
-	out := domain.Record{Key: domain.Key{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name}, Type: v.DocumentType, SchemaName: v.SchemaName, SchemaVersion: v.SchemaVersion, SchemaDocumentID: v.SchemaDocumentUuid, DocumentID: v.DocumentUuid, DefaultVersion: v.DefaultVersion, LatestVersion: v.LatestVersion, NextVersion: v.NextVersion, Tags: map[string]string{}}
+	out := domain.Record{Key: domain.Key{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name}, Type: v.DocumentType, SchemaName: v.SchemaName, SchemaVersion: v.SchemaVersion, SchemaDocumentID: v.SchemaDocumentUuid, DocumentID: v.DocumentUuid, DefaultVersion: v.DefaultVersion, LatestVersion: v.LatestVersion, NextVersion: v.NextVersion, Tags: map[string]string{}, CloudFormationOwner: v.CloudformationOwner}
 	tags, e := r.q.ListTags(r.ctx, v.ID)
 	if e != nil {
 		return out, e
@@ -125,7 +125,7 @@ func (r reader) Versions(k domain.Key) ([]domain.Version, error) {
 	return out, nil
 }
 func (w writer) PutDocument(v domain.Record) error {
-	id, e := w.q.PutDocument(w.ctx, sqlcgen.PutDocumentParams{Partition: v.Key.Partition, AccountID: v.Key.AccountID, Region: v.Key.Region, Name: v.Key.Name, DocumentUuid: v.DocumentID, DefaultVersion: v.DefaultVersion, LatestVersion: v.LatestVersion, NextVersion: v.NextVersion, DocumentType: v.Type, SchemaName: v.SchemaName, SchemaVersion: v.SchemaVersion, SchemaDocumentUuid: v.SchemaDocumentID})
+	id, e := w.q.PutDocument(w.ctx, sqlcgen.PutDocumentParams{Partition: v.Key.Partition, AccountID: v.Key.AccountID, Region: v.Key.Region, Name: v.Key.Name, DocumentUuid: v.DocumentID, DefaultVersion: v.DefaultVersion, LatestVersion: v.LatestVersion, NextVersion: v.NextVersion, DocumentType: v.Type, SchemaName: v.SchemaName, SchemaVersion: v.SchemaVersion, SchemaDocumentUuid: v.SchemaDocumentID, CloudformationOwner: v.CloudFormationOwner})
 	if e != nil {
 		return e
 	}

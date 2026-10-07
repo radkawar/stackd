@@ -29,6 +29,7 @@ def require(value, message):
 
 class Proof:
     listen_host = '127.0.0.1'
+    runtime_selectors = ('-msk-runtime',)
 
     def __init__(self, args):
         self.args = args
@@ -51,12 +52,14 @@ class Proof:
         return boto3.client(service, endpoint_url=self.endpoint, region_name=region, aws_access_key_id=key,
                             aws_secret_access_key='test', config=Config(retries={'total_max_attempts': 1}, connect_timeout=5, read_timeout=90))
 
-    def start(self):
-        command = [str(Path(self.args.binary).resolve()), '-listen', f'{self.listen_host}:{self.port}',
+    def controller_command(self):
+        return [str(Path(self.args.binary).resolve()), '-listen', f'{self.listen_host}:{self.port}',
             '-public-endpoint', self.endpoint,
-            '-database', str(self.state / 'msk.sqlite'), '-docker-host', self.args.docker_host, '-msk-runtime',
-            '-lambda-telemetry-directory', self.args.telemetry_directory,
+            '-database', str(self.state / 'msk.sqlite'), '-docker-host', self.args.docker_host, *self.runtime_selectors,
             '-compute-endpoint', f'http://host.docker.internal:{self.port}']
+
+    def start(self):
+        command = self.controller_command()
         self.controller.start(command, self.endpoint, environment=self.env, timeout=180)
 
     def wait(self, fn, label, timeout=120):
@@ -332,7 +335,6 @@ def main():
     parser.add_argument('--protocol-probe', required=True)
     parser.add_argument('--state-directory', required=True)
     parser.add_argument('--docker-host', default='unix:///var/run/docker.sock')
-    parser.add_argument('--telemetry-directory', default='/home/r/dev/minor/stackd/bin')
     Proof(parser.parse_args()).run()
 
 

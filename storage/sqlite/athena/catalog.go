@@ -36,6 +36,7 @@ func (w writer) DeleteCatalog(key domain.ResourceKey) error {
 
 func (r reader) catalog(row *sqlcgen.AthenaCatalog) (domain.CatalogRecord, error) {
 	var out domain.CatalogRecord
+	out.CFNOwner = row.CfnOwner
 	out.Key.Scope.Partition = row.KeyScopePartition
 	out.Key.Scope.AccountID = row.KeyScopeAccountID
 	out.Key.Scope.Region = row.KeyScopeRegion
@@ -65,6 +66,7 @@ func (r reader) catalog(row *sqlcgen.AthenaCatalog) (domain.CatalogRecord, error
 
 func (w writer) PutCatalog(v domain.CatalogRecord) error {
 	var p sqlcgen.PutCatalogParams
+	p.CfnOwner = v.CFNOwner
 	p.KeyScopePartition = v.Key.Scope.Partition
 	p.KeyScopeAccountID = v.Key.Scope.AccountID
 	p.KeyScopeRegion = v.Key.Scope.Region

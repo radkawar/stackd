@@ -98,6 +98,7 @@ func (s *Service) describeAlarms(tx Transaction, in *api.DescribeAlarmsInput) (*
 		records = records[:limit]
 	}
 	for _, alarm := range records {
+		observeCloudFormation(tx.Context(), alarm.Type(), alarm.Key.Name, alarm.CFNOwner)
 		if alarm.Composite != nil {
 			description := alarmCompositeDescription(alarm)
 			if relationship {

@@ -50,10 +50,16 @@ func (s *Service) authorize(ctx context.Context, action, arn string, tags, reque
 }
 func configuration(v FunctionRecord) *api.FunctionConfiguration {
 	out := &api.FunctionConfiguration{FunctionName: new(api.NamespacedFunctionName(v.Key.Name)), FunctionArn: new(api.NameSpacedFunctionArn((FunctionVersionKey{FunctionKey: v.Key, Version: v.Version}).ARN())), Runtime: new(api.Runtime(v.Runtime)), Role: new(api.RoleArn(v.Role)), Handler: new(api.Handler(v.Handler)), CodeSize: new(api.Long(v.CodeSize)), CodeSha256: new(api.String(v.CodeSHA256)), Description: new(api.Description(v.Description)), Timeout: new(api.Timeout(v.Timeout)), MemorySize: new(api.MemorySize(v.MemoryMB)), LastModified: new(api.Timestamp(v.Modified.UTC().Format("2006-01-02T15:04:05.000-0700"))), Version: new(api.Version(versionName(v.Version))), RevisionId: new(api.String(v.Revision)), State: new(api.State(v.State)), PackageType: new(api.PackageType("Zip")), Architectures: api.ArchitecturesList{api.Architecture(v.Architecture)}, EphemeralStorage: &api.EphemeralStorage{Size: new(api.EphemeralStorageSize(v.EphemeralMB))}}
+	if v.Image != nil {
+		out.PackageType = new(api.PackageType("Image"))
+		out.Runtime, out.Handler = nil, nil
+		out.ImageConfigResponse = &api.ImageConfigResponse{ImageConfig: cloneImageConfig(v.ImageConfig)}
+	}
 	out.LoggingConfig = loggingConfiguration(v)
 	out.TracingConfig = &api.TracingConfigResponse{Mode: new(api.TracingMode("PassThrough"))}
 	out.DurableConfig = cloneDurableConfig(v.Durable)
 	out.CapacityProviderConfig = capacityFunctionOutput(v.Capacity)
+	out.VpcConfig = functionVpcConfig(v)
 	if v.SigningProfileVersionARN != "" {
 		out.SigningProfileVersionArn = new(api.Arn(v.SigningProfileVersionARN))
 		out.SigningJobArn = new(api.Arn(v.SigningJobARN))
@@ -118,8 +124,17 @@ func variables(in *api.Environment) (map[string]string, *awswire.Error) {
 	return out, nil
 }
 func validateDeployment(v FunctionRecord) *awswire.Error {
-	if v.Runtime == "" || v.Handler == "" {
+	if v.Image == nil && (v.Runtime == "" || v.Handler == "") {
 		return failure("InvalidParameterValueException", "Runtime and Handler are required for ZIP functions.", 400)
+	}
+	if v.Image != nil && (v.Runtime != "" || v.Handler != "" || len(v.Layers) > 0 || v.Capacity != nil || v.Durable != nil) {
+		return failure("InvalidParameterValueException", "Image functions cannot specify Runtime, Handler, Layers, managed capacity or durable configuration.", 400)
+	}
+	if v.Image == nil && v.ImageConfig != nil {
+		return failure("InvalidParameterValueException", "ImageConfig is only valid for image functions.", 400)
+	}
+	if wire := validateImageConfig(v.ImageConfig); wire != nil {
+		return wire
 	}
 	maxTimeout, maxMemory := 900, 10240
 	if v.Capacity != nil {
@@ -144,11 +159,21 @@ func validateTracingConfiguration(config *api.TracingConfig) *awswire.Error {
 	return failure("InvalidParameterValueException", "Tracing mode must be Active or PassThrough.", 400)
 }
 
-func (s *Service) createFunction(ctx context.Context, in *api.CreateFunctionInput) (*api.CreateFunctionOutput, *awswire.Error) {
-	if value(in.PackageType) == "Image" || in.Code.ImageUri != nil || in.Code.SourceKMSKeyArn != nil {
-		return nil, unsupported("ECR deployment and customer-key code encryption are not implemented.")
+func (s *Service) createFunction(ctx context.Context, in *api.CreateFunctionInput) (out *api.CreateFunctionOutput, wire *awswire.Error) {
+	if in.Code.SourceKMSKeyArn != nil {
+		return nil, unsupported("Customer-key code encryption is not implemented.")
 	}
-	if in.VpcConfig != nil || in.KMSKeyArn != nil || len(in.FileSystemConfigs) > 0 || in.ImageConfig != nil || in.SnapStart != nil || in.TenancyConfig != nil {
+	packageImage := value(in.PackageType) == "Image"
+	if value(in.PackageType) != "" && value(in.PackageType) != "Zip" && !packageImage {
+		return nil, failure("InvalidParameterValueException", "PackageType must be Zip or Image.", 400)
+	}
+	if in.Code.ImageUri != nil && !packageImage {
+		return nil, failure("InvalidParameterValueException", "ImageUri requires PackageType Image.", 400)
+	}
+	if packageImage && (in.Runtime != nil || in.Handler != nil || in.Code.ImageUri == nil || in.Code.ZipFile != nil || in.Code.S3Bucket != nil || in.Code.S3Key != nil || in.Code.S3ObjectVersion != nil || in.Code.S3ObjectStorageMode != nil || len(in.Layers) > 0 || in.CodeSigningConfigArn != nil) {
+		return nil, failure("InvalidParameterValueException", "Image deployments require only Code.ImageUri and cannot specify Runtime, Handler, Layers or code signing.", 400)
+	}
+	if in.KMSKeyArn != nil || len(in.FileSystemConfigs) > 0 || in.SnapStart != nil || in.TenancyConfig != nil {
 		return nil, unsupported("The requested advanced Lambda deployment configuration is not implemented.")
 	}
 	if wire := validateTracingConfiguration(in.TracingConfig); wire != nil {
@@ -171,6 +196,10 @@ func (s *Service) createFunction(ctx context.Context, in *api.CreateFunctionInpu
 	}
 	record := FunctionRecord{Key: key, Runtime: value(in.Runtime), Handler: value(in.Handler), Role: value(in.Role), Description: value(in.Description), Architecture: "x86_64", Variables: vars, Tags: map[string]string{}, Timeout: 3, MemoryMB: 128, EphemeralMB: 512, Revision: uuid.NewString(), Modified: s.clock.Now(), State: "Pending", StateReason: "The function is being created.", StateReasonCode: "Creating", UpdateStatus: "Successful"}
 	record.DeploymentRevision = record.Revision
+	record.Owner, wire = functionOwnerFor(ctx)
+	if wire != nil {
+		return nil, wire
+	}
 	if wire := applyDurableConfig(&record, in.DurableConfig, true); wire != nil {
 		return nil, wire
 	}
@@ -202,8 +231,11 @@ func (s *Service) createFunction(ctx context.Context, in *api.CreateFunctionInpu
 	if wire != nil {
 		return nil, wire
 	}
-	if wire := validateDeployment(record); wire != nil {
-		return nil, wire
+	record.ImageConfig = cloneImageConfig(in.ImageConfig)
+	if !packageImage {
+		if wire := validateDeployment(record); wire != nil {
+			return nil, wire
+		}
 	}
 	conditions := layerConditions(in.Layers)
 	if configARN := value(in.CodeSigningConfigArn); configARN != "" {
@@ -223,21 +255,38 @@ func (s *Service) createFunction(ctx context.Context, in *api.CreateFunctionInpu
 	if wire := validateFunctionTags(record.Tags); wire != nil {
 		return nil, wire
 	}
-	archive, reference, wire := s.loadCode(ctx, key.Scope, key.ARN(), in.Code.ZipFile, value(in.Code.S3Bucket), value(in.Code.S3Key), value(in.Code.S3ObjectVersion), value(in.Code.S3ObjectStorageMode))
-	if wire != nil {
-		return nil, wire
+	var archive CodeArchive
+	var signing *codeSigningAdmission
+	if packageImage {
+		s.imageMu.Lock()
+		defer s.imageMu.Unlock()
+		defer s.finishImageStage(ctx, &wire)
+		record.Image, record.CodeSHA256, wire = s.loadImage(ctx, value(in.Code.ImageUri), record.Architecture)
+		if wire != nil {
+			return nil, wire
+		}
+		record.CodeSize = record.Image.Size
+		if wire := validateDeployment(record); wire != nil {
+			return nil, wire
+		}
+	} else {
+		var reference *S3ObjectReference
+		archive, reference, wire = s.loadCode(ctx, key.Scope, key.ARN(), in.Code.ZipFile, value(in.Code.S3Bucket), value(in.Code.S3Key), value(in.Code.S3ObjectVersion), value(in.Code.S3ObjectStorageMode))
+		if wire != nil {
+			return nil, wire
+		}
+		record.CodeSHA256, record.CodeSize, record.Reference = archive.Key.SHA256, int64(len(archive.Code)), reference
+		s.scheduleCodeSourceCheck(&record)
+		record.Layers, wire = s.prepareLayers(ctx, key, layerStrings(in.Layers))
+		if wire != nil {
+			return nil, wire
+		}
+		signing, wire = s.prepareCodeSigning(ctx, key, value(in.CodeSigningConfigArn), archive.Code, record.Layers)
+		if wire != nil {
+			return nil, wire
+		}
+		signing.applyFunction(&record)
 	}
-	record.CodeSHA256, record.CodeSize, record.Reference = archive.Key.SHA256, int64(len(archive.Code)), reference
-	s.scheduleCodeSourceCheck(&record)
-	record.Layers, wire = s.prepareLayers(ctx, key, layerStrings(in.Layers))
-	if wire != nil {
-		return nil, wire
-	}
-	signing, wire := s.prepareCodeSigning(ctx, key, value(in.CodeSigningConfigArn), archive.Code, record.Layers)
-	if wire != nil {
-		return nil, wire
-	}
-	signing.applyFunction(&record)
 	if s.executor == nil || s.roles == nil {
 		return nil, unsupported("No Lambda container executor is configured.")
 	}
@@ -259,20 +308,27 @@ func (s *Service) createFunction(ctx context.Context, in *api.CreateFunctionInpu
 		if wire := s.roles.Validate(tx.Context(), record.Role, key.ARN()); wire != nil {
 			return wire
 		}
+		if wire := s.configureFunctionNetwork(tx.Context(), &record, in.VpcConfig); wire != nil {
+			return wire
+		}
 		if wire := s.checkOutcomeTarget(tx.Context(), key, record.Role, record.DeadLetterARN, true, false); wire != nil {
 			return wire
 		}
 		if wire := requireLayerCatalog(tx, record.Layers); wire != nil {
 			return wire
 		}
-		if wire := validateDeploymentCode(tx, archive.Code, record.Layers); wire != nil {
-			return wire
+		if record.Image == nil {
+			if wire := validateDeploymentCode(tx, archive.Code, record.Layers); wire != nil {
+				return wire
+			}
 		}
 		if err := s.validateCapacityFunction(tx, record); err != nil {
 			return err
 		}
-		if err := tx.PutCodeArchive(archive); err != nil {
-			return err
+		if record.Image == nil {
+			if err := tx.PutCodeArchive(archive); err != nil {
+				return err
+			}
 		}
 		if err := tx.PutFunction(record); err != nil {
 			return err
@@ -398,6 +454,26 @@ func (s *Service) deleteFunction(ctx context.Context, in *api.DeleteFunctionInpu
 			return nil, failure("InvalidParameterValueException", "Only a numeric published version or $LATEST.PUBLISHED can be deleted with Qualifier.", 400)
 		}
 	}
+	var networkSnapshot FunctionRecord
+	if version == 0 {
+		if err := s.repository.View(ctx, func(r Reader) error {
+			var err error
+			networkSnapshot, err = r.Function(key)
+			if err != nil {
+				return err
+			}
+			if wire := s.authorizeFunction(r, "DeleteFunction", ref, networkSnapshot, nil); wire != nil {
+				return wire
+			}
+			return requireVersionOwner(r, ref)
+		}); err != nil {
+			return nil, wireError(err)
+		}
+		if err := s.recoverFunctionNetwork(ctx, networkSnapshot); err != nil {
+			return nil, wireError(err)
+		}
+	}
+	s.imageMu.Lock()
 	s.mu.Lock()
 	err := s.repository.Update(ctx, func(tx Transaction) error {
 		record, err := tx.Function(key)
@@ -409,6 +485,9 @@ func (s *Service) deleteFunction(ctx context.Context, in *api.DeleteFunctionInpu
 		}
 		if err := requireVersionOwner(tx, ref); err != nil {
 			return err
+		}
+		if version == 0 && (record.NetworkIncarnation != networkSnapshot.NetworkIncarnation || record.DeploymentRevision != networkSnapshot.DeploymentRevision) {
+			return failure("ResourceConflictException", "The function deployment changed during network cleanup.", 409)
 		}
 		if err := deleteCapacityFunctionScaling(tx, key, version); err != nil {
 			return err
@@ -465,11 +544,19 @@ func (s *Service) deleteFunction(ctx context.Context, in *api.DeleteFunctionInpu
 		}
 	}
 	s.mu.Unlock()
+	s.imageMu.Unlock()
 	if err != nil {
 		return nil, wireError(err)
 	}
 	s.jobs.Wake()
 	s.provisionedChanged()
 	s.closeIdleExecutions(idle)
+	var retentionWire *awswire.Error
+	s.imageMu.Lock()
+	s.finishImageStage(ctx, &retentionWire)
+	s.imageMu.Unlock()
+	if retentionWire != nil {
+		return &api.DeleteFunctionOutput{StatusCode: new(api.Integer(204))}, retentionWire
+	}
 	return &api.DeleteFunctionOutput{StatusCode: new(api.Integer(204))}, nil
 }

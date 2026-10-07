@@ -25,6 +25,7 @@ type JobDependencies interface {
 }
 
 type JobRecord struct {
+	CFNOwner                                                               string
 	Key                                                                    ResourceKey
 	Description, Role, Command, ScriptLocation, PythonVersion, GlueVersion string
 	WorkerType, ExecutionClass, SecurityConfiguration                      string

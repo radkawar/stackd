@@ -71,7 +71,7 @@ func (s *Service) createBus(ctx context.Context, in *api.CreateEventBusInput) (o
 			return err
 		}
 		now := s.clock.Now()
-		if err := tx.PutBus(BusRecord{Key: k, Description: value(in.Description), KmsKeyIdentifier: keyIdentifier, DeadLetterARN: deadLetterARN, ConfigurationDataKey: configured.ConfigurationDataKey, ConfigurationKeyARN: configured.ConfigurationKeyARN, Tags: tags, Created: now, Modified: now}); err != nil {
+		if err := tx.PutBus(BusRecord{Key: k, CFNOwner: cloudFormationClaim(ctx, "EventBus"), Description: value(in.Description), KmsKeyIdentifier: keyIdentifier, DeadLetterARN: deadLetterARN, ConfigurationDataKey: configured.ConfigurationDataKey, ConfigurationKeyARN: configured.ConfigurationKeyARN, Tags: tags, Created: now, Modified: now}); err != nil {
 			return err
 		}
 		out = &api.CreateEventBusOutput{EventBusArn: str[api.String](k.ARN()), Description: in.Description, KmsKeyIdentifier: busKeyIdentifier(keyIdentifier), DeadLetterConfig: busDLQ(deadLetterARN)}
@@ -128,6 +128,11 @@ func (s *Service) deleteBus(ctx context.Context, in *api.DeleteEventBusInput) (o
 		}
 		if err := s.authorize(tx, "DeleteEventBus", k.ARN(), bus.Tags, nil, authorization.BoundPolicy{}); err != nil {
 			return err
+		}
+		if err == nil {
+			if err := cloudFormationBusCheck(tx.Context(), bus); err != nil {
+				return err
+			}
 		}
 		if k.Name == "default" {
 			return failure("ValidationException", "The default event bus cannot be deleted.")

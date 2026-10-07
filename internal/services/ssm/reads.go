@@ -48,17 +48,30 @@ func (s *Service) readParameter(r Reader, name, action string, allowARN bool) (P
 		return ParameterRecord{}, err
 	}
 	p, err := resolveParameter(r, key)
-	if err == nil && p.CurrentVersion == 0 {
-		err = ErrNotFound
-	}
 	if err != nil && !errors.Is(err, ErrNotFound) {
 		return ParameterRecord{}, err
+	}
+	// Under a claim, an existing row is either this incarnation's parameter or
+	// a conflict; a claimed pending first version is in progress, not absent.
+	var claimed error
+	if err == nil {
+		if claimed = cloudFormationParameterConflict(r.Context(), p); claimed == nil && p.CurrentVersion == 0 {
+			if _, bound := cloudFormationParameterOwner(r.Context()); bound {
+				claimed = failure("TooManyUpdates", "An update to this parameter is already in progress.")
+			}
+		}
+	}
+	if err == nil && p.CurrentVersion == 0 {
+		err = ErrNotFound
 	}
 	if errors.Is(err, ErrNotFound) {
 		p = ParameterRecord{Key: key, ARN: parameterARN(key)}
 	}
 	if authErr := s.authorize(r, action, p, nil); authErr != nil {
 		return ParameterRecord{}, authErr
+	}
+	if claimed != nil {
+		return ParameterRecord{}, claimed
 	}
 	if errors.Is(err, ErrNotFound) {
 		return ParameterRecord{}, failure("ParameterNotFound", "Parameter "+name+" not found.")

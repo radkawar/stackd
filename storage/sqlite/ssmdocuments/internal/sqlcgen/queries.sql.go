@@ -78,7 +78,7 @@ func (q *Queries) DeleteVersion(ctx context.Context, arg DeleteVersionParams) er
 }
 
 const getDocument = `-- name: GetDocument :one
-SELECT id, "partition", account_id, region, name, document_uuid, default_version, latest_version, next_version, document_type, schema_name, schema_version, schema_document_uuid FROM ssm_documents WHERE partition=? AND account_id=? AND region=? AND name=?
+SELECT id, "partition", account_id, region, name, document_uuid, default_version, latest_version, next_version, document_type, schema_name, schema_version, schema_document_uuid, cloudformation_owner FROM ssm_documents WHERE partition=? AND account_id=? AND region=? AND name=?
 `
 
 type GetDocumentParams struct {
@@ -110,6 +110,7 @@ func (q *Queries) GetDocument(ctx context.Context, arg GetDocumentParams) (SsmDo
 		&i.SchemaName,
 		&i.SchemaVersion,
 		&i.SchemaDocumentUuid,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
@@ -208,7 +209,7 @@ func (q *Queries) InsertVersion(ctx context.Context, arg InsertVersionParams) er
 }
 
 const listDocuments = `-- name: ListDocuments :many
-SELECT id, "partition", account_id, region, name, document_uuid, default_version, latest_version, next_version, document_type, schema_name, schema_version, schema_document_uuid FROM ssm_documents WHERE partition=? AND account_id=? AND region=? ORDER BY name
+SELECT id, "partition", account_id, region, name, document_uuid, default_version, latest_version, next_version, document_type, schema_name, schema_version, schema_document_uuid, cloudformation_owner FROM ssm_documents WHERE partition=? AND account_id=? AND region=? ORDER BY name
 `
 
 type ListDocumentsParams struct {
@@ -240,6 +241,7 @@ func (q *Queries) ListDocuments(ctx context.Context, arg ListDocumentsParams) ([
 			&i.SchemaName,
 			&i.SchemaVersion,
 			&i.SchemaDocumentUuid,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -255,7 +257,7 @@ func (q *Queries) ListDocuments(ctx context.Context, arg ListDocumentsParams) ([
 }
 
 const listSharedDocuments = `-- name: ListSharedDocuments :many
-SELECT d.id, d."partition", d.account_id, d.region, d.name, d.document_uuid, d.default_version, d.latest_version, d.next_version, d.document_type, d.schema_name, d.schema_version, d.schema_document_uuid FROM ssm_documents AS d
+SELECT d.id, d."partition", d.account_id, d.region, d.name, d.document_uuid, d.default_version, d.latest_version, d.next_version, d.document_type, d.schema_name, d.schema_version, d.schema_document_uuid, d.cloudformation_owner FROM ssm_documents AS d
 WHERE d.partition=?1 AND d.region=?2 AND d.account_id<>?3
 AND EXISTS (SELECT 1 FROM ssm_document_shares AS s WHERE s.document_id=d.id AND s.account_id IN (?3,'all'))
 ORDER BY d.account_id,d.name
@@ -290,6 +292,7 @@ func (q *Queries) ListSharedDocuments(ctx context.Context, arg ListSharedDocumen
 			&i.SchemaName,
 			&i.SchemaVersion,
 			&i.SchemaDocumentUuid,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -435,23 +438,24 @@ func (q *Queries) NextActivation(ctx context.Context) (NextActivationRow, error)
 }
 
 const putDocument = `-- name: PutDocument :one
-INSERT INTO ssm_documents(partition,account_id,region,name,document_uuid,default_version,latest_version,next_version,document_type,schema_name,schema_version,schema_document_uuid) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
-ON CONFLICT(partition,account_id,region,name) DO UPDATE SET document_uuid=excluded.document_uuid,default_version=excluded.default_version,latest_version=excluded.latest_version,next_version=excluded.next_version,document_type=excluded.document_type,schema_name=excluded.schema_name,schema_version=excluded.schema_version,schema_document_uuid=excluded.schema_document_uuid RETURNING id
+INSERT INTO ssm_documents(partition,account_id,region,name,document_uuid,default_version,latest_version,next_version,document_type,schema_name,schema_version,schema_document_uuid,cloudformation_owner) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+ON CONFLICT(partition,account_id,region,name) DO UPDATE SET document_uuid=excluded.document_uuid,default_version=excluded.default_version,latest_version=excluded.latest_version,next_version=excluded.next_version,document_type=excluded.document_type,schema_name=excluded.schema_name,schema_version=excluded.schema_version,schema_document_uuid=excluded.schema_document_uuid,cloudformation_owner=excluded.cloudformation_owner RETURNING id
 `
 
 type PutDocumentParams struct {
-	Partition          string
-	AccountID          string
-	Region             string
-	Name               string
-	DocumentUuid       string
-	DefaultVersion     int64
-	LatestVersion      int64
-	NextVersion        int64
-	DocumentType       string
-	SchemaName         string
-	SchemaVersion      int64
-	SchemaDocumentUuid string
+	Partition           string
+	AccountID           string
+	Region              string
+	Name                string
+	DocumentUuid        string
+	DefaultVersion      int64
+	LatestVersion       int64
+	NextVersion         int64
+	DocumentType        string
+	SchemaName          string
+	SchemaVersion       int64
+	SchemaDocumentUuid  string
+	CloudformationOwner string
 }
 
 func (q *Queries) PutDocument(ctx context.Context, arg PutDocumentParams) (int64, error) {
@@ -468,6 +472,7 @@ func (q *Queries) PutDocument(ctx context.Context, arg PutDocumentParams) (int64
 		arg.SchemaName,
 		arg.SchemaVersion,
 		arg.SchemaDocumentUuid,
+		arg.CloudformationOwner,
 	)
 	var id int64
 	err := row.Scan(&id)

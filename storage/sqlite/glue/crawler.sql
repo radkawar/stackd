@@ -5,8 +5,8 @@ SELECT * FROM glue_crawlers WHERE partition = ? AND account_id = ? AND region = 
 -- name: DeleteGlueCrawler :exec
 DELETE FROM glue_crawlers WHERE partition = ? AND account_id = ? AND region = ? AND name = ?;
 -- name: PutGlueCrawler :exec
-INSERT INTO glue_crawlers (partition,account_id,region,name,role,database_name,description,table_prefix,configuration,security_configuration,targets,classifiers,schema_change_policy,recrawl_policy,lake_formation,lineage,schedule,tags,state,version,created_at,updated_at,last_crawl,elapsed_ms,run_id,next_scheduled)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+INSERT INTO glue_crawlers (cfn_owner,partition,account_id,region,name,role,database_name,description,table_prefix,configuration,security_configuration,targets,classifiers,schema_change_policy,recrawl_policy,lake_formation,lineage,schedule,tags,state,version,created_at,updated_at,last_crawl,elapsed_ms,run_id,next_scheduled)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(partition,account_id,region,name) DO UPDATE SET role=excluded.role,database_name=excluded.database_name,description=excluded.description,table_prefix=excluded.table_prefix,configuration=excluded.configuration,security_configuration=excluded.security_configuration,targets=excluded.targets,classifiers=excluded.classifiers,schema_change_policy=excluded.schema_change_policy,recrawl_policy=excluded.recrawl_policy,lake_formation=excluded.lake_formation,lineage=excluded.lineage,schedule=excluded.schedule,tags=excluded.tags,state=excluded.state,version=excluded.version,created_at=excluded.created_at,updated_at=excluded.updated_at,last_crawl=excluded.last_crawl,elapsed_ms=excluded.elapsed_ms,run_id=excluded.run_id,next_scheduled=excluded.next_scheduled;
 -- name: GetGlueCrawlerRun :one
 SELECT * FROM glue_crawler_runs WHERE id = ?;

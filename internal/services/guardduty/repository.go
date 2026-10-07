@@ -14,6 +14,7 @@ var ErrNotFound = errors.New("GuardDuty resource not found")
 
 type Scope struct{ Partition, AccountID, Region string }
 type Detector struct {
+	CFNOwnership CloudFormationOwnership
 	Scope
 	ID, ARN, Status, Frequency, ServiceRole string
 	ClientToken                             string
@@ -59,6 +60,7 @@ type Observation struct {
 	Kubernetes                                      *journal.KubernetesAuditObserved
 }
 type Filter struct {
+	CFNOwnership CloudFormationOwnership
 	Scope
 	DetectorID, Name, ARN, Action, Description string
 	ClientToken                                string

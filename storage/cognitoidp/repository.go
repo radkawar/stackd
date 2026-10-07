@@ -12,6 +12,11 @@ type (
 	Transaction      = domain.Transaction
 	Scope            = domain.Scope
 	PoolKey          = domain.PoolKey
+	OwnershipKey     = domain.OwnershipKey
+	OwnershipRecord  = domain.OwnershipRecord
+	ResourceOwner    = domain.ResourceOwner
+	ProviderKey      = domain.ProviderKey
+	ProviderRecord   = domain.ProviderRecord
 	ClientKey        = domain.ClientKey
 	UserKey          = domain.UserKey
 	GroupKey         = domain.GroupKey
@@ -28,6 +33,14 @@ type (
 	GroupRecord      = domain.GroupRecord
 	ChallengeRecord  = domain.ChallengeRecord
 	SessionRecord    = domain.SessionRecord
+)
+
+const (
+	OwnerKindClient      = domain.OwnerKindClient
+	OwnerKindClientToken = domain.OwnerKindClientToken
+	OwnerKindUser        = domain.OwnerKindUser
+	OwnerKindGroup       = domain.OwnerKindGroup
+	OwnerKindProvider    = domain.OwnerKindProvider
 )
 
 var ErrNotFound = domain.ErrNotFound

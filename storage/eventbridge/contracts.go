@@ -14,6 +14,7 @@ type (
 	BusKey               = domain.BusKey
 	RuleKey              = domain.RuleKey
 	BusRecord            = domain.BusRecord
+	PolicyStatementOwner = domain.PolicyStatementOwner
 	RuleRecord           = domain.RuleRecord
 	TargetRecord         = domain.TargetRecord
 	EventRecord          = domain.EventRecord

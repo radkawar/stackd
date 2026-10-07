@@ -45,6 +45,10 @@ func (s *Service) putBucketPolicy(ctx context.Context, in *api.PutBucketPolicyIn
 		if w := s.authorize(tx.Context(), c, b, "PutBucketPolicy", "", nil); w != nil {
 			return w
 		}
+		policyClaim, policyClaimed := cloudFormationOwner(tx.Context(), cloudFormationBucketPolicy)
+		if policyClaimed && b.PolicyOwner != policyClaim && (b.PolicyOwner != "" || b.Policy.Document != "") {
+			return cloudFormationOwnerConflict("bucket policy")
+		}
 		document := value(in.Policy)
 		if len(document) > 20*1024 {
 			return failure("MalformedPolicy", "Policy exceeds the maximum allowed size.", 400)
@@ -64,6 +68,9 @@ func (s *Service) putBucketPolicy(ctx context.Context, in *api.PutBucketPolicyIn
 			return denied()
 		}
 		b.Policy = bound
+		if policyClaimed {
+			b.PolicyOwner = policyClaim
+		}
 		if err := tx.PutBucket(b); err != nil {
 			return err
 		}
@@ -83,7 +90,8 @@ func (s *Service) getBucketPolicy(ctx context.Context, in *api.GetBucketPolicyIn
 		if w := s.authorize(tx.Context(), c, b, "GetBucketPolicy", "", nil); w != nil {
 			return w
 		}
-		if b.Policy.Document == "" {
+		// Under a policy-edge claim, only that claim's policy is observable.
+		if claim, claimed := cloudFormationOwner(tx.Context(), cloudFormationBucketPolicy); b.Policy.Document == "" || claimed && b.PolicyOwner != claim {
 			return failure("NoSuchBucketPolicy", "The bucket policy does not exist.", 404)
 		}
 		if s.binder == nil {
@@ -109,7 +117,15 @@ func (s *Service) deleteBucketPolicy(ctx context.Context, in *api.DeleteBucketPo
 		if w := s.authorize(tx.Context(), c, b, "DeleteBucketPolicy", "", nil); w != nil {
 			return w
 		}
-		b.Policy = authorization.BoundPolicy{}
+		if claim, claimed := cloudFormationOwner(tx.Context(), cloudFormationBucketPolicy); claimed && b.PolicyOwner != claim {
+			if b.PolicyOwner != "" {
+				return cloudFormationOwnerConflict("bucket policy")
+			}
+			// This incarnation's policy edge no longer exists; never remove
+			// a policy another writer attached afterwards.
+			return failure("NoSuchBucketPolicy", "The bucket policy does not exist.", 404)
+		}
+		b.Policy, b.PolicyOwner = authorization.BoundPolicy{}, ""
 		if err := tx.PutBucket(b); err != nil {
 			return err
 		}

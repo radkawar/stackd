@@ -118,6 +118,10 @@ func (s *Service) updateRestAPI(tx Transaction, in *api.UpdateRestApiRequest) (*
 			if err := patchString(p, &row.Description, "add", "replace", "remove"); err != nil {
 				return nil, err
 			}
+		case "/version":
+			if err := patchString(p, &row.Version, "add", "replace", "remove"); err != nil {
+				return nil, err
+			}
 		case "/disableExecuteApiEndpoint":
 			if err := patchBool(p, &row.Disabled); err != nil {
 				return nil, err

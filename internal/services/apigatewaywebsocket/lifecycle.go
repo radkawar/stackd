@@ -29,6 +29,9 @@ type proxyResponse struct {
 func (s *Service) connect(w http.ResponseWriter, r *http.Request, route *apigatewayexec.Route) {
 	now := s.clock.Now()
 	ctx, cancel := context.WithCancel(s.ctx)
+	if target, ok := apigatewayexec.CustomExecutionTarget(r.Context()); ok {
+		ctx = apigatewayexec.WithExecutionTarget(ctx, target)
+	}
 	c := &connection{service: s, endpoint: owner(route), id: uuid.NewString(), domain: r.Host,
 		identity: requestIdentity(r), connectedAt: now, lastActive: now,
 		ctx: ctx, cancel: cancel, writeGate: make(chan struct{}, 1), activity: make(chan struct{}, 1),
@@ -307,6 +310,9 @@ func (c *connection) disconnect() {
 	}
 	ctx, cancel := context.WithTimeout(c.service.ctx, integrationTimeout)
 	defer cancel()
+	if target, ok := apigatewayexec.CustomExecutionTarget(c.ctx); ok {
+		ctx = apigatewayexec.WithExecutionTarget(ctx, target)
+	}
 	c.stateMu.Lock()
 	now, code, reason := c.closedAt, c.closeCode, c.closeReason
 	c.stateMu.Unlock()

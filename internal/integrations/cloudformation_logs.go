@@ -6,6 +6,7 @@ import (
 
 	api "stackd/internal/awsapi/logs"
 	"stackd/internal/services/cloudformation"
+	"stackd/internal/services/logs"
 )
 
 type cfnLogGroup struct{ commands StepFunctionsCommands }
@@ -43,13 +44,20 @@ func (h cfnLogGroup) tags(ctx context.Context, r cloudformation.ResourceRequest,
 	}
 	return tags, nil
 }
+func cfnLogGroupContext(ctx context.Context, r cloudformation.ResourceRequest, create bool) context.Context {
+	if r.CloudControl && !create {
+		return ctx
+	}
+	return logs.WithCloudFormationLogGroupOwner(ctx, cfnLogsMarker(r), create)
+}
 func (h cfnLogGroup) owned(ctx context.Context, r cloudformation.ResourceRequest, name string) (map[string]string, error) {
-	tags, err := h.tags(ctx, r, name)
+	rows := map[string]string{}
+	tags, err := h.tags(logs.WithCloudFormationObservation(ctx, "LogGroup", name, rows), r, name)
 	if err != nil {
 		return nil, err
 	}
-	if err := cfnComputeOwnership(r, tags); err != nil {
-		return nil, cfnResourceCreateOwnedError(r, err)
+	if rows[name] != cfnLogsMarker(r) {
+		return nil, cfnResourceCreateOwnedError(r, fmt.Errorf("log group is not owned by this creation"))
 	}
 	return tags, nil
 }
@@ -68,15 +76,26 @@ func (h cfnLogGroup) Create(ctx context.Context, r cloudformation.ResourceReques
 	}
 	name := cfnComputeName(r, "LogGroupName", 512)
 	result := cfnLogGroupResult(r, name)
-	_, err := h.owned(ctx, r, name)
-	if err != nil && !cfnComputeMissing(err) {
-		return cloudformation.ResourceResult{}, err
+	ctx = cfnLogGroupContext(ctx, r, true)
+	admissions := map[string]string{}
+	ctx = logs.WithCloudFormationObservation(ctx, "LogGroup", name, admissions)
+	tags := cfnObservabilityCreateTags(r)
+	input := map[string]any{"LogGroupName": name}
+	if len(tags) > 0 {
+		input["Tags"] = tags
 	}
-	if cfnComputeMissing(err) {
-		input := map[string]any{"LogGroupName": name, "Tags": cfnComputeOwnedTags(r)}
-		if err := cfnComputeRun(ctx, h.commands, "logs", "CreateLogGroup", input); err != nil {
-			return cloudformation.ResourceResult{}, err
+	if class, found := r.Properties["LogGroupClass"]; found {
+		input["LogGroupClass"] = class
+	}
+	if err := cfnComputeRun(ctx, h.commands, "logs", "CreateLogGroup", input); err != nil {
+		if admissions[name] == cfnLogsMarker(r) {
+			return result, err
 		}
+		admitted, recoveryErr := h.RecoverCreation(ctx, r)
+		if recoveryErr == nil {
+			return admitted, err
+		}
+		return cloudformation.ResourceResult{}, err
 	}
 	return result, h.retention(ctx, r, name)
 }
@@ -94,18 +113,16 @@ func (h cfnLogGroup) Update(ctx context.Context, r cloudformation.ResourceReques
 	if err := h.Validate(r.Properties); err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
+	ctx = cfnLogGroupContext(ctx, r, false)
 	current, err := h.tags(ctx, r, r.PhysicalID)
 	if err != nil {
-		return cloudformation.ResourceResult{}, err
-	}
-	if err := cfnComputeOwnership(r, current); !r.CloudControl && err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
 	result := cfnLogGroupResult(r, r.PhysicalID)
 	if err := h.retention(ctx, r, r.PhysicalID); err != nil {
 		return result, err
 	}
-	desired := cfnResourceMutationTags(r, current, cfnComputeOwnedTags(r))
+	desired := cfnObservabilityCreateTags(r)
 	arn := cfnLogGroupARN(r, r.PhysicalID)
 	if removed := cfnComputeRemovedTags(current, desired); len(removed) > 0 {
 		if err := cfnComputeRun(ctx, h.commands, "logs", "UntagResource", map[string]any{"ResourceArn": arn, "TagKeys": removed}); err != nil {
@@ -126,8 +143,13 @@ func (h cfnLogGroup) Delete(ctx context.Context, r cloudformation.ResourceReques
 		return cfnComputeRun(ctx, h.commands, "logs", "DeleteLogGroup", map[string]any{"LogGroupName": name})
 	}
 	name := cfnComputeName(r, "LogGroupName", 512)
+	return cfnComputeAbsent(cfnComputeRun(cfnLogGroupContext(ctx, r, false), h.commands, "logs", "DeleteLogGroup", map[string]any{"LogGroupName": name}))
+}
+
+func (h cfnLogGroup) RecoverCreation(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
+	name := cfnComputeName(r, "LogGroupName", 512)
 	if _, err := h.owned(ctx, r, name); err != nil {
-		return cfnComputeAbsent(err)
+		return cloudformation.ResourceResult{}, err
 	}
-	return cfnComputeAbsent(cfnComputeRun(ctx, h.commands, "logs", "DeleteLogGroup", map[string]any{"LogGroupName": name}))
+	return cfnLogGroupResult(r, name), nil
 }

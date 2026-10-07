@@ -8,11 +8,9 @@ import (
 )
 
 func (r reader) policy(row sqlcgen.AsgPolicy) (domain.PolicyRecord, error) {
-	out := domain.PolicyRecord{
-		Key:         domain.PolicyKey{GroupKey: groupKey(row.Partition, row.AccountID, row.Region, row.GroupName), Name: row.Name},
+	out := domain.PolicyRecord{Ownership: row.Ownership, Key: domain.PolicyKey{GroupKey: groupKey(row.Partition, row.AccountID, row.Region, row.GroupName), Name: row.Name},
 		GroupID:     row.GroupID,
-		LastScaleAt: row.LastScaleAt.Time,
-	}
+		LastScaleAt: row.LastScaleAt.Time}
 	out.Data.AdjustmentType = stringPointer[api.XmlStringMaxLen255](row.DataAdjustmentType)
 	if row.HasDataAlarms {
 		var err error
@@ -104,15 +102,13 @@ func (w writer) PutPolicy(v domain.PolicyRecord) error {
 	if v.Data.PredictiveScalingConfiguration != nil {
 		return fmt.Errorf("autoscaling storage: unsupported PredictiveScalingConfiguration configuration")
 	}
-	p := sqlcgen.PutPolicyParams{
-		Partition:   v.Key.Partition,
+	p := sqlcgen.PutPolicyParams{Ownership: v.Ownership, Partition: v.Key.Partition,
 		AccountID:   v.Key.AccountID,
 		Region:      v.Key.Region,
 		GroupName:   v.Key.GroupKey.Name,
 		Name:        v.Key.Name,
 		GroupID:     v.GroupID,
-		LastScaleAt: deadline(v.LastScaleAt),
-	}
+		LastScaleAt: deadline(v.LastScaleAt)}
 	p.DataAdjustmentType = nullableString(v.Data.AdjustmentType)
 	p.HasDataAlarms = v.Data.Alarms != nil
 	p.DataAutoScalingGroupName = nullableString(v.Data.AutoScalingGroupName)

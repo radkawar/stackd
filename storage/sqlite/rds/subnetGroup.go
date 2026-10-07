@@ -32,7 +32,7 @@ func (r reader) SubnetGroups(scope domain.Scope) ([]domain.SubnetGroup, error) {
 }
 
 func (r reader) subnetGroup(row sqlcgen.RdsSubnetGroup) (domain.SubnetGroup, error) {
-	v := domain.SubnetGroup{Key: domain.Key{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Kind: row.Kind, Name: row.Name}, Description: row.Description, VPCID: row.VpcID}
+	v := domain.SubnetGroup{Key: domain.Key{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Kind: row.Kind, Name: row.Name}, ResourceID: row.ResourceID, Owner: domain.CloudFormationOwner{StackID: row.OwnerStackID, LogicalID: row.OwnerLogicalID, Token: row.OwnerToken}, Description: row.Description, VPCID: row.VpcID}
 	var e error
 	v.Tags, e = r.tags(v.Key)
 	if e != nil {
@@ -44,7 +44,7 @@ func (r reader) subnetGroup(row sqlcgen.RdsSubnetGroup) (domain.SubnetGroup, err
 
 func (w writer) PutSubnetGroup(v domain.SubnetGroup) error {
 	k := v.Key
-	if e := w.q.PutSubnetGroup(w.ctx, sqlcgen.PutSubnetGroupParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Kind: k.Kind, Name: k.Name, Description: v.Description, VpcID: v.VPCID}); e != nil {
+	if e := w.q.PutSubnetGroup(w.ctx, sqlcgen.PutSubnetGroupParams{Partition: k.Partition, ResourceID: v.ResourceID, OwnerStackID: v.Owner.StackID, OwnerLogicalID: v.Owner.LogicalID, OwnerToken: v.Owner.Token, AccountID: k.AccountID, Region: k.Region, Kind: k.Kind, Name: k.Name, Description: v.Description, VpcID: v.VPCID}); e != nil {
 		return e
 	}
 	if e := w.putTags(k, v.Tags); e != nil {

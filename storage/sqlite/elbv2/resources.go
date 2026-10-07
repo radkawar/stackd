@@ -9,7 +9,7 @@ import (
 )
 
 func (r reader) loadBalancer(row sqlcgen.Elbv2LoadBalancer) (domain.LoadBalancerRecord, error) {
-	v := domain.LoadBalancerRecord{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, DeletionProtection: row.DeletionProtection != 0, IdleTimeout: time.Duration(row.IdleTimeout), Deleting: row.Deleting != 0, NextReconcile: readTime(row.NextReconcile), Version: uint64(row.Version), AttachmentIDs: map[string]string{}, AttachmentGenerations: map[string]uint64{}}
+	v := domain.LoadBalancerRecord{Ownership: row.Ownership, Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, DeletionProtection: row.DeletionProtection != 0, IdleTimeout: time.Duration(row.IdleTimeout), Deleting: row.Deleting != 0, NextReconcile: readTime(row.NextReconcile), Version: uint64(row.Version), AttachmentIDs: map[string]string{}, AttachmentGenerations: map[string]uint64{}}
 	v.NextMetricAt = readTime(row.NextMetricAt)
 	d := &v.Data
 	text(&d.LoadBalancerArn, row.Arn)
@@ -71,7 +71,7 @@ func (w writer) PutLoadBalancer(v domain.LoadBalancerRecord) error {
 	if d.CreatedTime != nil {
 		created = time.Time(*d.CreatedTime)
 	}
-	if e = w.q.PutLoadBalancer(w.ctx, sqlcgen.PutLoadBalancerParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, Arn: value(d.LoadBalancerArn), Name: value(d.LoadBalancerName), Created: timeValue(created), Scheme: value(d.Scheme), Type: value(d.Type), IpAddressType: value(d.IpAddressType), VpcID: value(d.VpcId), DnsName: value(d.DNSName), HostedZoneID: value(d.CanonicalHostedZoneId), State: state, StateReason: reason, Zones: zones, SecurityGroups: groups, DeletionProtection: flag(v.DeletionProtection), IdleTimeout: int64(v.IdleTimeout), Deleting: flag(v.Deleting), NextReconcile: timeValue(v.NextReconcile), Version: int64(v.Version)}); e != nil {
+	if e = w.q.PutLoadBalancer(w.ctx, sqlcgen.PutLoadBalancerParams{Ownership: v.Ownership, Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, Arn: value(d.LoadBalancerArn), Name: value(d.LoadBalancerName), Created: timeValue(created), Scheme: value(d.Scheme), Type: value(d.Type), IpAddressType: value(d.IpAddressType), VpcID: value(d.VpcId), DnsName: value(d.DNSName), HostedZoneID: value(d.CanonicalHostedZoneId), State: state, StateReason: reason, Zones: zones, SecurityGroups: groups, DeletionProtection: flag(v.DeletionProtection), IdleTimeout: int64(v.IdleTimeout), Deleting: flag(v.Deleting), NextReconcile: timeValue(v.NextReconcile), Version: int64(v.Version)}); e != nil {
 		return e
 	}
 	if e = w.putTags(v.Scope, value(d.LoadBalancerArn), v.Tags); e != nil {
@@ -88,7 +88,7 @@ func (w writer) PutLoadBalancer(v domain.LoadBalancerRecord) error {
 	return nil
 }
 func (r reader) targetGroup(row sqlcgen.Elbv2TargetGroup) (domain.TargetGroupRecord, error) {
-	v := domain.TargetGroupRecord{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, DeregistrationDelay: time.Duration(row.DeregistrationDelay)}
+	v := domain.TargetGroupRecord{Ownership: row.Ownership, Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, DeregistrationDelay: time.Duration(row.DeregistrationDelay)}
 	d := &v.Data
 	text(&d.TargetGroupArn, row.Arn)
 	text(&d.TargetGroupName, row.Name)
@@ -127,13 +127,13 @@ func (w writer) PutTargetGroup(v domain.TargetGroupRecord) error {
 	if d.Matcher != nil {
 		matcher = value(d.Matcher.HttpCode)
 	}
-	if e = w.q.PutTargetGroup(w.ctx, sqlcgen.PutTargetGroupParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, Arn: value(d.TargetGroupArn), Name: value(d.TargetGroupName), Protocol: value(d.Protocol), Port: intValue(d.Port), ProtocolVersion: value(d.ProtocolVersion), TargetType: value(d.TargetType), IpAddressType: value(d.IpAddressType), VpcID: value(d.VpcId), HealthEnabled: boolValue(d.HealthCheckEnabled), HealthProtocol: value(d.HealthCheckProtocol), HealthPort: value(d.HealthCheckPort), HealthPath: value(d.HealthCheckPath), HealthInterval: intValue(d.HealthCheckIntervalSeconds), HealthTimeout: intValue(d.HealthCheckTimeoutSeconds), HealthyThreshold: intValue(d.HealthyThresholdCount), UnhealthyThreshold: intValue(d.UnhealthyThresholdCount), Matcher: matcher, LoadBalancerArns: lbs, DeregistrationDelay: int64(v.DeregistrationDelay)}); e != nil {
+	if e = w.q.PutTargetGroup(w.ctx, sqlcgen.PutTargetGroupParams{Ownership: v.Ownership, Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, Arn: value(d.TargetGroupArn), Name: value(d.TargetGroupName), Protocol: value(d.Protocol), Port: intValue(d.Port), ProtocolVersion: value(d.ProtocolVersion), TargetType: value(d.TargetType), IpAddressType: value(d.IpAddressType), VpcID: value(d.VpcId), HealthEnabled: boolValue(d.HealthCheckEnabled), HealthProtocol: value(d.HealthCheckProtocol), HealthPort: value(d.HealthCheckPort), HealthPath: value(d.HealthCheckPath), HealthInterval: intValue(d.HealthCheckIntervalSeconds), HealthTimeout: intValue(d.HealthCheckTimeoutSeconds), HealthyThreshold: intValue(d.HealthyThresholdCount), UnhealthyThreshold: intValue(d.UnhealthyThresholdCount), Matcher: matcher, LoadBalancerArns: lbs, DeregistrationDelay: int64(v.DeregistrationDelay)}); e != nil {
 		return e
 	}
 	return w.putTags(v.Scope, value(d.TargetGroupArn), v.Tags)
 }
 func (r reader) listener(row sqlcgen.Elbv2Listener) (domain.ListenerRecord, error) {
-	v := domain.ListenerRecord{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, CertificateID: row.CertificateID}
+	v := domain.ListenerRecord{Ownership: row.Ownership, Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, CertificateID: row.CertificateID}
 	d := &v.Data
 	text(&d.ListenerArn, row.Arn)
 	text(&d.LoadBalancerArn, row.LoadBalancerArn)
@@ -160,13 +160,13 @@ func (w writer) PutListener(v domain.ListenerRecord) error {
 	if e != nil {
 		return e
 	}
-	if e = w.q.PutListener(w.ctx, sqlcgen.PutListenerParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, Arn: value(d.ListenerArn), LoadBalancerArn: value(d.LoadBalancerArn), Protocol: value(d.Protocol), Port: intValue(d.Port), SslPolicy: value(d.SslPolicy), CertificateID: v.CertificateID, Certificates: certs, Actions: actions}); e != nil {
+	if e = w.q.PutListener(w.ctx, sqlcgen.PutListenerParams{Ownership: v.Ownership, Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, Arn: value(d.ListenerArn), LoadBalancerArn: value(d.LoadBalancerArn), Protocol: value(d.Protocol), Port: intValue(d.Port), SslPolicy: value(d.SslPolicy), CertificateID: v.CertificateID, Certificates: certs, Actions: actions}); e != nil {
 		return e
 	}
 	return w.putTags(v.Scope, value(d.ListenerArn), v.Tags)
 }
 func (r reader) rule(row sqlcgen.Elbv2Rule) (domain.RuleRecord, error) {
-	v := domain.RuleRecord{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ListenerARN: row.ListenerArn}
+	v := domain.RuleRecord{Ownership: row.Ownership, Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ListenerARN: row.ListenerArn}
 	d := &v.Data
 	text(&d.RuleArn, row.Arn)
 	text(&d.Priority, row.Priority)
@@ -191,7 +191,7 @@ func (w writer) PutRule(v domain.RuleRecord) error {
 	if e != nil {
 		return e
 	}
-	if e = w.q.PutRule(w.ctx, sqlcgen.PutRuleParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, Arn: value(d.RuleArn), ListenerArn: v.ListenerARN, Priority: value(d.Priority), IsDefault: boolValue(d.IsDefault), Conditions: conditions, Actions: actions}); e != nil {
+	if e = w.q.PutRule(w.ctx, sqlcgen.PutRuleParams{Ownership: v.Ownership, Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, Arn: value(d.RuleArn), ListenerArn: v.ListenerARN, Priority: value(d.Priority), IsDefault: boolValue(d.IsDefault), Conditions: conditions, Actions: actions}); e != nil {
 		return e
 	}
 	return w.putTags(v.Scope, value(d.RuleArn), v.Tags)

@@ -76,6 +76,12 @@ func (s *Service) requestOwner(request awsapi.DecodedRequest) owner {
 func (s *Service) ExecuteCommand(ctx context.Context, request awsapi.DecodedRequest) (any, *awswire.Error) {
 	return s.requestOwner(request).ExecuteCommand(ctx, request)
 }
+
+// CloudFormationReplaceDocument keeps replacement admission and retirement in
+// the document owner's single native transaction.
+func (s *Service) CloudFormationReplaceDocument(ctx context.Context, in *api.CreateDocumentRequest) (*api.CreateDocumentResult, *awswire.Error) {
+	return s.documents.CloudFormationReplaceDocument(ctx, in)
+}
 func (s *Service) RecordRequestError(ctx context.Context, request awsapi.DecodedRequest, rejected *awswire.Error) error {
 	return s.requestOwner(request).RecordRequestError(ctx, request, rejected)
 }

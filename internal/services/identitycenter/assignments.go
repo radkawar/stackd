@@ -3,6 +3,7 @@ package identitycenter
 import (
 	"github.com/google/uuid"
 	api "stackd/internal/awsapi/ssoadmin"
+	"stackd/internal/services/identitystore"
 )
 
 func (s *Service) registerAssignments() {
@@ -67,7 +68,20 @@ func (s *Service) createAssignment(tx Transaction, in *api.CreateAccountAssignme
 	if e = s.target(tx, i, value(in.TargetId), "CreateAccountAssignment"); e != nil {
 		return nil, e
 	}
-	a := Assignment{InstanceARN: i.ARN, PermissionSetARN: p.ARN, AccountID: value(in.TargetId), PrincipalType: value(in.PrincipalType), PrincipalID: value(in.PrincipalId)}
+	a := Assignment{InstanceARN: i.ARN, PermissionSetARN: p.ARN, AccountID: value(in.TargetId), PrincipalType: value(in.PrincipalType), PrincipalID: value(in.PrincipalId), CloudFormationOwner: identitystore.CloudFormationOwner(tx.Context())}
+	assignments, e := tx.Assignments(i.ARN)
+	if e != nil {
+		return nil, e
+	}
+	for _, existing := range assignments {
+		if existing.InstanceARN == a.InstanceARN && assignmentKey(existing) == assignmentKey(a) {
+			if e := identitystore.CheckCloudFormationOwner(tx.Context(), existing.CloudFormationOwner); e != nil {
+				return nil, e
+			}
+			a.CloudFormationOwner = existing.CloudFormationOwner
+			break
+		}
+	}
 	if s.directory == nil {
 		return nil, failure("InternalServerException", "Identity Store is not configured.", 500)
 	}
@@ -129,7 +143,11 @@ func (s *Service) deleteAssignment(tx Transaction, in *api.DeleteAccountAssignme
 	}
 	found, others := false, false
 	for _, v := range rows {
-		if v == a {
+		if v.InstanceARN == a.InstanceARN && assignmentKey(v) == assignmentKey(a) {
+			if e := identitystore.CheckCloudFormationOwner(tx.Context(), v.CloudFormationOwner); e != nil {
+				return nil, e
+			}
+			a = v
 			found = true
 		} else if v.PermissionSetARN == p.ARN && v.AccountID == a.AccountID {
 			others = true
@@ -177,7 +195,7 @@ func (s *Service) provision(tx Transaction, i Instance, p PermissionSet, account
 	return tx.PutProvisioning(v)
 }
 func (s *Service) provisionPermissionSet(tx Transaction, in *api.ProvisionPermissionSetInput) (*api.ProvisionPermissionSetOutput, error) {
-	i, p, e := s.permission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "ProvisionPermissionSet")
+	i, p, e := s.ownedPermission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "ProvisionPermissionSet")
 	if e != nil {
 		return nil, e
 	}

@@ -6,7 +6,7 @@ import (
 )
 
 func (r reader) readACL(row sqlcgen.MemorydbAcl) (domain.ACL, error) {
-	v := domain.ACL{Key: domain.Key{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Kind: "acl", Name: row.Name}, Status: row.Status}
+	v := domain.ACL{Key: domain.Key{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Kind: "acl", Name: row.Name}, Status: row.Status, CloudFormationOwner: row.CloudformationOwner}
 	var e error
 	v.Tags, e = r.tags(row.Arn)
 	if e != nil {
@@ -40,7 +40,7 @@ func (r reader) ACLs(sc domain.Scope) ([]domain.ACL, error) {
 	return out, nil
 }
 func (w writer) PutACL(v domain.ACL) error {
-	if e := w.q.PutACL(w.ctx, sqlcgen.PutACLParams{Arn: v.Key.ARN(), Partition: v.Key.Partition, AccountID: v.Key.AccountID, Region: v.Key.Region, Name: v.Key.Name, Status: v.Status}); e != nil {
+	if e := w.q.PutACL(w.ctx, sqlcgen.PutACLParams{Arn: v.Key.ARN(), Partition: v.Key.Partition, AccountID: v.Key.AccountID, Region: v.Key.Region, Name: v.Key.Name, Status: v.Status, CloudformationOwner: v.CloudFormationOwner}); e != nil {
 		return e
 	}
 	if e := w.putTags(v.Key.ARN(), v.Tags); e != nil {

@@ -68,7 +68,7 @@ func (s *Service) experimentDefinition(r Reader, action, appID, id string) (Expe
 	if e != nil {
 		return d, e
 	}
-	return d, s.authorize(r.Context(), action, experimentDefinitionARN(sc, a.ID, d.ID), tags)
+	return d, s.authorizePrivate(r.Context(), action, experimentDefinitionARN(sc, a.ID, d.ID), tags, d.Ownership)
 }
 func (s *Service) experimentRun(r Reader, action, app, id string, n int32) (ExperimentDefinition, ExperimentRun, error) {
 	d, e := s.experimentDefinition(r, action, app, id)
@@ -86,7 +86,7 @@ func (s *Service) experimentRun(r Reader, action, app, id string, n int32) (Expe
 			if e != nil {
 				return d, run, e
 			}
-			return d, run, s.authorize(r.Context(), action, resource, tags)
+			return d, run, s.authorizePrivate(r.Context(), action, resource, tags, run.Ownership)
 		}
 	}
 	return d, ExperimentRun{}, failure("ResourceNotFoundException", fmt.Sprintf("Experiment run %d not found", n))
@@ -130,7 +130,7 @@ func (s *Service) createExperimentDefinition(tx Transaction, in *api.CreateExper
 		return nil, e
 	}
 	now := s.clock.Now().UTC()
-	d := ExperimentDefinition{Scope: sc, ApplicationID: app.ID, EnvironmentID: env.ID, ProfileID: p.ID, Name: value(in.Name), FlagKey: value(in.FlagKey), AudienceRule: value(in.AudienceRule), AudienceDescription: value(in.AudienceDescription), Hypothesis: value(in.Hypothesis), LaunchCriteria: value(in.LaunchCriteria), KMSKeyIdentifier: p.KMSKeyIdentifier, Status: "IDLE", CreatedAt: now, UpdatedAt: now, Control: control, Treatments: treatments}
+	d := ExperimentDefinition{Scope: sc, ApplicationID: app.ID, EnvironmentID: env.ID, ProfileID: p.ID, Name: value(in.Name), FlagKey: value(in.FlagKey), AudienceRule: value(in.AudienceRule), AudienceDescription: value(in.AudienceDescription), Hypothesis: value(in.Hypothesis), LaunchCriteria: value(in.LaunchCriteria), KMSKeyIdentifier: p.KMSKeyIdentifier, Status: "IDLE", CreatedAt: now, UpdatedAt: now, Control: control, Treatments: treatments, Ownership: cloudFormationClaim(tx.Context(), "experimentdefinition")}
 	d.ID = uniqueID(func(id string) bool {
 		for _, d := range rows {
 			if d.ID == id {

@@ -196,7 +196,7 @@ func (s *Service) loadApplication(r Reader, id, action string) (Application, err
 	if !ok {
 		return a, failure("ResourceNotFoundException", "Application not found.")
 	}
-	return a, nil
+	return a, fenceParent(r.Context(), a.ID, a.ARN, a.CloudFormationClaim)
 }
 func (s *Service) loadAttributeGroup(r Reader, id, action string) (AttributeGroup, error) {
 	a, ok, err := r.AttributeGroup(scopeFor(r.Context()), id)
@@ -213,7 +213,7 @@ func (s *Service) loadAttributeGroup(r Reader, id, action string) (AttributeGrou
 	if !ok {
 		return a, failure("ResourceNotFoundException", "Attribute group not found.")
 	}
-	return a, nil
+	return a, fenceParent(r.Context(), a.ID, a.ARN, a.CloudFormationClaim)
 }
 func scopeFor(ctx context.Context) Scope {
 	m := awsctx.FromContext(ctx)

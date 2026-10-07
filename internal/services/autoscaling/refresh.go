@@ -353,10 +353,11 @@ func refreshCause(r RefreshRecord) string {
 }
 
 func validateRefreshGroupUpdate(tx Reader, group GroupRecord, in *api.UpdateAutoScalingGroupInput) error {
-	changed := in.LaunchConfigurationName != nil || in.MixedInstancesPolicy != nil
+	removed := groupUpdateRemovals(tx.Context())
+	changed := in.LaunchConfigurationName != nil || in.MixedInstancesPolicy != nil || removed.LaunchTemplate || removed.LaunchConfigurationName || removed.MixedInstancesPolicy
 	if in.LaunchTemplate != nil {
 		current := group.Data.LaunchTemplate
-		changed = current == nil || value(in.LaunchTemplate.LaunchTemplateId) != "" && value(in.LaunchTemplate.LaunchTemplateId) != value(current.LaunchTemplateId) || value(in.LaunchTemplate.LaunchTemplateName) != "" && value(in.LaunchTemplate.LaunchTemplateName) != value(current.LaunchTemplateName)
+		changed = changed || current == nil || value(in.LaunchTemplate.LaunchTemplateId) != "" && value(in.LaunchTemplate.LaunchTemplateId) != value(current.LaunchTemplateId) || value(in.LaunchTemplate.LaunchTemplateName) != "" && value(in.LaunchTemplate.LaunchTemplateName) != value(current.LaunchTemplateName)
 		version := value(in.LaunchTemplate.Version)
 		if version == "" {
 			version = "$Default"

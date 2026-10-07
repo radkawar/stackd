@@ -10,8 +10,8 @@ INSERT INTO codebuild_projects (
  description, encryption_key, last_modified, project_visibility, public_project_alias, queued_timeout_in_minutes,
  resource_access_role, service_role, source_version, timeout_in_minutes, artifacts, badge, build_batch_config, cache,
  environment, file_system_locations, logs_config, secondary_artifacts, secondary_sources, source, vpc_config, webhook,
- environment_variables_present, secondary_source_versions_present, tags_present
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ environment_variables_present, secondary_source_versions_present, tags_present, ownership
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, sqlc.arg(ownership))
 ON CONFLICT (partition, account_id, region, project_name) DO UPDATE SET
  build_number = excluded.build_number, arn = excluded.arn, name = excluded.name, auto_retry_limit = excluded.auto_retry_limit,
  concurrent_build_limit = excluded.concurrent_build_limit, created = excluded.created, description = excluded.description,
@@ -23,7 +23,7 @@ ON CONFLICT (partition, account_id, region, project_name) DO UPDATE SET
  file_system_locations = excluded.file_system_locations, logs_config = excluded.logs_config, secondary_artifacts = excluded.secondary_artifacts,
  secondary_sources = excluded.secondary_sources, source = excluded.source, vpc_config = excluded.vpc_config, webhook = excluded.webhook,
  environment_variables_present = excluded.environment_variables_present, secondary_source_versions_present = excluded.secondary_source_versions_present,
- tags_present = excluded.tags_present;
+ tags_present = excluded.tags_present, ownership = excluded.ownership;
 
 -- name: GetBuild :one
 SELECT * FROM codebuild_builds WHERE partition = ? AND account_id = ? AND region = ? AND resource_id = ?;
@@ -76,15 +76,15 @@ DELETE FROM codebuild_fleets WHERE partition = ? AND account_id = ? AND region =
 INSERT INTO codebuild_fleets (
  partition, account_id, region, fleet_name, arn, name, fleet_id, base_capacity, compute_type, created, environment_type,
  fleet_service_role, image_id, last_modified, overflow_behavior, compute_configuration, proxy_configuration,
- scaling_configuration, status, vpc_config, tags_present
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ scaling_configuration, status, vpc_config, tags_present, ownership
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, sqlc.arg(ownership))
 ON CONFLICT (partition, account_id, region, fleet_name) DO UPDATE SET
  arn = excluded.arn, name = excluded.name, fleet_id = excluded.fleet_id, base_capacity = excluded.base_capacity,
  compute_type = excluded.compute_type, created = excluded.created, environment_type = excluded.environment_type,
  fleet_service_role = excluded.fleet_service_role, image_id = excluded.image_id, last_modified = excluded.last_modified,
  overflow_behavior = excluded.overflow_behavior, compute_configuration = excluded.compute_configuration,
  proxy_configuration = excluded.proxy_configuration, scaling_configuration = excluded.scaling_configuration,
- status = excluded.status, vpc_config = excluded.vpc_config, tags_present = excluded.tags_present;
+ status = excluded.status, vpc_config = excluded.vpc_config, tags_present = excluded.tags_present, ownership = excluded.ownership;
 
 -- name: GetCredential :one
 SELECT * FROM codebuild_credentials WHERE partition = ? AND account_id = ? AND region = ? AND server_type = ? AND auth_type = ?;
@@ -93,8 +93,8 @@ SELECT * FROM codebuild_credentials WHERE partition = ? AND account_id = ? AND r
 -- name: DeleteCredential :exec
 DELETE FROM codebuild_credentials WHERE partition = ? AND account_id = ? AND region = ? AND server_type = ? AND auth_type = ?;
 -- name: PutCredential :exec
-INSERT INTO codebuild_credentials (partition, account_id, region, server_type, auth_type, arn, ciphertext) VALUES (?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, server_type, auth_type) DO UPDATE SET arn = excluded.arn, ciphertext = excluded.ciphertext;
+INSERT INTO codebuild_credentials (partition, account_id, region, server_type, auth_type, arn, ciphertext, ownership) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, server_type, auth_type) DO UPDATE SET arn = excluded.arn, ciphertext = excluded.ciphertext, ownership = excluded.ownership;
 
 -- name: ListProjectTags :many
 SELECT * FROM codebuild_project_tags WHERE partition = ? AND account_id = ? AND region = ? AND project_name = ? ORDER BY position;

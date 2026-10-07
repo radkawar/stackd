@@ -8,13 +8,14 @@ import (
 // OIDCProviderRecord is account-global provider configuration. ID changes when
 // an ARN is deleted and recreated, allowing consumers to detect stale snapshots.
 type OIDCProviderRecord struct {
-	ARN         string
-	ID          string
-	URL         string
-	CreatedAt   time.Time
-	ClientIDs   []string
-	Thumbprints []string
-	Tags        []Tag
+	CloudFormationOwner string
+	ARN                 string
+	ID                  string
+	URL                 string
+	CreatedAt           time.Time
+	ClientIDs           []string
+	Thumbprints         []string
+	Tags                []Tag
 }
 
 // SAMLPrivateKeyRecord stores a provider assertion-decryption key in canonical
@@ -28,6 +29,7 @@ type SAMLPrivateKeyRecord struct {
 // SAMLProviderRecord keeps the original metadata plus its validated trust data.
 // Certificate DER bytes and private key material never alias repository state.
 type SAMLProviderRecord struct {
+	CloudFormationOwner     string
 	ARN                     string
 	Name                    string
 	UUID                    string

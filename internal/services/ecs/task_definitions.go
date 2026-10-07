@@ -75,7 +75,7 @@ func (s *Service) registerTaskDefinition(ctx context.Context, tx Transaction, in
 	definition.Status = new(api.TaskDefinitionStatus("ACTIVE"))
 	definition.RegisteredAt = new(s.clock.Now().Truncate(time.Millisecond))
 	definition.RegisteredBy = new(api.String(awsctx.FromContext(ctx).PrincipalARN))
-	if err := tx.PutTaskDefinition(TaskDefinitionRecord{key, definition}); err != nil {
+	if err := tx.PutTaskDefinition(TaskDefinitionRecord{Key: key, Data: definition}); err != nil {
 		return nil, err
 	}
 	if err := tx.PutTags(TagRecord{TagKey{family.Scope, key.ARN()}, tags}); err != nil {

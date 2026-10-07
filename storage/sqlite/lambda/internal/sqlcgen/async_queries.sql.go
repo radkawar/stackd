@@ -65,7 +65,7 @@ func (q *Queries) DetachFunctionInvocationSettings(ctx context.Context, arg Deta
 }
 
 const getEventInvokeConfig = `-- name: GetEventInvokeConfig :one
-SELECT "partition", account, region, function_name, pending, deployment_version, qualifier, modified, max_age_seconds, max_retries, has_max_age, has_max_retries, effective_max_age_seconds, effective_max_retries, applies_at, version, deleted, on_success_arn, on_failure_arn, effective_on_success_arn, effective_on_failure_arn FROM lambda_event_invoke_configs WHERE partition=? AND account=? AND region=? AND function_name=? AND qualifier=?
+SELECT "partition", account, region, function_name, pending, deployment_version, qualifier, modified, max_age_seconds, max_retries, has_max_age, has_max_retries, effective_max_age_seconds, effective_max_retries, applies_at, version, deleted, on_success_arn, on_failure_arn, effective_on_success_arn, effective_on_failure_arn, owner_stack_id, owner_logical_id, owner_token FROM lambda_event_invoke_configs WHERE partition=? AND account=? AND region=? AND function_name=? AND qualifier=?
 `
 
 type GetEventInvokeConfigParams struct {
@@ -107,6 +107,9 @@ func (q *Queries) GetEventInvokeConfig(ctx context.Context, arg GetEventInvokeCo
 		&i.OnFailureArn,
 		&i.EffectiveOnSuccessArn,
 		&i.EffectiveOnFailureArn,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
@@ -153,7 +156,7 @@ func (q *Queries) GetInvocation(ctx context.Context, id string) (LambdaInvocatio
 }
 
 const listEventInvokeConfigs = `-- name: ListEventInvokeConfigs :many
-SELECT "partition", account, region, function_name, pending, deployment_version, qualifier, modified, max_age_seconds, max_retries, has_max_age, has_max_retries, effective_max_age_seconds, effective_max_retries, applies_at, version, deleted, on_success_arn, on_failure_arn, effective_on_success_arn, effective_on_failure_arn FROM lambda_event_invoke_configs WHERE partition=? AND account=? AND region=? AND function_name=? ORDER BY qualifier
+SELECT "partition", account, region, function_name, pending, deployment_version, qualifier, modified, max_age_seconds, max_retries, has_max_age, has_max_retries, effective_max_age_seconds, effective_max_retries, applies_at, version, deleted, on_success_arn, on_failure_arn, effective_on_success_arn, effective_on_failure_arn, owner_stack_id, owner_logical_id, owner_token FROM lambda_event_invoke_configs WHERE partition=? AND account=? AND region=? AND function_name=? ORDER BY qualifier
 `
 
 type ListEventInvokeConfigsParams struct {
@@ -199,6 +202,9 @@ func (q *Queries) ListEventInvokeConfigs(ctx context.Context, arg ListEventInvok
 			&i.OnFailureArn,
 			&i.EffectiveOnSuccessArn,
 			&i.EffectiveOnFailureArn,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -318,8 +324,8 @@ func (q *Queries) NextInvocation(ctx context.Context) (NextInvocationRow, error)
 }
 
 const putEventInvokeConfig = `-- name: PutEventInvokeConfig :exec
-INSERT INTO lambda_event_invoke_configs(partition,account,region,function_name,qualifier,modified,max_age_seconds,max_retries,has_max_age,has_max_retries,effective_max_age_seconds,effective_max_retries,applies_at,version,deleted,on_success_arn,on_failure_arn,effective_on_success_arn,effective_on_failure_arn)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(partition,account,region,function_name,qualifier) DO UPDATE SET modified=excluded.modified,max_age_seconds=excluded.max_age_seconds,max_retries=excluded.max_retries,has_max_age=excluded.has_max_age,has_max_retries=excluded.has_max_retries,effective_max_age_seconds=excluded.effective_max_age_seconds,effective_max_retries=excluded.effective_max_retries,applies_at=excluded.applies_at,version=excluded.version,deleted=excluded.deleted,on_success_arn=excluded.on_success_arn,on_failure_arn=excluded.on_failure_arn,effective_on_success_arn=excluded.effective_on_success_arn,effective_on_failure_arn=excluded.effective_on_failure_arn
+INSERT INTO lambda_event_invoke_configs(partition,account,region,function_name,qualifier,modified,max_age_seconds,max_retries,has_max_age,has_max_retries,effective_max_age_seconds,effective_max_retries,applies_at,version,deleted,on_success_arn,on_failure_arn,effective_on_success_arn,effective_on_failure_arn,owner_stack_id,owner_logical_id,owner_token)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(partition,account,region,function_name,qualifier) DO UPDATE SET modified=excluded.modified,max_age_seconds=excluded.max_age_seconds,max_retries=excluded.max_retries,has_max_age=excluded.has_max_age,has_max_retries=excluded.has_max_retries,effective_max_age_seconds=excluded.effective_max_age_seconds,effective_max_retries=excluded.effective_max_retries,applies_at=excluded.applies_at,version=excluded.version,deleted=excluded.deleted,on_success_arn=excluded.on_success_arn,on_failure_arn=excluded.on_failure_arn,effective_on_success_arn=excluded.effective_on_success_arn,effective_on_failure_arn=excluded.effective_on_failure_arn,owner_stack_id=excluded.owner_stack_id,owner_logical_id=excluded.owner_logical_id,owner_token=excluded.owner_token
 `
 
 type PutEventInvokeConfigParams struct {
@@ -342,6 +348,9 @@ type PutEventInvokeConfigParams struct {
 	OnFailureArn           string
 	EffectiveOnSuccessArn  string
 	EffectiveOnFailureArn  string
+	OwnerStackID           string
+	OwnerLogicalID         string
+	OwnerToken             string
 }
 
 func (q *Queries) PutEventInvokeConfig(ctx context.Context, arg PutEventInvokeConfigParams) error {
@@ -365,6 +374,9 @@ func (q *Queries) PutEventInvokeConfig(ctx context.Context, arg PutEventInvokeCo
 		arg.OnFailureArn,
 		arg.EffectiveOnSuccessArn,
 		arg.EffectiveOnFailureArn,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
 	)
 	return err
 }

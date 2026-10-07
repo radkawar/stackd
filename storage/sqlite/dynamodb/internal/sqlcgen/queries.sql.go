@@ -489,7 +489,7 @@ func (q *Queries) GetTTLDeletion(ctx context.Context, databaseID string) (Dynamo
 }
 
 const getTable = `-- name: GetTable :one
-SELECT "partition", account_id, region, name, database_id, physical_name, archival_summary, attribute_definitions, billing_mode_summary, creation_date_time, deletion_protection_enabled, global_secondary_indexes, global_table_settings_replication_mode, global_table_version, global_table_witnesses, item_count, key_schema, latest_stream_arn, latest_stream_label, local_secondary_indexes, multi_region_consistency, on_demand_throughput, provisioned_throughput, replicas, restore_summary, sse_description, stream_specification, table_arn, table_class_summary, table_id, table_name, table_size_bytes, table_status, vector_indexes, warm_throughput, ttl_attribute_name, ttl_status, ttl_changed_at, ttl_next_scan, metrics_next_at, recovery_id, restore_recovery_id, restore_recovery_sequence, replica_group_id, replica_cursor, replica_last_source_at, replica_unauthorized_at, replica_settings_pending FROM dynamodb_tables WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
+SELECT "partition", account_id, region, name, database_id, physical_name, archival_summary, attribute_definitions, billing_mode_summary, creation_date_time, deletion_protection_enabled, global_secondary_indexes, global_table_settings_replication_mode, global_table_version, global_table_witnesses, item_count, key_schema, latest_stream_arn, latest_stream_label, local_secondary_indexes, multi_region_consistency, on_demand_throughput, provisioned_throughput, replicas, restore_summary, sse_description, stream_specification, table_arn, table_class_summary, table_id, table_name, table_size_bytes, table_status, vector_indexes, warm_throughput, ttl_attribute_name, ttl_status, ttl_changed_at, ttl_next_scan, metrics_next_at, recovery_id, restore_recovery_id, restore_recovery_sequence, replica_group_id, replica_cursor, replica_last_source_at, replica_unauthorized_at, replica_settings_pending, owner_stack_id, owner_logical_id, owner_token FROM dynamodb_tables WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
 `
 
 type GetTableParams struct {
@@ -556,6 +556,9 @@ func (q *Queries) GetTable(ctx context.Context, arg GetTableParams) (DynamodbTab
 		&i.ReplicaLastSourceAt,
 		&i.ReplicaUnauthorizedAt,
 		&i.ReplicaSettingsPending,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
@@ -710,7 +713,7 @@ func (q *Queries) ListOnDemandSwitches(ctx context.Context, arg ListOnDemandSwit
 }
 
 const listPendingTables = `-- name: ListPendingTables :many
-SELECT "partition", account_id, region, name, database_id, physical_name, archival_summary, attribute_definitions, billing_mode_summary, creation_date_time, deletion_protection_enabled, global_secondary_indexes, global_table_settings_replication_mode, global_table_version, global_table_witnesses, item_count, key_schema, latest_stream_arn, latest_stream_label, local_secondary_indexes, multi_region_consistency, on_demand_throughput, provisioned_throughput, replicas, restore_summary, sse_description, stream_specification, table_arn, table_class_summary, table_id, table_name, table_size_bytes, table_status, vector_indexes, warm_throughput, ttl_attribute_name, ttl_status, ttl_changed_at, ttl_next_scan, metrics_next_at, recovery_id, restore_recovery_id, restore_recovery_sequence, replica_group_id, replica_cursor, replica_last_source_at, replica_unauthorized_at, replica_settings_pending FROM dynamodb_tables WHERE table_status IN ('CREATING', 'UPDATING', 'DELETING')
+SELECT "partition", account_id, region, name, database_id, physical_name, archival_summary, attribute_definitions, billing_mode_summary, creation_date_time, deletion_protection_enabled, global_secondary_indexes, global_table_settings_replication_mode, global_table_version, global_table_witnesses, item_count, key_schema, latest_stream_arn, latest_stream_label, local_secondary_indexes, multi_region_consistency, on_demand_throughput, provisioned_throughput, replicas, restore_summary, sse_description, stream_specification, table_arn, table_class_summary, table_id, table_name, table_size_bytes, table_status, vector_indexes, warm_throughput, ttl_attribute_name, ttl_status, ttl_changed_at, ttl_next_scan, metrics_next_at, recovery_id, restore_recovery_id, restore_recovery_sequence, replica_group_id, replica_cursor, replica_last_source_at, replica_unauthorized_at, replica_settings_pending, owner_stack_id, owner_logical_id, owner_token FROM dynamodb_tables WHERE table_status IN ('CREATING', 'UPDATING', 'DELETING')
 ORDER BY partition, account_id, region, name
 `
 
@@ -772,6 +775,9 @@ func (q *Queries) ListPendingTables(ctx context.Context) ([]DynamodbTable, error
 			&i.ReplicaLastSourceAt,
 			&i.ReplicaUnauthorizedAt,
 			&i.ReplicaSettingsPending,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -983,7 +989,7 @@ func (q *Queries) ListStreams(ctx context.Context) ([]DynamodbStream, error) {
 }
 
 const listTTLTables = `-- name: ListTTLTables :many
-SELECT "partition", account_id, region, name, database_id, physical_name, archival_summary, attribute_definitions, billing_mode_summary, creation_date_time, deletion_protection_enabled, global_secondary_indexes, global_table_settings_replication_mode, global_table_version, global_table_witnesses, item_count, key_schema, latest_stream_arn, latest_stream_label, local_secondary_indexes, multi_region_consistency, on_demand_throughput, provisioned_throughput, replicas, restore_summary, sse_description, stream_specification, table_arn, table_class_summary, table_id, table_name, table_size_bytes, table_status, vector_indexes, warm_throughput, ttl_attribute_name, ttl_status, ttl_changed_at, ttl_next_scan, metrics_next_at, recovery_id, restore_recovery_id, restore_recovery_sequence, replica_group_id, replica_cursor, replica_last_source_at, replica_unauthorized_at, replica_settings_pending FROM dynamodb_tables WHERE ttl_status = 'ENABLED' AND table_status IN ('ACTIVE', 'UPDATING')
+SELECT "partition", account_id, region, name, database_id, physical_name, archival_summary, attribute_definitions, billing_mode_summary, creation_date_time, deletion_protection_enabled, global_secondary_indexes, global_table_settings_replication_mode, global_table_version, global_table_witnesses, item_count, key_schema, latest_stream_arn, latest_stream_label, local_secondary_indexes, multi_region_consistency, on_demand_throughput, provisioned_throughput, replicas, restore_summary, sse_description, stream_specification, table_arn, table_class_summary, table_id, table_name, table_size_bytes, table_status, vector_indexes, warm_throughput, ttl_attribute_name, ttl_status, ttl_changed_at, ttl_next_scan, metrics_next_at, recovery_id, restore_recovery_id, restore_recovery_sequence, replica_group_id, replica_cursor, replica_last_source_at, replica_unauthorized_at, replica_settings_pending, owner_stack_id, owner_logical_id, owner_token FROM dynamodb_tables WHERE ttl_status = 'ENABLED' AND table_status IN ('ACTIVE', 'UPDATING')
 ORDER BY ttl_next_scan, partition, account_id, region, name
 `
 
@@ -1045,6 +1051,9 @@ func (q *Queries) ListTTLTables(ctx context.Context) ([]DynamodbTable, error) {
 			&i.ReplicaLastSourceAt,
 			&i.ReplicaUnauthorizedAt,
 			&i.ReplicaSettingsPending,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -1060,7 +1069,7 @@ func (q *Queries) ListTTLTables(ctx context.Context) ([]DynamodbTable, error) {
 }
 
 const listTables = `-- name: ListTables :many
-SELECT "partition", account_id, region, name, database_id, physical_name, archival_summary, attribute_definitions, billing_mode_summary, creation_date_time, deletion_protection_enabled, global_secondary_indexes, global_table_settings_replication_mode, global_table_version, global_table_witnesses, item_count, key_schema, latest_stream_arn, latest_stream_label, local_secondary_indexes, multi_region_consistency, on_demand_throughput, provisioned_throughput, replicas, restore_summary, sse_description, stream_specification, table_arn, table_class_summary, table_id, table_name, table_size_bytes, table_status, vector_indexes, warm_throughput, ttl_attribute_name, ttl_status, ttl_changed_at, ttl_next_scan, metrics_next_at, recovery_id, restore_recovery_id, restore_recovery_sequence, replica_group_id, replica_cursor, replica_last_source_at, replica_unauthorized_at, replica_settings_pending FROM dynamodb_tables
+SELECT "partition", account_id, region, name, database_id, physical_name, archival_summary, attribute_definitions, billing_mode_summary, creation_date_time, deletion_protection_enabled, global_secondary_indexes, global_table_settings_replication_mode, global_table_version, global_table_witnesses, item_count, key_schema, latest_stream_arn, latest_stream_label, local_secondary_indexes, multi_region_consistency, on_demand_throughput, provisioned_throughput, replicas, restore_summary, sse_description, stream_specification, table_arn, table_class_summary, table_id, table_name, table_size_bytes, table_status, vector_indexes, warm_throughput, ttl_attribute_name, ttl_status, ttl_changed_at, ttl_next_scan, metrics_next_at, recovery_id, restore_recovery_id, restore_recovery_sequence, replica_group_id, replica_cursor, replica_last_source_at, replica_unauthorized_at, replica_settings_pending, owner_stack_id, owner_logical_id, owner_token FROM dynamodb_tables
 WHERE partition = ? AND account_id = ? AND region = ? AND name > ?4
 ORDER BY name COLLATE BINARY LIMIT ?5
 `
@@ -1137,6 +1146,9 @@ func (q *Queries) ListTables(ctx context.Context, arg ListTablesParams) ([]Dynam
 			&i.ReplicaLastSourceAt,
 			&i.ReplicaUnauthorizedAt,
 			&i.ReplicaSettingsPending,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -1768,6 +1780,34 @@ func (q *Queries) PutTagSet(ctx context.Context, arg PutTagSetParams) error {
 		arg.Region,
 		arg.Name,
 		arg.TagsPresent,
+	)
+	return err
+}
+
+const setTableOwner = `-- name: SetTableOwner :exec
+UPDATE dynamodb_tables SET owner_stack_id = ?1, owner_logical_id = ?2, owner_token = ?3
+WHERE partition = ?4 AND account_id = ?5 AND region = ?6 AND name = ?7
+`
+
+type SetTableOwnerParams struct {
+	OwnerStackID   string
+	OwnerLogicalID string
+	OwnerToken     string
+	Partition      string
+	AccountID      string
+	Region         string
+	Name           string
+}
+
+func (q *Queries) SetTableOwner(ctx context.Context, arg SetTableOwnerParams) error {
+	_, err := q.db.ExecContext(ctx, setTableOwner,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.Name,
 	)
 	return err
 }

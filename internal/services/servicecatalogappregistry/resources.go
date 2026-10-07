@@ -52,7 +52,7 @@ func (s *Service) associationApplication(r Reader, id, action, kind, resource st
 	if !ok {
 		return a, failure("ResourceNotFoundException", "Application not found.")
 	}
-	return a, nil
+	return a, fenceParent(r.Context(), a.ID, a.ARN, a.CloudFormationClaim)
 }
 func (s *Service) associateResource(tx Transaction, in *api.AssociateResourceRequest) (*api.AssociateResourceResponse, error) {
 	kind, ref := value(in.ResourceType), value(in.Resource)
@@ -110,8 +110,13 @@ func (s *Service) associateResource(tx Transaction, in *api.AssociateResourceReq
 	if err != nil {
 		return nil, err
 	}
+	claim := edgeClaim(tx.Context())
 	for _, row := range rows {
 		if row.ResourceType == kind && (row.ResourceARN == root.ARN || row.ResourceName == ref) {
+			// Only the exact creating incarnation replays; any other edge is independent.
+			if claim != "" && row.CloudFormationClaim == claim {
+				return &api.AssociateResourceResponse{ApplicationArn: new(api.ApplicationArn(a.ARN)), ResourceArn: new(api.Arn(row.ResourceARN)), Options: options(row.ApplyTag)}, nil
+			}
 			return nil, failure("ConflictException", "The resource is already associated with the application.")
 		}
 	}
@@ -140,7 +145,7 @@ func (s *Service) associateResource(tx Transaction, in *api.AssociateResourceReq
 			return nil, err
 		}
 	}
-	row := Association{ApplicationARN: a.ARN, ResourceARN: root.ARN, ResourceName: root.Name, ResourceType: kind, Incarnation: root.Incarnation, ApplyTag: apply, Created: s.clock.Now()}
+	row := Association{ApplicationARN: a.ARN, ResourceARN: root.ARN, ResourceName: root.Name, ResourceType: kind, Incarnation: root.Incarnation, CloudFormationClaim: claim, ApplyTag: apply, Created: s.clock.Now()}
 	if err := tx.PutAssociation(row); err != nil {
 		return nil, err
 	}
@@ -189,6 +194,9 @@ func (s *Service) disassociateResource(tx Transaction, in *api.DisassociateResou
 	row, err := association(tx, a, value(in.ResourceType), value(in.Resource))
 	if err != nil {
 		return nil, err
+	}
+	if !edgeOwned(tx.Context(), row.CloudFormationClaim) {
+		return nil, failure("ResourceNotFoundException", "Associated resource not found.")
 	}
 	if s.groups == nil || s.resources == nil || s.roles == nil {
 		return nil, failure("NotImplementedException", "Resource disassociation requires its resource and IAM owners.")
@@ -281,6 +289,9 @@ func (s *Service) listAssociatedResources(tx Transaction, in *api.ListAssociated
 	rows, err := tx.Associations(a.ARN)
 	if err != nil {
 		return nil, err
+	}
+	for _, row := range rows {
+		observeClaim(tx.Context(), row.ResourceARN, row.CloudFormationClaim)
 	}
 	page, next, err := paginate(tx.Context(), "ListAssociatedResources", a.ARN, in.NextToken, in.MaxResults, rows, func(r Association) string { return r.ResourceARN })
 	if err != nil {

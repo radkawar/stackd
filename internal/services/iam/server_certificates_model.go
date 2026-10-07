@@ -10,6 +10,7 @@ import (
 // ServerCertificateRecord holds deployment material. PrivateKey is never part
 // of an IAM API response; repository implementations must keep it confidential.
 type ServerCertificateRecord struct {
+	CloudFormationOwner              string
 	ID, Name, Path, ARN, Body, Chain string
 	PrivateKey                       []byte
 	UploadDate, Expiration           time.Time

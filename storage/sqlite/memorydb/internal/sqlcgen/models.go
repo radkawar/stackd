@@ -5,12 +5,13 @@
 package sqlcgen
 
 type MemorydbAcl struct {
-	Arn       string
-	Partition string
-	AccountID string
-	Region    string
-	Name      string
-	Status    string
+	Arn                 string
+	Partition           string
+	AccountID           string
+	Region              string
+	Name                string
+	Status              string
+	CloudformationOwner string
 }
 
 type MemorydbAclUser struct {
@@ -19,27 +20,28 @@ type MemorydbAclUser struct {
 }
 
 type MemorydbCluster struct {
-	Arn             string
-	Partition       string
-	AccountID       string
-	Region          string
-	Name            string
-	RuntimeID       string
-	Status          string
-	Operation       string
-	Description     string
-	NodeType        string
-	Engine          string
-	EngineVersion   string
-	AclName         string
-	ParameterGroup  string
-	RestoreSnapshot string
-	Shards          int64
-	Replicas        int64
-	TlsEnabled      int64
-	Version         int64
-	Created         int64
-	Due             int64
+	Arn                 string
+	Partition           string
+	AccountID           string
+	Region              string
+	Name                string
+	RuntimeID           string
+	Status              string
+	Operation           string
+	Description         string
+	NodeType            string
+	Engine              string
+	EngineVersion       string
+	AclName             string
+	ParameterGroup      string
+	RestoreSnapshot     string
+	Shards              int64
+	Replicas            int64
+	TlsEnabled          int64
+	Version             int64
+	Created             int64
+	Due                 int64
+	CloudformationOwner string
 }
 
 type MemorydbNode struct {
@@ -58,13 +60,14 @@ type MemorydbParameter struct {
 }
 
 type MemorydbParameterGroup struct {
-	Arn         string
-	Partition   string
-	AccountID   string
-	Region      string
-	Name        string
-	Family      string
-	Description string
+	Arn                 string
+	Partition           string
+	AccountID           string
+	Region              string
+	Name                string
+	Family              string
+	Description         string
+	CloudformationOwner string
 }
 
 type MemorydbPasswordHash struct {
@@ -73,28 +76,29 @@ type MemorydbPasswordHash struct {
 }
 
 type MemorydbSnapshot struct {
-	Arn             string
-	Partition       string
-	AccountID       string
-	Region          string
-	Name            string
-	RuntimeID       string
-	SourceRuntimeID string
-	Source          string
-	CopySource      string
-	Status          string
-	Operation       string
-	Engine          string
-	EngineVersion   string
-	NodeType        string
-	ParameterGroup  string
-	AclName         string
-	Shards          int64
-	Replicas        int64
-	TlsEnabled      int64
-	Version         int64
-	Created         int64
-	Due             int64
+	Arn                 string
+	Partition           string
+	AccountID           string
+	Region              string
+	Name                string
+	RuntimeID           string
+	SourceRuntimeID     string
+	Source              string
+	CopySource          string
+	Status              string
+	Operation           string
+	Engine              string
+	EngineVersion       string
+	NodeType            string
+	ParameterGroup      string
+	AclName             string
+	Shards              int64
+	Replicas            int64
+	TlsEnabled          int64
+	Version             int64
+	Created             int64
+	Due                 int64
+	CloudformationOwner string
 }
 
 type MemorydbSubnet struct {
@@ -105,13 +109,14 @@ type MemorydbSubnet struct {
 }
 
 type MemorydbSubnetGroup struct {
-	Arn         string
-	Partition   string
-	AccountID   string
-	Region      string
-	Name        string
-	Description string
-	VpcID       string
+	Arn                 string
+	Partition           string
+	AccountID           string
+	Region              string
+	Name                string
+	Description         string
+	VpcID               string
+	CloudformationOwner string
 }
 
 type MemorydbTag struct {
@@ -121,12 +126,13 @@ type MemorydbTag struct {
 }
 
 type MemorydbUser struct {
-	Arn            string
-	Partition      string
-	AccountID      string
-	Region         string
-	Name           string
-	AccessString   string
-	Authentication string
-	Status         string
+	Arn                 string
+	Partition           string
+	AccountID           string
+	Region              string
+	Name                string
+	AccessString        string
+	Authentication      string
+	Status              string
+	CloudformationOwner string
 }

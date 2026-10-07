@@ -1,0 +1,1 @@
+ALTER TABLE pipes_pipes ADD COLUMN cfn_owner TEXT NOT NULL DEFAULT '';

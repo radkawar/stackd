@@ -84,7 +84,7 @@ class Application:
     def start(self):
         command = [str(Path(self.args.binary).resolve()), "-listen", f"0.0.0.0:{self.port}",
             "-public-endpoint", self.endpoint, "-database", str(self.state / "state.sqlite"),
-            "-docker-host", self.args.docker_host, "-compute-endpoint", f"http://host.docker.internal:{self.port}"]
+            "-docker-host", self.args.docker_host, "-lambda-runtime", "-compute-endpoint", f"http://host.docker.internal:{self.port}"]
         if self.args.telemetry_directory:
             command += ["-lambda-telemetry-directory", str(Path(self.args.telemetry_directory).resolve())]
         environment = {key: value for key, value in os.environ.items() if not key.startswith("AWS_")}

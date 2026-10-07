@@ -187,7 +187,7 @@ func (q *Queries) DeleteVersionPolicies(ctx context.Context, parentID int64) err
 }
 
 const getParameter = `-- name: GetParameter :one
-SELECT id, "partition", account_id, region, name, arn, type, tier, data_type, description, allowed_pattern, current_version, tags_present, policies_present, resource_policies_present, incarnation FROM ssm_parameters WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
+SELECT id, "partition", account_id, region, name, arn, type, tier, data_type, description, allowed_pattern, current_version, tags_present, policies_present, resource_policies_present, incarnation, cloudformation_owner FROM ssm_parameters WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
 `
 
 type GetParameterParams struct {
@@ -222,6 +222,7 @@ func (q *Queries) GetParameter(ctx context.Context, arg GetParameterParams) (Ssm
 		&i.PoliciesPresent,
 		&i.ResourcePoliciesPresent,
 		&i.Incarnation,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
@@ -776,7 +777,7 @@ func (q *Queries) ListParameterPoliciesAttributes(ctx context.Context, parentID 
 }
 
 const listParameters = `-- name: ListParameters :many
-SELECT id, "partition", account_id, region, name, arn, type, tier, data_type, description, allowed_pattern, current_version, tags_present, policies_present, resource_policies_present, incarnation FROM ssm_parameters WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
+SELECT id, "partition", account_id, region, name, arn, type, tier, data_type, description, allowed_pattern, current_version, tags_present, policies_present, resource_policies_present, incarnation, cloudformation_owner FROM ssm_parameters WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
 `
 
 type ListParametersParams struct {
@@ -811,6 +812,7 @@ func (q *Queries) ListParameters(ctx context.Context, arg ListParametersParams) 
 			&i.PoliciesPresent,
 			&i.ResourcePoliciesPresent,
 			&i.Incarnation,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -826,7 +828,7 @@ func (q *Queries) ListParameters(ctx context.Context, arg ListParametersParams) 
 }
 
 const listResourcePolicies = `-- name: ListResourcePolicies :many
-SELECT id, parent_id, position, policy_id, hash, document, trust_policy, principals_present FROM ssm_resource_policies WHERE parent_id = ? ORDER BY position
+SELECT id, parent_id, position, policy_id, hash, document, trust_policy, principals_present, cloudformation_owner FROM ssm_resource_policies WHERE parent_id = ? ORDER BY position
 `
 
 func (q *Queries) ListResourcePolicies(ctx context.Context, parentID int64) ([]SsmResourcePolicy, error) {
@@ -847,6 +849,7 @@ func (q *Queries) ListResourcePolicies(ctx context.Context, parentID int64) ([]S
 			&i.Document,
 			&i.TrustPolicy,
 			&i.PrincipalsPresent,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -1077,7 +1080,7 @@ func (q *Queries) ListVersions(ctx context.Context, parentID int64) ([]SsmVersio
 }
 
 const nextPolicy = `-- name: NextPolicy :one
-SELECT p.id, p."partition", p.account_id, p.region, p.name, p.arn, p.type, p.tier, p.data_type, p.description, p.allowed_pattern, p.current_version, p.tags_present, p.policies_present, p.resource_policies_present, p.incarnation FROM ssm_parameters p JOIN ssm_parameter_policies policy ON policy.parent_id = p.id
+SELECT p.id, p."partition", p.account_id, p.region, p.name, p.arn, p.type, p.tier, p.data_type, p.description, p.allowed_pattern, p.current_version, p.tags_present, p.policies_present, p.resource_policies_present, p.incarnation, p.cloudformation_owner FROM ssm_parameters p JOIN ssm_parameter_policies policy ON policy.parent_id = p.id
 WHERE policy.due IS NOT NULL AND policy.fired = 0
 ORDER BY policy.due, p.partition, p.account_id, p.region, p.name LIMIT 1
 `
@@ -1102,6 +1105,7 @@ func (q *Queries) NextPolicy(ctx context.Context) (SsmParameter, error) {
 		&i.PoliciesPresent,
 		&i.ResourcePoliciesPresent,
 		&i.Incarnation,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
@@ -1363,8 +1367,8 @@ func (q *Queries) PutLabels(ctx context.Context, arg PutLabelsParams) error {
 }
 
 const putParameter = `-- name: PutParameter :one
-INSERT INTO ssm_parameters (partition, account_id, region, name, arn, type, tier, data_type, description, allowed_pattern, current_version, tags_present, policies_present, resource_policies_present, incarnation)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO ssm_parameters (partition, account_id, region, name, arn, type, tier, data_type, description, allowed_pattern, current_version, tags_present, policies_present, resource_policies_present, incarnation, cloudformation_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, name) DO UPDATE SET
  arn = excluded.arn, type = excluded.type, tier = excluded.tier, data_type = excluded.data_type, description = excluded.description, allowed_pattern = excluded.allowed_pattern, current_version = excluded.current_version, tags_present = excluded.tags_present, policies_present = excluded.policies_present, resource_policies_present = excluded.resource_policies_present
 RETURNING id
@@ -1386,6 +1390,7 @@ type PutParameterParams struct {
 	PoliciesPresent         bool
 	ResourcePoliciesPresent bool
 	Incarnation             string
+	CloudformationOwner     string
 }
 
 func (q *Queries) PutParameter(ctx context.Context, arg PutParameterParams) (int64, error) {
@@ -1405,6 +1410,7 @@ func (q *Queries) PutParameter(ctx context.Context, arg PutParameterParams) (int
 		arg.PoliciesPresent,
 		arg.ResourcePoliciesPresent,
 		arg.Incarnation,
+		arg.CloudformationOwner,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -1459,19 +1465,20 @@ func (q *Queries) PutParameterPoliciesAttributes(ctx context.Context, arg PutPar
 }
 
 const putResourcePolicies = `-- name: PutResourcePolicies :one
-INSERT INTO ssm_resource_policies (parent_id, position, policy_id, hash, document, trust_policy, principals_present)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO ssm_resource_policies (parent_id, position, policy_id, hash, document, trust_policy, principals_present, cloudformation_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING id
 `
 
 type PutResourcePoliciesParams struct {
-	ParentID          int64
-	Position          int64
-	PolicyID          string
-	Hash              string
-	Document          string
-	TrustPolicy       bool
-	PrincipalsPresent bool
+	ParentID            int64
+	Position            int64
+	PolicyID            string
+	Hash                string
+	Document            string
+	TrustPolicy         bool
+	PrincipalsPresent   bool
+	CloudformationOwner string
 }
 
 func (q *Queries) PutResourcePolicies(ctx context.Context, arg PutResourcePoliciesParams) (int64, error) {
@@ -1483,6 +1490,7 @@ func (q *Queries) PutResourcePolicies(ctx context.Context, arg PutResourcePolici
 		arg.Document,
 		arg.TrustPolicy,
 		arg.PrincipalsPresent,
+		arg.CloudformationOwner,
 	)
 	var id int64
 	err := row.Scan(&id)

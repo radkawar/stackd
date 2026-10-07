@@ -43,7 +43,8 @@ func decodePool(row sqlcgen.CognitoidentityPool, err error) (domain.PoolRecord, 
 	if err != nil {
 		return domain.PoolRecord{}, missing(err)
 	}
-	p := domain.PoolRecord{Key: domain.PoolKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.PoolID}, Name: row.Name, AllowUnauthenticated: row.AllowUnauthenticated != 0, AllowClassic: row.AllowClassic != 0}
+	p := domain.PoolRecord{Key: domain.PoolKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.PoolID}, Name: row.Name, AllowUnauthenticated: row.AllowUnauthenticated != 0, AllowClassic: row.AllowClassic != 0,
+		Owner: domain.ResourceOwner{StackID: row.OwnerStackID, LogicalID: row.OwnerLogicalID, Token: row.OwnerToken}}
 	for _, field := range []struct {
 		raw    []byte
 		target any
@@ -59,6 +60,9 @@ func (r reader) Pool(k domain.PoolKey) (domain.PoolRecord, error) {
 }
 func (r reader) PoolByID(p, g, id string) (domain.PoolRecord, error) {
 	return decodePool(r.q.PoolByID(r.ctx, sqlcgen.PoolByIDParams{Partition: p, Region: g, PoolID: id}))
+}
+func (r reader) PoolByOwner(scope domain.Scope, owner domain.ResourceOwner) (domain.PoolRecord, error) {
+	return decodePool(r.q.PoolByOwner(r.ctx, sqlcgen.PoolByOwnerParams{Partition: scope.Partition, AccountID: scope.AccountID, Region: scope.Region, OwnerStackID: owner.StackID, OwnerLogicalID: owner.LogicalID, OwnerToken: owner.Token}))
 }
 func (r reader) Pools(scope domain.Scope) ([]domain.PoolRecord, error) {
 	rows, err := r.q.ListPools(r.ctx, sqlcgen.ListPoolsParams{Partition: scope.Partition, AccountID: scope.AccountID, Region: scope.Region})
@@ -76,7 +80,9 @@ func (r reader) Pools(scope domain.Scope) ([]domain.PoolRecord, error) {
 	return out, nil
 }
 func (w writer) PutPool(p domain.PoolRecord) error {
-	row := sqlcgen.PutPoolParams{Partition: p.Key.Partition, AccountID: p.Key.AccountID, Region: p.Key.Region, PoolID: p.Key.ID, Name: p.Name}
+	// The owner claim is written with a new row; upserts never rewrite it.
+	row := sqlcgen.PutPoolParams{Partition: p.Key.Partition, AccountID: p.Key.AccountID, Region: p.Key.Region, PoolID: p.Key.ID, Name: p.Name,
+		OwnerStackID: p.Owner.StackID, OwnerLogicalID: p.Owner.LogicalID, OwnerToken: p.Owner.Token}
 	if p.AllowUnauthenticated {
 		row.AllowUnauthenticated = 1
 	}

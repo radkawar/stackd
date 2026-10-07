@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"slices"
 
 	api "stackd/internal/awsapi/iam"
 	"stackd/internal/services/cloudformation"
@@ -73,19 +72,13 @@ func (h cfnIAMRole) Replacement(a, b cloudformation.Properties) (bool, error) {
 	return cfnComputeChanged(a, b, "RoleName") || !reflect.DeepEqual(cfnComputeDefault(a, "Path", "/"), cfnComputeDefault(b, "Path", "/")), nil
 }
 func (h cfnIAMRole) owned(ctx context.Context, r cloudformation.ResourceRequest, name string) (*api.Role, error) {
+	ctx = cfnIAMContext(ctx, r)
 	out, err := cfnComputeCall[api.GetRoleOutput](ctx, h.commands, "iam", "GetRole", map[string]any{"RoleName": name})
 	if err != nil {
 		return nil, err
 	}
 	if out.Role == nil {
 		return nil, fmt.Errorf("IAM returned no role")
-	}
-	tags := map[string]string{}
-	for _, tag := range out.Role.Tags {
-		tags[cfnComputeValue(tag.Key)] = cfnComputeValue(tag.Value)
-	}
-	if err := cfnComputeOwnership(r, tags); err != nil {
-		return nil, err
 	}
 	return out.Role, nil
 }
@@ -94,6 +87,8 @@ func cfnIAMRoleResult(role *api.Role) cloudformation.ResourceResult {
 	return cloudformation.ResourceResult{PhysicalID: name, Ref: name, Attributes: map[string]any{"Arn": cfnComputeValue(role.Arn), "RoleId": cfnComputeValue(role.RoleId)}}
 }
 func (h cfnIAMRole) Create(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
+	r.CloudControl = false
+	ctx = cfnIAMContext(ctx, r)
 	if err := h.Validate(r.Properties); err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
@@ -105,11 +100,11 @@ func (h cfnIAMRole) Create(ctx context.Context, r cloudformation.ResourceRequest
 	if cfnComputeMissing(err) {
 		input := cfnComputeCopy(r.Properties, "Path", "Description", "MaxSessionDuration", "PermissionsBoundary")
 		input["RoleName"] = name
-		input["Tags"] = cfnComputeTagList(cfnComputeOwnedTags(r))
+		input["Tags"] = cfnComputeTagList(cfnIAMCustomerTags(r))
 		input["AssumeRolePolicyDocument"], _ = cfnComputeDocument(r.Properties["AssumeRolePolicyDocument"])
 		out, err := cfnComputeCall[api.CreateRoleOutput](ctx, h.commands, "iam", "CreateRole", input)
 		if err != nil {
-			return cloudformation.ResourceResult{}, err
+			return cfnIAMCreationFailure(ctx, r, h, err)
 		}
 		role = out.Role
 	}
@@ -117,51 +112,10 @@ func (h cfnIAMRole) Create(ctx context.Context, r cloudformation.ResourceRequest
 	return result, h.policies(ctx, r, name)
 }
 func (h cfnIAMRole) policies(ctx context.Context, r cloudformation.ResourceRequest, name string) error {
-	desired, _ := cfnIAMInlinePolicies(r.Properties)
-	previous, _ := cfnIAMInlinePolicies(r.Previous)
-	role, err := h.owned(ctx, r, name)
-	if err != nil {
-		return err
-	}
-	for policy := range desired {
-		if cfnIAMPolicyClaim(role, policy) != "" {
-			return fmt.Errorf("inline policy %s is owned by a separate Policy resource", policy)
-		}
-	}
-	for policy := range previous {
-		if cfnIAMPolicyClaim(role, policy) != "" {
-			return fmt.Errorf("inline policy %s is owned by a separate Policy resource", policy)
-		}
-	}
-	for policy, document := range desired {
-		if err := cfnComputeRun(ctx, h.commands, "iam", "PutRolePolicy", map[string]any{"RoleName": name, "PolicyName": policy, "PolicyDocument": document}); err != nil {
-			return err
-		}
-	}
-	for policy := range previous {
-		if _, found := desired[policy]; !found {
-			if err := cfnComputeAbsent(cfnComputeRun(ctx, h.commands, "iam", "DeleteRolePolicy", map[string]any{"RoleName": name, "PolicyName": policy})); err != nil {
-				return err
-			}
-		}
-	}
-	managed, _ := cfnComputeStringList(r.Properties, "ManagedPolicyArns")
-	old, _ := cfnComputeStringList(r.Previous, "ManagedPolicyArns")
-	for _, policy := range managed {
-		if err := cfnComputeRun(ctx, h.commands, "iam", "AttachRolePolicy", map[string]any{"RoleName": name, "PolicyArn": policy}); err != nil {
-			return err
-		}
-	}
-	for _, policy := range old {
-		if !slices.Contains(managed, policy) {
-			if err := cfnComputeAbsent(cfnComputeRun(ctx, h.commands, "iam", "DetachRolePolicy", map[string]any{"RoleName": name, "PolicyArn": policy})); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return cfnIAMReconcilePolicies(ctx, h.commands, r, "Role", name)
 }
 func (h cfnIAMRole) Update(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
+	ctx = cfnIAMContext(ctx, r)
 	if err := h.Validate(r.Properties); err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
@@ -189,27 +143,10 @@ func (h cfnIAMRole) Update(ctx context.Context, r cloudformation.ResourceRequest
 	if err := h.policies(ctx, r, r.PhysicalID); err != nil {
 		return result, err
 	}
-	current := map[string]string{}
-	for _, tag := range role.Tags {
-		current[cfnComputeValue(tag.Key)] = cfnComputeValue(tag.Value)
-	}
-	desired := cfnComputeOwnedTags(r)
-	// Separate Policy resources own their claims on this role. Role tag updates
-	// must retain those claims until the policy resource deletes its own policy.
-	for _, tag := range role.Tags {
-		key := cfnComputeValue(tag.Key)
-		if len(key) >= len(cfnComputeTagPrefix+"policy-") && key[:len(cfnComputeTagPrefix+"policy-")] == cfnComputeTagPrefix+"policy-" {
-			desired[key] = cfnComputeValue(tag.Value)
-		}
-	}
-	if removed := cfnComputeRemovedTags(current, desired); len(removed) > 0 {
-		if err := cfnComputeRun(ctx, h.commands, "iam", "UntagRole", map[string]any{"RoleName": r.PhysicalID, "TagKeys": removed}); err != nil {
-			return result, err
-		}
-	}
-	return result, cfnComputeRun(ctx, h.commands, "iam", "TagRole", map[string]any{"RoleName": r.PhysicalID, "Tags": cfnComputeTagList(desired)})
+	return result, cfnIAMUpdateTags(ctx, h.commands, r, "Role", "RoleName", r.PhysicalID, cfnIAMTags(role.Tags))
 }
 func (h cfnIAMRole) Delete(ctx context.Context, r cloudformation.ResourceRequest) error {
+	ctx = cfnIAMContext(ctx, r)
 	name := cfnComputeName(r, "RoleName", 64)
 	if _, err := h.owned(ctx, r, name); err != nil {
 		return cfnComputeAbsent(err)

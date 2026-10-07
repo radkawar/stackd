@@ -99,6 +99,8 @@ type SchedulerGroup struct {
 	Created     int64
 	Modified    int64
 	ClientToken string
+	ID          string
+	CfnOwner    string
 }
 
 type SchedulerGroupTag struct {
@@ -136,6 +138,8 @@ type SchedulerSchedule struct {
 	UpdateToken           string
 	CreateHash            string
 	UpdateHash            string
+	CfnOwner              string
+	ParentID              string
 }
 
 type SchedulerTarget struct {

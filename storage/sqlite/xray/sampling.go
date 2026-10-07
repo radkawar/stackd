@@ -17,6 +17,7 @@ func samplingRuleRecord(row sqlcgen.XraySamplingRule) domain.SamplingRuleRecord 
 		Host: row.Host, HTTPMethod: row.HttpMethod, ResourceARN: row.ResourceArn,
 		ServiceName: row.ServiceName, ServiceType: row.ServiceType, URLPath: row.UrlPath,
 		Attributes: map[string]string{}, Tags: map[string]string{}, Created: row.Created, Modified: row.Modified,
+		CFNOwner: row.CfnOwner,
 	}
 	if row.BoostMaxRate.Valid {
 		v.RateBoost = &api.SamplingRateBoost{MaxRate: new(api.MaxRate(row.BoostMaxRate.Float64)), CooldownWindowMinutes: new(api.CooldownWindowMinutes(row.BoostCooldownMinutes.Int64))}
@@ -80,7 +81,7 @@ func (w writer) PutSamplingRule(v domain.SamplingRuleRecord) error {
 	p := sqlcgen.PutSamplingRuleParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name,
 		Priority: int64(v.Priority), FixedRate: v.FixedRate, ReservoirSize: int64(v.ReservoirSize), Host: v.Host,
 		HttpMethod: v.HTTPMethod, ResourceArn: v.ResourceARN, ServiceName: v.ServiceName, ServiceType: v.ServiceType,
-		UrlPath: v.URLPath, Created: v.Created, Modified: v.Modified}
+		UrlPath: v.URLPath, Created: v.Created, Modified: v.Modified, CfnOwner: v.CFNOwner}
 	if v.RateBoost != nil {
 		p.BoostMaxRate = sql.NullFloat64{Float64: float64(*v.RateBoost.MaxRate), Valid: true}
 		p.BoostCooldownMinutes = sql.NullInt64{Int64: int64(*v.RateBoost.CooldownWindowMinutes), Valid: true}

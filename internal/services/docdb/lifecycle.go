@@ -315,6 +315,19 @@ func (j snapshotJobs) Run(ctx context.Context, job scheduler.Job) error {
 			return e
 		}
 		if v.RuntimeID == source.RuntimeID && v.Status == "backing-up" {
+			members, e := membersOf(tx, v)
+			if e != nil {
+				return e
+			}
+			if len(members) == 0 {
+				// The cold-backup owner has verified actual retained data.
+				// A detached shell has no native writer to reconcile.
+				v.Status = "creating"
+				v.Operation = ""
+				v.Due = zeroTime
+				v.Version++
+				return tx.PutCluster(v)
+			}
 			v.Status = "starting"
 			v.Operation = "reconcile"
 			v.Due = s.clock.Now()

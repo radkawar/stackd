@@ -62,6 +62,9 @@ func (s *Service) load(ctx context.Context, r Reader, arn, action string) (Clust
 	if e != nil && !errors.Is(e, ErrNotFound) {
 		return v, e
 	}
+	if e == nil && cloudFormationForeignCluster(ctx, v) {
+		e = ErrNotFound
+	}
 	if e != nil {
 		v = ClusterRecord{Scope: sc, ARN: arn}
 	}
@@ -76,15 +79,12 @@ func (s *Service) configuration(ctx context.Context, r Reader, arn, action strin
 		return ConfigurationRecord{}, e
 	}
 	if sc != scopeFor(ctx) {
-		return ConfigurationRecord{}, invalid("Configuration ARN does not exist.")
+		return ConfigurationRecord{}, ErrNotFound
 	}
 	if e = s.authorize(ctx, ClusterRecord{Scope: sc, ARN: arn}, action, nil); e != nil {
 		return ConfigurationRecord{}, e
 	}
 	v, e := r.Configuration(arn)
-	if errors.Is(e, ErrNotFound) {
-		return v, invalid("Configuration ARN does not exist.")
-	}
 	return v, e
 }
 func requestTags(tags map[string]string) map[string][]string {

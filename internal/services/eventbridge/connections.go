@@ -40,6 +40,9 @@ func readConnection(r Reader, k ConnectionKey) (ConnectionRecord, error) {
 	if errors.Is(err, ErrNotFound) {
 		return v, connectionMissing(k)
 	}
+	if err == nil {
+		err = cloudFormationCheck(r.Context(), "Connection", v.CFNOwner)
+	}
 	return v, err
 }
 func (s *Service) authorizeConnection(r Reader, action string, v ConnectionRecord) error {
@@ -75,6 +78,7 @@ func (s *Service) createConnection(ctx context.Context, in *api.CreateConnection
 		return nil, wire
 	}
 	v := ConnectionRecord{Key: ConnectionKey{scopeFor(ctx), value(in.Name)}, ID: identifier(), Description: value(in.Description), KmsKeyIdentifier: value(in.KmsKeyIdentifier), AuthorizationType: value(in.AuthorizationType), State: "AUTHORIZED", Version: 1}
+	v.CFNOwner = cloudFormationClaim(ctx, "Connection")
 	projectConnectionSecret(&v, credentials)
 	err := s.repository.Update(ctx, func(tx Transaction) error {
 		if err := s.authorizeConnection(tx, "CreateConnection", v); err != nil {

@@ -15,12 +15,13 @@ type Transition struct {
 }
 type Pipeline struct {
 	Scope
-	Name, Incarnation    string
-	Version              int32
-	CreatedAt, UpdatedAt time.Time
-	PollingDisabledAt    time.Time
-	Tags                 map[string]string
-	Transitions          []Transition
+	Name, Incarnation     string
+	Ownership, LastUpdate string
+	Version               int32
+	CreatedAt, UpdatedAt  time.Time
+	PollingDisabledAt     time.Time
+	Tags                  map[string]string
+	Transitions           []Transition
 }
 type Definition struct {
 	Scope

@@ -85,7 +85,7 @@ func (s *Service) RDSDatabases(ctx context.Context) ([]rds.Database, error) {
 				continue
 			}
 			byName[v.Key] = v
-			out = append(out, rds.Database{Key: rdsKey(v.Key), Engine: "docdb", EngineVersion: v.EngineVersion, Username: v.Username, RuntimeID: v.RuntimeID, Status: v.Status, Created: v.Created, DeletionProtection: v.DeletionProtection, Tags: v.Tags, Endpoint: rdsengine.Endpoint{Address: v.Endpoint.Address, Port: v.Endpoint.Port}})
+			out = append(out, rds.Database{Key: rdsKey(v.Key), Engine: "docdb", EngineVersion: v.EngineVersion, Username: v.Username, RuntimeID: v.RuntimeID, ResourceID: v.RuntimeID, Status: v.Status, Created: v.Created, DeletionProtection: v.DeletionProtection, Tags: v.Tags, Endpoint: rdsengine.Endpoint{Address: v.Endpoint.Address, Port: v.Endpoint.Port}})
 		}
 		instances, e := r.Instances()
 		if e != nil {
@@ -99,7 +99,7 @@ func (s *Service) RDSDatabases(ctx context.Context) ([]rds.Database, error) {
 			if !ok {
 				return errors.New("DocumentDB member has no owning cluster")
 			}
-			out = append(out, rds.Database{Key: rdsKey(m.Key), Engine: "docdb", EngineVersion: v.EngineVersion, Username: v.Username, Class: m.Class, RuntimeID: m.RuntimeID, Status: m.Status, Cluster: m.Cluster, Created: m.Created, Tags: m.Tags, Endpoint: rdsengine.Endpoint{Address: v.Endpoint.Address, Port: v.Endpoint.Port}})
+			out = append(out, rds.Database{Key: rdsKey(m.Key), Engine: "docdb", EngineVersion: v.EngineVersion, Username: v.Username, Class: m.Class, RuntimeID: m.RuntimeID, ResourceID: m.RuntimeID, Status: m.Status, Cluster: m.Cluster, Created: m.Created, Tags: m.Tags, Endpoint: rdsengine.Endpoint{Address: v.Endpoint.Address, Port: v.Endpoint.Port}})
 		}
 		return nil
 	})
@@ -114,7 +114,7 @@ func (s *Service) RDSSnapshots(ctx context.Context) ([]rds.Snapshot, error) {
 		}
 		for _, v := range all {
 			if v.Key.Scope == scopeFor(ctx) {
-				out = append(out, rds.Snapshot{Key: rdsKey(v.Key), Source: v.Source, RuntimeID: v.RuntimeID, Engine: "docdb", EngineVersion: v.EngineVersion, Username: v.Username, Status: v.Status, Created: v.Created, Tags: v.Tags})
+				out = append(out, rds.Snapshot{Key: rdsKey(v.Key), Source: v.Source, SourceRuntimeID: v.SourceRuntimeID, RuntimeID: v.RuntimeID, Engine: "docdb", EngineVersion: v.EngineVersion, Username: v.Username, Status: v.Status, Created: v.Created, Tags: v.Tags})
 			}
 		}
 		return nil

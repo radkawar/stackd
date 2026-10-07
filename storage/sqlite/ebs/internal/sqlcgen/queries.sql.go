@@ -280,6 +280,61 @@ func (q *Queries) GetBlock(ctx context.Context, arg GetBlockParams) (GetBlockRow
 	return i, err
 }
 
+const getCloudFormationClaim = `-- name: GetCloudFormationClaim :one
+SELECT resource_type, owner FROM ebs_cloudformation_claims
+WHERE partition = ? AND account_id = ? AND region = ? AND resource_id = ?
+`
+
+type GetCloudFormationClaimParams struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	ResourceID string
+}
+
+type GetCloudFormationClaimRow struct {
+	ResourceType string
+	Owner        string
+}
+
+func (q *Queries) GetCloudFormationClaim(ctx context.Context, arg GetCloudFormationClaimParams) (GetCloudFormationClaimRow, error) {
+	row := q.db.QueryRowContext(ctx, getCloudFormationClaim,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.ResourceID,
+	)
+	var i GetCloudFormationClaimRow
+	err := row.Scan(&i.ResourceType, &i.Owner)
+	return i, err
+}
+
+const getCloudFormationCreation = `-- name: GetCloudFormationCreation :one
+SELECT resource_id FROM ebs_cloudformation_creations
+WHERE partition = ? AND account_id = ? AND region = ? AND resource_type = ? AND owner = ?
+`
+
+type GetCloudFormationCreationParams struct {
+	Partition    string
+	AccountID    string
+	Region       string
+	ResourceType string
+	Owner        string
+}
+
+func (q *Queries) GetCloudFormationCreation(ctx context.Context, arg GetCloudFormationCreationParams) (string, error) {
+	row := q.db.QueryRowContext(ctx, getCloudFormationCreation,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.ResourceType,
+		arg.Owner,
+	)
+	var resource_id string
+	err := row.Scan(&resource_id)
+	return resource_id, err
+}
+
 const getEncryptionDefault = `-- name: GetEncryptionDefault :one
 SELECT enabled, kms_key_id FROM ebs_encryption_defaults
 WHERE partition = ? AND account_id = ? AND region = ?
@@ -563,7 +618,7 @@ func (q *Queries) GetSnapshotByToken(ctx context.Context, arg GetSnapshotByToken
 }
 
 const getSnapshotPublicAccess = `-- name: GetSnapshotPublicAccess :one
-SELECT state FROM ebs_snapshot_public_access WHERE partition = ? AND account_id = ? AND region = ?
+SELECT state, owner_stack_id, owner_logical_id, owner_token FROM ebs_snapshot_public_access WHERE partition = ? AND account_id = ? AND region = ?
 `
 
 type GetSnapshotPublicAccessParams struct {
@@ -572,11 +627,23 @@ type GetSnapshotPublicAccessParams struct {
 	Region    string
 }
 
-func (q *Queries) GetSnapshotPublicAccess(ctx context.Context, arg GetSnapshotPublicAccessParams) (string, error) {
+type GetSnapshotPublicAccessRow struct {
+	State          string
+	OwnerStackID   string
+	OwnerLogicalID string
+	OwnerToken     string
+}
+
+func (q *Queries) GetSnapshotPublicAccess(ctx context.Context, arg GetSnapshotPublicAccessParams) (GetSnapshotPublicAccessRow, error) {
 	row := q.db.QueryRowContext(ctx, getSnapshotPublicAccess, arg.Partition, arg.AccountID, arg.Region)
-	var state string
-	err := row.Scan(&state)
-	return state, err
+	var i GetSnapshotPublicAccessRow
+	err := row.Scan(
+		&i.State,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
+	)
+	return i, err
 }
 
 const getVolume = `-- name: GetVolume :one
@@ -1799,6 +1866,60 @@ func (q *Queries) PutBlockPayload(ctx context.Context, arg PutBlockPayloadParams
 	return err
 }
 
+const putCloudFormationClaim = `-- name: PutCloudFormationClaim :exec
+INSERT INTO ebs_cloudformation_claims (partition, account_id, region, resource_id, resource_type, owner)
+VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT(partition, account_id, region, resource_id) DO NOTHING
+`
+
+type PutCloudFormationClaimParams struct {
+	Partition    string
+	AccountID    string
+	Region       string
+	ResourceID   string
+	ResourceType string
+	Owner        string
+}
+
+func (q *Queries) PutCloudFormationClaim(ctx context.Context, arg PutCloudFormationClaimParams) error {
+	_, err := q.db.ExecContext(ctx, putCloudFormationClaim,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.ResourceID,
+		arg.ResourceType,
+		arg.Owner,
+	)
+	return err
+}
+
+const putCloudFormationCreation = `-- name: PutCloudFormationCreation :exec
+INSERT INTO ebs_cloudformation_creations (partition, account_id, region, resource_type, owner, resource_id)
+VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT(partition, account_id, region, resource_type, owner) DO NOTHING
+`
+
+type PutCloudFormationCreationParams struct {
+	Partition    string
+	AccountID    string
+	Region       string
+	ResourceType string
+	Owner        string
+	ResourceID   string
+}
+
+func (q *Queries) PutCloudFormationCreation(ctx context.Context, arg PutCloudFormationCreationParams) error {
+	_, err := q.db.ExecContext(ctx, putCloudFormationCreation,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.ResourceType,
+		arg.Owner,
+		arg.ResourceID,
+	)
+	return err
+}
+
 const putEncryptionDefault = `-- name: PutEncryptionDefault :exec
 INSERT INTO ebs_encryption_defaults (partition, account_id, region, enabled, kms_key_id)
 VALUES (?, ?, ?, ?, ?)
@@ -2108,15 +2229,18 @@ func (q *Queries) PutSnapshot(ctx context.Context, arg PutSnapshotParams) error 
 }
 
 const putSnapshotPublicAccess = `-- name: PutSnapshotPublicAccess :exec
-INSERT INTO ebs_snapshot_public_access (partition, account_id, region, state) VALUES (?, ?, ?, ?)
-ON CONFLICT(partition, account_id, region) DO UPDATE SET state = excluded.state
+INSERT INTO ebs_snapshot_public_access (partition, account_id, region, state, owner_stack_id, owner_logical_id, owner_token) VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(partition, account_id, region) DO UPDATE SET state = excluded.state, owner_stack_id = excluded.owner_stack_id, owner_logical_id = excluded.owner_logical_id, owner_token = excluded.owner_token
 `
 
 type PutSnapshotPublicAccessParams struct {
-	Partition string
-	AccountID string
-	Region    string
-	State     string
+	Partition      string
+	AccountID      string
+	Region         string
+	State          string
+	OwnerStackID   string
+	OwnerLogicalID string
+	OwnerToken     string
 }
 
 func (q *Queries) PutSnapshotPublicAccess(ctx context.Context, arg PutSnapshotPublicAccessParams) error {
@@ -2125,6 +2249,9 @@ func (q *Queries) PutSnapshotPublicAccess(ctx context.Context, arg PutSnapshotPu
 		arg.AccountID,
 		arg.Region,
 		arg.State,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
 	)
 	return err
 }

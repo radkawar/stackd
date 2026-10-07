@@ -1,0 +1,22 @@
+-- CloudFormation incarnation claims belong to each real API Gateway V2 row.
+ALTER TABLE apigatewayv2_api ADD COLUMN owner_stack_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE apigatewayv2_api ADD COLUMN owner_logical_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE apigatewayv2_api ADD COLUMN owner_token TEXT NOT NULL DEFAULT '';
+ALTER TABLE apigatewayv2_integration ADD COLUMN owner_stack_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE apigatewayv2_integration ADD COLUMN owner_logical_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE apigatewayv2_integration ADD COLUMN owner_token TEXT NOT NULL DEFAULT '';
+ALTER TABLE apigatewayv2_authorizer ADD COLUMN owner_stack_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE apigatewayv2_authorizer ADD COLUMN owner_logical_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE apigatewayv2_authorizer ADD COLUMN owner_token TEXT NOT NULL DEFAULT '';
+ALTER TABLE apigatewayv2_route ADD COLUMN owner_stack_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE apigatewayv2_route ADD COLUMN owner_logical_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE apigatewayv2_route ADD COLUMN owner_token TEXT NOT NULL DEFAULT '';
+ALTER TABLE apigatewayv2_route_response ADD COLUMN owner_stack_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE apigatewayv2_route_response ADD COLUMN owner_logical_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE apigatewayv2_route_response ADD COLUMN owner_token TEXT NOT NULL DEFAULT '';
+ALTER TABLE apigatewayv2_stage ADD COLUMN owner_stack_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE apigatewayv2_stage ADD COLUMN owner_logical_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE apigatewayv2_stage ADD COLUMN owner_token TEXT NOT NULL DEFAULT '';
+ALTER TABLE apigatewayv2_deployment ADD COLUMN owner_stack_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE apigatewayv2_deployment ADD COLUMN owner_logical_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE apigatewayv2_deployment ADD COLUMN owner_token TEXT NOT NULL DEFAULT '';

@@ -20,7 +20,10 @@ func (s *Service) capacityTagTarget(r Reader, key CapacityProviderKey, action st
 	if rejected := s.authorize(r.Context(), action, key.ARN(), v.Tags, requested, extra); rejected != nil {
 		return v, rejected
 	}
-	return v, err
+	if err != nil {
+		return v, err
+	}
+	return v, requireAdditionalOwner(r.Context(), v.Owner)
 }
 func (s *Service) listCapacityTags(ctx context.Context, in *api.ListTagsRequest) (*api.ListTagsResponse, *awswire.Error) {
 	key, err := capacityKey(ctx, value(in.Resource))

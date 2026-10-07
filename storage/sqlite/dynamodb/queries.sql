@@ -192,3 +192,7 @@ INSERT INTO dynamodb_ttl_deletions (database_id, partition, account_id, region, 
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 -- name: DeleteTTLDeletion :exec
 DELETE FROM dynamodb_ttl_deletions WHERE database_id = ?;
+
+-- name: SetTableOwner :exec
+UPDATE dynamodb_tables SET owner_stack_id = sqlc.arg(owner_stack_id), owner_logical_id = sqlc.arg(owner_logical_id), owner_token = sqlc.arg(owner_token)
+WHERE partition = sqlc.arg(partition) AND account_id = sqlc.arg(account_id) AND region = sqlc.arg(region) AND name = sqlc.arg(name);

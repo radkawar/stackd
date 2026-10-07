@@ -59,6 +59,8 @@ var cognitoRequestProjection = awsapi.DocumentProjection{Fields: map[string]awsa
 	"ChallengeResponses": {Mode: awsapi.RedactValueField},
 	"UserAttributes":     {Mode: awsapi.RedactValueField},
 	"ValidationData":     {Mode: awsapi.RedactValueField},
+	// Social provider details carry client secrets and private keys.
+	"ProviderDetails": {Mode: awsapi.RedactValueField},
 }}
 
 var cognitoResponseProjection = awsapi.DocumentProjection{Fields: map[string]awsapi.FieldProjection{
@@ -101,7 +103,8 @@ func (s *Service) recordCall(ctx context.Context, action string, in, out any, re
 	}
 	projection := apievents.Projection{Category: journal.CategoryManagement, Request: cognitoRequestProjection}
 	switch action {
-	case "DescribeUserPool", "DescribeUserPoolClient", "ListUserPools", "ListUserPoolClients", "ListUsers", "ListTagsForResource", "AdminGetUser", "GetUser", "GetGroup", "ListGroups", "AdminListGroupsForUser", "ListUsersInGroup":
+	case "DescribeUserPool", "DescribeUserPoolClient", "ListUserPools", "ListUserPoolClients", "ListUsers", "ListTagsForResource", "AdminGetUser", "GetUser", "GetGroup", "ListGroups", "AdminListGroupsForUser", "ListUsersInGroup",
+		"DescribeUserPoolDomain", "DescribeIdentityProvider", "ListIdentityProviders", "GetIdentityProviderByIdentifier":
 		projection.ReadOnly = true
 	case "CreateUserPool", "CreateUserPoolClient", "UpdateUserPoolClient", "AdminCreateUser", "InitiateAuth", "AdminInitiateAuth", "RespondToAuthChallenge", "AdminRespondToAuthChallenge", "GetTokensFromRefreshToken", "SignUp", "CreateGroup", "UpdateGroup":
 		projection.Response = &cognitoResponseProjection

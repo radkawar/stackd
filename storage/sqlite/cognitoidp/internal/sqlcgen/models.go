@@ -87,6 +87,20 @@ type CognitoidpGroupUser struct {
 	Username  string
 }
 
+type CognitoidpIdentityProvider struct {
+	Partition        string
+	AccountID        string
+	Region           string
+	PoolID           string
+	ProviderName     string
+	ProviderType     string
+	ProviderDetails  []byte
+	AttributeMapping []byte
+	IdpIdentifiers   []byte
+	CreationDate     sql.NullTime
+	LastModifiedDate sql.NullTime
+}
+
 type CognitoidpPool struct {
 	Partition                   string
 	AccountID                   string
@@ -138,6 +152,21 @@ type CognitoidpRefreshToken struct {
 	ClientID      string
 	RefreshDigest []byte
 	SessionID     string
+}
+
+type CognitoidpResourceOwner struct {
+	Partition   string
+	AccountID   string
+	Region      string
+	PoolID      string
+	Kind        string
+	Name        string
+	PhysicalID  string
+	MemberUser  string
+	MemberGroup string
+	StackID     string
+	LogicalID   string
+	Token       string
 }
 
 type CognitoidpSession struct {

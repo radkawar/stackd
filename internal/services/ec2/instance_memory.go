@@ -22,7 +22,7 @@ func (r memoryReader) Instances(scope Scope) ([]InstanceRecord, error) {
 	return listRecords(r.tx, r.s.instances, scope, cloneInstance)
 }
 func (w memoryWriter) PutInstance(v InstanceRecord) error {
-	return putRecord(w.tx, w.s.instances, v.Key, v, cloneInstance)
+	return putClaimed(w.tx, w.s.instances, v.Key, v, cloneInstance)
 }
 func (r memoryReader) Reservation(k ResourceKey) (ReservationRecord, error) {
 	return getRecord(r.tx, r.s.reservations, k, cloneReservation)

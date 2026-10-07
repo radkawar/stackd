@@ -70,6 +70,7 @@ import (
 	"stackd/storage/ssmcommands"
 	"stackd/storage/ssmdocuments"
 	"stackd/storage/stepfunctions"
+	"stackd/storage/wafv2"
 	"stackd/storage/xray"
 )
 
@@ -151,6 +152,7 @@ type Backends struct {
 	SSMCommands               ssmcommands.Repository
 	SSMDocuments              ssmdocuments.Repository
 	StepFunctions             stepfunctions.Repository
+	WAFv2                     wafv2.Repository
 	XRay                      xray.Repository
 	MQ                        mq.Repository
 	Signer                    signer.Repository
@@ -222,6 +224,7 @@ func NewMemory() *Backends {
 		SSMCommands:               ssmcommands.NewMemory(domain),
 		SSMDocuments:              ssmdocuments.NewMemory(domain),
 		StepFunctions:             stepfunctions.NewMemory(domain),
+		WAFv2:                     wafv2.NewMemory(domain),
 		XRay:                      xray.NewMemory(domain),
 		MQ:                        mq.NewMemory(domain),
 		Signer:                    signer.NewMemory(domain),
@@ -287,6 +290,7 @@ func (b *Backends) Validate() error {
 		{"Scheduler", b.Scheduler},
 		{"Pipes", b.Pipes},
 		{"StepFunctions", b.StepFunctions},
+		{"WAFv2", b.WAFv2},
 		{"XRay", b.XRay},
 	} {
 		if nilBackend(field.value) {

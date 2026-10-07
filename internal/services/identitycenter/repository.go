@@ -17,6 +17,8 @@ type Instance struct {
 	ARN, StoreID, Name, ClientToken string
 	Created                         time.Time
 	Tags                            map[string]string
+	// CloudFormationOwner is a private incarnation claim; tags never carry it.
+	CloudFormationOwner string
 }
 type PolicyReference struct{ Name, Path string }
 type PermissionSet struct {
@@ -28,8 +30,10 @@ type PermissionSet struct {
 	BoundaryARN                                                   string
 	Boundary                                                      PolicyReference
 	Tags                                                          map[string]string
+	// CloudFormationOwner is a private incarnation claim; tags never carry it.
+	CloudFormationOwner string
 }
-type Assignment struct{ InstanceARN, PermissionSetARN, AccountID, PrincipalType, PrincipalID string }
+type Assignment struct{ InstanceARN, PermissionSetARN, AccountID, PrincipalType, PrincipalID, CloudFormationOwner string }
 type Provisioning struct{ InstanceARN, PermissionSetARN, AccountID, RoleARN, RoleID, RoleName string }
 type Operation struct {
 	InstanceARN, ID, Kind, PermissionSetARN, AccountID, PrincipalType, PrincipalID string

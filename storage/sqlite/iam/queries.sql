@@ -8,8 +8,8 @@ SELECT * FROM iam_scopes WHERE partition = ? ORDER BY account;
 SELECT * FROM iam_user WHERE partition = ? AND account = ? AND resource_key = ?;
 
 -- name: InsertUser :exec
-INSERT INTO iam_user (partition, account, resource_key, path, user_name, user_id, arn, create_date, password_last_used)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO iam_user (partition, account, resource_key, path, user_name, user_id, arn, create_date, password_last_used, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: DeleteUser :execrows
 DELETE FROM iam_user WHERE partition = ? AND account = ? AND resource_key = ?;
@@ -35,22 +35,22 @@ VALUES (?, ?, ?, ?, ?, ?);
 SELECT * FROM iam_user_inline WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1;
 
 -- name: InsertUserInline :exec
-INSERT INTO iam_user_inline (partition, account, resource_key, entry_1, value)
-VALUES (?, ?, ?, ?, ?);
+INSERT INTO iam_user_inline (partition, account, resource_key, entry_1, value, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?);
 
 -- name: ListUserAttached :many
 SELECT * FROM iam_user_attached WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1;
 
 -- name: InsertUserAttached :exec
-INSERT INTO iam_user_attached (partition, account, resource_key, entry_1)
-VALUES (?, ?, ?, ?);
+INSERT INTO iam_user_attached (partition, account, resource_key, entry_1, cfn_owner)
+VALUES (?, ?, ?, ?, ?);
 
 -- name: GetGroup :one
 SELECT * FROM iam_group WHERE partition = ? AND account = ? AND resource_key = ?;
 
 -- name: InsertGroup :exec
-INSERT INTO iam_group (partition, account, resource_key, path, group_name, group_id, arn, create_date)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO iam_group (partition, account, resource_key, path, group_name, group_id, arn, create_date, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: DeleteGroup :execrows
 DELETE FROM iam_group WHERE partition = ? AND account = ? AND resource_key = ?;
@@ -62,29 +62,29 @@ SELECT partition, account, resource_key FROM iam_group WHERE partition = ? AND a
 SELECT * FROM iam_group_inline WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1;
 
 -- name: InsertGroupInline :exec
-INSERT INTO iam_group_inline (partition, account, resource_key, entry_1, value)
-VALUES (?, ?, ?, ?, ?);
+INSERT INTO iam_group_inline (partition, account, resource_key, entry_1, value, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?);
 
 -- name: ListGroupAttached :many
 SELECT * FROM iam_group_attached WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1;
 
 -- name: InsertGroupAttached :exec
-INSERT INTO iam_group_attached (partition, account, resource_key, entry_1)
-VALUES (?, ?, ?, ?);
+INSERT INTO iam_group_attached (partition, account, resource_key, entry_1, cfn_owner)
+VALUES (?, ?, ?, ?, ?);
 
 -- name: ListGroupMembers :many
 SELECT * FROM iam_group_members WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1;
 
 -- name: InsertGroupMembers :exec
-INSERT INTO iam_group_members (partition, account, resource_key, entry_1)
-VALUES (?, ?, ?, ?);
+INSERT INTO iam_group_members (partition, account, resource_key, entry_1, cfn_owner)
+VALUES (?, ?, ?, ?, ?);
 
 -- name: GetRole :one
 SELECT * FROM iam_role WHERE partition = ? AND account = ? AND resource_key = ?;
 
 -- name: InsertRole :exec
-INSERT INTO iam_role (partition, account, resource_key, path, role_name, role_id, arn, assume_role_policy_document, description, service_linked_service, last_used_region, create_date, last_used_date, max_session_duration, identity_center_instance_arn, identity_center_permission_set_arn)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO iam_role (partition, account, resource_key, path, role_name, role_id, arn, assume_role_policy_document, description, service_linked_service, last_used_region, create_date, last_used_date, max_session_duration, identity_center_instance_arn, identity_center_permission_set_arn, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: DeleteRole :execrows
 DELETE FROM iam_role WHERE partition = ? AND account = ? AND resource_key = ?;
@@ -138,22 +138,22 @@ VALUES (?, ?, ?, ?, ?, ?);
 SELECT * FROM iam_role_inline WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1;
 
 -- name: InsertRoleInline :exec
-INSERT INTO iam_role_inline (partition, account, resource_key, entry_1, value)
-VALUES (?, ?, ?, ?, ?);
+INSERT INTO iam_role_inline (partition, account, resource_key, entry_1, value, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?);
 
 -- name: ListRoleAttached :many
 SELECT * FROM iam_role_attached WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1;
 
 -- name: InsertRoleAttached :exec
-INSERT INTO iam_role_attached (partition, account, resource_key, entry_1)
-VALUES (?, ?, ?, ?);
+INSERT INTO iam_role_attached (partition, account, resource_key, entry_1, cfn_owner)
+VALUES (?, ?, ?, ?, ?);
 
 -- name: GetManagedPolicy :one
 SELECT * FROM iam_managed_policy WHERE partition = ? AND account = ? AND resource_key = ?;
 
 -- name: InsertManagedPolicy :exec
-INSERT INTO iam_managed_policy (partition, account, resource_key, policy_name, policy_id, arn, path, default_version_id, description, attachment_count, permissions_boundary_usage_count, next_version, is_attachable, create_date, update_date)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO iam_managed_policy (partition, account, resource_key, policy_name, policy_id, arn, path, default_version_id, description, attachment_count, permissions_boundary_usage_count, next_version, is_attachable, create_date, update_date, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: DeleteManagedPolicy :execrows
 DELETE FROM iam_managed_policy WHERE partition = ? AND account = ? AND resource_key = ?;
@@ -179,8 +179,8 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 SELECT * FROM iam_instance_profile WHERE partition = ? AND account = ? AND resource_key = ?;
 
 -- name: InsertInstanceProfile :exec
-INSERT INTO iam_instance_profile (partition, account, resource_key, path, instance_profile_name, instance_profile_id, arn, role_id, create_date)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO iam_instance_profile (partition, account, resource_key, path, instance_profile_name, instance_profile_id, arn, role_id, create_date, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: DeleteInstanceProfile :execrows
 DELETE FROM iam_instance_profile WHERE partition = ? AND account = ? AND resource_key = ?;
@@ -258,8 +258,8 @@ SELECT partition, account, resource_key FROM iam_ssh_public_key WHERE partition 
 SELECT * FROM iam_server_certificate WHERE partition = ? AND account = ? AND resource_key = ?;
 
 -- name: InsertServerCertificate :exec
-INSERT INTO iam_server_certificate (partition, account, resource_key, id, name, path, arn, body, chain, private_key, upload_date, expiration, tagging_invalid)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO iam_server_certificate (partition, account, resource_key, id, name, path, arn, body, chain, private_key, upload_date, expiration, tagging_invalid, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: DeleteServerCertificate :execrows
 DELETE FROM iam_server_certificate WHERE partition = ? AND account = ? AND resource_key = ?;
@@ -278,8 +278,8 @@ VALUES (?, ?, ?, ?, ?, ?);
 SELECT * FROM iam_oidc_provider WHERE partition = ? AND account = ? AND resource_key = ?;
 
 -- name: InsertOIDCProvider :exec
-INSERT INTO iam_oidc_provider (partition, account, resource_key, arn, id, url, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT INTO iam_oidc_provider (partition, account, resource_key, arn, id, url, created_at, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: DeleteOIDCProvider :execrows
 DELETE FROM iam_oidc_provider WHERE partition = ? AND account = ? AND resource_key = ?;
@@ -312,8 +312,8 @@ VALUES (?, ?, ?, ?, ?, ?);
 SELECT * FROM iam_saml_provider WHERE partition = ? AND account = ? AND resource_key = ?;
 
 -- name: InsertSAMLProvider :exec
-INSERT INTO iam_saml_provider (partition, account, resource_key, arn, name, uuid, metadata_document, assertion_encryption_mode, created_at, valid_until)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO iam_saml_provider (partition, account, resource_key, arn, name, uuid, metadata_document, assertion_encryption_mode, created_at, valid_until, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: DeleteSAMLProvider :execrows
 DELETE FROM iam_saml_provider WHERE partition = ? AND account = ? AND resource_key = ?;
@@ -353,8 +353,8 @@ VALUES (?, ?, ?, ?, ?, ?);
 SELECT * FROM iam_mfa_device WHERE partition = ? AND account = ? AND resource_key = ?;
 
 -- name: InsertMFADevice :exec
-INSERT INTO iam_mfa_device (partition, account, resource_key, enable_date, retired_at, verification_count_window, last_pair_step, verification_count_count, serial_number, binding_value_seed, binding_value_user_id, binding_visible_value_seed, binding_visible_value_user_id, binding_value_skew_steps, binding_visible_value_skew_steps)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO iam_mfa_device (partition, account, resource_key, enable_date, retired_at, verification_count_window, last_pair_step, verification_count_count, serial_number, binding_value_seed, binding_value_user_id, binding_visible_value_seed, binding_visible_value_user_id, binding_value_skew_steps, binding_visible_value_skew_steps, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: DeleteMFADevice :execrows
 DELETE FROM iam_mfa_device WHERE partition = ? AND account = ? AND resource_key = ?;
@@ -580,8 +580,8 @@ SELECT partition, account, key_principal_id, key_service_namespace, key_action_n
 SELECT * FROM iam_credential WHERE resource_key = ?;
 
 -- name: InsertCredential :exec
-INSERT INTO iam_credential (resource_key, credential_access_key_id, credential_secret_access_key, credential_session_token, credential_account_id, credential_principal_arn, credential_principal_id, credential_user_name, credential_issuer_arn, credential_issuer_id, credential_federated_provider, credential_source_identity, last_used_service, last_used_region, credential_default_regions_only, credential_has_session_policy, credential_mfa_present, credential_expiration, credential_create_date, credential_mfa_authenticated_at, last_used_date, credential_session_type, status, credential_request_parent_event_id, credential_in_scope_of_issuer_type, credential_in_scope_of_credentials_issued_to)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO iam_credential (resource_key, credential_access_key_id, credential_secret_access_key, credential_session_token, credential_account_id, credential_principal_arn, credential_principal_id, credential_user_name, credential_issuer_arn, credential_issuer_id, credential_federated_provider, credential_source_identity, last_used_service, last_used_region, credential_default_regions_only, credential_has_session_policy, credential_mfa_present, credential_expiration, credential_create_date, credential_mfa_authenticated_at, last_used_date, credential_session_type, status, credential_request_parent_event_id, credential_in_scope_of_issuer_type, credential_in_scope_of_credentials_issued_to, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: DeleteCredential :execrows
 DELETE FROM iam_credential WHERE resource_key = ?;

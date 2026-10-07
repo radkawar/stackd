@@ -55,6 +55,7 @@ type PolicyKey struct {
 }
 
 type PolicyRecord struct {
+	CFNOwner string
 	Key      PolicyKey
 	Policy   authorization.BoundPolicy
 	Revision int64

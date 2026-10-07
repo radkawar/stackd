@@ -1,5 +1,6 @@
 -- name: PutWorkGroup :one
 INSERT INTO athena_work_groups (
+    cfn_owner,
     key_scope_partition,
     key_scope_account_id,
     key_scope_region,
@@ -63,6 +64,7 @@ INSERT INTO athena_work_groups (
     data_state,
     tags_present
 ) VALUES (
+    sqlc.arg(cfn_owner),
     sqlc.arg(key_scope_partition),
     sqlc.arg(key_scope_account_id),
     sqlc.arg(key_scope_region),
@@ -325,6 +327,7 @@ DELETE FROM athena_work_groups_tags WHERE parent_id = ?;
 
 -- name: PutCatalog :one
 INSERT INTO athena_catalogs (
+    cfn_owner,
     key_scope_partition,
     key_scope_account_id,
     key_scope_region,
@@ -338,6 +341,7 @@ INSERT INTO athena_catalogs (
     data_type,
     tags_present
 ) VALUES (
+    sqlc.arg(cfn_owner),
     sqlc.arg(key_scope_partition),
     sqlc.arg(key_scope_account_id),
     sqlc.arg(key_scope_region),
@@ -408,6 +412,7 @@ DELETE FROM athena_catalogs_tags WHERE parent_id = ?;
 
 -- name: PutNamedQuery :exec
 INSERT INTO athena_named_queries (
+    cfn_owner,
     key_scope_partition,
     key_scope_account_id,
     key_scope_region,
@@ -421,6 +426,7 @@ INSERT INTO athena_named_queries (
     token,
     fingerprint
 ) VALUES (
+    sqlc.arg(cfn_owner),
     sqlc.arg(key_scope_partition),
     sqlc.arg(key_scope_account_id),
     sqlc.arg(key_scope_region),
@@ -458,6 +464,7 @@ SELECT * FROM athena_named_queries WHERE key_scope_partition = sqlc.arg(partitio
 
 -- name: PutPreparedStatement :exec
 INSERT INTO athena_prepared_statements (
+    cfn_owner,
     key_work_group_scope_partition,
     key_work_group_scope_account_id,
     key_work_group_scope_region,
@@ -469,6 +476,7 @@ INSERT INTO athena_prepared_statements (
     data_statement_name,
     data_work_group_name
 ) VALUES (
+    sqlc.arg(cfn_owner),
     sqlc.arg(key_work_group_scope_partition),
     sqlc.arg(key_work_group_scope_account_id),
     sqlc.arg(key_work_group_scope_region),

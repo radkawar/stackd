@@ -9,6 +9,7 @@ import (
 
 	api "stackd/internal/awsapi/ebs"
 	ec2api "stackd/internal/awsapi/ec2"
+	"stackd/internal/services/ec2"
 )
 
 var ErrNotFound = errors.New("ebs: snapshot resource not found")
@@ -28,6 +29,7 @@ type SnapshotKey struct {
 // that the EBS direct APIs can already use the snapshot.
 type SnapshotRecord struct {
 	Key                                         SnapshotKey
+	CloudFormationOwner                         ec2.CloudFormationOwner
 	ParentID, LineageID                         string
 	VolumeSize                                  int64
 	Description                                 string
@@ -100,6 +102,9 @@ type EncryptionDefault struct {
 type SnapshotPublicAccess struct {
 	Scope Scope
 	State ec2api.SnapshotBlockPublicAccessState
+	// Private consumer incarnation, atomically committed with State. Native
+	// account management clears the claim; it is never an AWS response field.
+	OwnerStackID, OwnerLogicalID, OwnerToken string
 }
 
 // SharedTagsKey addresses the recipient's private tags, not the owner's tags.
@@ -150,6 +155,7 @@ type Reader interface {
 	// snapshot still needs it, including a deleted snapshot awaiting cleanup.
 	VolumeSnapshotBlocksPending(VolumeKey) (bool, error)
 	NextVolumeWork() (VolumeRecord, error)
+	CloudFormationCreation(CloudFormationCreationKey) (string, error)
 }
 
 type Transaction interface {
@@ -166,6 +172,7 @@ type Transaction interface {
 	PutVolume(VolumeRecord) error
 	PutVolumeBlock(VolumeBlockRecord) error
 	DeleteVolumeBlocks(VolumeKey) error
+	PutCloudFormationCreation(CloudFormationCreationKey, string) error
 }
 
 // Repository joins state transitions, authorization and API events in one shared

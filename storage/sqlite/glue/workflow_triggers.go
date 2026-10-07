@@ -33,6 +33,7 @@ func (r reader) Trigger(k domain.ResourceKey) (domain.TriggerRecord, error) {
 func (r reader) wfTrigger(row sqlcgen.GlueTrigger) (domain.TriggerRecord, error) {
 	k := wfKey(row.Partition, row.AccountID, row.Region, row.Name)
 	v := domain.TriggerRecord{Key: k, Trigger: api.Trigger{Name: new(api.NameString(k.Name)), Type: new(api.TriggerType(row.TriggerType)), State: new(api.TriggerState(row.State)), Description: wfStringPtr[api.DescriptionString](row.Description), Schedule: wfStringPtr[api.GenericString](row.Schedule), WorkflowName: wfStringPtr[api.NameString](row.WorkflowName), Actions: api.ActionList{}}, Tags: map[string]string{}, NextFire: wfTimePtr(row.NextFire)}
+	v.CFNOwner = row.CfnOwner
 	if row.PredicatePresent {
 		v.Trigger.Predicate = &api.Predicate{Logical: wfStringPtr[api.Logical](row.PredicateLogical), Conditions: api.ConditionList{}}
 	}
@@ -102,6 +103,7 @@ func (w writer) PutTrigger(v domain.TriggerRecord) error {
 	k := v.Key
 	t := v.Trigger
 	p := sqlcgen.WFTriggerPutParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, TriggerType: wfString(t.Type).String, State: wfString(t.State).String, Description: wfString(t.Description), Schedule: wfString(t.Schedule), WorkflowName: wfString(t.WorkflowName), NextFire: wfTime(v.NextFire), PredicatePresent: t.Predicate != nil}
+	p.CfnOwner = v.CFNOwner
 	if t.Predicate != nil {
 		p.PredicateLogical = wfString(t.Predicate.Logical)
 	}

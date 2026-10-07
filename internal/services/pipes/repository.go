@@ -36,6 +36,7 @@ type SourceSettings struct {
 	Kafka                                                             KafkaSettings
 }
 type PipeRecord struct {
+	CFNOwner                                                  string
 	Key                                                       Key
 	ID                                                        string
 	Version                                                   int64

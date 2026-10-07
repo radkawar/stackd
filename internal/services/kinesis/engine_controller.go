@@ -84,7 +84,7 @@ func (c *engineController) log(ctx context.Context, spec engine.Specification) (
 	}
 	c.mu.Unlock()
 	if c.service.runtime == nil {
-		return nil, errors.New("kinesis record runtime is not configured")
+		return nil, runtimeUnavailable()
 	}
 	log, err := c.service.runtime.Open(ctx, spec)
 	if err != nil {

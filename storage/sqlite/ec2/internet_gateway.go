@@ -33,6 +33,7 @@ func (r reader) InternetGateways(scope domain.Scope) ([]domain.InternetGatewayRe
 func (r reader) internetGateway(row sqlcgen.Ec2InternetGateway) (domain.InternetGatewayRecord, error) {
 	k := domain.ResourceKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.ResourceID}
 	out := domain.InternetGatewayRecord{Key: k, Data: api.InternetGateway{InternetGatewayId: stringPointer[api.String](row.InternetGatewayID), OwnerId: stringPointer[api.String](row.OwnerID)}}
+	out.CloudFormationOwner = cloudFormationOwner(row.CloudformationResourceType, row.CloudformationOwner)
 	if row.AttachmentsPresent {
 		attachments, err := r.q.ListInternetGatewayAttachments(r.ctx, sqlcgen.ListInternetGatewayAttachmentsParams{Partition: k.Scope.Partition, AccountID: k.Scope.AccountID, Region: k.Scope.Region, ResourceID: k.ID})
 		if err != nil {

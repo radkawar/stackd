@@ -1,9 +1,13 @@
 package stackd_test
 
 import (
+	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"net/http/httptest"
+	"os"
+	goruntime "runtime"
 	"strings"
 	"testing"
 	"time"
@@ -11,19 +15,55 @@ import (
 	"stackd"
 	"stackd/clock"
 	computelambda "stackd/compute/lambda"
+	"stackd/storage"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/kinesis"
 	awslambda "github.com/aws/aws-sdk-go-v2/service/lambda"
 )
 
-func lambdaKinesisCloud(t *testing.T, backend string, source *clock.Manual) (cloudClients, func() cloudClients) {
+func lambdaKinesisCloud(t *testing.T, backend string, source *clock.Manual, observe ...func(*storage.Backends)) (cloudClients, func() cloudClients) {
 	t.Helper()
 	lambdaURLDocker(t)
 	runtime := newKinesisReplayRuntime(t)
+	// Observed image replays reconstruct both controller and native executor.
+	// Root deployment pins outlive Close and belong to one stable namespace.
+	namespace := "lambda-kinesis-" + rand.Text()
+	var executor *computelambda.DockerExecutor
 	return retainedCloud(t, backend, stackd.Config{Clock: source, KinesisRuntime: runtime},
 		func(config stackd.Config) (*stackd.Stack, *httptest.Server) {
-			return newLambdaDockerStack(t, config, &computelambda.DockerConfig{Client: runtime.client})
+			if len(observe) == 0 {
+				return newLambdaDockerStack(t, config, &computelambda.DockerConfig{Client: runtime.client})
+			}
+			if executor != nil {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				err := executor.Close(ctx)
+				cancel()
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			for _, observer := range observe {
+				observer(config.Storage)
+			}
+			callback := os.Getenv("STACKD_LAMBDA_CALLBACK_HOST")
+			if callback == "" && goruntime.GOOS == "darwin" {
+				callback = "host.docker.internal"
+			}
+			var err error
+			executor, err = computelambda.NewDockerExecutor(t.Context(), computelambda.DockerConfig{Client: runtime.client, Namespace: namespace, CallbackHost: callback, TelemetryHelpers: lambdaTelemetryHelpers(t)})
+			if err != nil {
+				t.Fatal(err)
+			}
+			current := executor
+			t.Cleanup(func() {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				if err := current.Close(ctx); err != nil {
+					t.Error(err)
+				}
+			})
+			return newLambdaDockerStackWithExecutor(t, config, executor)
 		})
 }
 

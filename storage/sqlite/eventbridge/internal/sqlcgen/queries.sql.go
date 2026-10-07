@@ -53,6 +53,27 @@ func (q *Queries) DeleteBusPolicyPrincipals(ctx context.Context, arg DeleteBusPo
 	return err
 }
 
+const deleteBusPolicyStatementOwners = `-- name: DeleteBusPolicyStatementOwners :exec
+DELETE FROM eventbridge_bus_policy_statement_owners WHERE partition=? AND account=? AND region=? AND bus_name=?
+`
+
+type DeleteBusPolicyStatementOwnersParams struct {
+	Partition string
+	Account   string
+	Region    string
+	BusName   string
+}
+
+func (q *Queries) DeleteBusPolicyStatementOwners(ctx context.Context, arg DeleteBusPolicyStatementOwnersParams) error {
+	_, err := q.db.ExecContext(ctx, deleteBusPolicyStatementOwners,
+		arg.Partition,
+		arg.Account,
+		arg.Region,
+		arg.BusName,
+	)
+	return err
+}
+
 const deleteBusTags = `-- name: DeleteBusTags :exec
 DELETE FROM eventbridge_bus_tags WHERE partition=? AND account=? AND region=? AND bus_name=?
 `
@@ -171,7 +192,7 @@ func (q *Queries) DeleteTargetInputPaths(ctx context.Context, arg DeleteTargetIn
 }
 
 const getBus = `-- name: GetBus :one
-SELECT "partition", account, region, name, description, created, modified, policy, kms_key_identifier, dead_letter_arn, configuration_data_key, configuration_key_arn FROM eventbridge_buses WHERE partition=? AND account=? AND region=? AND name=?
+SELECT "partition", account, region, name, description, created, modified, policy, kms_key_identifier, dead_letter_arn, configuration_data_key, configuration_key_arn, cfn_owner FROM eventbridge_buses WHERE partition=? AND account=? AND region=? AND name=?
 `
 
 type GetBusParams struct {
@@ -202,6 +223,7 @@ func (q *Queries) GetBus(ctx context.Context, arg GetBusParams) (EventbridgeBus,
 		&i.DeadLetterArn,
 		&i.ConfigurationDataKey,
 		&i.ConfigurationKeyArn,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -237,6 +259,50 @@ func (q *Queries) GetBusPolicyPrincipals(ctx context.Context, arg GetBusPolicyPr
 	for rows.Next() {
 		var i GetBusPolicyPrincipalsRow
 		if err := rows.Scan(&i.Arn, &i.PrincipalID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getBusPolicyStatementOwners = `-- name: GetBusPolicyStatementOwners :many
+SELECT statement_id,cfn_owner FROM eventbridge_bus_policy_statement_owners WHERE partition=? AND account=? AND region=? AND bus_name=? ORDER BY statement_id
+`
+
+type GetBusPolicyStatementOwnersParams struct {
+	Partition string
+	Account   string
+	Region    string
+	BusName   string
+}
+
+type GetBusPolicyStatementOwnersRow struct {
+	StatementID string
+	CfnOwner    string
+}
+
+func (q *Queries) GetBusPolicyStatementOwners(ctx context.Context, arg GetBusPolicyStatementOwnersParams) ([]GetBusPolicyStatementOwnersRow, error) {
+	rows, err := q.db.QueryContext(ctx, getBusPolicyStatementOwners,
+		arg.Partition,
+		arg.Account,
+		arg.Region,
+		arg.BusName,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetBusPolicyStatementOwnersRow{}
+	for rows.Next() {
+		var i GetBusPolicyStatementOwnersRow
+		if err := rows.Scan(&i.StatementID, &i.CfnOwner); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -416,7 +482,7 @@ func (q *Queries) GetEventResources(ctx context.Context, eventID string) ([]stri
 }
 
 const getRule = `-- name: GetRule :one
-SELECT "partition", account, region, bus_name, name, pattern, description, state, created_by, role_arn, has_pattern, has_description, schedule_expression, next_schedule_seconds, archive_id, encrypted_pattern, managed_by FROM eventbridge_rules WHERE partition=? AND account=? AND region=? AND bus_name=? AND name=?
+SELECT "partition", account, region, bus_name, name, pattern, description, state, created_by, role_arn, has_pattern, has_description, schedule_expression, next_schedule_seconds, archive_id, encrypted_pattern, managed_by, cfn_owner FROM eventbridge_rules WHERE partition=? AND account=? AND region=? AND bus_name=? AND name=?
 `
 
 type GetRuleParams struct {
@@ -454,6 +520,7 @@ func (q *Queries) GetRule(ctx context.Context, arg GetRuleParams) (EventbridgeRu
 		&i.ArchiveID,
 		&i.EncryptedPattern,
 		&i.ManagedBy,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -553,7 +620,7 @@ func (q *Queries) GetTargetInputPaths(ctx context.Context, arg GetTargetInputPat
 }
 
 const listBuses = `-- name: ListBuses :many
-SELECT "partition", account, region, name, description, created, modified, policy, kms_key_identifier, dead_letter_arn, configuration_data_key, configuration_key_arn FROM eventbridge_buses WHERE partition=? AND account=? AND region=? ORDER BY name
+SELECT "partition", account, region, name, description, created, modified, policy, kms_key_identifier, dead_letter_arn, configuration_data_key, configuration_key_arn, cfn_owner FROM eventbridge_buses WHERE partition=? AND account=? AND region=? ORDER BY name
 `
 
 type ListBusesParams struct {
@@ -584,6 +651,7 @@ func (q *Queries) ListBuses(ctx context.Context, arg ListBusesParams) ([]Eventbr
 			&i.DeadLetterArn,
 			&i.ConfigurationDataKey,
 			&i.ConfigurationKeyArn,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -672,7 +740,7 @@ func (q *Queries) ListEventDeliveries(ctx context.Context, eventID string) ([]Ev
 }
 
 const listRules = `-- name: ListRules :many
-SELECT "partition", account, region, bus_name, name, pattern, description, state, created_by, role_arn, has_pattern, has_description, schedule_expression, next_schedule_seconds, archive_id, encrypted_pattern, managed_by FROM eventbridge_rules WHERE partition=? AND account=? AND region=? AND bus_name=? ORDER BY name
+SELECT "partition", account, region, bus_name, name, pattern, description, state, created_by, role_arn, has_pattern, has_description, schedule_expression, next_schedule_seconds, archive_id, encrypted_pattern, managed_by, cfn_owner FROM eventbridge_rules WHERE partition=? AND account=? AND region=? AND bus_name=? ORDER BY name
 `
 
 type ListRulesParams struct {
@@ -714,6 +782,7 @@ func (q *Queries) ListRules(ctx context.Context, arg ListRulesParams) ([]Eventbr
 			&i.ArchiveID,
 			&i.EncryptedPattern,
 			&i.ManagedBy,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -867,7 +936,7 @@ func (q *Queries) NextDelivery(ctx context.Context) (EventbridgeDelivery, error)
 }
 
 const nextScheduledRule = `-- name: NextScheduledRule :one
-SELECT "partition", account, region, bus_name, name, pattern, description, state, created_by, role_arn, has_pattern, has_description, schedule_expression, next_schedule_seconds, archive_id, encrypted_pattern, managed_by FROM eventbridge_rules WHERE next_schedule_seconds IS NOT NULL
+SELECT "partition", account, region, bus_name, name, pattern, description, state, created_by, role_arn, has_pattern, has_description, schedule_expression, next_schedule_seconds, archive_id, encrypted_pattern, managed_by, cfn_owner FROM eventbridge_rules WHERE next_schedule_seconds IS NOT NULL
 ORDER BY next_schedule_seconds, 'arn:' || partition || ':events:' || region || ':' || account || ':rule/' || CASE WHEN bus_name='default' THEN name ELSE bus_name || '/' || name END LIMIT 1
 `
 
@@ -892,13 +961,14 @@ func (q *Queries) NextScheduledRule(ctx context.Context) (EventbridgeRule, error
 		&i.ArchiveID,
 		&i.EncryptedPattern,
 		&i.ManagedBy,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const putBus = `-- name: PutBus :exec
-INSERT INTO eventbridge_buses(partition,account,region,name,description,created,modified,policy,kms_key_identifier,dead_letter_arn,configuration_data_key,configuration_key_arn)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(partition,account,region,name) DO UPDATE SET description=excluded.description,modified=excluded.modified,policy=excluded.policy,kms_key_identifier=excluded.kms_key_identifier,dead_letter_arn=excluded.dead_letter_arn,configuration_data_key=excluded.configuration_data_key,configuration_key_arn=excluded.configuration_key_arn
+INSERT INTO eventbridge_buses(partition,account,region,name,description,created,modified,policy,kms_key_identifier,dead_letter_arn,configuration_data_key,configuration_key_arn,cfn_owner)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(partition,account,region,name) DO UPDATE SET description=excluded.description,modified=excluded.modified,policy=excluded.policy,kms_key_identifier=excluded.kms_key_identifier,dead_letter_arn=excluded.dead_letter_arn,configuration_data_key=excluded.configuration_data_key,configuration_key_arn=excluded.configuration_key_arn
 `
 
 type PutBusParams struct {
@@ -914,6 +984,7 @@ type PutBusParams struct {
 	DeadLetterArn        string
 	ConfigurationDataKey []byte
 	ConfigurationKeyArn  string
+	CfnOwner             string
 }
 
 func (q *Queries) PutBus(ctx context.Context, arg PutBusParams) error {
@@ -930,6 +1001,7 @@ func (q *Queries) PutBus(ctx context.Context, arg PutBusParams) error {
 		arg.DeadLetterArn,
 		arg.ConfigurationDataKey,
 		arg.ConfigurationKeyArn,
+		arg.CfnOwner,
 	)
 	return err
 }
@@ -955,6 +1027,31 @@ func (q *Queries) PutBusPolicyPrincipal(ctx context.Context, arg PutBusPolicyPri
 		arg.BusName,
 		arg.Arn,
 		arg.PrincipalID,
+	)
+	return err
+}
+
+const putBusPolicyStatementOwner = `-- name: PutBusPolicyStatementOwner :exec
+INSERT INTO eventbridge_bus_policy_statement_owners(partition,account,region,bus_name,statement_id,cfn_owner) VALUES(?,?,?,?,?,?)
+`
+
+type PutBusPolicyStatementOwnerParams struct {
+	Partition   string
+	Account     string
+	Region      string
+	BusName     string
+	StatementID string
+	CfnOwner    string
+}
+
+func (q *Queries) PutBusPolicyStatementOwner(ctx context.Context, arg PutBusPolicyStatementOwnerParams) error {
+	_, err := q.db.ExecContext(ctx, putBusPolicyStatementOwner,
+		arg.Partition,
+		arg.Account,
+		arg.Region,
+		arg.BusName,
+		arg.StatementID,
+		arg.CfnOwner,
 	)
 	return err
 }
@@ -1167,8 +1264,8 @@ func (q *Queries) PutEventResource(ctx context.Context, arg PutEventResourcePara
 }
 
 const putRule = `-- name: PutRule :exec
-INSERT INTO eventbridge_rules(partition,account,region,bus_name,name,pattern,description,state,created_by,role_arn,has_pattern,has_description,schedule_expression,next_schedule_seconds,archive_id,encrypted_pattern,managed_by)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(partition,account,region,bus_name,name) DO UPDATE SET pattern=excluded.pattern,description=excluded.description,state=excluded.state,role_arn=excluded.role_arn,has_pattern=excluded.has_pattern,has_description=excluded.has_description,schedule_expression=excluded.schedule_expression,next_schedule_seconds=excluded.next_schedule_seconds,archive_id=excluded.archive_id,encrypted_pattern=excluded.encrypted_pattern,managed_by=excluded.managed_by
+INSERT INTO eventbridge_rules(partition,account,region,bus_name,name,pattern,description,state,created_by,role_arn,has_pattern,has_description,schedule_expression,next_schedule_seconds,archive_id,encrypted_pattern,managed_by,cfn_owner)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(partition,account,region,bus_name,name) DO UPDATE SET pattern=excluded.pattern,description=excluded.description,state=excluded.state,role_arn=excluded.role_arn,has_pattern=excluded.has_pattern,has_description=excluded.has_description,schedule_expression=excluded.schedule_expression,next_schedule_seconds=excluded.next_schedule_seconds,archive_id=excluded.archive_id,encrypted_pattern=excluded.encrypted_pattern,managed_by=excluded.managed_by
 `
 
 type PutRuleParams struct {
@@ -1189,6 +1286,7 @@ type PutRuleParams struct {
 	ArchiveID           string
 	EncryptedPattern    []byte
 	ManagedBy           string
+	CfnOwner            string
 }
 
 func (q *Queries) PutRule(ctx context.Context, arg PutRuleParams) error {
@@ -1210,6 +1308,7 @@ func (q *Queries) PutRule(ctx context.Context, arg PutRuleParams) error {
 		arg.ArchiveID,
 		arg.EncryptedPattern,
 		arg.ManagedBy,
+		arg.CfnOwner,
 	)
 	return err
 }

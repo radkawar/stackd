@@ -55,6 +55,7 @@ func (r reader) Policy(k domain.ResourceKey) (domain.PolicyRecord, error) {
 		return domain.PolicyRecord{}, missing(err)
 	}
 	out := domain.PolicyRecord{Key: k, Policy: authorization.BoundPolicy{Document: row.Document, TrustPolicy: row.TrustPolicy}, Effective: authorization.BoundPolicy{Document: row.EffectiveDocument, TrustPolicy: row.EffectiveTrustPolicy}, PublishAt: row.PublishAt.UTC()}
+	out.Owner = domain.ResourceOwner{StackID: row.OwnerStackID, LogicalID: row.OwnerLogicalID, Token: row.OwnerToken}
 	if row.PrincipalsPresent {
 		out.Policy.PrincipalIDs = map[string]string{}
 	}
@@ -77,6 +78,9 @@ func (r reader) Policy(k domain.ResourceKey) (domain.PolicyRecord, error) {
 func (w writer) PutPolicy(v domain.PolicyRecord) error {
 	k := v.Key
 	if err := w.q.PutPolicy(w.ctx, sqlcgen.PutPolicyParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Arn: k.ARN, Document: v.Policy.Document, TrustPolicy: v.Policy.TrustPolicy, PrincipalsPresent: v.Policy.PrincipalIDs != nil, EffectiveDocument: v.Effective.Document, EffectiveTrustPolicy: v.Effective.TrustPolicy, EffectivePrincipalsPresent: v.Effective.PrincipalIDs != nil, PublishAt: v.PublishAt.UTC()}); err != nil {
+		return err
+	}
+	if err := w.q.SetPolicyOwner(w.ctx, sqlcgen.SetPolicyOwnerParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Arn: k.ARN, OwnerStackID: v.Owner.StackID, OwnerLogicalID: v.Owner.LogicalID, OwnerToken: v.Owner.Token}); err != nil {
 		return err
 	}
 	if err := w.q.DeletePolicyPrincipals(w.ctx, sqlcgen.DeletePolicyPrincipalsParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Arn: k.ARN}); err != nil {

@@ -196,6 +196,19 @@ func failure(code, message string, status ...int) *awswire.Error {
 	return &awswire.Error{Code: code, Message: message, StatusCode: n}
 }
 
+// runtimeUnavailable is the AWS common ServiceUnavailable error. Without a
+// configured record runtime no stream lifecycle intent can complete natively.
+func runtimeUnavailable() *awswire.Error {
+	return failure("ServiceUnavailable", "Kinesis record runtime is not configured for this stackd instance.", http.StatusServiceUnavailable)
+}
+
+func (s *Service) requireRuntime() error {
+	if s.runtime == nil {
+		return runtimeUnavailable()
+	}
+	return nil
+}
+
 func wireError(err error) *awswire.Error {
 	if err == nil {
 		return nil

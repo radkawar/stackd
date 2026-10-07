@@ -11,6 +11,7 @@ func (w writer) PutAlarm(alarm domain.AlarmRecord) error {
 	k := alarm.Key
 	if err := w.q.PutAlarm(w.ctx, sqlcgen.PutAlarmParams{
 		ID: alarm.ID, Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name,
+		CfnOwner:  alarm.CFNOwner,
 		AlarmType: alarm.Type(), Version: int64(alarm.Version), Created: alarm.Created.UTC(), Updated: alarm.Updated.UTC(), Description: alarmString(alarm.Description), ActionsEnabled: alarm.ActionsEnabled,
 		StateValue: alarm.State.Value, StateReason: alarmString(alarm.State.Reason), StateReasonData: alarm.State.ReasonData, StateUpdated: alarm.State.Updated.UTC(), StateTransitioned: alarm.State.Transitioned.UTC(),
 		NextEvaluation: alarmTime(alarm.NextEvaluation), SuppressionPhase: alarm.SuppressionPhase, SuppressionReason: alarm.SuppressionReason, SuppressionUntil: alarmTime(alarm.SuppressionUntil),

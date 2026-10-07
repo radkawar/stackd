@@ -8,12 +8,13 @@ import (
 
 	api "stackd/internal/awsapi/sqs"
 	"stackd/internal/services/cloudformation"
+	sqsservice "stackd/internal/services/sqs"
 )
 
 type cfnSQSQueuePolicy struct{ commands StepFunctionsCommands }
 type cfnSQSQueuePolicyProperties struct {
 	Queues         []string
-	PolicyDocument map[string]any
+	PolicyDocument cfnStorageDocument
 }
 
 func (h cfnSQSQueuePolicy) Validate(raw cloudformation.Properties) error {
@@ -45,65 +46,34 @@ func (h cfnSQSQueuePolicy) apply(ctx context.Context, r cloudformation.ResourceR
 	if err != nil {
 		return err
 	}
-	queue := cfnSQSQueue(h)
+	if !r.CloudControl {
+		ctx = sqsservice.WithCloudFormationPolicyOwner(ctx, cfnSQSPolicyOwner(r))
+	}
 	for _, url := range p.Queues {
-		tags, err := queue.tags(ctx, url)
-		if err != nil {
-			return err
-		}
-		marker := tags[cfnMessagingPolicyTag]
-		if marker != "" && marker != cfnMessagingMarker(r) {
-			return fmt.Errorf("queue policy is owned by another resource")
-		}
-		current, err := h.policy(ctx, url)
-		if err != nil {
-			return err
-		}
-		if marker == "" && current != "" {
-			return fmt.Errorf("queue already has an unrelated policy")
-		}
-		if marker == "" {
-			if err := queue.tag(ctx, url, map[string]string{cfnMessagingPolicyTag: cfnMessagingMarker(r)}); err != nil {
-				return err
-			}
-		}
 		if err := h.put(ctx, url, doc); err != nil {
-			if marker == "" {
-				return errors.Join(err, queue.untag(ctx, url, []string{cfnMessagingPolicyTag}))
-			}
 			return err
 		}
 	}
 	return nil
 }
 func (h cfnSQSQueuePolicy) remove(ctx context.Context, r cloudformation.ResourceRequest, url, doc string) error {
-	queue := cfnSQSQueue(h)
-	tags, err := queue.tags(ctx, url)
-	if cfnMessagingMissing(err, "QueueDoesNotExist", "AWS.SimpleQueueService.NonExistentQueue") {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if tags[cfnMessagingPolicyTag] == "" {
-		return nil
-	}
-	if tags[cfnMessagingPolicyTag] != cfnMessagingMarker(r) {
-		return fmt.Errorf("refusing to delete another resource's queue policy")
-	}
-	current, err := h.policy(ctx, url)
-	if err != nil {
-		return err
-	}
-	if current != "" && !cfnMessagingEqualJSON(current, doc) {
-		return fmt.Errorf("queue policy changed outside this CloudFormation resource")
-	}
-	if current != "" {
-		if err := h.put(ctx, url, ""); err != nil {
+	if !r.CloudControl {
+		owner, err := h.privatePolicyOwner(ctx, url)
+		if cfnMessagingMissing(err, "QueueDoesNotExist", "AWS.SimpleQueueService.NonExistentQueue") {
+			return nil
+		}
+		if err != nil {
 			return err
 		}
+		if owner == "" {
+			return nil
+		}
+		if owner != cfnSQSPolicyOwner(r) {
+			return fmt.Errorf("refusing to delete another resource's queue policy")
+		}
+		ctx = sqsservice.WithCloudFormationPolicyOwner(ctx, owner)
 	}
-	return queue.untag(ctx, url, []string{cfnMessagingPolicyTag})
+	return h.put(ctx, url, "")
 }
 func (h cfnSQSQueuePolicy) result(r cloudformation.ResourceRequest) cloudformation.ResourceResult {
 	id := r.PhysicalID
@@ -122,7 +92,16 @@ func (h cfnSQSQueuePolicy) Create(ctx context.Context, r cloudformation.Resource
 	if err := cfnMessagingDecode(r.Properties, &p); err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
-	return h.result(r), h.apply(ctx, r, p)
+	err := h.apply(sqsservice.WithCloudFormationPolicyOwner(ctx, cfnSQSPolicyOwner(r)), r, p)
+	if err == nil {
+		return h.result(r), nil
+	}
+	if admitted, recoveryErr := h.RecoverCreation(ctx, r); admitted.PhysicalID != "" {
+		return admitted, err
+	} else if !cfnMessagingMissing(recoveryErr, "ResourceNotFoundException") {
+		return cloudformation.ResourceResult{}, errors.Join(err, recoveryErr)
+	}
+	return cloudformation.ResourceResult{}, err
 }
 func (h cfnSQSQueuePolicy) Update(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
 	if err := h.Validate(r.Properties); err != nil {

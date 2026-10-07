@@ -13,6 +13,7 @@ func (tx reader) Keys(sc domain.StorageScope) ([]domain.KeyRecord, error) {
 	keys := make([]domain.KeyRecord, 0, len(rows))
 	for _, row := range rows {
 		key := domain.KeyRecord{ID: row.KeyID, ARN: row.Arn, Description: row.Description, Manager: row.Manager, State: row.State, Created: row.Created, Deletion: row.Deletion, AvailableAt: row.AvailableAt, PendingDeletionWindowInDays: int32(row.PendingDeletionDays), Policy: row.Policy}
+		key.Owner.StackID, key.Owner.LogicalID, key.Owner.Token = row.OwnerStackID, row.OwnerLogicalID, row.OwnerToken
 		principals, err := tx.q.ListPrincipals(tx.ctx, sqlcgen.ListPrincipalsParams{Partition: sc.Partition, Account: sc.AccountID, Region: sc.Region, KeyID: row.KeyID})
 		if err != nil {
 			return nil, err
@@ -43,6 +44,7 @@ func (tx transaction) PutKey(sc domain.StorageScope, key domain.KeyRecord) error
 	if err := tx.q.PutKey(tx.ctx, sqlcgen.PutKeyParams{
 		Partition: sc.Partition, Account: sc.AccountID, Region: sc.Region, KeyID: key.ID, Arn: key.ARN, Description: key.Description, Manager: key.Manager, State: key.State,
 		Created: key.Created, Deletion: key.Deletion, AvailableAt: key.AvailableAt, PendingDeletionDays: int64(key.PendingDeletionWindowInDays), Policy: key.Policy,
+		OwnerStackID: key.Owner.StackID, OwnerLogicalID: key.Owner.LogicalID, OwnerToken: key.Owner.Token,
 	}); err != nil {
 		return err
 	}

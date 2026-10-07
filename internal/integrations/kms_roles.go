@@ -1,4 +1,4 @@
-package stackd
+package integrations
 
 import (
 	"context"
@@ -9,7 +9,8 @@ import (
 	"stackd/internal/services/kms"
 )
 
-func kmsRoleTemplate() iam.ServiceLinkedRoleTemplate {
+// KMSRoleTemplate defines the sourced role used to synchronize multi-Region keys.
+func KMSRoleTemplate() iam.ServiceLinkedRoleTemplate {
 	return iam.ServiceLinkedRoleTemplate{
 		Partition: "aws", ServiceName: kms.MultiRegionServicePrincipal, RoleName: kms.MultiRegionServiceRoleName,
 		TrustPolicy:        `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"mrk.kms.amazonaws.com"},"Action":"sts:AssumeRole"}]}`,
@@ -20,10 +21,11 @@ func kmsRoleTemplate() iam.ServiceLinkedRoleTemplate {
 	}
 }
 
-type kmsRoleUsage struct{ service *kms.Service }
+// KMSRoleUsage keeps IAM's role-deletion decision inside KMS's key transaction.
+type KMSRoleUsage struct{ Keys *kms.Service }
 
-func (s kmsRoleUsage) WithServiceLinkedRoleUsage(ctx context.Context, ref iam.ServiceLinkedRoleReference, fn func(context.Context, []iam.ServiceLinkedRoleUsage) error) error {
-	return s.service.WithMultiRegionKeys(ctx, kms.KeyOwner{Partition: ref.Scope.Partition, AccountID: ref.Scope.AccountID}, func(ctx context.Context, regions map[string][]string) error {
+func (s KMSRoleUsage) WithServiceLinkedRoleUsage(ctx context.Context, ref iam.ServiceLinkedRoleReference, fn func(context.Context, []iam.ServiceLinkedRoleUsage) error) error {
+	return s.Keys.WithMultiRegionKeys(ctx, kms.KeyOwner{Partition: ref.Scope.Partition, AccountID: ref.Scope.AccountID}, func(ctx context.Context, regions map[string][]string) error {
 		var usage []iam.ServiceLinkedRoleUsage
 		for _, region := range slices.Sorted(maps.Keys(regions)) {
 			usage = append(usage, iam.ServiceLinkedRoleUsage{Region: region, ResourceARNs: regions[region]})

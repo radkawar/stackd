@@ -320,7 +320,11 @@ func (e *dockerEnvironment) startRuntime(ctx context.Context, phase string) (*do
 		case <-changed:
 		}
 	}
-	process, err := e.startCustomer(ctx, runtime, "runtime", "function", []string{"/lambda-entrypoint.sh", e.spec.Handler})
+	command, err := e.customerRuntimeCommand(ctx, runtime.container)
+	if err != nil {
+		return runtime, err
+	}
+	process, err := e.startCustomer(ctx, runtime, "runtime", "function", command)
 	if err != nil {
 		return runtime, fmt.Errorf("starting Lambda runtime: %w", err)
 	}
@@ -467,6 +471,11 @@ func (e *dockerEnvironment) Invoke(ctx context.Context, invocation Invocation, r
 	case <-e.gate:
 	}
 	defer func() { e.gate <- struct{}{} }()
+	if e.spec.FunctionNetwork != nil {
+		if err := e.spec.FunctionNetwork.Check(ctx); err != nil {
+			return report, err
+		}
+	}
 	if err := e.reloadSource(ctx); err != nil {
 		return report, err
 	}
@@ -852,6 +861,11 @@ func (e *dockerEnvironment) Close(ctx context.Context) error {
 		}
 	}
 	if (e.container == "" || e.containerRemoved) && (e.staging == "" || e.stagingRemoved) {
+		if e.spec.FunctionNetwork != nil {
+			if err := e.spec.FunctionNetwork.Close(ctx); err != nil {
+				failures = append(failures, err)
+			}
+		}
 		for _, volume := range []struct {
 			name    string
 			removed *bool

@@ -34,6 +34,10 @@ type RdsDatabase struct {
 	HttpEnabled        int64
 	CopyTags           int64
 	PendingParameters  int64
+	ResourceID         string
+	OwnerStackID       string
+	OwnerLogicalID     string
+	OwnerToken         string
 }
 
 type RdsParameter struct {
@@ -48,13 +52,17 @@ type RdsParameter struct {
 }
 
 type RdsParameterGroup struct {
-	Partition   string
-	AccountID   string
-	Region      string
-	Kind        string
-	Name        string
-	Family      string
-	Description string
+	Partition      string
+	AccountID      string
+	Region         string
+	Kind           string
+	Name           string
+	Family         string
+	Description    string
+	ResourceID     string
+	OwnerStackID   string
+	OwnerLogicalID string
+	OwnerToken     string
 }
 
 type RdsSnapshot struct {
@@ -76,6 +84,9 @@ type RdsSnapshot struct {
 	Version         int64
 	Created         int64
 	Due             int64
+	OwnerStackID    string
+	OwnerLogicalID  string
+	OwnerToken      string
 }
 
 type RdsSubnet struct {
@@ -90,13 +101,17 @@ type RdsSubnet struct {
 }
 
 type RdsSubnetGroup struct {
-	Partition   string
-	AccountID   string
-	Region      string
-	Kind        string
-	Name        string
-	Description string
-	VpcID       string
+	Partition      string
+	AccountID      string
+	Region         string
+	Kind           string
+	Name           string
+	Description    string
+	VpcID          string
+	ResourceID     string
+	OwnerStackID   string
+	OwnerLogicalID string
+	OwnerToken     string
 }
 
 type RdsTag struct {

@@ -76,6 +76,19 @@ type EksAddon struct {
 	Preserve             int64
 }
 
+type EksCloudformationCreation struct {
+	Partition    string
+	AccountID    string
+	Region       string
+	ResourceType string
+	Owner        string
+	ClusterName  string
+	NativeName   string
+	NativeID     string
+	PhysicalID   string
+	Arn          string
+}
+
 type EksCluster struct {
 	Partition            string
 	AccountID            string

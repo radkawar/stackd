@@ -59,6 +59,9 @@ func (s *Service) putChannel(ctx context.Context, in *api.PutDeliveryChannelInpu
 	}
 	out := &api.PutDeliveryChannelOutput{}
 	err = s.repository.Attempt(ctx, func(tx Transaction) error {
+		if err := s.authorize(tx.Context(), "PutDeliveryChannel"); err != nil {
+			return err
+		}
 		r, ok, err := tx.Recorder(row.Scope)
 		if err != nil {
 			return err
@@ -76,9 +79,19 @@ func (s *Service) putChannel(ctx context.Context, in *api.PutDeliveryChannelInpu
 		if found && old.Name != row.Name {
 			return failure("MaxNumberOfDeliveryChannelsExceededException", "Only one delivery channel is allowed per account and Region.")
 		}
+		if err := checkCloudFormationOwnership(tx, channelOwnershipARN(row.Scope, row.Name), found); err != nil {
+			return err
+		}
+		row.CFNOwnership = old.CFNOwnership
+		if !found {
+			row.CFNOwnership = creationOwnership(tx.Context())
+		}
 		row.LastAttempt, row.LastSuccess, row.Status, row.ErrorCode, row.ErrorMessage = old.LastAttempt, old.LastSuccess, old.Status, old.ErrorCode, old.ErrorMessage
 		row.NextDelivery = s.clock.Now().Add(deliveryPeriod(row.Frequency))
 		if err := tx.PutChannel(row); err != nil {
+			return err
+		}
+		if err := s.startAdmittedRecorder(tx, r); err != nil {
 			return err
 		}
 		if err := s.schedulePeriodicSnapshot(tx, row); err != nil {
@@ -126,6 +139,9 @@ func (s *Service) describeChannels(tx Transaction, in *api.DescribeDeliveryChann
 		return nil, err
 	}
 	if found && (len(in.DeliveryChannelNames) == 0 || slices.Contains(in.DeliveryChannelNames, api.ChannelName(c.Name))) {
+		if err := checkCloudFormationClaim(tx.Context(), c.CFNOwnership); err != nil {
+			return nil, err
+		}
 		out.DeliveryChannels = append(out.DeliveryChannels, channelAPI(c))
 	}
 	return out, nil
@@ -202,6 +218,9 @@ func (s *Service) deleteChannel(tx Transaction, in *api.DeleteDeliveryChannelInp
 	}
 	if !found || c.Name != value(in.DeliveryChannelName) {
 		return nil, failure("NoSuchDeliveryChannelException", "The specified delivery channel does not exist.")
+	}
+	if err := checkCloudFormationClaim(tx.Context(), c.CFNOwnership); err != nil {
+		return nil, err
 	}
 	r, found, err := tx.Recorder(scope)
 	if err != nil {

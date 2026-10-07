@@ -2,8 +2,8 @@
 SELECT * FROM glue_catalogs WHERE partition = ? AND account_id = ? AND region = ? AND catalog_id = ?;
 
 -- name: PutGlueCatalog :exec
-INSERT INTO glue_catalogs (partition, account_id, region, catalog_id, name, description, created_at, updated_at, parameters_json, database_permissions_json, table_permissions_json, full_table_access, tags_json)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO glue_catalogs (cfn_owner, partition, account_id, region, catalog_id, name, description, created_at, updated_at, parameters_json, database_permissions_json, table_permissions_json, full_table_access, tags_json)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, catalog_id) DO UPDATE SET name = excluded.name, description = excluded.description, created_at = excluded.created_at, updated_at = excluded.updated_at, parameters_json = excluded.parameters_json, database_permissions_json = excluded.database_permissions_json, table_permissions_json = excluded.table_permissions_json, full_table_access = excluded.full_table_access, tags_json = excluded.tags_json;
 
 -- name: DeleteGlueCatalog :exec
@@ -16,8 +16,8 @@ SELECT * FROM glue_catalogs WHERE partition = ? AND account_id = ? AND region = 
 SELECT * FROM glue_databases WHERE partition = ? AND account_id = ? AND region = ? AND catalog_id = ? AND database_name = ?;
 
 -- name: PutGlueDatabase :exec
-INSERT INTO glue_databases (partition, account_id, region, catalog_id, database_name, description, location_uri, created_at, parameters_json, default_permissions_json, target_database_json, tags_json)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO glue_databases (cfn_owner, partition, account_id, region, catalog_id, database_name, description, location_uri, created_at, parameters_json, default_permissions_json, target_database_json, tags_json)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, catalog_id, database_name) DO UPDATE SET description = excluded.description, location_uri = excluded.location_uri, created_at = excluded.created_at, parameters_json = excluded.parameters_json, default_permissions_json = excluded.default_permissions_json, target_database_json = excluded.target_database_json, tags_json = excluded.tags_json;
 
 -- name: DeleteGlueDatabase :exec
@@ -30,8 +30,8 @@ SELECT * FROM glue_databases WHERE partition = ? AND account_id = ? AND region =
 SELECT * FROM glue_tables WHERE partition = ? AND account_id = ? AND region = ? AND catalog_id = ? AND database_name = ? AND table_name = ?;
 
 -- name: PutGlueTable :exec
-INSERT INTO glue_tables (partition, account_id, region, catalog_id, database_name, table_name, version, description, owner, created_by, created_at, updated_at, last_access_at, last_analyzed_at, retention, storage_descriptor_json, partition_keys_json, parameters_json, table_type, target_table_json, view_original_text, view_expanded_text)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO glue_tables (cfn_owner, partition, account_id, region, catalog_id, database_name, table_name, version, description, owner, created_by, created_at, updated_at, last_access_at, last_analyzed_at, retention, storage_descriptor_json, partition_keys_json, parameters_json, table_type, target_table_json, view_original_text, view_expanded_text)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, catalog_id, database_name, table_name) DO UPDATE SET version = excluded.version, description = excluded.description, owner = excluded.owner, created_by = excluded.created_by, created_at = excluded.created_at, updated_at = excluded.updated_at, last_access_at = excluded.last_access_at, last_analyzed_at = excluded.last_analyzed_at, retention = excluded.retention, storage_descriptor_json = excluded.storage_descriptor_json, partition_keys_json = excluded.partition_keys_json, parameters_json = excluded.parameters_json, table_type = excluded.table_type, target_table_json = excluded.target_table_json, view_original_text = excluded.view_original_text, view_expanded_text = excluded.view_expanded_text;
 
 -- name: DeleteGlueTable :exec
@@ -58,8 +58,8 @@ SELECT * FROM glue_table_versions WHERE partition = ? AND account_id = ? AND reg
 SELECT * FROM glue_partitions WHERE partition = ? AND account_id = ? AND region = ? AND catalog_id = ? AND database_name = ? AND table_name = ? AND values_json = ?;
 
 -- name: PutGluePartition :exec
-INSERT INTO glue_partitions (partition, account_id, region, catalog_id, database_name, table_name, values_json, created_at, last_access_at, last_analyzed_at, parameters_json, storage_descriptor_json)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO glue_partitions (cfn_owner, partition, account_id, region, catalog_id, database_name, table_name, values_json, created_at, last_access_at, last_analyzed_at, parameters_json, storage_descriptor_json)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, catalog_id, database_name, table_name, values_json) DO UPDATE SET created_at = excluded.created_at, last_access_at = excluded.last_access_at, last_analyzed_at = excluded.last_analyzed_at, parameters_json = excluded.parameters_json, storage_descriptor_json = excluded.storage_descriptor_json;
 
 -- name: DeleteGluePartition :exec

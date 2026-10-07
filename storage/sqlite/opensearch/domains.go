@@ -57,6 +57,7 @@ func (r reader) domain(row sqlcgen.OpensearchDomain) (domain.Domain, error) {
 		Due:            readTime(row.Due),
 		Version:        row.Version,
 		ConfigVersion:  row.ConfigVersion,
+		Ownership:      row.Ownership,
 	}
 	var err error
 	v.AdvancedOptions, err = r.advancedOptions(v.Key)
@@ -88,6 +89,7 @@ func (w writer) PutDomain(v domain.Domain) error {
 		Due:            timeValue(v.Due),
 		Version:        v.Version,
 		ConfigVersion:  v.ConfigVersion,
+		Ownership:      v.Ownership,
 	}); err != nil {
 		return err
 	}

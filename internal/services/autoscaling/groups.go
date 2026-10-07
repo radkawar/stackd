@@ -3,7 +3,6 @@ package autoscaling
 import (
 	"context"
 	"errors"
-	"fmt"
 	"reflect"
 	"slices"
 	"strings"
@@ -55,39 +54,7 @@ func (s *Service) prepareCreateAutoScalingGroup(ctx context.Context, in *api.Cre
 	if group.Data.DesiredCapacity == nil {
 		number(&group.Data.DesiredCapacity, intValue(in.MinSize))
 	}
-	if group.Data.DefaultCooldown == nil {
-		number(&group.Data.DefaultCooldown, 300)
-	}
-	if group.Data.HealthCheckGracePeriod == nil {
-		number(&group.Data.HealthCheckGracePeriod, 0)
-	}
-	if group.Data.HealthCheckType == nil {
-		text(&group.Data.HealthCheckType, "EC2")
-	}
-	if group.Data.NewInstancesProtectedFromScaleIn == nil {
-		boolean(&group.Data.NewInstancesProtectedFromScaleIn, false)
-	}
-	if len(group.Data.TerminationPolicies) == 0 {
-		group.Data.TerminationPolicies = api.TerminationPolicies{api.XmlStringMaxLen1600("Default")}
-	}
-	if group.Data.LoadBalancerNames == nil {
-		group.Data.LoadBalancerNames = api.LoadBalancerNames{}
-	}
-	if group.Data.TargetGroupARNs == nil {
-		group.Data.TargetGroupARNs = api.TargetGroupARNs{}
-	}
-	if group.Data.AvailabilityZoneDistribution == nil {
-		group.Data.AvailabilityZoneDistribution = &api.AvailabilityZoneDistribution{CapacityDistributionStrategy: new(api.CapacityDistributionStrategy("balanced-best-effort"))}
-	}
-	if group.Data.CapacityReservationSpecification == nil {
-		group.Data.CapacityReservationSpecification = &api.CapacityReservationSpecification{CapacityReservationPreference: new(api.CapacityReservationPreference("default"))}
-	}
-	if group.Data.InstanceLifecyclePolicy == nil {
-		group.Data.InstanceLifecyclePolicy = &api.InstanceLifecyclePolicy{RetentionTriggers: &api.RetentionTriggers{TerminateHookAbandon: new(api.RetentionAction("terminate"))}}
-	}
-	if group.Data.ServiceLinkedRoleARN == nil {
-		text(&group.Data.ServiceLinkedRoleARN, fmt.Sprintf("arn:%s:iam::%s:role/aws-service-role/%s/AWSServiceRoleForAutoScaling", group.Key.Partition, group.Key.AccountID, ServicePrincipal))
-	}
+	applyGroupDefaults(&group)
 	if err := applyGroupTags(&group, in.Tags); err != nil {
 		return nil, err
 	}
@@ -191,6 +158,10 @@ func (s *Service) prepareGroupUpdate(ctx context.Context, in *api.UpdateAutoScal
 		}
 	}
 	snapshot := cloneGroup(group)
+	removed := groupUpdateRemovals(ctx)
+	if removed != (GroupUpdateRemovals{}) {
+		removed.apply(&group)
+	}
 	if len(in.AvailabilityZoneIds) > 0 {
 		return nil, unsupported("Explicit Availability Zone ID placement is not implemented.")
 	}
@@ -294,17 +265,28 @@ func (s *Service) prepareGroupUpdate(ctx context.Context, in *api.UpdateAutoScal
 			return nil, err
 		}
 	}
-	if in.ServiceLinkedRoleARN != nil {
+	if in.ServiceLinkedRoleARN != nil || removed.ServiceLinkedRoleARN {
 		if err := s.authorizeLinkedRole(ctx, group); err != nil {
 			return nil, err
 		}
 	}
-	if in.VPCZoneIdentifier != nil || in.AvailabilityZones != nil {
+	if removed.ServiceLinkedRoleARN {
+		// Declarative omission selects the same IAM-owned default as creation,
+		// including admission when the group previously used only a custom role.
+		if s.roles == nil {
+			return nil, unsupported("Auto Scaling service-linked role ownership is not configured.")
+		}
+		if err := s.roles.EnsureServiceLinkedRole(ctx, ServicePrincipal); err != nil {
+			return nil, err
+		}
+	}
+	placementChanged := in.VPCZoneIdentifier != nil || in.AvailabilityZones != nil || removed.VPCZoneIdentifier || removed.AvailabilityZones || removed.AvailabilityZoneIds
+	if placementChanged {
 		if _, err := s.resolveGroupPlacement(ctx, &group); err != nil {
 			return nil, err
 		}
 	}
-	if in.LaunchTemplate != nil || in.VPCZoneIdentifier != nil || in.AvailabilityZones != nil {
+	if in.LaunchTemplate != nil || placementChanged {
 		if err := s.resolveGroupTemplate(ctx, &group); err != nil {
 			return nil, err
 		}
@@ -314,7 +296,7 @@ func (s *Service) prepareGroupUpdate(ctx context.Context, in *api.UpdateAutoScal
 			return nil, err
 		}
 	}
-	if in.TerminationPolicies != nil || in.ServiceLinkedRoleARN != nil {
+	if in.TerminationPolicies != nil || in.ServiceLinkedRoleARN != nil || removed.TerminationPolicies || removed.ServiceLinkedRoleARN {
 		if err := s.validateTerminationPolicy(ctx, group); err != nil {
 			return nil, err
 		}
@@ -355,7 +337,11 @@ func (s *Service) prepareGroupUpdate(ctx context.Context, in *api.UpdateAutoScal
 
 func (s *Service) authorizeGroupUpdate(ctx context.Context, group GroupRecord, in *api.UpdateAutoScalingGroupInput) error {
 	conditions := groupConditions(group)
-	groupRequestConditions(conditions, api.AutoScalingGroup{MinSize: in.MinSize, MaxSize: in.MaxSize, LaunchTemplate: in.LaunchTemplate, VPCZoneIdentifier: in.VPCZoneIdentifier, ServiceLinkedRoleARN: in.ServiceLinkedRoleARN})
+	requested := api.AutoScalingGroup{MinSize: in.MinSize, MaxSize: in.MaxSize, LaunchTemplate: in.LaunchTemplate, VPCZoneIdentifier: in.VPCZoneIdentifier, ServiceLinkedRoleARN: in.ServiceLinkedRoleARN}
+	if groupUpdateRemovals(ctx).ServiceLinkedRoleARN {
+		requested.ServiceLinkedRoleARN = group.Data.ServiceLinkedRoleARN
+	}
+	groupRequestConditions(conditions, requested)
 	return s.authorize(ctx, "UpdateAutoScalingGroup", group.Key.ARN(group.ID), conditions)
 }
 

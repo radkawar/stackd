@@ -436,7 +436,7 @@ func (q *Queries) DeleteStageVariables(ctx context.Context, arg DeleteStageVaria
 }
 
 const getAPI = `-- name: GetAPI :one
-SELECT "partition", account_id, region, api_id, name, description, version, root_resource_id, created, disabled, effective_disabled, api_key_source FROM apigateway_apis WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ?
+SELECT "partition", account_id, region, api_id, name, description, version, root_resource_id, created, disabled, effective_disabled, api_key_source, cfn_stack_id, cfn_logical_id, cfn_incarnation FROM apigateway_apis WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ?
 `
 
 type GetAPIParams struct {
@@ -467,12 +467,15 @@ func (q *Queries) GetAPI(ctx context.Context, arg GetAPIParams) (ApigatewayApi, 
 		&i.Disabled,
 		&i.EffectiveDisabled,
 		&i.ApiKeySource,
+		&i.CfnStackID,
+		&i.CfnLogicalID,
+		&i.CfnIncarnation,
 	)
 	return i, err
 }
 
 const getAuthorizer = `-- name: GetAuthorizer :one
-SELECT "partition", account_id, region, api_id, authorizer_id, name, auth_type, authorizer_type, authorizer_uri, function_arn, validation_expression, ttl_seconds, credentials_arn FROM apigateway_authorizers WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND authorizer_id = ?
+SELECT "partition", account_id, region, api_id, authorizer_id, name, auth_type, authorizer_type, authorizer_uri, function_arn, validation_expression, ttl_seconds, credentials_arn, cfn_stack_id, cfn_logical_id, cfn_incarnation FROM apigateway_authorizers WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND authorizer_id = ?
 `
 
 type GetAuthorizerParams struct {
@@ -506,6 +509,9 @@ func (q *Queries) GetAuthorizer(ctx context.Context, arg GetAuthorizerParams) (A
 		&i.ValidationExpression,
 		&i.TtlSeconds,
 		&i.CredentialsArn,
+		&i.CfnStackID,
+		&i.CfnLogicalID,
+		&i.CfnIncarnation,
 	)
 	return i, err
 }
@@ -554,7 +560,7 @@ func (q *Queries) GetAuthorizerCache(ctx context.Context, arg GetAuthorizerCache
 }
 
 const getDeployment = `-- name: GetDeployment :one
-SELECT "partition", account_id, region, api_id, deployment_id, description, created, api_key_source FROM apigateway_deployments WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND deployment_id = ?
+SELECT "partition", account_id, region, api_id, deployment_id, description, created, api_key_source, cfn_stack_id, cfn_logical_id, cfn_incarnation FROM apigateway_deployments WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND deployment_id = ?
 `
 
 type GetDeploymentParams struct {
@@ -583,6 +589,9 @@ func (q *Queries) GetDeployment(ctx context.Context, arg GetDeploymentParams) (A
 		&i.Description,
 		&i.Created,
 		&i.ApiKeySource,
+		&i.CfnStackID,
+		&i.CfnLogicalID,
+		&i.CfnIncarnation,
 	)
 	return i, err
 }
@@ -625,7 +634,7 @@ func (q *Queries) GetIntegration(ctx context.Context, arg GetIntegrationParams) 
 }
 
 const getMethod = `-- name: GetMethod :one
-SELECT "partition", account_id, region, api_id, resource_id, http_method, authorization_type, authorizer_id, operation_name, api_key_required FROM apigateway_methods WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND resource_id = ? AND http_method = ?
+SELECT "partition", account_id, region, api_id, resource_id, http_method, authorization_type, authorizer_id, operation_name, api_key_required, cfn_stack_id, cfn_logical_id, cfn_incarnation FROM apigateway_methods WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND resource_id = ? AND http_method = ?
 `
 
 type GetMethodParams struct {
@@ -658,12 +667,15 @@ func (q *Queries) GetMethod(ctx context.Context, arg GetMethodParams) (Apigatewa
 		&i.AuthorizerID,
 		&i.OperationName,
 		&i.ApiKeyRequired,
+		&i.CfnStackID,
+		&i.CfnLogicalID,
+		&i.CfnIncarnation,
 	)
 	return i, err
 }
 
 const getOwner = `-- name: GetOwner :one
-SELECT "partition", account_id, region, api_id, name, description, version, root_resource_id, created, disabled, effective_disabled, api_key_source FROM apigateway_apis WHERE api_id = ?
+SELECT "partition", account_id, region, api_id, name, description, version, root_resource_id, created, disabled, effective_disabled, api_key_source, cfn_stack_id, cfn_logical_id, cfn_incarnation FROM apigateway_apis WHERE api_id = ?
 `
 
 func (q *Queries) GetOwner(ctx context.Context, apiID string) (ApigatewayApi, error) {
@@ -682,12 +694,15 @@ func (q *Queries) GetOwner(ctx context.Context, apiID string) (ApigatewayApi, er
 		&i.Disabled,
 		&i.EffectiveDisabled,
 		&i.ApiKeySource,
+		&i.CfnStackID,
+		&i.CfnLogicalID,
+		&i.CfnIncarnation,
 	)
 	return i, err
 }
 
 const getResource = `-- name: GetResource :one
-SELECT "partition", account_id, region, api_id, resource_id, parent_id, path_part, path FROM apigateway_resources WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND resource_id = ?
+SELECT "partition", account_id, region, api_id, resource_id, parent_id, path_part, path, cfn_stack_id, cfn_logical_id, cfn_incarnation FROM apigateway_resources WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND resource_id = ?
 `
 
 type GetResourceParams struct {
@@ -716,12 +731,15 @@ func (q *Queries) GetResource(ctx context.Context, arg GetResourceParams) (Apiga
 		&i.ParentID,
 		&i.PathPart,
 		&i.Path,
+		&i.CfnStackID,
+		&i.CfnLogicalID,
+		&i.CfnIncarnation,
 	)
 	return i, err
 }
 
 const getStage = `-- name: GetStage :one
-SELECT "partition", account_id, region, api_id, name, deployment_id, description, created, updated, access_log_destination_arn, access_log_format FROM apigateway_stages WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND name = ?
+SELECT "partition", account_id, region, api_id, name, deployment_id, description, created, updated, access_log_destination_arn, access_log_format, cfn_stack_id, cfn_logical_id, cfn_incarnation, incarnation FROM apigateway_stages WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND name = ?
 `
 
 type GetStageParams struct {
@@ -753,6 +771,10 @@ func (q *Queries) GetStage(ctx context.Context, arg GetStageParams) (ApigatewayS
 		&i.Updated,
 		&i.AccessLogDestinationArn,
 		&i.AccessLogFormat,
+		&i.CfnStackID,
+		&i.CfnLogicalID,
+		&i.CfnIncarnation,
+		&i.Incarnation,
 	)
 	return i, err
 }
@@ -804,7 +826,7 @@ func (q *Queries) ListAPITags(ctx context.Context, arg ListAPITagsParams) ([]Api
 }
 
 const listAPIs = `-- name: ListAPIs :many
-SELECT "partition", account_id, region, api_id, name, description, version, root_resource_id, created, disabled, effective_disabled, api_key_source FROM apigateway_apis WHERE partition = ? AND account_id = ? AND region = ? ORDER BY api_id
+SELECT "partition", account_id, region, api_id, name, description, version, root_resource_id, created, disabled, effective_disabled, api_key_source, cfn_stack_id, cfn_logical_id, cfn_incarnation FROM apigateway_apis WHERE partition = ? AND account_id = ? AND region = ? ORDER BY api_id
 `
 
 type ListAPIsParams struct {
@@ -835,6 +857,9 @@ func (q *Queries) ListAPIs(ctx context.Context, arg ListAPIsParams) ([]Apigatewa
 			&i.Disabled,
 			&i.EffectiveDisabled,
 			&i.ApiKeySource,
+			&i.CfnStackID,
+			&i.CfnLogicalID,
+			&i.CfnIncarnation,
 		); err != nil {
 			return nil, err
 		}
@@ -948,7 +973,7 @@ func (q *Queries) ListAuthorizerPools(ctx context.Context, arg ListAuthorizerPoo
 }
 
 const listAuthorizers = `-- name: ListAuthorizers :many
-SELECT "partition", account_id, region, api_id, authorizer_id, name, auth_type, authorizer_type, authorizer_uri, function_arn, validation_expression, ttl_seconds, credentials_arn FROM apigateway_authorizers WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? ORDER BY authorizer_id
+SELECT "partition", account_id, region, api_id, authorizer_id, name, auth_type, authorizer_type, authorizer_uri, function_arn, validation_expression, ttl_seconds, credentials_arn, cfn_stack_id, cfn_logical_id, cfn_incarnation FROM apigateway_authorizers WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? ORDER BY authorizer_id
 `
 
 type ListAuthorizersParams struct {
@@ -986,6 +1011,9 @@ func (q *Queries) ListAuthorizers(ctx context.Context, arg ListAuthorizersParams
 			&i.ValidationExpression,
 			&i.TtlSeconds,
 			&i.CredentialsArn,
+			&i.CfnStackID,
+			&i.CfnLogicalID,
+			&i.CfnIncarnation,
 		); err != nil {
 			return nil, err
 		}
@@ -1111,7 +1139,7 @@ func (q *Queries) ListDeploymentRoutes(ctx context.Context, arg ListDeploymentRo
 }
 
 const listDeployments = `-- name: ListDeployments :many
-SELECT "partition", account_id, region, api_id, deployment_id, description, created, api_key_source FROM apigateway_deployments WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? ORDER BY deployment_id
+SELECT "partition", account_id, region, api_id, deployment_id, description, created, api_key_source, cfn_stack_id, cfn_logical_id, cfn_incarnation FROM apigateway_deployments WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? ORDER BY deployment_id
 `
 
 type ListDeploymentsParams struct {
@@ -1144,6 +1172,9 @@ func (q *Queries) ListDeployments(ctx context.Context, arg ListDeploymentsParams
 			&i.Description,
 			&i.Created,
 			&i.ApiKeySource,
+			&i.CfnStackID,
+			&i.CfnLogicalID,
+			&i.CfnIncarnation,
 		); err != nil {
 			return nil, err
 		}
@@ -1211,7 +1242,7 @@ func (q *Queries) ListMethodScopes(ctx context.Context, arg ListMethodScopesPara
 }
 
 const listMethods = `-- name: ListMethods :many
-SELECT "partition", account_id, region, api_id, resource_id, http_method, authorization_type, authorizer_id, operation_name, api_key_required FROM apigateway_methods WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? ORDER BY resource_id, http_method
+SELECT "partition", account_id, region, api_id, resource_id, http_method, authorization_type, authorizer_id, operation_name, api_key_required, cfn_stack_id, cfn_logical_id, cfn_incarnation FROM apigateway_methods WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? ORDER BY resource_id, http_method
 `
 
 type ListMethodsParams struct {
@@ -1246,6 +1277,9 @@ func (q *Queries) ListMethods(ctx context.Context, arg ListMethodsParams) ([]Api
 			&i.AuthorizerID,
 			&i.OperationName,
 			&i.ApiKeyRequired,
+			&i.CfnStackID,
+			&i.CfnLogicalID,
+			&i.CfnIncarnation,
 		); err != nil {
 			return nil, err
 		}
@@ -1261,7 +1295,7 @@ func (q *Queries) ListMethods(ctx context.Context, arg ListMethodsParams) ([]Api
 }
 
 const listResources = `-- name: ListResources :many
-SELECT "partition", account_id, region, api_id, resource_id, parent_id, path_part, path FROM apigateway_resources WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? ORDER BY resource_id
+SELECT "partition", account_id, region, api_id, resource_id, parent_id, path_part, path, cfn_stack_id, cfn_logical_id, cfn_incarnation FROM apigateway_resources WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? ORDER BY resource_id
 `
 
 type ListResourcesParams struct {
@@ -1294,6 +1328,9 @@ func (q *Queries) ListResources(ctx context.Context, arg ListResourcesParams) ([
 			&i.ParentID,
 			&i.PathPart,
 			&i.Path,
+			&i.CfnStackID,
+			&i.CfnLogicalID,
+			&i.CfnIncarnation,
 		); err != nil {
 			return nil, err
 		}
@@ -1572,7 +1609,7 @@ func (q *Queries) ListStageVariables(ctx context.Context, arg ListStageVariables
 }
 
 const listStages = `-- name: ListStages :many
-SELECT "partition", account_id, region, api_id, name, deployment_id, description, created, updated, access_log_destination_arn, access_log_format FROM apigateway_stages WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? ORDER BY name
+SELECT "partition", account_id, region, api_id, name, deployment_id, description, created, updated, access_log_destination_arn, access_log_format, cfn_stack_id, cfn_logical_id, cfn_incarnation, incarnation FROM apigateway_stages WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? ORDER BY name
 `
 
 type ListStagesParams struct {
@@ -1608,6 +1645,10 @@ func (q *Queries) ListStages(ctx context.Context, arg ListStagesParams) ([]Apiga
 			&i.Updated,
 			&i.AccessLogDestinationArn,
 			&i.AccessLogFormat,
+			&i.CfnStackID,
+			&i.CfnLogicalID,
+			&i.CfnIncarnation,
+			&i.Incarnation,
 		); err != nil {
 			return nil, err
 		}
@@ -1620,6 +1661,26 @@ func (q *Queries) ListStages(ctx context.Context, arg ListStagesParams) ([]Apiga
 		return nil, err
 	}
 	return items, nil
+}
+
+const nextStageIncarnation = `-- name: NextStageIncarnation :one
+INSERT INTO apigateway_stage_sequence (partition, account_id, region, value)
+VALUES (?, ?, ?, 1)
+ON CONFLICT (partition, account_id, region) DO UPDATE SET value = value + 1
+RETURNING value
+`
+
+type NextStageIncarnationParams struct {
+	Partition string
+	AccountID string
+	Region    string
+}
+
+func (q *Queries) NextStageIncarnation(ctx context.Context, arg NextStageIncarnationParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, nextStageIncarnation, arg.Partition, arg.AccountID, arg.Region)
+	var value int64
+	err := row.Scan(&value)
+	return value, err
 }
 
 const pruneAuthorizerCache = `-- name: PruneAuthorizerCache :exec
@@ -1648,8 +1709,8 @@ func (q *Queries) PruneAuthorizerCache(ctx context.Context, arg PruneAuthorizerC
 }
 
 const putAPI = `-- name: PutAPI :exec
-INSERT INTO apigateway_apis (partition, account_id, region, api_id, name, description, version, root_resource_id, created, disabled, effective_disabled, api_key_source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, api_id) DO UPDATE SET name = excluded.name, description = excluded.description, version = excluded.version, root_resource_id = excluded.root_resource_id, created = excluded.created, disabled = excluded.disabled, effective_disabled = excluded.effective_disabled, api_key_source = excluded.api_key_source
+INSERT INTO apigateway_apis (partition, account_id, region, api_id, name, description, version, root_resource_id, created, disabled, effective_disabled, api_key_source, cfn_stack_id, cfn_logical_id, cfn_incarnation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, api_id) DO UPDATE SET name = excluded.name, description = excluded.description, version = excluded.version, root_resource_id = excluded.root_resource_id, created = excluded.created, disabled = excluded.disabled, effective_disabled = excluded.effective_disabled, api_key_source = excluded.api_key_source, cfn_stack_id = excluded.cfn_stack_id, cfn_logical_id = excluded.cfn_logical_id, cfn_incarnation = excluded.cfn_incarnation
 `
 
 type PutAPIParams struct {
@@ -1665,6 +1726,9 @@ type PutAPIParams struct {
 	Disabled          bool
 	EffectiveDisabled bool
 	ApiKeySource      string
+	CfnStackID        string
+	CfnLogicalID      string
+	CfnIncarnation    string
 }
 
 func (q *Queries) PutAPI(ctx context.Context, arg PutAPIParams) error {
@@ -1681,6 +1745,9 @@ func (q *Queries) PutAPI(ctx context.Context, arg PutAPIParams) error {
 		arg.Disabled,
 		arg.EffectiveDisabled,
 		arg.ApiKeySource,
+		arg.CfnStackID,
+		arg.CfnLogicalID,
+		arg.CfnIncarnation,
 	)
 	return err
 }
@@ -1711,8 +1778,8 @@ func (q *Queries) PutAPITags(ctx context.Context, arg PutAPITagsParams) error {
 }
 
 const putAuthorizer = `-- name: PutAuthorizer :exec
-INSERT INTO apigateway_authorizers (partition, account_id, region, api_id, authorizer_id, name, auth_type, authorizer_type, authorizer_uri, function_arn, validation_expression, ttl_seconds, credentials_arn) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, api_id, authorizer_id) DO UPDATE SET name = excluded.name, auth_type = excluded.auth_type, authorizer_type = excluded.authorizer_type, authorizer_uri = excluded.authorizer_uri, function_arn = excluded.function_arn, validation_expression = excluded.validation_expression, ttl_seconds = excluded.ttl_seconds, credentials_arn = excluded.credentials_arn
+INSERT INTO apigateway_authorizers (partition, account_id, region, api_id, authorizer_id, name, auth_type, authorizer_type, authorizer_uri, function_arn, validation_expression, ttl_seconds, credentials_arn, cfn_stack_id, cfn_logical_id, cfn_incarnation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, api_id, authorizer_id) DO UPDATE SET name = excluded.name, auth_type = excluded.auth_type, authorizer_type = excluded.authorizer_type, authorizer_uri = excluded.authorizer_uri, function_arn = excluded.function_arn, validation_expression = excluded.validation_expression, ttl_seconds = excluded.ttl_seconds, credentials_arn = excluded.credentials_arn, cfn_stack_id = excluded.cfn_stack_id, cfn_logical_id = excluded.cfn_logical_id, cfn_incarnation = excluded.cfn_incarnation
 `
 
 type PutAuthorizerParams struct {
@@ -1729,6 +1796,9 @@ type PutAuthorizerParams struct {
 	ValidationExpression string
 	TtlSeconds           int64
 	CredentialsArn       string
+	CfnStackID           string
+	CfnLogicalID         string
+	CfnIncarnation       string
 }
 
 func (q *Queries) PutAuthorizer(ctx context.Context, arg PutAuthorizerParams) error {
@@ -1746,6 +1816,9 @@ func (q *Queries) PutAuthorizer(ctx context.Context, arg PutAuthorizerParams) er
 		arg.ValidationExpression,
 		arg.TtlSeconds,
 		arg.CredentialsArn,
+		arg.CfnStackID,
+		arg.CfnLogicalID,
+		arg.CfnIncarnation,
 	)
 	return err
 }
@@ -1845,19 +1918,22 @@ func (q *Queries) PutAuthorizerPools(ctx context.Context, arg PutAuthorizerPools
 }
 
 const putDeployment = `-- name: PutDeployment :exec
-INSERT INTO apigateway_deployments (partition, account_id, region, api_id, deployment_id, description, created, api_key_source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, api_id, deployment_id) DO UPDATE SET description = excluded.description, created = excluded.created, api_key_source = excluded.api_key_source
+INSERT INTO apigateway_deployments (partition, account_id, region, api_id, deployment_id, description, created, api_key_source, cfn_stack_id, cfn_logical_id, cfn_incarnation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, api_id, deployment_id) DO UPDATE SET description = excluded.description, created = excluded.created, api_key_source = excluded.api_key_source, cfn_stack_id = excluded.cfn_stack_id, cfn_logical_id = excluded.cfn_logical_id, cfn_incarnation = excluded.cfn_incarnation
 `
 
 type PutDeploymentParams struct {
-	Partition    string
-	AccountID    string
-	Region       string
-	ApiID        string
-	DeploymentID string
-	Description  string
-	Created      time.Time
-	ApiKeySource string
+	Partition      string
+	AccountID      string
+	Region         string
+	ApiID          string
+	DeploymentID   string
+	Description    string
+	Created        time.Time
+	ApiKeySource   string
+	CfnStackID     string
+	CfnLogicalID   string
+	CfnIncarnation string
 }
 
 func (q *Queries) PutDeployment(ctx context.Context, arg PutDeploymentParams) error {
@@ -1870,6 +1946,9 @@ func (q *Queries) PutDeployment(ctx context.Context, arg PutDeploymentParams) er
 		arg.Description,
 		arg.Created,
 		arg.ApiKeySource,
+		arg.CfnStackID,
+		arg.CfnLogicalID,
+		arg.CfnIncarnation,
 	)
 	return err
 }
@@ -1985,8 +2064,8 @@ func (q *Queries) PutIntegration(ctx context.Context, arg PutIntegrationParams) 
 }
 
 const putMethod = `-- name: PutMethod :exec
-INSERT INTO apigateway_methods (partition, account_id, region, api_id, resource_id, http_method, authorization_type, authorizer_id, operation_name, api_key_required) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, api_id, resource_id, http_method) DO UPDATE SET authorization_type = excluded.authorization_type, authorizer_id = excluded.authorizer_id, operation_name = excluded.operation_name, api_key_required = excluded.api_key_required
+INSERT INTO apigateway_methods (partition, account_id, region, api_id, resource_id, http_method, authorization_type, authorizer_id, operation_name, api_key_required, cfn_stack_id, cfn_logical_id, cfn_incarnation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, api_id, resource_id, http_method) DO UPDATE SET authorization_type = excluded.authorization_type, authorizer_id = excluded.authorizer_id, operation_name = excluded.operation_name, api_key_required = excluded.api_key_required, cfn_stack_id = excluded.cfn_stack_id, cfn_logical_id = excluded.cfn_logical_id, cfn_incarnation = excluded.cfn_incarnation
 `
 
 type PutMethodParams struct {
@@ -2000,6 +2079,9 @@ type PutMethodParams struct {
 	AuthorizerID      string
 	OperationName     string
 	ApiKeyRequired    bool
+	CfnStackID        string
+	CfnLogicalID      string
+	CfnIncarnation    string
 }
 
 func (q *Queries) PutMethod(ctx context.Context, arg PutMethodParams) error {
@@ -2014,6 +2096,9 @@ func (q *Queries) PutMethod(ctx context.Context, arg PutMethodParams) error {
 		arg.AuthorizerID,
 		arg.OperationName,
 		arg.ApiKeyRequired,
+		arg.CfnStackID,
+		arg.CfnLogicalID,
+		arg.CfnIncarnation,
 	)
 	return err
 }
@@ -2048,19 +2133,22 @@ func (q *Queries) PutMethodScopes(ctx context.Context, arg PutMethodScopesParams
 }
 
 const putResource = `-- name: PutResource :exec
-INSERT INTO apigateway_resources (partition, account_id, region, api_id, resource_id, parent_id, path_part, path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, api_id, resource_id) DO UPDATE SET parent_id = excluded.parent_id, path_part = excluded.path_part, path = excluded.path
+INSERT INTO apigateway_resources (partition, account_id, region, api_id, resource_id, parent_id, path_part, path, cfn_stack_id, cfn_logical_id, cfn_incarnation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, api_id, resource_id) DO UPDATE SET parent_id = excluded.parent_id, path_part = excluded.path_part, path = excluded.path, cfn_stack_id = excluded.cfn_stack_id, cfn_logical_id = excluded.cfn_logical_id, cfn_incarnation = excluded.cfn_incarnation
 `
 
 type PutResourceParams struct {
-	Partition  string
-	AccountID  string
-	Region     string
-	ApiID      string
-	ResourceID string
-	ParentID   string
-	PathPart   string
-	Path       string
+	Partition      string
+	AccountID      string
+	Region         string
+	ApiID          string
+	ResourceID     string
+	ParentID       string
+	PathPart       string
+	Path           string
+	CfnStackID     string
+	CfnLogicalID   string
+	CfnIncarnation string
 }
 
 func (q *Queries) PutResource(ctx context.Context, arg PutResourceParams) error {
@@ -2073,6 +2161,9 @@ func (q *Queries) PutResource(ctx context.Context, arg PutResourceParams) error 
 		arg.ParentID,
 		arg.PathPart,
 		arg.Path,
+		arg.CfnStackID,
+		arg.CfnLogicalID,
+		arg.CfnIncarnation,
 	)
 	return err
 }
@@ -2171,8 +2262,8 @@ func (q *Queries) PutRouteScopes(ctx context.Context, arg PutRouteScopesParams) 
 }
 
 const putStage = `-- name: PutStage :exec
-INSERT INTO apigateway_stages (partition, account_id, region, api_id, name, deployment_id, description, created, updated, access_log_destination_arn, access_log_format) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, api_id, name) DO UPDATE SET deployment_id = excluded.deployment_id, description = excluded.description, created = excluded.created, updated = excluded.updated, access_log_destination_arn = excluded.access_log_destination_arn, access_log_format = excluded.access_log_format
+INSERT INTO apigateway_stages (partition, account_id, region, api_id, name, deployment_id, description, created, updated, access_log_destination_arn, access_log_format, cfn_stack_id, cfn_logical_id, cfn_incarnation, incarnation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, api_id, name) DO UPDATE SET deployment_id = excluded.deployment_id, description = excluded.description, created = excluded.created, updated = excluded.updated, access_log_destination_arn = excluded.access_log_destination_arn, access_log_format = excluded.access_log_format, cfn_stack_id = excluded.cfn_stack_id, cfn_logical_id = excluded.cfn_logical_id, cfn_incarnation = excluded.cfn_incarnation, incarnation = excluded.incarnation
 `
 
 type PutStageParams struct {
@@ -2187,6 +2278,10 @@ type PutStageParams struct {
 	Updated                 time.Time
 	AccessLogDestinationArn string
 	AccessLogFormat         string
+	CfnStackID              string
+	CfnLogicalID            string
+	CfnIncarnation          string
+	Incarnation             int64
 }
 
 func (q *Queries) PutStage(ctx context.Context, arg PutStageParams) error {
@@ -2202,6 +2297,10 @@ func (q *Queries) PutStage(ctx context.Context, arg PutStageParams) error {
 		arg.Updated,
 		arg.AccessLogDestinationArn,
 		arg.AccessLogFormat,
+		arg.CfnStackID,
+		arg.CfnLogicalID,
+		arg.CfnIncarnation,
+		arg.Incarnation,
 	)
 	return err
 }

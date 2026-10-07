@@ -22,6 +22,7 @@ func (k GroupKey) ARN() string {
 }
 
 type GroupRecord struct {
+	CFNOwner          string
 	Key               GroupKey
 	ID                string
 	Created, Sequence int64
@@ -30,6 +31,7 @@ type GroupRecord struct {
 }
 type StreamKey struct{ GroupID, Name string }
 type StreamRecord struct {
+	CFNOwner                                                  string
 	Key                                                       StreamKey
 	ID                                                        string
 	Created, FirstEvent, LastEvent, LastIngestion, EventCount int64
@@ -75,6 +77,7 @@ type PolicyKey struct {
 	Name        string
 }
 type PolicyRecord struct {
+	CFNOwner          string
 	Key               PolicyKey
 	GroupID, Document string
 	Updated, Revision int64
@@ -97,6 +100,7 @@ func (k DestinationKey) ARN() string {
 }
 
 type DestinationRecord struct {
+	CFNOwner                         string
 	Key                              DestinationKey
 	TargetARN, RoleARN, AccessPolicy string
 	Created                          int64
@@ -112,6 +116,7 @@ type DestinationQuery struct {
 // SubscriptionKey is scoped to a log group incarnation, not its reusable name.
 type SubscriptionKey struct{ GroupID, Name string }
 type SubscriptionRecord struct {
+	CFNOwner                                                  string
 	Key                                                       SubscriptionKey
 	ID, Pattern, DestinationARN, Distribution, FieldSelection string
 	RoleARN, TargetARN, RoleSourceARN                         string
@@ -144,6 +149,7 @@ type SubscriptionDelivery struct {
 // transformation is the native API invariant, not a generic transform engine.
 type MetricFilterKey struct{ GroupID, Name string }
 type MetricFilterRecord struct {
+	CFNOwner                                                           string
 	Key                                                                MetricFilterKey
 	GroupName, Pattern, MetricNamespace, MetricName, MetricValue, Unit string
 	DefaultValue                                                       *float64

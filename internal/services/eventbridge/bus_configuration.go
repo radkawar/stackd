@@ -74,7 +74,13 @@ func (s *Service) updateBus(ctx context.Context, in *api.UpdateEventBusInput) (o
 		if err != nil {
 			return err
 		}
-		return s.authorize(tx, "UpdateEventBus", key.ARN(), selected.Tags, nil, selected.Policy)
+		if err := s.authorize(tx, "UpdateEventBus", key.ARN(), selected.Tags, nil, selected.Policy); err != nil {
+			return err
+		}
+		if err := cloudFormationBusCheck(tx.Context(), selected); err != nil {
+			return err
+		}
+		return s.cloudFormationBusPolicyUpdateCheck(tx, selected)
 	})
 	if err != nil {
 		return nil, wireError(err)
@@ -111,6 +117,12 @@ func (s *Service) updateBus(ctx context.Context, in *api.UpdateEventBusInput) (o
 			return err
 		}
 		if err := s.authorize(tx, "UpdateEventBus", key.ARN(), current.Tags, nil, current.Policy); err != nil {
+			return err
+		}
+		if err := cloudFormationBusCheck(tx.Context(), current); err != nil {
+			return err
+		}
+		if err := s.cloudFormationBusPolicyUpdateCheck(tx, current); err != nil {
 			return err
 		}
 		if current.KmsKeyIdentifier != selected.KmsKeyIdentifier || !bytes.Equal(current.ConfigurationDataKey, selected.ConfigurationDataKey) || current.DeadLetterARN != selected.DeadLetterARN || current.Description != selected.Description {

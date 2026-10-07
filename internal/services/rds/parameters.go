@@ -80,6 +80,11 @@ func (s *Service) newParameterGroup(ctx context.Context, tx Transaction, kind, n
 		return ParameterGroup{}, e
 	}
 	v := ParameterGroup{Key: k, Family: family, Description: description, Parameters: map[string]string{}, ApplyMethods: map[string]string{}, Tags: tagged}
+	v.ResourceID, e = incarnation()
+	if e != nil {
+		return v, e
+	}
+	v.Owner = cloudFormationClaim(ctx, k)
 	return v, tx.PutParameterGroup(v)
 }
 
@@ -117,6 +122,9 @@ func (s *Service) loadParameterGroup(ctx context.Context, tx Reader, action, kin
 		e = notFound(kind)
 	}
 	if e != nil {
+		return v, e
+	}
+	if e = checkCloudFormationOwner(ctx, k, v.Owner); e != nil {
 		return v, e
 	}
 	return v, s.authorize(ctx, action, k, v.Tags, nil)

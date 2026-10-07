@@ -5,8 +5,8 @@ SELECT * FROM apigateway_apis WHERE partition = ? AND account_id = ? AND region 
 SELECT * FROM apigateway_apis WHERE partition = ? AND account_id = ? AND region = ? ORDER BY api_id;
 
 -- name: PutAPI :exec
-INSERT INTO apigateway_apis (partition, account_id, region, api_id, name, description, version, root_resource_id, created, disabled, effective_disabled, api_key_source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, api_id) DO UPDATE SET name = excluded.name, description = excluded.description, version = excluded.version, root_resource_id = excluded.root_resource_id, created = excluded.created, disabled = excluded.disabled, effective_disabled = excluded.effective_disabled, api_key_source = excluded.api_key_source;
+INSERT INTO apigateway_apis (partition, account_id, region, api_id, name, description, version, root_resource_id, created, disabled, effective_disabled, api_key_source, cfn_stack_id, cfn_logical_id, cfn_incarnation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, api_id) DO UPDATE SET name = excluded.name, description = excluded.description, version = excluded.version, root_resource_id = excluded.root_resource_id, created = excluded.created, disabled = excluded.disabled, effective_disabled = excluded.effective_disabled, api_key_source = excluded.api_key_source, cfn_stack_id = excluded.cfn_stack_id, cfn_logical_id = excluded.cfn_logical_id, cfn_incarnation = excluded.cfn_incarnation;
 
 -- name: DeleteAPI :exec
 DELETE FROM apigateway_apis WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ?;
@@ -18,8 +18,8 @@ SELECT * FROM apigateway_resources WHERE partition = ? AND account_id = ? AND re
 SELECT * FROM apigateway_resources WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? ORDER BY resource_id;
 
 -- name: PutResource :exec
-INSERT INTO apigateway_resources (partition, account_id, region, api_id, resource_id, parent_id, path_part, path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, api_id, resource_id) DO UPDATE SET parent_id = excluded.parent_id, path_part = excluded.path_part, path = excluded.path;
+INSERT INTO apigateway_resources (partition, account_id, region, api_id, resource_id, parent_id, path_part, path, cfn_stack_id, cfn_logical_id, cfn_incarnation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, api_id, resource_id) DO UPDATE SET parent_id = excluded.parent_id, path_part = excluded.path_part, path = excluded.path, cfn_stack_id = excluded.cfn_stack_id, cfn_logical_id = excluded.cfn_logical_id, cfn_incarnation = excluded.cfn_incarnation;
 
 -- name: DeleteResource :exec
 DELETE FROM apigateway_resources WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND resource_id = ?;
@@ -31,8 +31,8 @@ SELECT * FROM apigateway_methods WHERE partition = ? AND account_id = ? AND regi
 SELECT * FROM apigateway_methods WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? ORDER BY resource_id, http_method;
 
 -- name: PutMethod :exec
-INSERT INTO apigateway_methods (partition, account_id, region, api_id, resource_id, http_method, authorization_type, authorizer_id, operation_name, api_key_required) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, api_id, resource_id, http_method) DO UPDATE SET authorization_type = excluded.authorization_type, authorizer_id = excluded.authorizer_id, operation_name = excluded.operation_name, api_key_required = excluded.api_key_required;
+INSERT INTO apigateway_methods (partition, account_id, region, api_id, resource_id, http_method, authorization_type, authorizer_id, operation_name, api_key_required, cfn_stack_id, cfn_logical_id, cfn_incarnation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, api_id, resource_id, http_method) DO UPDATE SET authorization_type = excluded.authorization_type, authorizer_id = excluded.authorizer_id, operation_name = excluded.operation_name, api_key_required = excluded.api_key_required, cfn_stack_id = excluded.cfn_stack_id, cfn_logical_id = excluded.cfn_logical_id, cfn_incarnation = excluded.cfn_incarnation;
 
 -- name: DeleteMethod :exec
 DELETE FROM apigateway_methods WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND resource_id = ? AND http_method = ?;
@@ -54,8 +54,8 @@ SELECT * FROM apigateway_authorizers WHERE partition = ? AND account_id = ? AND 
 SELECT * FROM apigateway_authorizers WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? ORDER BY authorizer_id;
 
 -- name: PutAuthorizer :exec
-INSERT INTO apigateway_authorizers (partition, account_id, region, api_id, authorizer_id, name, auth_type, authorizer_type, authorizer_uri, function_arn, validation_expression, ttl_seconds, credentials_arn) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, api_id, authorizer_id) DO UPDATE SET name = excluded.name, auth_type = excluded.auth_type, authorizer_type = excluded.authorizer_type, authorizer_uri = excluded.authorizer_uri, function_arn = excluded.function_arn, validation_expression = excluded.validation_expression, ttl_seconds = excluded.ttl_seconds, credentials_arn = excluded.credentials_arn;
+INSERT INTO apigateway_authorizers (partition, account_id, region, api_id, authorizer_id, name, auth_type, authorizer_type, authorizer_uri, function_arn, validation_expression, ttl_seconds, credentials_arn, cfn_stack_id, cfn_logical_id, cfn_incarnation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, api_id, authorizer_id) DO UPDATE SET name = excluded.name, auth_type = excluded.auth_type, authorizer_type = excluded.authorizer_type, authorizer_uri = excluded.authorizer_uri, function_arn = excluded.function_arn, validation_expression = excluded.validation_expression, ttl_seconds = excluded.ttl_seconds, credentials_arn = excluded.credentials_arn, cfn_stack_id = excluded.cfn_stack_id, cfn_logical_id = excluded.cfn_logical_id, cfn_incarnation = excluded.cfn_incarnation;
 
 -- name: DeleteAuthorizer :exec
 DELETE FROM apigateway_authorizers WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND authorizer_id = ?;
@@ -67,8 +67,8 @@ SELECT * FROM apigateway_deployments WHERE partition = ? AND account_id = ? AND 
 SELECT * FROM apigateway_deployments WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? ORDER BY deployment_id;
 
 -- name: PutDeployment :exec
-INSERT INTO apigateway_deployments (partition, account_id, region, api_id, deployment_id, description, created, api_key_source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, api_id, deployment_id) DO UPDATE SET description = excluded.description, created = excluded.created, api_key_source = excluded.api_key_source;
+INSERT INTO apigateway_deployments (partition, account_id, region, api_id, deployment_id, description, created, api_key_source, cfn_stack_id, cfn_logical_id, cfn_incarnation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, api_id, deployment_id) DO UPDATE SET description = excluded.description, created = excluded.created, api_key_source = excluded.api_key_source, cfn_stack_id = excluded.cfn_stack_id, cfn_logical_id = excluded.cfn_logical_id, cfn_incarnation = excluded.cfn_incarnation;
 
 -- name: DeleteDeployment :exec
 DELETE FROM apigateway_deployments WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND deployment_id = ?;
@@ -80,8 +80,8 @@ SELECT * FROM apigateway_stages WHERE partition = ? AND account_id = ? AND regio
 SELECT * FROM apigateway_stages WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? ORDER BY name;
 
 -- name: PutStage :exec
-INSERT INTO apigateway_stages (partition, account_id, region, api_id, name, deployment_id, description, created, updated, access_log_destination_arn, access_log_format) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, api_id, name) DO UPDATE SET deployment_id = excluded.deployment_id, description = excluded.description, created = excluded.created, updated = excluded.updated, access_log_destination_arn = excluded.access_log_destination_arn, access_log_format = excluded.access_log_format;
+INSERT INTO apigateway_stages (partition, account_id, region, api_id, name, deployment_id, description, created, updated, access_log_destination_arn, access_log_format, cfn_stack_id, cfn_logical_id, cfn_incarnation, incarnation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, api_id, name) DO UPDATE SET deployment_id = excluded.deployment_id, description = excluded.description, created = excluded.created, updated = excluded.updated, access_log_destination_arn = excluded.access_log_destination_arn, access_log_format = excluded.access_log_format, cfn_stack_id = excluded.cfn_stack_id, cfn_logical_id = excluded.cfn_logical_id, cfn_incarnation = excluded.cfn_incarnation, incarnation = excluded.incarnation;
 
 -- name: DeleteStage :exec
 DELETE FROM apigateway_stages WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND name = ?;
@@ -197,3 +197,9 @@ DELETE FROM apigateway_authorizer_cache WHERE partition = ? AND account_id = ? A
 
 -- name: PruneAuthorizerCache :exec
 DELETE FROM apigateway_authorizer_cache WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND stage_name = ? AND expires_at <= ?;
+
+-- name: NextStageIncarnation :one
+INSERT INTO apigateway_stage_sequence (partition, account_id, region, value)
+VALUES (?, ?, ?, 1)
+ON CONFLICT (partition, account_id, region) DO UPDATE SET value = value + 1
+RETURNING value;

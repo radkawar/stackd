@@ -20,8 +20,8 @@ SELECT * FROM glue_job_runs WHERE state IN ('STARTING','RUNNING','STOPPING') OR 
 SELECT * FROM glue_job_attempts WHERE partition = ? AND account_id = ? AND region = ? AND name = ? AND id = ? ORDER BY attempt;
 
 -- name: PutGlueJob :exec
-INSERT INTO glue_jobs (partition, account_id, region, name, description, role, command, script_location, python_version, glue_version, worker_type, execution_class, security_configuration, max_concurrent_runs, max_retries, timeout, number_of_workers, max_capacity, default_arguments, non_overridable_arguments, tags, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO glue_jobs (cfn_owner, partition, account_id, region, name, description, role, command, script_location, python_version, glue_version, worker_type, execution_class, security_configuration, max_concurrent_runs, max_retries, timeout, number_of_workers, max_capacity, default_arguments, non_overridable_arguments, tags, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, name) DO UPDATE SET
     description = excluded.description,
     role = excluded.role,

@@ -2,6 +2,7 @@ package ec2_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -143,6 +144,11 @@ func TestRunInstancesDryRunWithoutExecutor(t *testing.T) {
 	expect(launcher, &request, "DryRunOperation", 412)
 	request.DryRun = nil
 	expect(launcher, &request, "UnsupportedOperation", 400)
+	const incarnation = "stack/Instance/no-executor"
+	expect(ec2.WithCloudFormationCreation(launcher, "AWS::EC2::Instance", incarnation), &request, "UnsupportedOperation", 400)
+	if _, err := service.CloudFormationCreation(root, "AWS::EC2::Instance", incarnation); !errors.Is(err, ec2.ErrNotFound) {
+		t.Fatalf("unavailable real runtime admitted a private creation receipt: %v", err)
+	}
 
 	instances := must(command(root, service, "ec2", "DescribeInstances", &api.DescribeInstancesRequest{})).(*api.DescribeInstancesResult)
 	if len(instances.Reservations) != 0 {

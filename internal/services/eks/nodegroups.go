@@ -23,18 +23,25 @@ func registerNodegroups(s *Service) {
 	register(s, "UpdateNodegroupVersion", s.updateNodegroupVersion)
 }
 func (s *Service) loadNodegroup(ctx context.Context, r Reader, cluster, name, action string) (Cluster, Nodegroup, error) {
-	c, e := r.Cluster(Key{scopeFor(ctx), cluster})
-	if e != nil {
-		return c, Nodegroup{}, e
+	key := Key{scopeFor(ctx), cluster}
+	c, clusterErr := r.Cluster(key)
+	if clusterErr != nil && !errors.Is(clusterErr, ErrNotFound) {
+		return c, Nodegroup{}, clusterErr
 	}
-	n, e := r.Nodegroup(NodegroupKey{c.Key, name})
-	if e != nil {
-		return c, n, e
+	n, groupErr := r.Nodegroup(NodegroupKey{key, name})
+	if groupErr != nil && !errors.Is(groupErr, ErrNotFound) {
+		return c, n, groupErr
 	}
-	if e = s.authorizeResource(ctx, n.Key.ARN(n.ID), n.Tags, action, nil); e != nil {
-		return c, n, e
+	if errors.Is(groupErr, ErrNotFound) {
+		n = Nodegroup{Key: NodegroupKey{key, name}, ID: "*"}
 	}
-	return c, n, nil
+	if denied := s.authorizeResource(ctx, n.Key.ARN(n.ID), n.Tags, action, nil); denied != nil {
+		return c, n, denied
+	}
+	if clusterErr != nil {
+		return c, n, clusterErr
+	}
+	return c, n, groupErr
 }
 func (s *Service) createNodegroup(ctx context.Context, tx Transaction, in *api.CreateNodegroupRequest) (*api.CreateNodegroupResponse, error) {
 	c, e := tx.Cluster(Key{scopeFor(ctx), value(in.ClusterName)})

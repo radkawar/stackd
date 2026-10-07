@@ -41,6 +41,7 @@ func (r reader) keyPair(row sqlcgen.Ec2KeyPair) (domain.KeyPairRecord, error) {
 		KeyType:        stringPointer[api.KeyType](row.KeyType),
 		PublicKey:      stringPointer[api.String](row.PublicKey),
 	}}
+	out.CloudFormationOwner = cloudFormationOwner(row.CloudformationResourceType, row.CloudformationOwner)
 	if row.CreateTime.Valid {
 		out.Data.CreateTime = new(api.MillisecondDateTime(row.CreateTime.Time))
 	}

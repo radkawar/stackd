@@ -43,6 +43,13 @@ func (r reader) Certificate(arn string) (domain.CertificateRecord, error) {
 	}
 	return r.certificate(row)
 }
+func (r reader) CertificateByOwner(scope domain.Scope, owner string) (domain.CertificateRecord, error) {
+	row, e := r.q.GetCertificateByOwner(r.ctx, sqlcgen.GetCertificateByOwnerParams{Partition: scope.Partition, AccountID: scope.AccountID, Region: scope.Region, CfnOwner: owner})
+	if e != nil {
+		return domain.CertificateRecord{}, missing(e)
+	}
+	return r.certificate(row)
+}
 func (r reader) Certificates() ([]domain.CertificateRecord, error) {
 	rows, e := r.q.ListCertificates(r.ctx)
 	if e != nil {
@@ -59,7 +66,7 @@ func (r reader) Certificates() ([]domain.CertificateRecord, error) {
 	return out, nil
 }
 func (r reader) certificate(row sqlcgen.AcmCertificate) (domain.CertificateRecord, error) {
-	v := domain.CertificateRecord{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ARN: row.Arn, ID: row.ID, Domain: row.Domain, Status: row.Status, Type: row.Type, KeyAlgorithm: row.KeyAlgorithm, Transparency: row.Transparency, ExportOption: row.ExportOption, Created: row.Created, Issued: row.Issued, Imported: row.Imported, NotBefore: row.NotBefore, NotAfter: row.NotAfter, ValidationDeadline: row.ValidationDeadline, NextCheck: row.NextCheck, RenewalUpdated: row.RenewalUpdated, Version: uint64(row.Version), MaterialVersion: uint64(row.MaterialVersion), RenewalStatus: row.RenewalStatus, Exported: row.Exported, CertificatePEM: row.CertificatePem, ChainPEM: row.ChainPem, PrivateKeyPEM: row.PrivateKeyPem, Tags: map[string]string{}}
+	v := domain.CertificateRecord{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ARN: row.Arn, ID: row.ID, Domain: row.Domain, Status: row.Status, Type: row.Type, KeyAlgorithm: row.KeyAlgorithm, Transparency: row.Transparency, ExportOption: row.ExportOption, Created: row.Created, Issued: row.Issued, Imported: row.Imported, NotBefore: row.NotBefore, NotAfter: row.NotAfter, ValidationDeadline: row.ValidationDeadline, NextCheck: row.NextCheck, RenewalUpdated: row.RenewalUpdated, Version: uint64(row.Version), MaterialVersion: uint64(row.MaterialVersion), RenewalStatus: row.RenewalStatus, Exported: row.Exported, CertificatePEM: row.CertificatePem, ChainPEM: row.ChainPem, PrivateKeyPEM: row.PrivateKeyPem, Tags: map[string]string{}, Owner: row.CfnOwner}
 	validations, e := r.q.ListValidations(r.ctx, v.ARN)
 	if e != nil {
 		return v, e
@@ -83,7 +90,7 @@ func nonnil(v []byte) []byte {
 	return v
 }
 func (w writer) PutCertificate(v domain.CertificateRecord) error {
-	e := w.q.PutCertificate(w.ctx, sqlcgen.PutCertificateParams{Arn: v.ARN, Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, ID: v.ID, Domain: v.Domain, Status: v.Status, Type: v.Type, KeyAlgorithm: v.KeyAlgorithm, Transparency: v.Transparency, ExportOption: v.ExportOption, Created: v.Created, Issued: v.Issued, Imported: v.Imported, NotBefore: v.NotBefore, NotAfter: v.NotAfter, ValidationDeadline: v.ValidationDeadline, NextCheck: v.NextCheck, RenewalUpdated: v.RenewalUpdated, Version: int64(v.Version), MaterialVersion: int64(v.MaterialVersion), RenewalStatus: v.RenewalStatus, Exported: v.Exported, CertificatePem: nonnil(v.CertificatePEM), ChainPem: nonnil(v.ChainPEM), PrivateKeyPem: nonnil(v.PrivateKeyPEM)})
+	e := w.q.PutCertificate(w.ctx, sqlcgen.PutCertificateParams{Arn: v.ARN, Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, ID: v.ID, Domain: v.Domain, Status: v.Status, Type: v.Type, KeyAlgorithm: v.KeyAlgorithm, Transparency: v.Transparency, ExportOption: v.ExportOption, Created: v.Created, Issued: v.Issued, Imported: v.Imported, NotBefore: v.NotBefore, NotAfter: v.NotAfter, ValidationDeadline: v.ValidationDeadline, NextCheck: v.NextCheck, RenewalUpdated: v.RenewalUpdated, Version: int64(v.Version), MaterialVersion: int64(v.MaterialVersion), RenewalStatus: v.RenewalStatus, Exported: v.Exported, CertificatePem: nonnil(v.CertificatePEM), ChainPem: nonnil(v.ChainPEM), PrivateKeyPem: nonnil(v.PrivateKeyPEM), CfnOwner: v.Owner})
 	if e != nil {
 		return e
 	}

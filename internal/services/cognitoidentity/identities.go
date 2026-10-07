@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	api "stackd/internal/awsapi/cognitoidentity"
+	"stackd/internal/awsctx"
 )
 
 func registerIdentities(s *Service) {
@@ -73,9 +74,18 @@ func (s *Service) verifyLogins(tx Transaction, p PoolRecord, logins api.LoginsMa
 	slices.SortFunc(out, func(a, b verifiedLogin) int { return strings.Compare(a.Provider, b.Provider) })
 	return out, nil
 }
+
+// publicRegion is the Region of a public (IAM-free) request's pool or identity.
+// IDs carry their Region; only a regionless local endpoint relies on it.
+func publicRegion(scope Scope, implicit bool, id string) string {
+	if region, _, ok := strings.Cut(id, ":"); implicit && ok {
+		return region
+	}
+	return scope.Region
+}
 func (s *Service) publicPool(tx Transaction, id string) (PoolRecord, error) {
 	scope := scopeFor(tx.Context())
-	p, e := tx.PoolByID(scope.Partition, scope.Region, id)
+	p, e := tx.PoolByID(scope.Partition, publicRegion(scope, awsctx.FromContext(tx.Context()).EndpointRegionImplicit, id), id)
 	if e == nil {
 		notePool(tx.Context(), p.Key)
 	}
@@ -127,7 +137,7 @@ func (s *Service) getID(tx Transaction, in *api.GetIdInput) (*api.GetIdOutput, e
 }
 func (s *Service) identityPool(tx Transaction, id string) (IdentityRecord, PoolRecord, error) {
 	scope := scopeFor(tx.Context())
-	identity, e := tx.Identity(scope.Partition, scope.Region, id)
+	identity, e := tx.Identity(scope.Partition, publicRegion(scope, awsctx.FromContext(tx.Context()).EndpointRegionImplicit, id), id)
 	if e != nil {
 		return identity, PoolRecord{}, e
 	}

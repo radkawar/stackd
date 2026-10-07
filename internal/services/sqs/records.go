@@ -20,6 +20,8 @@ func queueRecord(q *queue) QueueRecord {
 	c := q.config
 	r := QueueRecord{Key: publicKey(q.key), ID: q.id, Created: q.created, Modified: q.modified, Purged: q.purged, Sequence: q.sequence, ManagedEncryptionKey: slices.Clone(q.secret), Configuration: QueueConfiguration{DelaySeconds: c.delay, MaximumMessageSize: c.maximumSize, RetentionSeconds: c.retention, VisibilitySeconds: c.visibility, WaitSeconds: c.wait, FIFO: c.fifo, ContentDeduplication: c.contentDedup, ManagedSSE: c.managedSSE, DeduplicationScope: c.dedupScope, Throughput: c.throughput, Policy: c.policy, PolicyPrincipals: maps.Clone(c.policyPrincipals), KMSKey: c.kmsKey, KMSReuseSeconds: c.kmsReuse, RedrivePermission: c.allow.Permission, RedriveSources: slices.Clone(c.allow.Sources)}}
 	r.MetricActiveUntil, r.NextMetricSample = q.metricActiveUntil, q.nextMetricSample
+	r.CreationOwner = q.creationOwner
+	r.PolicyOwner = q.policyOwner
 	if c.redrive != nil {
 		r.Configuration.DeadLetterTargetARN = c.redrive.DeadLetterTargetARN
 		r.Configuration.MaxReceiveCount = c.redrive.MaxReceiveCount
@@ -42,6 +44,8 @@ func (s *Service) queueFromRecord(r QueueRecord) (*queue, error) {
 	c := r.Configuration
 	q := &queue{key: privateKey(r.Key), id: r.ID, created: r.Created, modified: r.Modified, purged: r.Purged, sequence: r.Sequence, secret: slices.Clone(r.ManagedEncryptionKey), tags: make(api.TagMap), config: queueConfig{delay: c.DelaySeconds, maximumSize: c.MaximumMessageSize, retention: c.RetentionSeconds, visibility: c.VisibilitySeconds, wait: c.WaitSeconds, fifo: c.FIFO, contentDedup: c.ContentDeduplication, managedSSE: c.ManagedSSE, dedupScope: c.DeduplicationScope, throughput: c.Throughput, policy: c.Policy, policyPrincipals: maps.Clone(c.PolicyPrincipals), kmsKey: c.KMSKey, kmsReuse: c.KMSReuseSeconds, allow: redriveAllowPolicy{Permission: c.RedrivePermission, Sources: slices.Clone(c.RedriveSources)}}}
 	q.metricActiveUntil, q.nextMetricSample = r.MetricActiveUntil, r.NextMetricSample
+	q.creationOwner = r.CreationOwner
+	q.policyOwner = r.PolicyOwner
 	if c.DeadLetterTargetARN != "" {
 		q.config.redrive = &redrivePolicy{DeadLetterTargetARN: c.DeadLetterTargetARN, MaxReceiveCount: c.MaxReceiveCount}
 	}

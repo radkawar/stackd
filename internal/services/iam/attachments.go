@@ -81,6 +81,7 @@ func detachPolicy(ctx context.Context, a *account, _ awsctx.Metadata) (any, *aws
 		return nil, missing("policy attachment", p.Arn)
 	}
 	delete(identity.Attached, p.Arn)
+	delete(identity.AttachedOwners, p.Arn)
 	p.AttachmentCount--
 	return &iamapi.Unit{}, nil
 }

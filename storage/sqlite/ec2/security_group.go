@@ -46,6 +46,7 @@ func (r reader) RegionalSecurityGroups(s domain.Scope) ([]domain.SecurityGroupRe
 func (r reader) securityGroup(row sqlcgen.Ec2SecurityGroup) (domain.SecurityGroupRecord, error) {
 	k := domain.ResourceKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.ResourceID}
 	out := domain.SecurityGroupRecord{Key: k, VPCOwnerAccountID: row.VpcOwnerAccountID}
+	out.CloudFormationOwner = cloudFormationOwner(row.CloudformationResourceType, row.CloudformationOwner)
 	d := &out.Data
 	d.Description = stringPointer[api.String](row.Description)
 	d.GroupId = stringPointer[api.String](row.GroupID)

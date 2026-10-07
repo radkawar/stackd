@@ -31,6 +31,8 @@ type Cluster struct {
 	Nodes                                                                   []engine.Node
 	AuthHashes                                                              []string
 	Parameters, Tags                                                        map[string]string
+	// CloudFormationOwner is the private incarnation claim, never a public tag.
+	CloudFormationOwner string
 }
 type Snapshot struct {
 	Key                                                        Key
@@ -48,24 +50,28 @@ type User struct {
 	PasswordHashes                     []string
 	NoPassword                         bool
 	Tags                               map[string]string
+	CloudFormationOwner                string
 }
 type UserGroup struct {
-	Key            Key
-	Engine, Status string
-	UserIDs        []string
-	Tags           map[string]string
+	Key                 Key
+	Engine, Status      string
+	UserIDs             []string
+	Tags                map[string]string
+	CloudFormationOwner string
 }
 type ParameterGroup struct {
 	Key                 Key
 	Family, Description string
 	Parameters, Tags    map[string]string
+	CloudFormationOwner string
 }
 type Subnet struct{ ID, VPCID, AvailabilityZone string }
 type SubnetGroup struct {
-	Key                Key
-	Description, VPCID string
-	Subnets            []Subnet
-	Tags               map[string]string
+	Key                 Key
+	Description, VPCID  string
+	Subnets             []Subnet
+	Tags                map[string]string
+	CloudFormationOwner string
 }
 
 type Repository interface {

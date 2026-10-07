@@ -49,7 +49,7 @@ func (q *Queries) DeleteArchiveEntry(ctx context.Context, arg DeleteArchiveEntry
 }
 
 const getArchive = `-- name: GetArchive :one
-SELECT "partition", account, region, name, id, source_partition, source_account, source_region, source_bus_name, description, kms_key_identifier, key_arn, pattern_content, pattern_data_key, retention_days, created, state, state_reason, version, event_count, size_bytes, key_version, migration_due_seconds, migration_due_nanos, previous_key_arn, previous_kms_key_identifier FROM eventbridge_archives WHERE partition=? AND account=? AND region=? AND name=?
+SELECT "partition", account, region, name, id, source_partition, source_account, source_region, source_bus_name, description, kms_key_identifier, key_arn, pattern_content, pattern_data_key, retention_days, created, state, state_reason, version, event_count, size_bytes, key_version, migration_due_seconds, migration_due_nanos, previous_key_arn, previous_kms_key_identifier, cfn_owner FROM eventbridge_archives WHERE partition=? AND account=? AND region=? AND name=?
 `
 
 type GetArchiveParams struct {
@@ -94,12 +94,13 @@ func (q *Queries) GetArchive(ctx context.Context, arg GetArchiveParams) (Eventbr
 		&i.MigrationDueNanos,
 		&i.PreviousKeyArn,
 		&i.PreviousKmsKeyIdentifier,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const getArchiveByID = `-- name: GetArchiveByID :one
-SELECT "partition", account, region, name, id, source_partition, source_account, source_region, source_bus_name, description, kms_key_identifier, key_arn, pattern_content, pattern_data_key, retention_days, created, state, state_reason, version, event_count, size_bytes, key_version, migration_due_seconds, migration_due_nanos, previous_key_arn, previous_kms_key_identifier FROM eventbridge_archives WHERE id=?
+SELECT "partition", account, region, name, id, source_partition, source_account, source_region, source_bus_name, description, kms_key_identifier, key_arn, pattern_content, pattern_data_key, retention_days, created, state, state_reason, version, event_count, size_bytes, key_version, migration_due_seconds, migration_due_nanos, previous_key_arn, previous_kms_key_identifier, cfn_owner FROM eventbridge_archives WHERE id=?
 `
 
 func (q *Queries) GetArchiveByID(ctx context.Context, id string) (EventbridgeArchive, error) {
@@ -132,6 +133,7 @@ func (q *Queries) GetArchiveByID(ctx context.Context, id string) (EventbridgeArc
 		&i.MigrationDueNanos,
 		&i.PreviousKeyArn,
 		&i.PreviousKmsKeyIdentifier,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -167,7 +169,7 @@ func (q *Queries) GetArchiveEntry(ctx context.Context, arg GetArchiveEntryParams
 }
 
 const listArchives = `-- name: ListArchives :many
-SELECT "partition", account, region, name, id, source_partition, source_account, source_region, source_bus_name, description, kms_key_identifier, key_arn, pattern_content, pattern_data_key, retention_days, created, state, state_reason, version, event_count, size_bytes, key_version, migration_due_seconds, migration_due_nanos, previous_key_arn, previous_kms_key_identifier FROM eventbridge_archives WHERE partition=? AND account=? AND region=? ORDER BY name
+SELECT "partition", account, region, name, id, source_partition, source_account, source_region, source_bus_name, description, kms_key_identifier, key_arn, pattern_content, pattern_data_key, retention_days, created, state, state_reason, version, event_count, size_bytes, key_version, migration_due_seconds, migration_due_nanos, previous_key_arn, previous_kms_key_identifier, cfn_owner FROM eventbridge_archives WHERE partition=? AND account=? AND region=? ORDER BY name
 `
 
 type ListArchivesParams struct {
@@ -212,6 +214,7 @@ func (q *Queries) ListArchives(ctx context.Context, arg ListArchivesParams) ([]E
 			&i.MigrationDueNanos,
 			&i.PreviousKeyArn,
 			&i.PreviousKmsKeyIdentifier,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -302,7 +305,7 @@ func (q *Queries) NextArchiveExpiration(ctx context.Context) (EventbridgeArchive
 }
 
 const nextArchiveMigration = `-- name: NextArchiveMigration :one
-SELECT "partition", account, region, name, id, source_partition, source_account, source_region, source_bus_name, description, kms_key_identifier, key_arn, pattern_content, pattern_data_key, retention_days, created, state, state_reason, version, event_count, size_bytes, key_version, migration_due_seconds, migration_due_nanos, previous_key_arn, previous_kms_key_identifier FROM eventbridge_archives WHERE migration_due_seconds IS NOT NULL ORDER BY migration_due_seconds,migration_due_nanos,id LIMIT 1
+SELECT "partition", account, region, name, id, source_partition, source_account, source_region, source_bus_name, description, kms_key_identifier, key_arn, pattern_content, pattern_data_key, retention_days, created, state, state_reason, version, event_count, size_bytes, key_version, migration_due_seconds, migration_due_nanos, previous_key_arn, previous_kms_key_identifier, cfn_owner FROM eventbridge_archives WHERE migration_due_seconds IS NOT NULL ORDER BY migration_due_seconds,migration_due_nanos,id LIMIT 1
 `
 
 func (q *Queries) NextArchiveMigration(ctx context.Context) (EventbridgeArchive, error) {
@@ -335,6 +338,7 @@ func (q *Queries) NextArchiveMigration(ctx context.Context) (EventbridgeArchive,
 		&i.MigrationDueNanos,
 		&i.PreviousKeyArn,
 		&i.PreviousKmsKeyIdentifier,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -370,8 +374,8 @@ func (q *Queries) NextArchiveMigrationEntry(ctx context.Context, arg NextArchive
 }
 
 const putArchive = `-- name: PutArchive :exec
-INSERT INTO eventbridge_archives(partition,account,region,name,id,source_partition,source_account,source_region,source_bus_name,description,kms_key_identifier,key_arn,pattern_content,pattern_data_key,retention_days,created,state,state_reason,version,event_count,size_bytes,key_version,migration_due_seconds,migration_due_nanos,previous_key_arn,previous_kms_key_identifier)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(partition,account,region,name) DO UPDATE SET id=excluded.id,source_partition=excluded.source_partition,source_account=excluded.source_account,source_region=excluded.source_region,source_bus_name=excluded.source_bus_name,description=excluded.description,kms_key_identifier=excluded.kms_key_identifier,key_arn=excluded.key_arn,pattern_content=excluded.pattern_content,pattern_data_key=excluded.pattern_data_key,retention_days=excluded.retention_days,created=excluded.created,state=excluded.state,state_reason=excluded.state_reason,version=excluded.version,event_count=excluded.event_count,size_bytes=excluded.size_bytes,key_version=excluded.key_version,migration_due_seconds=excluded.migration_due_seconds,migration_due_nanos=excluded.migration_due_nanos,previous_key_arn=excluded.previous_key_arn,previous_kms_key_identifier=excluded.previous_kms_key_identifier
+INSERT INTO eventbridge_archives(partition,account,region,name,id,source_partition,source_account,source_region,source_bus_name,description,kms_key_identifier,key_arn,pattern_content,pattern_data_key,retention_days,created,state,state_reason,version,event_count,size_bytes,key_version,migration_due_seconds,migration_due_nanos,previous_key_arn,previous_kms_key_identifier,cfn_owner)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(partition,account,region,name) DO UPDATE SET id=excluded.id,source_partition=excluded.source_partition,source_account=excluded.source_account,source_region=excluded.source_region,source_bus_name=excluded.source_bus_name,description=excluded.description,kms_key_identifier=excluded.kms_key_identifier,key_arn=excluded.key_arn,pattern_content=excluded.pattern_content,pattern_data_key=excluded.pattern_data_key,retention_days=excluded.retention_days,created=excluded.created,state=excluded.state,state_reason=excluded.state_reason,version=excluded.version,event_count=excluded.event_count,size_bytes=excluded.size_bytes,key_version=excluded.key_version,migration_due_seconds=excluded.migration_due_seconds,migration_due_nanos=excluded.migration_due_nanos,previous_key_arn=excluded.previous_key_arn,previous_kms_key_identifier=excluded.previous_kms_key_identifier,cfn_owner=excluded.cfn_owner
 `
 
 type PutArchiveParams struct {
@@ -401,6 +405,7 @@ type PutArchiveParams struct {
 	MigrationDueNanos        int64
 	PreviousKeyArn           string
 	PreviousKmsKeyIdentifier string
+	CfnOwner                 string
 }
 
 func (q *Queries) PutArchive(ctx context.Context, arg PutArchiveParams) error {
@@ -431,6 +436,7 @@ func (q *Queries) PutArchive(ctx context.Context, arg PutArchiveParams) error {
 		arg.MigrationDueNanos,
 		arg.PreviousKeyArn,
 		arg.PreviousKmsKeyIdentifier,
+		arg.CfnOwner,
 	)
 	return err
 }

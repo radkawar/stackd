@@ -27,6 +27,7 @@ type EventbridgeApiDestination struct {
 	RateWindow    sql.NullTime
 	RateCount     int64
 	Version       sqlite.Uint64
+	CfnOwner      string
 }
 
 type EventbridgeArchive struct {
@@ -56,6 +57,7 @@ type EventbridgeArchive struct {
 	MigrationDueNanos        int64
 	PreviousKeyArn           string
 	PreviousKmsKeyIdentifier string
+	CfnOwner                 string
 }
 
 type EventbridgeArchiveEntry struct {
@@ -87,6 +89,7 @@ type EventbridgeBus struct {
 	DeadLetterArn        string
 	ConfigurationDataKey []byte
 	ConfigurationKeyArn  string
+	CfnOwner             string
 }
 
 type EventbridgeBusPolicyPrincipal struct {
@@ -96,6 +99,15 @@ type EventbridgeBusPolicyPrincipal struct {
 	BusName     string
 	Arn         string
 	PrincipalID string
+}
+
+type EventbridgeBusPolicyStatementOwner struct {
+	Partition   string
+	Account     string
+	Region      string
+	BusName     string
+	StatementID string
+	CfnOwner    string
 }
 
 type EventbridgeBusTag struct {
@@ -133,6 +145,7 @@ type EventbridgeConnection struct {
 	DueSeconds            sql.NullInt64
 	DueNanos              int64
 	Version               sqlite.Uint64
+	CfnOwner              string
 }
 
 type EventbridgeConnectionParameter struct {
@@ -299,6 +312,7 @@ type EventbridgeRule struct {
 	ArchiveID           string
 	EncryptedPattern    []byte
 	ManagedBy           string
+	CfnOwner            string
 }
 
 type EventbridgeRuleTag struct {

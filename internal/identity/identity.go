@@ -105,6 +105,7 @@ type Status string
 const (
 	Active   Status = "Active"
 	Inactive Status = "Inactive"
+	Expired  Status = "Expired"
 )
 
 // AccessKey is metadata safe to return from listing APIs: it contains no secret.

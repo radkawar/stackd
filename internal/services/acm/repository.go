@@ -22,6 +22,8 @@ type CertificateRecord struct {
 	CertificatePEM, ChainPEM, PrivateKeyPEM                                                       []byte
 	Validations                                                                                   []Validation
 	Tags                                                                                          map[string]string
+	// Owner is private native authority, never projected through ACM APIs.
+	Owner string
 }
 
 // CertificateState allows TLS consumers to check current identity/time without copying keys on every handshake.
@@ -44,6 +46,7 @@ type Receipt struct {
 type Reader interface {
 	Context() context.Context
 	Certificate(string) (CertificateRecord, error)
+	CertificateByOwner(Scope, string) (CertificateRecord, error)
 	CertificateState(string) (CertificateState, error)
 	Certificates() ([]CertificateRecord, error)
 	Token(string, string, string) (ValidationToken, error)

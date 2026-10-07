@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	goruntime "runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -448,6 +449,12 @@ func newLambdaDockerStack(t *testing.T, config stackd.Config, runtime *computela
 	if runtime != nil {
 		runtimeConfig = *runtime
 	}
+	if runtimeConfig.CallbackHost == "" {
+		runtimeConfig.CallbackHost = os.Getenv("STACKD_LAMBDA_CALLBACK_HOST")
+		if runtimeConfig.CallbackHost == "" && goruntime.GOOS == "darwin" {
+			runtimeConfig.CallbackHost = "host.docker.internal"
+		}
+	}
 	if runtimeConfig.Client == nil {
 		engine, err := docker.New(t.Context(), docker.Config{})
 		if err != nil {
@@ -473,6 +480,12 @@ func newLambdaDockerStack(t *testing.T, config stackd.Config, runtime *computela
 			t.Error(err)
 		}
 	})
+	config.LambdaKeepAlive = 5 * time.Minute
+	return newLambdaDockerStackWithExecutor(t, config, executor)
+}
+
+func newLambdaDockerStackWithExecutor(t *testing.T, config stackd.Config, executor computelambda.Executor) (*stackd.Stack, *httptest.Server) {
+	t.Helper()
 	listener, err := net.Listen("tcp4", "0.0.0.0:0")
 	if err != nil {
 		t.Fatal(err)
@@ -480,7 +493,6 @@ func newLambdaDockerStack(t *testing.T, config stackd.Config, runtime *computela
 	port := listener.Addr().(*net.TCPAddr).Port
 	endpoint := fmt.Sprintf("http://host.docker.internal:%d", port)
 	config.LambdaExecutor = executor
-	config.LambdaKeepAlive = 5 * time.Minute
 	config.ComputeEndpoint, config.PublicEndpoint = endpoint, endpoint
 	cloud, err := stackd.New(config)
 	if err != nil {

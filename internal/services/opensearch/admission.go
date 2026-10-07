@@ -172,6 +172,9 @@ func (s *Service) load(ctx context.Context, tx Reader, name, action string) (Dom
 	if err != nil && !errors.Is(err, ErrNotFound) {
 		return v, err
 	}
+	if err == nil && cloudFormationForeign(ctx, v) {
+		v, err = Domain{}, ErrNotFound
+	}
 	if rejected := s.authorize(ctx, action, k.ARN(), v.Tags, nil, nil); rejected != nil {
 		return v, rejected
 	}

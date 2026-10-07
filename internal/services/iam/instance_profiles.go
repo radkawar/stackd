@@ -13,6 +13,7 @@ import (
 // InstanceProfile is an account-global EC2 role container. RoleId is empty or
 // references one immutable IAM role ID; role documents are read from live state.
 type InstanceProfile struct {
+	CloudFormationOwner string
 	Path                string
 	InstanceProfileName string
 	InstanceProfileId   string

@@ -167,7 +167,7 @@ class Proof:
         environment['AWS_EC2_METADATA_DISABLED'] = 'true'
         command = [str(Path(self.args.binary).resolve()), '-listen', f'0.0.0.0:{self.port}',
             '-public-endpoint', self.endpoint, '-database', str(self.database),
-            '-clock-start', '2026-09-30T12:00:00Z', '-docker-host', self.args.docker_host,
+            '-clock-start', '2026-09-30T12:00:00Z', '-docker-host', self.args.docker_host, '-lambda-runtime',
             '-compute-endpoint', self.compute_endpoint, '-lambda-telemetry-directory',
             str(Path(self.args.telemetry_directory).resolve()), '-lambda-keep-alive', '0']
         self.controller.start(command, self.endpoint, environment=environment, timeout=90)

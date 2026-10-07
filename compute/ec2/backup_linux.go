@@ -9,14 +9,6 @@ import (
 	"time"
 )
 
-// ExtentsKnown is false only for an offline encrypted ciphertext copy without
-// unwrapped material. The owner must carry retained stopped-volume allocation
-// metadata; a nil extent result must never be interpreted as an empty disk.
-type BackupResult struct {
-	Extents      []Extent
-	ExtentsKnown bool
-}
-
 func (q *QEMU) Backup(ctx context.Context, source, destination Disk) (result BackupResult, err error) {
 	if err := validateDisk(source); err != nil {
 		return result, err

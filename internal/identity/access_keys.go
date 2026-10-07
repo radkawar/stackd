@@ -57,7 +57,7 @@ func (s *Store) ListAccessKeys(accountID, id string) ([]AccessKey, error) {
 }
 
 func (s *Store) UpdateAccessKey(accountID, id, key string, status Status) error {
-	if status != Active && status != Inactive {
+	if status != Active && status != Inactive && status != Expired {
 		return ErrInvalidPrincipal
 	}
 	return s.repository.Update(context.Background(), func(tx Transaction) error {

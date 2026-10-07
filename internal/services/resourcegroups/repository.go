@@ -14,11 +14,13 @@ type Group struct {
 	Scope
 	ARN, Name, Description string
 	Incarnation            string
-	DisplayName, Owner     string
-	Criticality            *int32
-	Query                  *api.ResourceQuery
-	Tags                   map[string]string
-	Created                time.Time
+	// CloudFormationClaim is private controller provenance, never customer tags.
+	CloudFormationClaim string
+	DisplayName, Owner  string
+	Criticality         *int32
+	Query               *api.ResourceQuery
+	Tags                map[string]string
+	Created             time.Time
 	// ManagedType is set only by the owning AppRegistry application.
 	ManagedType, ApplicationARN, SourceARN, SourceName, ParentARN string
 }

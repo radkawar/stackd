@@ -789,7 +789,7 @@ func (q *Queries) GetAccountSettingsRootLoginProfile(ctx context.Context, arg Ge
 }
 
 const getCredential = `-- name: GetCredential :one
-SELECT resource_key, credential_access_key_id, credential_secret_access_key, credential_session_token, credential_account_id, credential_principal_arn, credential_principal_id, credential_user_name, credential_issuer_arn, credential_issuer_id, credential_federated_provider, credential_source_identity, last_used_service, last_used_region, credential_default_regions_only, credential_has_session_policy, credential_mfa_present, credential_expiration, credential_create_date, credential_mfa_authenticated_at, last_used_date, credential_session_type, status, credential_request_parent_event_id, credential_in_scope_of_issuer_type, credential_in_scope_of_credentials_issued_to FROM iam_credential WHERE resource_key = ?
+SELECT resource_key, credential_access_key_id, credential_secret_access_key, credential_session_token, credential_account_id, credential_principal_arn, credential_principal_id, credential_user_name, credential_issuer_arn, credential_issuer_id, credential_federated_provider, credential_source_identity, last_used_service, last_used_region, credential_default_regions_only, credential_has_session_policy, credential_mfa_present, credential_expiration, credential_create_date, credential_mfa_authenticated_at, last_used_date, credential_session_type, status, credential_request_parent_event_id, credential_in_scope_of_issuer_type, credential_in_scope_of_credentials_issued_to, cfn_owner FROM iam_credential WHERE resource_key = ?
 `
 
 func (q *Queries) GetCredential(ctx context.Context, resourceKey string) (IamCredential, error) {
@@ -822,6 +822,7 @@ func (q *Queries) GetCredential(ctx context.Context, resourceKey string) (IamCre
 		&i.CredentialRequestParentEventID,
 		&i.CredentialInScopeOfIssuerType,
 		&i.CredentialInScopeOfCredentialsIssuedTo,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -851,7 +852,7 @@ func (q *Queries) GetCredentialReport(ctx context.Context, arg GetCredentialRepo
 }
 
 const getGroup = `-- name: GetGroup :one
-SELECT "partition", account, resource_key, path, group_name, group_id, arn, create_date FROM iam_group WHERE partition = ? AND account = ? AND resource_key = ?
+SELECT "partition", account, resource_key, path, group_name, group_id, arn, create_date, cfn_owner FROM iam_group WHERE partition = ? AND account = ? AND resource_key = ?
 `
 
 type GetGroupParams struct {
@@ -872,12 +873,13 @@ func (q *Queries) GetGroup(ctx context.Context, arg GetGroupParams) (IamGroup, e
 		&i.GroupID,
 		&i.Arn,
 		&i.CreateDate,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const getInstanceProfile = `-- name: GetInstanceProfile :one
-SELECT "partition", account, resource_key, path, instance_profile_name, instance_profile_id, arn, role_id, create_date FROM iam_instance_profile WHERE partition = ? AND account = ? AND resource_key = ?
+SELECT "partition", account, resource_key, path, instance_profile_name, instance_profile_id, arn, role_id, create_date, cfn_owner FROM iam_instance_profile WHERE partition = ? AND account = ? AND resource_key = ?
 `
 
 type GetInstanceProfileParams struct {
@@ -899,6 +901,7 @@ func (q *Queries) GetInstanceProfile(ctx context.Context, arg GetInstanceProfile
 		&i.Arn,
 		&i.RoleID,
 		&i.CreateDate,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -933,7 +936,7 @@ func (q *Queries) GetLoginProfile(ctx context.Context, arg GetLoginProfileParams
 }
 
 const getMFADevice = `-- name: GetMFADevice :one
-SELECT "partition", account, resource_key, enable_date, retired_at, verification_count_window, last_pair_step, verification_count_count, serial_number, binding_value_seed, binding_value_user_id, binding_visible_value_seed, binding_visible_value_user_id, binding_value_skew_steps, binding_visible_value_skew_steps FROM iam_mfa_device WHERE partition = ? AND account = ? AND resource_key = ?
+SELECT "partition", account, resource_key, enable_date, retired_at, verification_count_window, last_pair_step, verification_count_count, serial_number, binding_value_seed, binding_value_user_id, binding_visible_value_seed, binding_visible_value_user_id, binding_value_skew_steps, binding_visible_value_skew_steps, cfn_owner FROM iam_mfa_device WHERE partition = ? AND account = ? AND resource_key = ?
 `
 
 type GetMFADeviceParams struct {
@@ -961,12 +964,13 @@ func (q *Queries) GetMFADevice(ctx context.Context, arg GetMFADeviceParams) (Iam
 		&i.BindingVisibleValueUserID,
 		&i.BindingValueSkewSteps,
 		&i.BindingVisibleValueSkewSteps,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const getManagedPolicy = `-- name: GetManagedPolicy :one
-SELECT "partition", account, resource_key, policy_name, policy_id, arn, path, default_version_id, description, attachment_count, permissions_boundary_usage_count, next_version, is_attachable, create_date, update_date FROM iam_managed_policy WHERE partition = ? AND account = ? AND resource_key = ?
+SELECT "partition", account, resource_key, policy_name, policy_id, arn, path, default_version_id, description, attachment_count, permissions_boundary_usage_count, next_version, is_attachable, create_date, update_date, cfn_owner FROM iam_managed_policy WHERE partition = ? AND account = ? AND resource_key = ?
 `
 
 type GetManagedPolicyParams struct {
@@ -994,12 +998,13 @@ func (q *Queries) GetManagedPolicy(ctx context.Context, arg GetManagedPolicyPara
 		&i.IsAttachable,
 		&i.CreateDate,
 		&i.UpdateDate,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const getOIDCProvider = `-- name: GetOIDCProvider :one
-SELECT "partition", account, resource_key, arn, id, url, created_at FROM iam_oidc_provider WHERE partition = ? AND account = ? AND resource_key = ?
+SELECT "partition", account, resource_key, arn, id, url, created_at, cfn_owner FROM iam_oidc_provider WHERE partition = ? AND account = ? AND resource_key = ?
 `
 
 type GetOIDCProviderParams struct {
@@ -1019,6 +1024,7 @@ func (q *Queries) GetOIDCProvider(ctx context.Context, arg GetOIDCProviderParams
 		&i.ID,
 		&i.Url,
 		&i.CreatedAt,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -1064,7 +1070,7 @@ func (q *Queries) GetPrincipalActivity(ctx context.Context, arg GetPrincipalActi
 }
 
 const getRole = `-- name: GetRole :one
-SELECT "partition", account, resource_key, path, role_name, role_id, arn, assume_role_policy_document, description, service_linked_service, last_used_region, create_date, last_used_date, max_session_duration, identity_center_instance_arn, identity_center_permission_set_arn FROM iam_role WHERE partition = ? AND account = ? AND resource_key = ?
+SELECT "partition", account, resource_key, path, role_name, role_id, arn, assume_role_policy_document, description, service_linked_service, last_used_region, create_date, last_used_date, max_session_duration, identity_center_instance_arn, identity_center_permission_set_arn, cfn_owner FROM iam_role WHERE partition = ? AND account = ? AND resource_key = ?
 `
 
 type GetRoleParams struct {
@@ -1093,6 +1099,7 @@ func (q *Queries) GetRole(ctx context.Context, arg GetRoleParams) (IamRole, erro
 		&i.MaxSessionDuration,
 		&i.IdentityCenterInstanceArn,
 		&i.IdentityCenterPermissionSetArn,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -1144,7 +1151,7 @@ func (q *Queries) GetRoleSourceRoleTemplate(ctx context.Context, arg GetRoleSour
 }
 
 const getSAMLProvider = `-- name: GetSAMLProvider :one
-SELECT "partition", account, resource_key, arn, name, uuid, metadata_document, assertion_encryption_mode, created_at, valid_until FROM iam_saml_provider WHERE partition = ? AND account = ? AND resource_key = ?
+SELECT "partition", account, resource_key, arn, name, uuid, metadata_document, assertion_encryption_mode, created_at, valid_until, cfn_owner FROM iam_saml_provider WHERE partition = ? AND account = ? AND resource_key = ?
 `
 
 type GetSAMLProviderParams struct {
@@ -1167,6 +1174,7 @@ func (q *Queries) GetSAMLProvider(ctx context.Context, arg GetSAMLProviderParams
 		&i.AssertionEncryptionMode,
 		&i.CreatedAt,
 		&i.ValidUntil,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -1200,7 +1208,7 @@ func (q *Queries) GetSSHPublicKey(ctx context.Context, arg GetSSHPublicKeyParams
 }
 
 const getServerCertificate = `-- name: GetServerCertificate :one
-SELECT "partition", account, resource_key, id, name, path, arn, body, chain, private_key, upload_date, expiration, tagging_invalid FROM iam_server_certificate WHERE partition = ? AND account = ? AND resource_key = ?
+SELECT "partition", account, resource_key, id, name, path, arn, body, chain, private_key, upload_date, expiration, tagging_invalid, cfn_owner FROM iam_server_certificate WHERE partition = ? AND account = ? AND resource_key = ?
 `
 
 type GetServerCertificateParams struct {
@@ -1226,6 +1234,7 @@ func (q *Queries) GetServerCertificate(ctx context.Context, arg GetServerCertifi
 		&i.UploadDate,
 		&i.Expiration,
 		&i.TaggingInvalid,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -1320,7 +1329,7 @@ func (q *Queries) GetSigningCertificate(ctx context.Context, arg GetSigningCerti
 }
 
 const getUser = `-- name: GetUser :one
-SELECT "partition", account, resource_key, path, user_name, user_id, arn, create_date, password_last_used FROM iam_user WHERE partition = ? AND account = ? AND resource_key = ?
+SELECT "partition", account, resource_key, path, user_name, user_id, arn, create_date, password_last_used, cfn_owner FROM iam_user WHERE partition = ? AND account = ? AND resource_key = ?
 `
 
 type GetUserParams struct {
@@ -1342,6 +1351,7 @@ func (q *Queries) GetUser(ctx context.Context, arg GetUserParams) (IamUser, erro
 		&i.Arn,
 		&i.CreateDate,
 		&i.PasswordLastUsed,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -1864,8 +1874,8 @@ func (q *Queries) InsertAccountSettingsRootLoginProfile(ctx context.Context, arg
 }
 
 const insertCredential = `-- name: InsertCredential :exec
-INSERT INTO iam_credential (resource_key, credential_access_key_id, credential_secret_access_key, credential_session_token, credential_account_id, credential_principal_arn, credential_principal_id, credential_user_name, credential_issuer_arn, credential_issuer_id, credential_federated_provider, credential_source_identity, last_used_service, last_used_region, credential_default_regions_only, credential_has_session_policy, credential_mfa_present, credential_expiration, credential_create_date, credential_mfa_authenticated_at, last_used_date, credential_session_type, status, credential_request_parent_event_id, credential_in_scope_of_issuer_type, credential_in_scope_of_credentials_issued_to)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO iam_credential (resource_key, credential_access_key_id, credential_secret_access_key, credential_session_token, credential_account_id, credential_principal_arn, credential_principal_id, credential_user_name, credential_issuer_arn, credential_issuer_id, credential_federated_provider, credential_source_identity, last_used_service, last_used_region, credential_default_regions_only, credential_has_session_policy, credential_mfa_present, credential_expiration, credential_create_date, credential_mfa_authenticated_at, last_used_date, credential_session_type, status, credential_request_parent_event_id, credential_in_scope_of_issuer_type, credential_in_scope_of_credentials_issued_to, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertCredentialParams struct {
@@ -1895,6 +1905,7 @@ type InsertCredentialParams struct {
 	CredentialRequestParentEventID         string
 	CredentialInScopeOfIssuerType          string
 	CredentialInScopeOfCredentialsIssuedTo string
+	CfnOwner                               string
 }
 
 func (q *Queries) InsertCredential(ctx context.Context, arg InsertCredentialParams) error {
@@ -1925,6 +1936,7 @@ func (q *Queries) InsertCredential(ctx context.Context, arg InsertCredentialPara
 		arg.CredentialRequestParentEventID,
 		arg.CredentialInScopeOfIssuerType,
 		arg.CredentialInScopeOfCredentialsIssuedTo,
+		arg.CfnOwner,
 	)
 	return err
 }
@@ -2059,8 +2071,8 @@ func (q *Queries) InsertCredentialTransitiveTagKeys(ctx context.Context, arg Ins
 }
 
 const insertGroup = `-- name: InsertGroup :exec
-INSERT INTO iam_group (partition, account, resource_key, path, group_name, group_id, arn, create_date)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO iam_group (partition, account, resource_key, path, group_name, group_id, arn, create_date, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertGroupParams struct {
@@ -2072,6 +2084,7 @@ type InsertGroupParams struct {
 	GroupID     string
 	Arn         string
 	CreateDate  time.Time
+	CfnOwner    string
 }
 
 func (q *Queries) InsertGroup(ctx context.Context, arg InsertGroupParams) error {
@@ -2084,13 +2097,14 @@ func (q *Queries) InsertGroup(ctx context.Context, arg InsertGroupParams) error 
 		arg.GroupID,
 		arg.Arn,
 		arg.CreateDate,
+		arg.CfnOwner,
 	)
 	return err
 }
 
 const insertGroupAttached = `-- name: InsertGroupAttached :exec
-INSERT INTO iam_group_attached (partition, account, resource_key, entry_1)
-VALUES (?, ?, ?, ?)
+INSERT INTO iam_group_attached (partition, account, resource_key, entry_1, cfn_owner)
+VALUES (?, ?, ?, ?, ?)
 `
 
 type InsertGroupAttachedParams struct {
@@ -2098,6 +2112,7 @@ type InsertGroupAttachedParams struct {
 	Account     string
 	ResourceKey string
 	Entry1      string
+	CfnOwner    string
 }
 
 func (q *Queries) InsertGroupAttached(ctx context.Context, arg InsertGroupAttachedParams) error {
@@ -2106,13 +2121,14 @@ func (q *Queries) InsertGroupAttached(ctx context.Context, arg InsertGroupAttach
 		arg.Account,
 		arg.ResourceKey,
 		arg.Entry1,
+		arg.CfnOwner,
 	)
 	return err
 }
 
 const insertGroupInline = `-- name: InsertGroupInline :exec
-INSERT INTO iam_group_inline (partition, account, resource_key, entry_1, value)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO iam_group_inline (partition, account, resource_key, entry_1, value, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?)
 `
 
 type InsertGroupInlineParams struct {
@@ -2121,6 +2137,7 @@ type InsertGroupInlineParams struct {
 	ResourceKey string
 	Entry1      string
 	Value       string
+	CfnOwner    string
 }
 
 func (q *Queries) InsertGroupInline(ctx context.Context, arg InsertGroupInlineParams) error {
@@ -2130,13 +2147,14 @@ func (q *Queries) InsertGroupInline(ctx context.Context, arg InsertGroupInlinePa
 		arg.ResourceKey,
 		arg.Entry1,
 		arg.Value,
+		arg.CfnOwner,
 	)
 	return err
 }
 
 const insertGroupMembers = `-- name: InsertGroupMembers :exec
-INSERT INTO iam_group_members (partition, account, resource_key, entry_1)
-VALUES (?, ?, ?, ?)
+INSERT INTO iam_group_members (partition, account, resource_key, entry_1, cfn_owner)
+VALUES (?, ?, ?, ?, ?)
 `
 
 type InsertGroupMembersParams struct {
@@ -2144,6 +2162,7 @@ type InsertGroupMembersParams struct {
 	Account     string
 	ResourceKey string
 	Entry1      string
+	CfnOwner    string
 }
 
 func (q *Queries) InsertGroupMembers(ctx context.Context, arg InsertGroupMembersParams) error {
@@ -2152,13 +2171,14 @@ func (q *Queries) InsertGroupMembers(ctx context.Context, arg InsertGroupMembers
 		arg.Account,
 		arg.ResourceKey,
 		arg.Entry1,
+		arg.CfnOwner,
 	)
 	return err
 }
 
 const insertInstanceProfile = `-- name: InsertInstanceProfile :exec
-INSERT INTO iam_instance_profile (partition, account, resource_key, path, instance_profile_name, instance_profile_id, arn, role_id, create_date)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO iam_instance_profile (partition, account, resource_key, path, instance_profile_name, instance_profile_id, arn, role_id, create_date, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertInstanceProfileParams struct {
@@ -2171,6 +2191,7 @@ type InsertInstanceProfileParams struct {
 	Arn                 string
 	RoleID              string
 	CreateDate          time.Time
+	CfnOwner            string
 }
 
 func (q *Queries) InsertInstanceProfile(ctx context.Context, arg InsertInstanceProfileParams) error {
@@ -2184,6 +2205,7 @@ func (q *Queries) InsertInstanceProfile(ctx context.Context, arg InsertInstanceP
 		arg.Arn,
 		arg.RoleID,
 		arg.CreateDate,
+		arg.CfnOwner,
 	)
 	return err
 }
@@ -2281,8 +2303,8 @@ func (q *Queries) InsertLoginProfilePreviousPasswords(ctx context.Context, arg I
 }
 
 const insertMFADevice = `-- name: InsertMFADevice :exec
-INSERT INTO iam_mfa_device (partition, account, resource_key, enable_date, retired_at, verification_count_window, last_pair_step, verification_count_count, serial_number, binding_value_seed, binding_value_user_id, binding_visible_value_seed, binding_visible_value_user_id, binding_value_skew_steps, binding_visible_value_skew_steps)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO iam_mfa_device (partition, account, resource_key, enable_date, retired_at, verification_count_window, last_pair_step, verification_count_count, serial_number, binding_value_seed, binding_value_user_id, binding_visible_value_seed, binding_visible_value_user_id, binding_value_skew_steps, binding_visible_value_skew_steps, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertMFADeviceParams struct {
@@ -2301,6 +2323,7 @@ type InsertMFADeviceParams struct {
 	BindingVisibleValueUserID    string
 	BindingValueSkewSteps        int64
 	BindingVisibleValueSkewSteps int64
+	CfnOwner                     string
 }
 
 func (q *Queries) InsertMFADevice(ctx context.Context, arg InsertMFADeviceParams) error {
@@ -2320,6 +2343,7 @@ func (q *Queries) InsertMFADevice(ctx context.Context, arg InsertMFADeviceParams
 		arg.BindingVisibleValueUserID,
 		arg.BindingValueSkewSteps,
 		arg.BindingVisibleValueSkewSteps,
+		arg.CfnOwner,
 	)
 	return err
 }
@@ -2407,8 +2431,8 @@ func (q *Queries) InsertMFADeviceUsedCodes(ctx context.Context, arg InsertMFADev
 }
 
 const insertManagedPolicy = `-- name: InsertManagedPolicy :exec
-INSERT INTO iam_managed_policy (partition, account, resource_key, policy_name, policy_id, arn, path, default_version_id, description, attachment_count, permissions_boundary_usage_count, next_version, is_attachable, create_date, update_date)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO iam_managed_policy (partition, account, resource_key, policy_name, policy_id, arn, path, default_version_id, description, attachment_count, permissions_boundary_usage_count, next_version, is_attachable, create_date, update_date, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertManagedPolicyParams struct {
@@ -2427,6 +2451,7 @@ type InsertManagedPolicyParams struct {
 	IsAttachable                  bool
 	CreateDate                    time.Time
 	UpdateDate                    time.Time
+	CfnOwner                      string
 }
 
 func (q *Queries) InsertManagedPolicy(ctx context.Context, arg InsertManagedPolicyParams) error {
@@ -2446,6 +2471,7 @@ func (q *Queries) InsertManagedPolicy(ctx context.Context, arg InsertManagedPoli
 		arg.IsAttachable,
 		arg.CreateDate,
 		arg.UpdateDate,
+		arg.CfnOwner,
 	)
 	return err
 }
@@ -2507,8 +2533,8 @@ func (q *Queries) InsertManagedPolicyVersions(ctx context.Context, arg InsertMan
 }
 
 const insertOIDCProvider = `-- name: InsertOIDCProvider :exec
-INSERT INTO iam_oidc_provider (partition, account, resource_key, arn, id, url, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO iam_oidc_provider (partition, account, resource_key, arn, id, url, created_at, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertOIDCProviderParams struct {
@@ -2519,6 +2545,7 @@ type InsertOIDCProviderParams struct {
 	ID          string
 	Url         string
 	CreatedAt   time.Time
+	CfnOwner    string
 }
 
 func (q *Queries) InsertOIDCProvider(ctx context.Context, arg InsertOIDCProviderParams) error {
@@ -2530,6 +2557,7 @@ func (q *Queries) InsertOIDCProvider(ctx context.Context, arg InsertOIDCProvider
 		arg.ID,
 		arg.Url,
 		arg.CreatedAt,
+		arg.CfnOwner,
 	)
 	return err
 }
@@ -2647,8 +2675,8 @@ func (q *Queries) InsertPrincipalActivity(ctx context.Context, arg InsertPrincip
 }
 
 const insertRole = `-- name: InsertRole :exec
-INSERT INTO iam_role (partition, account, resource_key, path, role_name, role_id, arn, assume_role_policy_document, description, service_linked_service, last_used_region, create_date, last_used_date, max_session_duration, identity_center_instance_arn, identity_center_permission_set_arn)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO iam_role (partition, account, resource_key, path, role_name, role_id, arn, assume_role_policy_document, description, service_linked_service, last_used_region, create_date, last_used_date, max_session_duration, identity_center_instance_arn, identity_center_permission_set_arn, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertRoleParams struct {
@@ -2668,6 +2696,7 @@ type InsertRoleParams struct {
 	MaxSessionDuration             int64
 	IdentityCenterInstanceArn      string
 	IdentityCenterPermissionSetArn string
+	CfnOwner                       string
 }
 
 func (q *Queries) InsertRole(ctx context.Context, arg InsertRoleParams) error {
@@ -2688,13 +2717,14 @@ func (q *Queries) InsertRole(ctx context.Context, arg InsertRoleParams) error {
 		arg.MaxSessionDuration,
 		arg.IdentityCenterInstanceArn,
 		arg.IdentityCenterPermissionSetArn,
+		arg.CfnOwner,
 	)
 	return err
 }
 
 const insertRoleAttached = `-- name: InsertRoleAttached :exec
-INSERT INTO iam_role_attached (partition, account, resource_key, entry_1)
-VALUES (?, ?, ?, ?)
+INSERT INTO iam_role_attached (partition, account, resource_key, entry_1, cfn_owner)
+VALUES (?, ?, ?, ?, ?)
 `
 
 type InsertRoleAttachedParams struct {
@@ -2702,6 +2732,7 @@ type InsertRoleAttachedParams struct {
 	Account     string
 	ResourceKey string
 	Entry1      string
+	CfnOwner    string
 }
 
 func (q *Queries) InsertRoleAttached(ctx context.Context, arg InsertRoleAttachedParams) error {
@@ -2710,13 +2741,14 @@ func (q *Queries) InsertRoleAttached(ctx context.Context, arg InsertRoleAttached
 		arg.Account,
 		arg.ResourceKey,
 		arg.Entry1,
+		arg.CfnOwner,
 	)
 	return err
 }
 
 const insertRoleInline = `-- name: InsertRoleInline :exec
-INSERT INTO iam_role_inline (partition, account, resource_key, entry_1, value)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO iam_role_inline (partition, account, resource_key, entry_1, value, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?)
 `
 
 type InsertRoleInlineParams struct {
@@ -2725,6 +2757,7 @@ type InsertRoleInlineParams struct {
 	ResourceKey string
 	Entry1      string
 	Value       string
+	CfnOwner    string
 }
 
 func (q *Queries) InsertRoleInline(ctx context.Context, arg InsertRoleInlineParams) error {
@@ -2734,6 +2767,7 @@ func (q *Queries) InsertRoleInline(ctx context.Context, arg InsertRoleInlinePara
 		arg.ResourceKey,
 		arg.Entry1,
 		arg.Value,
+		arg.CfnOwner,
 	)
 	return err
 }
@@ -2885,8 +2919,8 @@ func (q *Queries) InsertRoleTrustPrincipalIDs(ctx context.Context, arg InsertRol
 }
 
 const insertSAMLProvider = `-- name: InsertSAMLProvider :exec
-INSERT INTO iam_saml_provider (partition, account, resource_key, arn, name, uuid, metadata_document, assertion_encryption_mode, created_at, valid_until)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO iam_saml_provider (partition, account, resource_key, arn, name, uuid, metadata_document, assertion_encryption_mode, created_at, valid_until, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertSAMLProviderParams struct {
@@ -2900,6 +2934,7 @@ type InsertSAMLProviderParams struct {
 	AssertionEncryptionMode string
 	CreatedAt               time.Time
 	ValidUntil              time.Time
+	CfnOwner                string
 }
 
 func (q *Queries) InsertSAMLProvider(ctx context.Context, arg InsertSAMLProviderParams) error {
@@ -2914,6 +2949,7 @@ func (q *Queries) InsertSAMLProvider(ctx context.Context, arg InsertSAMLProvider
 		arg.AssertionEncryptionMode,
 		arg.CreatedAt,
 		arg.ValidUntil,
+		arg.CfnOwner,
 	)
 	return err
 }
@@ -3057,8 +3093,8 @@ func (q *Queries) InsertSSHPublicKey(ctx context.Context, arg InsertSSHPublicKey
 }
 
 const insertServerCertificate = `-- name: InsertServerCertificate :exec
-INSERT INTO iam_server_certificate (partition, account, resource_key, id, name, path, arn, body, chain, private_key, upload_date, expiration, tagging_invalid)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO iam_server_certificate (partition, account, resource_key, id, name, path, arn, body, chain, private_key, upload_date, expiration, tagging_invalid, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertServerCertificateParams struct {
@@ -3075,6 +3111,7 @@ type InsertServerCertificateParams struct {
 	UploadDate     time.Time
 	Expiration     time.Time
 	TaggingInvalid bool
+	CfnOwner       string
 }
 
 func (q *Queries) InsertServerCertificate(ctx context.Context, arg InsertServerCertificateParams) error {
@@ -3092,6 +3129,7 @@ func (q *Queries) InsertServerCertificate(ctx context.Context, arg InsertServerC
 		arg.UploadDate,
 		arg.Expiration,
 		arg.TaggingInvalid,
+		arg.CfnOwner,
 	)
 	return err
 }
@@ -3285,8 +3323,8 @@ func (q *Queries) InsertSigningCertificate(ctx context.Context, arg InsertSignin
 }
 
 const insertUser = `-- name: InsertUser :exec
-INSERT INTO iam_user (partition, account, resource_key, path, user_name, user_id, arn, create_date, password_last_used)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO iam_user (partition, account, resource_key, path, user_name, user_id, arn, create_date, password_last_used, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertUserParams struct {
@@ -3299,6 +3337,7 @@ type InsertUserParams struct {
 	Arn              string
 	CreateDate       time.Time
 	PasswordLastUsed *time.Time
+	CfnOwner         string
 }
 
 func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) error {
@@ -3312,13 +3351,14 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) error {
 		arg.Arn,
 		arg.CreateDate,
 		arg.PasswordLastUsed,
+		arg.CfnOwner,
 	)
 	return err
 }
 
 const insertUserAttached = `-- name: InsertUserAttached :exec
-INSERT INTO iam_user_attached (partition, account, resource_key, entry_1)
-VALUES (?, ?, ?, ?)
+INSERT INTO iam_user_attached (partition, account, resource_key, entry_1, cfn_owner)
+VALUES (?, ?, ?, ?, ?)
 `
 
 type InsertUserAttachedParams struct {
@@ -3326,6 +3366,7 @@ type InsertUserAttachedParams struct {
 	Account     string
 	ResourceKey string
 	Entry1      string
+	CfnOwner    string
 }
 
 func (q *Queries) InsertUserAttached(ctx context.Context, arg InsertUserAttachedParams) error {
@@ -3334,13 +3375,14 @@ func (q *Queries) InsertUserAttached(ctx context.Context, arg InsertUserAttached
 		arg.Account,
 		arg.ResourceKey,
 		arg.Entry1,
+		arg.CfnOwner,
 	)
 	return err
 }
 
 const insertUserInline = `-- name: InsertUserInline :exec
-INSERT INTO iam_user_inline (partition, account, resource_key, entry_1, value)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO iam_user_inline (partition, account, resource_key, entry_1, value, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?)
 `
 
 type InsertUserInlineParams struct {
@@ -3349,6 +3391,7 @@ type InsertUserInlineParams struct {
 	ResourceKey string
 	Entry1      string
 	Value       string
+	CfnOwner    string
 }
 
 func (q *Queries) InsertUserInline(ctx context.Context, arg InsertUserInlineParams) error {
@@ -3358,6 +3401,7 @@ func (q *Queries) InsertUserInline(ctx context.Context, arg InsertUserInlinePara
 		arg.ResourceKey,
 		arg.Entry1,
 		arg.Value,
+		arg.CfnOwner,
 	)
 	return err
 }
@@ -3867,7 +3911,7 @@ func (q *Queries) ListCredentialTransitiveTagKeys(ctx context.Context, resourceK
 }
 
 const listGroupAttached = `-- name: ListGroupAttached :many
-SELECT "partition", account, resource_key, entry_1 FROM iam_group_attached WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1
+SELECT "partition", account, resource_key, entry_1, cfn_owner FROM iam_group_attached WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1
 `
 
 type ListGroupAttachedParams struct {
@@ -3890,6 +3934,7 @@ func (q *Queries) ListGroupAttached(ctx context.Context, arg ListGroupAttachedPa
 			&i.Account,
 			&i.ResourceKey,
 			&i.Entry1,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -3905,7 +3950,7 @@ func (q *Queries) ListGroupAttached(ctx context.Context, arg ListGroupAttachedPa
 }
 
 const listGroupInline = `-- name: ListGroupInline :many
-SELECT "partition", account, resource_key, entry_1, value FROM iam_group_inline WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1
+SELECT "partition", account, resource_key, entry_1, value, cfn_owner FROM iam_group_inline WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1
 `
 
 type ListGroupInlineParams struct {
@@ -3929,6 +3974,7 @@ func (q *Queries) ListGroupInline(ctx context.Context, arg ListGroupInlineParams
 			&i.ResourceKey,
 			&i.Entry1,
 			&i.Value,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -3982,7 +4028,7 @@ func (q *Queries) ListGroupKeys(ctx context.Context, arg ListGroupKeysParams) ([
 }
 
 const listGroupMembers = `-- name: ListGroupMembers :many
-SELECT "partition", account, resource_key, entry_1 FROM iam_group_members WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1
+SELECT "partition", account, resource_key, entry_1, cfn_owner FROM iam_group_members WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1
 `
 
 type ListGroupMembersParams struct {
@@ -4005,6 +4051,7 @@ func (q *Queries) ListGroupMembers(ctx context.Context, arg ListGroupMembersPara
 			&i.Account,
 			&i.ResourceKey,
 			&i.Entry1,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -4662,7 +4709,7 @@ func (q *Queries) ListPrincipalActivityKeys(ctx context.Context, arg ListPrincip
 }
 
 const listRoleAttached = `-- name: ListRoleAttached :many
-SELECT "partition", account, resource_key, entry_1 FROM iam_role_attached WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1
+SELECT "partition", account, resource_key, entry_1, cfn_owner FROM iam_role_attached WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1
 `
 
 type ListRoleAttachedParams struct {
@@ -4685,6 +4732,7 @@ func (q *Queries) ListRoleAttached(ctx context.Context, arg ListRoleAttachedPara
 			&i.Account,
 			&i.ResourceKey,
 			&i.Entry1,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -4700,7 +4748,7 @@ func (q *Queries) ListRoleAttached(ctx context.Context, arg ListRoleAttachedPara
 }
 
 const listRoleInline = `-- name: ListRoleInline :many
-SELECT "partition", account, resource_key, entry_1, value FROM iam_role_inline WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1
+SELECT "partition", account, resource_key, entry_1, value, cfn_owner FROM iam_role_inline WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1
 `
 
 type ListRoleInlineParams struct {
@@ -4724,6 +4772,7 @@ func (q *Queries) ListRoleInline(ctx context.Context, arg ListRoleInlineParams) 
 			&i.ResourceKey,
 			&i.Entry1,
 			&i.Value,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -5459,7 +5508,7 @@ func (q *Queries) ListSigningCertificateKeys(ctx context.Context, arg ListSignin
 }
 
 const listUserAttached = `-- name: ListUserAttached :many
-SELECT "partition", account, resource_key, entry_1 FROM iam_user_attached WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1
+SELECT "partition", account, resource_key, entry_1, cfn_owner FROM iam_user_attached WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1
 `
 
 type ListUserAttachedParams struct {
@@ -5482,6 +5531,7 @@ func (q *Queries) ListUserAttached(ctx context.Context, arg ListUserAttachedPara
 			&i.Account,
 			&i.ResourceKey,
 			&i.Entry1,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -5497,7 +5547,7 @@ func (q *Queries) ListUserAttached(ctx context.Context, arg ListUserAttachedPara
 }
 
 const listUserInline = `-- name: ListUserInline :many
-SELECT "partition", account, resource_key, entry_1, value FROM iam_user_inline WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1
+SELECT "partition", account, resource_key, entry_1, value, cfn_owner FROM iam_user_inline WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1
 `
 
 type ListUserInlineParams struct {
@@ -5521,6 +5571,7 @@ func (q *Queries) ListUserInline(ctx context.Context, arg ListUserInlineParams) 
 			&i.ResourceKey,
 			&i.Entry1,
 			&i.Value,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}

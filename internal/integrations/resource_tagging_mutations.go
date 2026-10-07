@@ -952,6 +952,10 @@ func resourceTaggingEC2Identity(kind, id string) bool {
 		prefix = "rtb-"
 	case "internet-gateway":
 		prefix = "igw-"
+	case "natgateway":
+		prefix = "nat-"
+	case "vpc-endpoint":
+		prefix = "vpce-"
 	case "network-interface":
 		prefix = "eni-"
 	case "network-acl":

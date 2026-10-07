@@ -24,6 +24,7 @@ type MachineKey struct {
 // MachineRecord identifies the current incarnation of an unqualified ARN.
 // Executions and versions pin immutable revisions, not this mutable pointer.
 type MachineRecord struct {
+	CFNOwner                string
 	Key                     MachineKey
 	ID                      string
 	RevisionID              string
@@ -73,6 +74,7 @@ type VersionKey struct {
 
 type VersionRecord struct {
 	Key         VersionKey
+	CFNOwner    string
 	RevisionID  string
 	Created     time.Time
 	Description string
@@ -91,6 +93,7 @@ type AliasRoute struct {
 
 type AliasRecord struct {
 	Key         AliasKey
+	CFNOwner    string
 	Description string
 	Created     time.Time
 	Updated     time.Time
@@ -103,6 +106,7 @@ type ActivityKey struct {
 }
 
 type ActivityRecord struct {
+	CFNOwner string
 	EncryptionConfig
 	Key     ActivityKey
 	ID      string

@@ -93,6 +93,8 @@ func (r reader) Group(k domain.GroupKey) (domain.GroupRecord, error) {
 
 func (r reader) group(v sqlcgen.SchedulerGroup) (domain.GroupRecord, error) {
 	out := domain.GroupRecord{
+		ID:       v.ID,
+		CFNOwner: v.CfnOwner,
 		Key: domain.GroupKey{
 			Scope: domain.Scope{
 				Partition: v.Partition,
@@ -138,6 +140,8 @@ func (r reader) Groups(k domain.Scope) ([]domain.GroupRecord, error) {
 
 func (w writer) PutGroup(v domain.GroupRecord) error {
 	if err := w.q.PutGroup(w.ctx, sqlcgen.PutGroupParams{
+		ID:          v.ID,
+		CfnOwner:    v.CFNOwner,
 		Partition:   v.Key.Partition,
 		Account:     v.Key.Account,
 		Region:      v.Key.Region,
@@ -178,6 +182,8 @@ func (r reader) Schedule(k domain.ScheduleKey) (domain.ScheduleRecord, error) {
 
 func (r reader) schedule(v sqlcgen.SchedulerSchedule) (domain.ScheduleRecord, error) {
 	out := domain.ScheduleRecord{
+		CFNOwner: v.CfnOwner,
+		ParentID: v.ParentID,
 		Key: domain.ScheduleKey{
 			Group: domain.GroupKey{
 				Scope: domain.Scope{
@@ -234,6 +240,8 @@ func (w writer) PutSchedule(v domain.ScheduleRecord) error {
 		return err
 	}
 	return w.q.PutSchedule(w.ctx, sqlcgen.PutScheduleParams{
+		CfnOwner:              v.CFNOwner,
+		ParentID:              v.ParentID,
 		Partition:             v.Key.Group.Partition,
 		Account:               v.Key.Group.Account,
 		Region:                v.Key.Group.Region,

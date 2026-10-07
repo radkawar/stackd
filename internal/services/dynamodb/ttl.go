@@ -39,6 +39,12 @@ func (s *Service) updateTimeToLive(ctx context.Context, tx Transaction, in *api.
 	if !active && !enabled {
 		return nil, failure("ValidationException", "TimeToLive is already disabled")
 	}
+	// Expiry is performed by the native TTL scanner; disabling needs no engine.
+	if enabled {
+		if err = s.requireEngine(); err != nil {
+			return nil, err
+		}
+	}
 	now := s.clock.Now()
 	if !table.TTLChangedAt.IsZero() && now.Before(table.TTLChangedAt.Add(time.Hour)) {
 		return nil, failure("ValidationException", "Time to live has been modified multiple times within a fixed interval")

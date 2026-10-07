@@ -33,6 +33,7 @@ type (
 	ReplicaBootstrap        = domain.ReplicaBootstrap
 	ReplicaChange           = domain.ReplicaChange
 	TagRecord               = domain.TagRecord
+	ResourceOwner           = domain.ResourceOwner
 	PolicyKey               = domain.PolicyKey
 	PolicyRecord            = domain.PolicyRecord
 	StreamGeneration        = domain.StreamGeneration

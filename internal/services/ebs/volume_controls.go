@@ -158,6 +158,9 @@ func (s *Service) SetVolumeTags(ctx context.Context, id string, tags api.TagList
 		if err != nil {
 			return err
 		}
+		if err := volumeMutationFence(tx.Context(), v); err != nil {
+			return err
+		}
 		v.Tags = make(map[string]string, len(tags))
 		for _, tag := range tags {
 			v.Tags[value(tag.Key)] = value(tag.Value)

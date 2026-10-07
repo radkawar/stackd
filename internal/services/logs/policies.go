@@ -104,6 +104,10 @@ func (s *Service) putResourcePolicy(tx Transaction, in *api.PutResourcePolicyReq
 		return nil, wireError(err)
 	}
 	p := PolicyRecord{Key: k, Document: value(in.PolicyDocument), Updated: s.clock.Now().UnixMilli()}
+	p.CFNOwner, w = cloudFormationClaim(tx.Context(), old.CFNOwner, err == nil)
+	if w != nil {
+		return nil, w
+	}
 	if k.PolicyScope == PolicyScopeResource {
 		gk, w := policyGroupKey(tx.Context(), k.Name)
 		if w != nil {
@@ -207,6 +211,9 @@ func (s *Service) deleteResourcePolicy(tx Transaction, in *api.DeleteResourcePol
 	}
 	if err != nil {
 		return nil, wireError(err)
+	}
+	if w := cloudFormationDelete(tx.Context(), old.CFNOwner); w != nil {
+		return nil, w
 	}
 	if k.PolicyScope == PolicyScopeResource && revision != old.Revision {
 		return nil, policyConflict()

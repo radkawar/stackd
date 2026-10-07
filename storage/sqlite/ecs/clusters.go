@@ -41,7 +41,7 @@ func (r reader) ActiveClusterKeys(partition, accountID string) ([]domain.Cluster
 }
 func (r reader) cluster(row sqlcgen.EcsCluster) (domain.ClusterRecord, error) {
 	k := domain.ClusterKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Name: row.Name}
-	out := domain.ClusterRecord{Key: k, Created: row.Created, Updated: row.Updated, Data: api.Cluster{
+	out := domain.ClusterRecord{Ownership: row.Ownership, Key: k, Created: row.Created, Updated: row.Updated, Data: api.Cluster{
 		ClusterArn: stringPointer[api.String](row.ClusterArn), ClusterName: stringPointer[api.String](row.ClusterName), Status: stringPointer[api.String](row.Status),
 		ActiveServicesCount: integerPointer[api.Integer](row.ActiveServicesCount), PendingTasksCount: integerPointer[api.Integer](row.PendingTasksCount),
 		RegisteredContainerInstancesCount: integerPointer[api.Integer](row.RegisteredContainerInstancesCount), RunningTasksCount: integerPointer[api.Integer](row.RunningTasksCount),
@@ -101,13 +101,11 @@ func (r reader) cluster(row sqlcgen.EcsCluster) (domain.ClusterRecord, error) {
 }
 func (w writer) PutCluster(v domain.ClusterRecord) error {
 	k, d, in := v.Key, &v.Data, &v.CreateInput
-	params := sqlcgen.PutClusterParams{
-		Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name,
+	params := sqlcgen.PutClusterParams{Ownership: v.Ownership, Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name,
 		ClusterArn: nullableString(d.ClusterArn), ClusterName: nullableString(d.ClusterName), Status: nullableString(d.Status),
 		ActiveServicesCount: nullableInteger(d.ActiveServicesCount), PendingTasksCount: nullableInteger(d.PendingTasksCount),
 		RegisteredContainerInstancesCount: nullableInteger(d.RegisteredContainerInstancesCount), RunningTasksCount: nullableInteger(d.RunningTasksCount),
-		AttachmentsStatus: nullableString(d.AttachmentsStatus), CapacityProvidersPresent: d.CapacityProviders != nil, Created: v.Created, Updated: v.Updated,
-	}
+		AttachmentsStatus: nullableString(d.AttachmentsStatus), CapacityProvidersPresent: d.CapacityProviders != nil, Created: v.Created, Updated: v.Updated}
 	if err := marshalFields(
 		jsonWriteField{&params.Attachments, d.Attachments}, jsonWriteField{&params.Configuration, d.Configuration},
 		jsonWriteField{&params.DefaultCapacityProviderStrategy, d.DefaultCapacityProviderStrategy},

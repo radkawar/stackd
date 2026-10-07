@@ -147,7 +147,11 @@ func (s *Service) putConfigRule(tx Transaction, in *api.PutConfigRuleInput) (*ap
 	}
 	for _, old := range rules {
 		if old.Name == rule.Name {
+			if err := checkCloudFormationClaim(tx.Context(), old.CFNOwnership); err != nil {
+				return nil, err
+			}
 			rule.ID = old.ID
+			rule.CFNOwnership = old.CFNOwnership
 			rule.ARN = old.ARN
 			rule.CreatedAt = old.CreatedAt
 			rule.LastEvaluation = old.LastEvaluation
@@ -157,6 +161,7 @@ func (s *Service) putConfigRule(tx Transaction, in *api.PutConfigRuleInput) (*ap
 	}
 	creating := rule.ID == ""
 	if creating {
+		rule.CFNOwnership = creationOwnership(tx.Context())
 		rule.ID = "config-rule-" + opaqueRuleID()[:7]
 		rule.ARN = fmt.Sprintf("arn:%s:config:%s:%s:config-rule/%s", scope.Partition, scope.Region, scope.AccountID, rule.ID)
 	}
@@ -236,6 +241,9 @@ func (s *Service) deleteConfigRule(tx Transaction, in *api.DeleteConfigRuleInput
 		return nil, err
 	}
 	if err := s.authorizeResource(tx.Context(), "DeleteConfigRule", rule.ARN); err != nil {
+		return nil, err
+	}
+	if err := checkCloudFormationClaim(tx.Context(), rule.CFNOwnership); err != nil {
 		return nil, err
 	}
 	if err := s.cancelRuleRuns(tx, scope, name); err != nil {

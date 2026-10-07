@@ -29,6 +29,7 @@ type CrawlerObjectPage struct {
 }
 
 type CrawlerRecord struct {
+	CFNOwner      string
 	Key           ResourceKey
 	Crawler       api.Crawler
 	Tags          map[string]string
@@ -79,4 +80,5 @@ type CrawlersWriter interface {
 	PutConnection(ConnectionRecord) error
 	DeleteConnection(ResourceKey) error
 	PutConnectionEncryption(ConnectionEncryptionRecord) error
+	DeleteConnectionEncryption(Scope) error
 }

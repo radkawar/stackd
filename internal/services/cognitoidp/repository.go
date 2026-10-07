@@ -119,11 +119,16 @@ type Reader interface {
 	Context() context.Context
 	Pool(PoolKey) (PoolRecord, error)
 	PoolByID(partition, region, id string) (PoolRecord, error)
+	// PoolByDomain resolves a prefix domain, which is unique in a Region
+	// across accounts.
+	PoolByDomain(partition, region, domain string) (PoolRecord, error)
 	PoolsForAccount(partition, accountID string) ([]PoolRecord, error)
 	Pools(Scope) ([]PoolRecord, error)
 	SigningKeys(PoolKey) (PoolSigningKeys, error)
 	Client(ClientKey) (ClientRecord, error)
 	ClientByID(partition, region, id string) (ClientRecord, error)
+	// ClientsByID resolves a public bearer client ID across a partition.
+	ClientsByID(partition, id string) ([]ClientRecord, error)
 	Clients(PoolKey) ([]ClientRecord, error)
 	User(UserKey) (UserRecord, error)
 	UsersByAttribute(PoolKey, string, string) ([]UserRecord, error)
@@ -138,11 +143,19 @@ type Reader interface {
 	// Historical refresh tokens retain family ownership for revocation and
 	// rejected-call attribution. The service decides current/grace acceptance.
 	SessionByRefresh(PoolKey, string, []byte) (SessionRecord, error)
+	// Ownership returns a CloudFormation incarnation claim on a pool child.
+	Ownership(OwnershipKey) (OwnershipRecord, error)
+	// PoolOwnership returns the pool claim of one exact incarnation in a scope.
+	PoolOwnership(Scope, ResourceOwner) (OwnershipRecord, error)
+	Provider(ProviderKey) (ProviderRecord, error)
+	Providers(PoolKey) ([]ProviderRecord, error)
 }
 
 // Pool/client deletion removes owned authentication state. User deletion removes
 // attributes, memberships and challenges, but revokes and retains refresh families
 // so rejected token calls can still resolve their username for audit attribution.
+// Deleting a pool, client, user, group, membership or identity provider also
+// removes the ownership claims naming it; a claim never outlives its resource.
 type Transaction interface {
 	Reader
 	PutPool(PoolRecord) error
@@ -162,6 +175,10 @@ type Transaction interface {
 	DeleteEmailCode(EmailCodeKey) error
 	PutSession(SessionRecord) error
 	RevokeUserSessions(UserKey) error
+	PutOwnership(OwnershipRecord) error
+	DeleteOwnership(OwnershipKey) error
+	PutProvider(ProviderRecord) error
+	DeleteProvider(ProviderKey) error
 }
 
 type Repository interface {

@@ -37,7 +37,7 @@ func (r reader) NextPolicy() (domain.ParameterRecord, error) {
 }
 func (r reader) parameter(row sqlcgen.SsmParameter) (domain.ParameterRecord, error) {
 	out := domain.ParameterRecord{Key: domain.ParameterKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Name: row.Name}, ARN: row.Arn, Type: row.Type, Tier: row.Tier, DataType: row.DataType, Description: row.Description, AllowedPattern: row.AllowedPattern, CurrentVersion: row.CurrentVersion}
-	out.Incarnation = row.Incarnation
+	out.Incarnation, out.CloudFormationOwner = row.Incarnation, row.CloudformationOwner
 	if row.TagsPresent {
 		tags, err := r.q.ListTags(r.ctx, row.ID)
 		if err != nil {
@@ -62,7 +62,7 @@ func (r reader) parameter(row sqlcgen.SsmParameter) (domain.ParameterRecord, err
 		}
 		out.ResourcePolicies = make([]domain.ResourcePolicy, 0, len(policies))
 		for _, policy := range policies {
-			p := domain.ResourcePolicy{ID: policy.PolicyID, Hash: policy.Hash, Policy: authorization.BoundPolicy{Document: policy.Document, TrustPolicy: policy.TrustPolicy}}
+			p := domain.ResourcePolicy{ID: policy.PolicyID, Hash: policy.Hash, Policy: authorization.BoundPolicy{Document: policy.Document, TrustPolicy: policy.TrustPolicy}, CloudFormationOwner: policy.CloudformationOwner}
 			if policy.PrincipalsPresent {
 				bindings, err := r.q.ListResourcePolicyBindings(r.ctx, policy.ID)
 				if err != nil {
@@ -80,7 +80,7 @@ func (r reader) parameter(row sqlcgen.SsmParameter) (domain.ParameterRecord, err
 }
 func (w writer) PutParameter(v domain.ParameterRecord) error {
 	k := v.Key
-	id, err := w.q.PutParameter(w.ctx, sqlcgen.PutParameterParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, Arn: v.ARN, Incarnation: v.Incarnation, Type: v.Type, Tier: v.Tier, DataType: v.DataType, Description: v.Description, AllowedPattern: v.AllowedPattern, CurrentVersion: v.CurrentVersion, TagsPresent: v.Tags != nil, PoliciesPresent: v.Policies != nil, ResourcePoliciesPresent: v.ResourcePolicies != nil})
+	id, err := w.q.PutParameter(w.ctx, sqlcgen.PutParameterParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, Arn: v.ARN, Incarnation: v.Incarnation, CloudformationOwner: v.CloudFormationOwner, Type: v.Type, Tier: v.Tier, DataType: v.DataType, Description: v.Description, AllowedPattern: v.AllowedPattern, CurrentVersion: v.CurrentVersion, TagsPresent: v.Tags != nil, PoliciesPresent: v.Policies != nil, ResourcePoliciesPresent: v.ResourcePolicies != nil})
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func (w writer) PutParameter(v domain.ParameterRecord) error {
 		return err
 	}
 	for i, p := range v.ResourcePolicies {
-		policyID, err := w.q.PutResourcePolicies(w.ctx, sqlcgen.PutResourcePoliciesParams{ParentID: id, Position: int64(i), PolicyID: p.ID, Hash: p.Hash, Document: p.Policy.Document, TrustPolicy: p.Policy.TrustPolicy, PrincipalsPresent: p.Policy.PrincipalIDs != nil})
+		policyID, err := w.q.PutResourcePolicies(w.ctx, sqlcgen.PutResourcePoliciesParams{ParentID: id, Position: int64(i), PolicyID: p.ID, Hash: p.Hash, Document: p.Policy.Document, TrustPolicy: p.Policy.TrustPolicy, PrincipalsPresent: p.Policy.PrincipalIDs != nil, CloudformationOwner: p.CloudFormationOwner})
 		if err != nil {
 			return err
 		}

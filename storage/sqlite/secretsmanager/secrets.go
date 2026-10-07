@@ -18,6 +18,11 @@ func (r reader) secret(v sqlcgen.SecretsmanagerSecret) (domain.SecretRecord, err
 		RotationEnabled: boolPointer(v.RotationEnabled), RotationLambdaARN: v.RotationLambdaArn,
 		LastRotated: timePointer(v.LastRotated), NextRotation: timePointer(v.NextRotation),
 		RotationDue: timePointer(v.RotationDue), PrimaryRegion: v.PrimaryRegion,
+		Ownership:           domain.CloudFormationOwnership{Owner: v.CfnOwner, Token: v.CfnToken},
+		PolicyOwnership:     domain.CloudFormationOwnership{Owner: v.PolicyOwner, Token: v.PolicyToken},
+		RotationOwnership:   domain.CloudFormationOwnership{Owner: v.RotationOwner, Token: v.RotationToken},
+		AttachmentOwnership: domain.CloudFormationOwnership{Owner: v.AttachmentOwner, Token: v.AttachmentToken},
+		AttachmentMetadata:  domain.SecretTargetMetadata{Engine: v.AttachmentEngine, Host: v.AttachmentHost, Port: v.AttachmentPort, DBInstanceIdentifier: v.AttachmentDbInstance, DBClusterIdentifier: v.AttachmentDbCluster},
 	}
 	out.Policy.Document, out.Policy.TrustPolicy = v.PolicyDocument, v.PolicyTrust
 	if v.TagsPresent {
@@ -109,6 +114,12 @@ func (w writer) PutSecret(v domain.SecretRecord) error {
 		RotationEnabled: nullableBool(v.RotationEnabled), RotationLambdaArn: v.RotationLambdaARN,
 		LastRotated: nullableTime(v.LastRotated), NextRotation: nullableTime(v.NextRotation),
 		RotationDue: nullableTime(v.RotationDue), PrimaryRegion: v.PrimaryRegion,
+		CfnOwner: v.Ownership.Owner, CfnToken: v.Ownership.Token,
+		PolicyOwner: v.PolicyOwnership.Owner, PolicyToken: v.PolicyOwnership.Token,
+		RotationOwner: v.RotationOwnership.Owner, RotationToken: v.RotationOwnership.Token,
+		AttachmentOwner: v.AttachmentOwnership.Owner, AttachmentToken: v.AttachmentOwnership.Token,
+		AttachmentEngine: v.AttachmentMetadata.Engine, AttachmentHost: v.AttachmentMetadata.Host, AttachmentPort: v.AttachmentMetadata.Port,
+		AttachmentDbInstance: v.AttachmentMetadata.DBInstanceIdentifier, AttachmentDbCluster: v.AttachmentMetadata.DBClusterIdentifier,
 	}); err != nil {
 		return err
 	}

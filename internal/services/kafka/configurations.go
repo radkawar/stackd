@@ -67,6 +67,9 @@ func (s *Service) createConfiguration(ctx context.Context, t Transaction, in *ap
 	}
 	sc := scopeFor(ctx)
 	v := ConfigurationRecord{Scope: sc, ARN: "arn:" + sc.Partition + ":kafka:" + sc.Region + ":" + sc.AccountID + ":configuration/" + name + "/" + uuid.NewString(), Name: name, Description: value(in.Description), Created: s.clock.Now(), LatestRevision: 1, KafkaVersions: plainList(in.KafkaVersions)}
+	if owner, ok := cloudFormationOwnerFor(ctx, cloudFormationConfiguration); ok {
+		v.OwnerStackID, v.OwnerLogicalID, v.OwnerToken = owner.StackID, owner.LogicalID, owner.Token
+	}
 	r := RevisionRecord{ARN: v.ARN, Revision: 1, Description: v.Description, ServerProperties: string(in.ServerProperties), Created: v.Created}
 	if e = t.PutConfiguration(v); e != nil {
 		return nil, e

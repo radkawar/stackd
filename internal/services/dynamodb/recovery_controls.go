@@ -139,6 +139,10 @@ func (s *Service) updateContinuousBackupsCommand(ctx context.Context, in *api.Up
 			}
 			return &api.UpdateContinuousBackupsOutput{ContinuousBackupsDescription: continuousBackupsDescription(api.ContinuousBackupsStatusENABLED, nil, now)}, nil
 		}
+		// Restorable intervals are captured from the native engine.
+		if err := s.requireEngine(); err != nil {
+			return nil, err
+		}
 		var record RecoveryRecord
 		changed := false
 		if table.RecoveryID == "" {

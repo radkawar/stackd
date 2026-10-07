@@ -88,6 +88,12 @@ Permission-set deletion also rechecks current Organizations eligibility for ever
 
 Permission-set edits are pending configuration until `ProvisionPermissionSet` updates the actual role. Existing assignments do not silently apply a pending policy or duration change. AWS-managed policies, target-account customer-managed policies, boundaries, trust, and role session duration are enforced by the current IAM authority. Status records report `SUCCEEDED` only after the synchronous real provisioning/deletion transaction succeeds; the implementation does not fabricate delayed success jobs.
 
+The CloudFormation permission-set adapter forwards `Description`, `RelayStateType`
+and `SessionDuration` only when present on updates. Omission preserves the native
+configuration; it does not synthesize empty values or reset the session duration.
+Explicit empty description or relay state still fails the native
+[UpdatePermissionSet minimum-length contract](https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_UpdatePermissionSet.html).
+
 `ListAccounts`, `ListAccountRoles`, and `GetRoleCredentials` resolve the current directory user, direct assignments, group memberships, Organizations eligibility, and current provisioning. Removing membership/assignment or deleting the user prevents new exchanges. Already-issued IAM sessions remain subject to current IAM policy, trust, role incarnation, and expiry. Portal account records currently contain account IDs, not optional display names/email addresses.
 
 ## Session and persistence semantics

@@ -19,6 +19,7 @@ func (r reader) Role(scope domain.Scope, key string) (domain.Role, error) {
 		return result, err
 	}
 	var record domain.Role
+	record.CloudFormationOwner = row.CfnOwner
 	record.Path = row.Path
 	record.RoleName = row.RoleName
 	record.RoleId = row.RoleID
@@ -61,14 +62,14 @@ func (r reader) Role(scope domain.Scope, key string) (domain.Role, error) {
 		record.SourceRoleTemplate = child
 	}
 	{
-		child, err := r.readRoleInline(row.Partition, row.Account, row.ResourceKey)
+		child, err := r.readRoleInline(row.Partition, row.Account, row.ResourceKey, &record.InlineOwners)
 		if err != nil {
 			return result, err
 		}
 		record.Inline = child
 	}
 	{
-		child, err := r.readRoleAttached(row.Partition, row.Account, row.ResourceKey)
+		child, err := r.readRoleAttached(row.Partition, row.Account, row.ResourceKey, &record.AttachedOwners)
 		if err != nil {
 			return result, err
 		}
@@ -100,7 +101,7 @@ func (w writer) PutRole(scope domain.Scope, record domain.Role) error {
 	if _, err := w.q.DeleteRole(w.ctx, sqlcgen.DeleteRoleParams{Partition: scope.Partition, Account: scope.AccountID, ResourceKey: strings.ToLower(record.RoleName)}); err != nil {
 		return err
 	}
-	if err := w.q.InsertRole(w.ctx, sqlcgen.InsertRoleParams{Partition: scope.Partition, Account: scope.AccountID, ResourceKey: strings.ToLower(record.RoleName), Path: record.Path, RoleName: record.RoleName, RoleID: record.RoleId, Arn: record.Arn, AssumeRolePolicyDocument: record.AssumeRolePolicyDocument, Description: record.Description, ServiceLinkedService: record.ServiceLinkedService, LastUsedRegion: record.LastUsed.Region, CreateDate: record.CreateDate, LastUsedDate: record.LastUsed.Date, MaxSessionDuration: int64(record.MaxSessionDuration), IdentityCenterInstanceArn: record.IdentityCenterInstanceARN, IdentityCenterPermissionSetArn: record.IdentityCenterPermissionSetARN}); err != nil {
+	if err := w.q.InsertRole(w.ctx, sqlcgen.InsertRoleParams{Partition: scope.Partition, Account: scope.AccountID, ResourceKey: strings.ToLower(record.RoleName), Path: record.Path, RoleName: record.RoleName, RoleID: record.RoleId, Arn: record.Arn, AssumeRolePolicyDocument: record.AssumeRolePolicyDocument, Description: record.Description, ServiceLinkedService: record.ServiceLinkedService, LastUsedRegion: record.LastUsed.Region, CreateDate: record.CreateDate, LastUsedDate: record.LastUsed.Date, MaxSessionDuration: int64(record.MaxSessionDuration), IdentityCenterInstanceArn: record.IdentityCenterInstanceARN, IdentityCenterPermissionSetArn: record.IdentityCenterPermissionSetARN, CfnOwner: record.CloudFormationOwner}); err != nil {
 		return err
 	}
 	if err := w.writeRolePermissionsBoundary(scope.Partition, scope.AccountID, strings.ToLower(record.RoleName), record.PermissionsBoundary); err != nil {
@@ -115,10 +116,10 @@ func (w writer) PutRole(scope domain.Scope, record domain.Role) error {
 	if err := w.writeRoleSourceRoleTemplate(scope.Partition, scope.AccountID, strings.ToLower(record.RoleName), record.SourceRoleTemplate); err != nil {
 		return err
 	}
-	if err := w.writeRoleInline(scope.Partition, scope.AccountID, strings.ToLower(record.RoleName), record.Inline); err != nil {
+	if err := w.writeRoleInline(scope.Partition, scope.AccountID, strings.ToLower(record.RoleName), record.Inline, record.InlineOwners); err != nil {
 		return err
 	}
-	if err := w.writeRoleAttached(scope.Partition, scope.AccountID, strings.ToLower(record.RoleName), record.Attached); err != nil {
+	if err := w.writeRoleAttached(scope.Partition, scope.AccountID, strings.ToLower(record.RoleName), record.Attached, record.AttachedOwners); err != nil {
 		return err
 	}
 	return nil
@@ -235,29 +236,38 @@ func (r reader) readRoleSourceRoleTemplateParametersValues(partition string, acc
 	return result, nil
 }
 
-func (r reader) readRoleInline(partition string, account string, resourceKey string) (map[string]string, error) {
-	var result map[string]string
+func (r reader) readRoleInline(partition string, account string, resourceKey string, owners *map[string]string) (map[string]string, error) {
 	rows, err := r.q.ListRoleInline(r.ctx, sqlcgen.ListRoleInlineParams{Partition: partition, Account: account, ResourceKey: resourceKey})
 	if err != nil {
-		return result, err
+		return nil, err
 	}
-	result = make(map[string]string, len(rows))
+	result := make(map[string]string, len(rows))
 	for _, row := range rows {
-		record := row.Value
-		result[row.Entry1] = record
+		result[row.Entry1] = row.Value
+		if row.CfnOwner != "" {
+			if *owners == nil {
+				*owners = make(map[string]string)
+			}
+			(*owners)[row.Entry1] = row.CfnOwner
+		}
 	}
 	return result, nil
 }
 
-func (r reader) readRoleAttached(partition string, account string, resourceKey string) (map[string]struct{}, error) {
-	var result map[string]struct{}
+func (r reader) readRoleAttached(partition string, account string, resourceKey string, owners *map[string]string) (map[string]struct{}, error) {
 	rows, err := r.q.ListRoleAttached(r.ctx, sqlcgen.ListRoleAttachedParams{Partition: partition, Account: account, ResourceKey: resourceKey})
 	if err != nil {
-		return result, err
+		return nil, err
 	}
-	result = make(map[string]struct{}, len(rows))
+	result := make(map[string]struct{}, len(rows))
 	for _, row := range rows {
 		result[row.Entry1] = struct{}{}
+		if row.CfnOwner != "" {
+			if *owners == nil {
+				*owners = make(map[string]string)
+			}
+			(*owners)[row.Entry1] = row.CfnOwner
+		}
 	}
 	return result, nil
 }
@@ -324,18 +334,18 @@ func (w writer) writeRoleSourceRoleTemplateParametersValues(partition string, ac
 	return nil
 }
 
-func (w writer) writeRoleInline(partition string, account string, resourceKey string, value map[string]string) error {
+func (w writer) writeRoleInline(partition string, account string, resourceKey string, value map[string]string, owners map[string]string) error {
 	for entry1, record := range value {
-		if err := w.q.InsertRoleInline(w.ctx, sqlcgen.InsertRoleInlineParams{Partition: partition, Account: account, ResourceKey: resourceKey, Entry1: entry1, Value: record}); err != nil {
+		if err := w.q.InsertRoleInline(w.ctx, sqlcgen.InsertRoleInlineParams{Partition: partition, Account: account, ResourceKey: resourceKey, Entry1: entry1, Value: record, CfnOwner: owners[entry1]}); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (w writer) writeRoleAttached(partition string, account string, resourceKey string, value map[string]struct{}) error {
+func (w writer) writeRoleAttached(partition string, account string, resourceKey string, value map[string]struct{}, owners map[string]string) error {
 	for entry1 := range value {
-		if err := w.q.InsertRoleAttached(w.ctx, sqlcgen.InsertRoleAttachedParams{Partition: partition, Account: account, ResourceKey: resourceKey, Entry1: entry1}); err != nil {
+		if err := w.q.InsertRoleAttached(w.ctx, sqlcgen.InsertRoleAttachedParams{Partition: partition, Account: account, ResourceKey: resourceKey, Entry1: entry1, CfnOwner: owners[entry1]}); err != nil {
 			return err
 		}
 	}

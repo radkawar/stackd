@@ -45,7 +45,7 @@ func (r reader) ipLists(rows []sqlcgen.GuarddutyIpList) ([]domain.IPList, error)
 }
 
 func (r reader) ipList(row sqlcgen.GuarddutyIpList) (domain.IPList, error) {
-	v := domain.IPList{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, DetectorID: row.DetectorID, Kind: domain.IPListKind(row.Kind), ID: row.ID, ARN: row.Arn, Name: row.Name, Format: row.Format, Location: row.Location, ExpectedBucketOwner: row.ExpectedBucketOwner, ClientToken: row.ClientToken, Status: row.Status, Version: row.Version, Due: row.Due}
+	v := domain.IPList{CFNOwnership: domain.CloudFormationOwnership{Owner: row.CfnOwner, Token: row.CfnToken}, Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, DetectorID: row.DetectorID, Kind: domain.IPListKind(row.Kind), ID: row.ID, ARN: row.Arn, Name: row.Name, Format: row.Format, Location: row.Location, ExpectedBucketOwner: row.ExpectedBucketOwner, ClientToken: row.ClientToken, Status: row.Status, Version: row.Version, Due: row.Due}
 	if row.TagsPresent {
 		v.Tags = map[string]string{}
 	}
@@ -63,7 +63,7 @@ func (w writer) PutIPList(v domain.IPList) error {
 	if _, err := w.q.GetDetector(w.ctx, sqlcgen.GetDetectorParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, ID: v.DetectorID}); err != nil {
 		return notFound(err)
 	}
-	if err := w.q.PutIPList(w.ctx, sqlcgen.PutIPListParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, DetectorID: v.DetectorID, Kind: string(v.Kind), ID: v.ID, Arn: v.ARN, Name: v.Name, Format: v.Format, Location: v.Location, ExpectedBucketOwner: v.ExpectedBucketOwner, ClientToken: v.ClientToken, Status: v.Status, Version: v.Version, Due: v.Due, TagsPresent: v.Tags != nil}); err != nil {
+	if err := w.q.PutIPList(w.ctx, sqlcgen.PutIPListParams{CfnOwner: v.CFNOwnership.Owner, CfnToken: v.CFNOwnership.Token, Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, DetectorID: v.DetectorID, Kind: string(v.Kind), ID: v.ID, Arn: v.ARN, Name: v.Name, Format: v.Format, Location: v.Location, ExpectedBucketOwner: v.ExpectedBucketOwner, ClientToken: v.ClientToken, Status: v.Status, Version: v.Version, Due: v.Due, TagsPresent: v.Tags != nil}); err != nil {
 		return err
 	}
 	if err := w.q.DeleteIPListTags(w.ctx, v.ARN); err != nil {

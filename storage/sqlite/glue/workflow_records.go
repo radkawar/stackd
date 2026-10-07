@@ -71,6 +71,7 @@ func (r reader) Workflow(k domain.ResourceKey) (domain.WorkflowRecord, error) {
 func (r reader) wfWorkflow(row sqlcgen.GlueWorkflow) (domain.WorkflowRecord, error) {
 	k := wfKey(row.Partition, row.AccountID, row.Region, row.Name)
 	v := domain.WorkflowRecord{Key: k, Workflow: api.Workflow{Name: new(api.NameString(k.Name)), Description: wfStringPtr[api.GenericString](row.Description), CreatedOn: wfTimestamp(row.Created), LastModifiedOn: wfTimestamp(row.Modified), MaxConcurrentRuns: wfIntPtr[api.NullableInteger](row.MaxConcurrent), DefaultRunProperties: api.WorkflowRunProperties{}}, Tags: map[string]string{}}
+	v.CFNOwner = row.CfnOwner
 	tags, err := r.q.WFWorkflowTagList(r.ctx, sqlcgen.WFWorkflowTagListParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name})
 	if err != nil {
 		return v, err
@@ -104,7 +105,7 @@ func (r reader) Workflows(s domain.Scope) ([]domain.WorkflowRecord, error) {
 }
 func (w writer) PutWorkflow(v domain.WorkflowRecord) error {
 	k := v.Key
-	if err := w.q.WFWorkflowPut(w.ctx, sqlcgen.WFWorkflowPutParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, Description: wfString(v.Workflow.Description), Created: wfTimestampN(v.Workflow.CreatedOn), Modified: wfTimestampN(v.Workflow.LastModifiedOn), MaxConcurrent: wfInt(v.Workflow.MaxConcurrentRuns)}); err != nil {
+	if err := w.q.WFWorkflowPut(w.ctx, sqlcgen.WFWorkflowPutParams{CfnOwner: v.CFNOwner, Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, Description: wfString(v.Workflow.Description), Created: wfTimestampN(v.Workflow.CreatedOn), Modified: wfTimestampN(v.Workflow.LastModifiedOn), MaxConcurrent: wfInt(v.Workflow.MaxConcurrentRuns)}); err != nil {
 		return err
 	}
 	if err := w.q.WFWorkflowTagDelete(w.ctx, sqlcgen.WFWorkflowTagDeleteParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name}); err != nil {
@@ -146,7 +147,7 @@ func wfSecurity(row sqlcgen.GlueSecurityConfiguration) domain.SecurityConfigurat
 	if row.BookmarksMode.Valid {
 		c.JobBookmarksEncryption = &api.JobBookmarksEncryption{JobBookmarksEncryptionMode: wfStringPtr[api.JobBookmarksEncryptionMode](row.BookmarksMode), KmsKeyArn: wfStringPtr[api.KmsKeyArn](row.BookmarksKey)}
 	}
-	return domain.SecurityConfigurationRecord{Key: wfKey(row.Partition, row.AccountID, row.Region, row.Name), Configuration: api.SecurityConfiguration{Name: new(api.NameString(row.Name)), CreatedTimeStamp: wfTimestamp(row.Created), EncryptionConfiguration: &c}}
+	return domain.SecurityConfigurationRecord{CFNOwner: row.CfnOwner, Key: wfKey(row.Partition, row.AccountID, row.Region, row.Name), Configuration: api.SecurityConfiguration{Name: new(api.NameString(row.Name)), CreatedTimeStamp: wfTimestamp(row.Created), EncryptionConfiguration: &c}}
 }
 func (r reader) SecurityConfigurations(s domain.Scope) ([]domain.SecurityConfigurationRecord, error) {
 	rows, err := r.q.WFSecurityConfigurationList(r.ctx, sqlcgen.WFSecurityConfigurationListParams{Partition: s.Partition, AccountID: s.AccountID, Region: s.Region})
@@ -162,6 +163,7 @@ func (r reader) SecurityConfigurations(s domain.Scope) ([]domain.SecurityConfigu
 func (w writer) PutSecurityConfiguration(v domain.SecurityConfigurationRecord) error {
 	k := v.Key
 	p := sqlcgen.WFSecurityConfigurationPutParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, Created: wfTimestampN(v.Configuration.CreatedTimeStamp)}
+	p.CfnOwner = v.CFNOwner
 	if c := v.Configuration.EncryptionConfiguration; c != nil {
 		if len(c.S3Encryption) > 0 {
 			p.S3Mode = wfString(c.S3Encryption[0].S3EncryptionMode)

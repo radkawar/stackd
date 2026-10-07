@@ -46,6 +46,16 @@ func (resource taggedResource) tags() map[string]string {
 	return nil
 }
 
+func (resource taggedResource) claim() string {
+	if resource.group != nil {
+		return resource.group.CFNOwner
+	}
+	if resource.rule != nil {
+		return resource.rule.CFNOwner
+	}
+	return ""
+}
+
 func (resource taggedResource) putTags(tx Transaction, tags map[string]string) error {
 	if resource.group != nil {
 		resource.group.Tags = tags
@@ -78,6 +88,9 @@ func (s *Service) tagResource(tx Transaction, in *api.TagResourceRequest) (*api.
 	}
 	if err != nil {
 		return nil, missingTaggedResource(arn)
+	}
+	if _, err := cloudFormationClaim(tx.Context(), resource.claim(), true); err != nil {
+		return nil, err
 	}
 	merged := maps.Clone(resource.tags())
 	if merged == nil {
@@ -114,6 +127,9 @@ func (s *Service) untagResource(tx Transaction, in *api.UntagResourceRequest) (*
 	}
 	if err != nil {
 		return nil, missingTaggedResource(arn)
+	}
+	if _, err := cloudFormationClaim(tx.Context(), resource.claim(), true); err != nil {
+		return nil, err
 	}
 	tags := maps.Clone(resource.tags())
 	for _, key := range keys {

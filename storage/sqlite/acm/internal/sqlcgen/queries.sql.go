@@ -54,7 +54,7 @@ func (q *Queries) GetAuthority(ctx context.Context) (GetAuthorityRow, error) {
 }
 
 const getCertificate = `-- name: GetCertificate :one
-SELECT arn, "partition", account_id, region, id, domain, status, type, key_algorithm, transparency, export_option, created, issued, imported, not_before, not_after, validation_deadline, next_check, renewal_updated, version, material_version, renewal_status, exported, certificate_pem, chain_pem, private_key_pem FROM acm_certificates WHERE arn = ?
+SELECT arn, "partition", account_id, region, id, domain, status, type, key_algorithm, transparency, export_option, created, issued, imported, not_before, not_after, validation_deadline, next_check, renewal_updated, version, material_version, renewal_status, exported, certificate_pem, chain_pem, private_key_pem, cfn_owner FROM acm_certificates WHERE arn = ?
 `
 
 func (q *Queries) GetCertificate(ctx context.Context, arn string) (AcmCertificate, error) {
@@ -87,6 +87,58 @@ func (q *Queries) GetCertificate(ctx context.Context, arn string) (AcmCertificat
 		&i.CertificatePem,
 		&i.ChainPem,
 		&i.PrivateKeyPem,
+		&i.CfnOwner,
+	)
+	return i, err
+}
+
+const getCertificateByOwner = `-- name: GetCertificateByOwner :one
+SELECT arn, "partition", account_id, region, id, domain, status, type, key_algorithm, transparency, export_option, created, issued, imported, not_before, not_after, validation_deadline, next_check, renewal_updated, version, material_version, renewal_status, exported, certificate_pem, chain_pem, private_key_pem, cfn_owner FROM acm_certificates WHERE partition=? AND account_id=? AND region=? AND cfn_owner=? AND cfn_owner<>''
+`
+
+type GetCertificateByOwnerParams struct {
+	Partition string
+	AccountID string
+	Region    string
+	CfnOwner  string
+}
+
+func (q *Queries) GetCertificateByOwner(ctx context.Context, arg GetCertificateByOwnerParams) (AcmCertificate, error) {
+	row := q.db.QueryRowContext(ctx, getCertificateByOwner,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.CfnOwner,
+	)
+	var i AcmCertificate
+	err := row.Scan(
+		&i.Arn,
+		&i.Partition,
+		&i.AccountID,
+		&i.Region,
+		&i.ID,
+		&i.Domain,
+		&i.Status,
+		&i.Type,
+		&i.KeyAlgorithm,
+		&i.Transparency,
+		&i.ExportOption,
+		&i.Created,
+		&i.Issued,
+		&i.Imported,
+		&i.NotBefore,
+		&i.NotAfter,
+		&i.ValidationDeadline,
+		&i.NextCheck,
+		&i.RenewalUpdated,
+		&i.Version,
+		&i.MaterialVersion,
+		&i.RenewalStatus,
+		&i.Exported,
+		&i.CertificatePem,
+		&i.ChainPem,
+		&i.PrivateKeyPem,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -176,7 +228,7 @@ func (q *Queries) GetToken(ctx context.Context, arg GetTokenParams) (AcmValidati
 }
 
 const listCertificates = `-- name: ListCertificates :many
-SELECT arn, "partition", account_id, region, id, domain, status, type, key_algorithm, transparency, export_option, created, issued, imported, not_before, not_after, validation_deadline, next_check, renewal_updated, version, material_version, renewal_status, exported, certificate_pem, chain_pem, private_key_pem FROM acm_certificates ORDER BY arn
+SELECT arn, "partition", account_id, region, id, domain, status, type, key_algorithm, transparency, export_option, created, issued, imported, not_before, not_after, validation_deadline, next_check, renewal_updated, version, material_version, renewal_status, exported, certificate_pem, chain_pem, private_key_pem, cfn_owner FROM acm_certificates ORDER BY arn
 `
 
 func (q *Queries) ListCertificates(ctx context.Context) ([]AcmCertificate, error) {
@@ -215,6 +267,7 @@ func (q *Queries) ListCertificates(ctx context.Context) ([]AcmCertificate, error
 			&i.CertificatePem,
 			&i.ChainPem,
 			&i.PrivateKeyPem,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -305,8 +358,8 @@ func (q *Queries) PutAuthority(ctx context.Context, arg PutAuthorityParams) erro
 }
 
 const putCertificate = `-- name: PutCertificate :exec
-INSERT INTO acm_certificates(arn,partition,account_id,region,id,domain,status,type,key_algorithm,transparency,export_option,created,issued,imported,not_before,not_after,validation_deadline,next_check,renewal_updated,version,material_version,renewal_status,exported,certificate_pem,chain_pem,private_key_pem)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+INSERT INTO acm_certificates(arn,partition,account_id,region,id,domain,status,type,key_algorithm,transparency,export_option,created,issued,imported,not_before,not_after,validation_deadline,next_check,renewal_updated,version,material_version,renewal_status,exported,certificate_pem,chain_pem,private_key_pem,cfn_owner)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(arn) DO UPDATE SET domain=excluded.domain,status=excluded.status,key_algorithm=excluded.key_algorithm,transparency=excluded.transparency,export_option=excluded.export_option,issued=excluded.issued,imported=excluded.imported,not_before=excluded.not_before,not_after=excluded.not_after,validation_deadline=excluded.validation_deadline,next_check=excluded.next_check,renewal_updated=excluded.renewal_updated,version=excluded.version,material_version=excluded.material_version,renewal_status=excluded.renewal_status,exported=excluded.exported,certificate_pem=excluded.certificate_pem,chain_pem=excluded.chain_pem,private_key_pem=excluded.private_key_pem
 `
 
@@ -337,6 +390,7 @@ type PutCertificateParams struct {
 	CertificatePem     []byte
 	ChainPem           []byte
 	PrivateKeyPem      []byte
+	CfnOwner           string
 }
 
 func (q *Queries) PutCertificate(ctx context.Context, arg PutCertificateParams) error {
@@ -367,6 +421,7 @@ func (q *Queries) PutCertificate(ctx context.Context, arg PutCertificateParams) 
 		arg.CertificatePem,
 		arg.ChainPem,
 		arg.PrivateKeyPem,
+		arg.CfnOwner,
 	)
 	return err
 }

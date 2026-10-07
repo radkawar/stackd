@@ -20,19 +20,6 @@ import (
 	"stackd/compute/network"
 )
 
-type Config struct {
-	SystemBinary   string
-	ImageBinary    string
-	NBDBinary      string
-	IOBinary       string
-	StateDirectory string
-	BIOSPath       string
-	UEFICodePath   string
-	UEFIVarsPath   string
-	Networks       GuestNetworks
-	CPULimits      ProcessLimits
-}
-
 type QEMU struct{ config Config }
 
 type nativeInstance struct {

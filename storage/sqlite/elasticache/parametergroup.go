@@ -28,7 +28,7 @@ func (r reader) ParameterGroups(sc domain.Scope) ([]domain.ParameterGroup, error
 	return out, nil
 }
 func (r reader) parametergroup(row sqlcgen.ElasticacheParameterGroup) (domain.ParameterGroup, error) {
-	v := domain.ParameterGroup{Key: domain.Key{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Kind: row.Kind, Name: row.Name}, Family: row.Family, Description: row.Description}
+	v := domain.ParameterGroup{Key: domain.Key{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Kind: row.Kind, Name: row.Name}, Family: row.Family, Description: row.Description, CloudFormationOwner: row.CloudformationOwner}
 	var e error
 	v.Tags, e = r.tags(v.Key)
 	if e != nil {
@@ -42,7 +42,7 @@ func (r reader) parametergroup(row sqlcgen.ElasticacheParameterGroup) (domain.Pa
 }
 func (w writer) PutParameterGroup(v domain.ParameterGroup) error {
 	k := v.Key
-	if e := w.q.PutParameterGroup(w.ctx, sqlcgen.PutParameterGroupParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Kind: k.Kind, Name: k.Name, Family: v.Family, Description: v.Description}); e != nil {
+	if e := w.q.PutParameterGroup(w.ctx, sqlcgen.PutParameterGroupParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Kind: k.Kind, Name: k.Name, Family: v.Family, Description: v.Description, CloudformationOwner: v.CloudFormationOwner}); e != nil {
 		return e
 	}
 	if e := w.putTags(k, v.Tags); e != nil {

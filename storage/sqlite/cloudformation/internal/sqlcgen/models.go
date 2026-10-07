@@ -259,6 +259,9 @@ type CloudformationStack struct {
 	DisableRollback       bool
 	TerminationProtection bool
 	EventSequence         int64
+	NestedOwner           string
+	ParentID              string
+	RootID                string
 }
 
 type CloudformationStackImport struct {

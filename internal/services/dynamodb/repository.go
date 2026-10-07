@@ -38,6 +38,7 @@ type DatabaseRecord struct {
 // Current tags and resource policies have their own records.
 type TableRecord struct {
 	Key           TableKey
+	Owner         ResourceOwner
 	Data          api.TableDescription
 	DatabaseID    string
 	PhysicalName  string

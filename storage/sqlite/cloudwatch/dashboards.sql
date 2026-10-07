@@ -10,11 +10,11 @@ WHERE partition = sqlc.arg(partition) AND account_id = sqlc.arg(account_id)
 ORDER BY name LIMIT sqlc.arg(page_limit);
 
 -- name: PutDashboard :exec
-INSERT INTO cloudwatch_dashboards (partition, account_id, name, body, updated, size, tagging_initialized)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO cloudwatch_dashboards (partition, account_id, name, body, updated, size, tagging_initialized, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, name) DO UPDATE SET
  body = excluded.body, updated = excluded.updated, size = excluded.size,
- tagging_initialized = excluded.tagging_initialized;
+ tagging_initialized = excluded.tagging_initialized, cfn_owner = excluded.cfn_owner;
 
 -- name: DeleteDashboard :exec
 DELETE FROM cloudwatch_dashboards WHERE partition = ? AND account_id = ? AND name = ?;

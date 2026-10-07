@@ -75,7 +75,7 @@ func (q *Queries) DeleteAttributeLink(ctx context.Context, arg DeleteAttributeLi
 }
 
 const getApplication = `-- name: GetApplication :one
-SELECT arn, "partition", account_id, region, id, name, description, client_token, create_fingerprint, group_arn, tag_group_arn, created, modified FROM appregistry_applications
+SELECT arn, "partition", account_id, region, id, name, description, client_token, create_fingerprint, group_arn, tag_group_arn, created, modified, cloudformation_claim FROM appregistry_applications
 WHERE partition = ? AND account_id = ? AND region = ?
   AND (arn = ?4 OR id = ?4 OR name = ?4)
 ORDER BY CASE WHEN arn = ?4 THEN 0 WHEN id = ?4 THEN 1 ELSE 2 END LIMIT 1
@@ -111,12 +111,13 @@ func (q *Queries) GetApplication(ctx context.Context, arg GetApplicationParams) 
 		&i.TagGroupArn,
 		&i.Created,
 		&i.Modified,
+		&i.CloudformationClaim,
 	)
 	return i, err
 }
 
 const getAttributeGroup = `-- name: GetAttributeGroup :one
-SELECT arn, "partition", account_id, region, id, name, description, attributes, client_token, create_fingerprint, created, modified FROM appregistry_attribute_groups
+SELECT arn, "partition", account_id, region, id, name, description, attributes, client_token, create_fingerprint, created, modified, cloudformation_claim FROM appregistry_attribute_groups
 WHERE partition = ? AND account_id = ? AND region = ?
   AND (arn = ?4 OR id = ?4 OR name = ?4)
 ORDER BY CASE WHEN arn = ?4 THEN 0 WHEN id = ?4 THEN 1 ELSE 2 END LIMIT 1
@@ -151,6 +152,7 @@ func (q *Queries) GetAttributeGroup(ctx context.Context, arg GetAttributeGroupPa
 		&i.CreateFingerprint,
 		&i.Created,
 		&i.Modified,
+		&i.CloudformationClaim,
 	)
 	return i, err
 }
@@ -178,7 +180,7 @@ func (q *Queries) GetConfiguration(ctx context.Context, arg GetConfigurationPara
 }
 
 const listAccountApplications = `-- name: ListAccountApplications :many
-SELECT arn, "partition", account_id, region, id, name, description, client_token, create_fingerprint, group_arn, tag_group_arn, created, modified FROM appregistry_applications WHERE partition = ? AND account_id = ? ORDER BY arn
+SELECT arn, "partition", account_id, region, id, name, description, client_token, create_fingerprint, group_arn, tag_group_arn, created, modified, cloudformation_claim FROM appregistry_applications WHERE partition = ? AND account_id = ? ORDER BY arn
 `
 
 type ListAccountApplicationsParams struct {
@@ -209,6 +211,7 @@ func (q *Queries) ListAccountApplications(ctx context.Context, arg ListAccountAp
 			&i.TagGroupArn,
 			&i.Created,
 			&i.Modified,
+			&i.CloudformationClaim,
 		); err != nil {
 			return nil, err
 		}
@@ -251,7 +254,7 @@ func (q *Queries) ListApplicationTags(ctx context.Context, applicationArn string
 }
 
 const listApplications = `-- name: ListApplications :many
-SELECT arn, "partition", account_id, region, id, name, description, client_token, create_fingerprint, group_arn, tag_group_arn, created, modified FROM appregistry_applications
+SELECT arn, "partition", account_id, region, id, name, description, client_token, create_fingerprint, group_arn, tag_group_arn, created, modified, cloudformation_claim FROM appregistry_applications
 WHERE partition = ? AND account_id = ? AND region = ? ORDER BY arn
 `
 
@@ -284,6 +287,7 @@ func (q *Queries) ListApplications(ctx context.Context, arg ListApplicationsPara
 			&i.TagGroupArn,
 			&i.Created,
 			&i.Modified,
+			&i.CloudformationClaim,
 		); err != nil {
 			return nil, err
 		}
@@ -299,7 +303,7 @@ func (q *Queries) ListApplications(ctx context.Context, arg ListApplicationsPara
 }
 
 const listAssociations = `-- name: ListAssociations :many
-SELECT application_arn, resource_arn, resource_name, resource_type, incarnation, apply_tag, created FROM appregistry_resource_associations WHERE application_arn = ? ORDER BY resource_arn
+SELECT application_arn, resource_arn, resource_name, resource_type, incarnation, apply_tag, created, cloudformation_claim FROM appregistry_resource_associations WHERE application_arn = ? ORDER BY resource_arn
 `
 
 func (q *Queries) ListAssociations(ctx context.Context, applicationArn string) ([]AppregistryResourceAssociation, error) {
@@ -319,6 +323,7 @@ func (q *Queries) ListAssociations(ctx context.Context, applicationArn string) (
 			&i.Incarnation,
 			&i.ApplyTag,
 			&i.Created,
+			&i.CloudformationClaim,
 		); err != nil {
 			return nil, err
 		}
@@ -361,7 +366,7 @@ func (q *Queries) ListAttributeGroupTags(ctx context.Context, attributeGroupArn 
 }
 
 const listAttributeGroups = `-- name: ListAttributeGroups :many
-SELECT arn, "partition", account_id, region, id, name, description, attributes, client_token, create_fingerprint, created, modified FROM appregistry_attribute_groups
+SELECT arn, "partition", account_id, region, id, name, description, attributes, client_token, create_fingerprint, created, modified, cloudformation_claim FROM appregistry_attribute_groups
 WHERE partition = ? AND account_id = ? AND region = ? ORDER BY arn
 `
 
@@ -393,6 +398,7 @@ func (q *Queries) ListAttributeGroups(ctx context.Context, arg ListAttributeGrou
 			&i.CreateFingerprint,
 			&i.Created,
 			&i.Modified,
+			&i.CloudformationClaim,
 		); err != nil {
 			return nil, err
 		}
@@ -408,22 +414,22 @@ func (q *Queries) ListAttributeGroups(ctx context.Context, arg ListAttributeGrou
 }
 
 const listAttributeLinks = `-- name: ListAttributeLinks :many
-SELECT attribute_group_arn FROM appregistry_attribute_links WHERE application_arn = ? ORDER BY attribute_group_arn
+SELECT application_arn, attribute_group_arn, cloudformation_claim FROM appregistry_attribute_links WHERE application_arn = ? ORDER BY attribute_group_arn
 `
 
-func (q *Queries) ListAttributeLinks(ctx context.Context, applicationArn string) ([]string, error) {
+func (q *Queries) ListAttributeLinks(ctx context.Context, applicationArn string) ([]AppregistryAttributeLink, error) {
 	rows, err := q.db.QueryContext(ctx, listAttributeLinks, applicationArn)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []string{}
+	items := []AppregistryAttributeLink{}
 	for rows.Next() {
-		var attribute_group_arn string
-		if err := rows.Scan(&attribute_group_arn); err != nil {
+		var i AppregistryAttributeLink
+		if err := rows.Scan(&i.ApplicationArn, &i.AttributeGroupArn, &i.CloudformationClaim); err != nil {
 			return nil, err
 		}
-		items = append(items, attribute_group_arn)
+		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -435,13 +441,14 @@ func (q *Queries) ListAttributeLinks(ctx context.Context, applicationArn string)
 }
 
 const putApplication = `-- name: PutApplication :execrows
-INSERT INTO appregistry_applications (arn, partition, account_id, region, id, name, description, client_token, create_fingerprint, group_arn, tag_group_arn, created, modified)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO appregistry_applications (arn, partition, account_id, region, id, name, description, client_token, create_fingerprint, group_arn, tag_group_arn, created, modified, cloudformation_claim)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(arn) DO UPDATE SET
     name = excluded.name, description = excluded.description, client_token = excluded.client_token,
     create_fingerprint = excluded.create_fingerprint,
     group_arn = excluded.group_arn, tag_group_arn = excluded.tag_group_arn,
-    created = excluded.created, modified = excluded.modified
+    created = excluded.created, modified = excluded.modified,
+    cloudformation_claim = excluded.cloudformation_claim
 WHERE appregistry_applications.partition = excluded.partition
   AND appregistry_applications.account_id = excluded.account_id
   AND appregistry_applications.region = excluded.region
@@ -449,19 +456,20 @@ WHERE appregistry_applications.partition = excluded.partition
 `
 
 type PutApplicationParams struct {
-	Arn               string
-	Partition         string
-	AccountID         string
-	Region            string
-	ID                string
-	Name              string
-	Description       string
-	ClientToken       string
-	CreateFingerprint string
-	GroupArn          string
-	TagGroupArn       string
-	Created           sql.NullInt64
-	Modified          sql.NullInt64
+	Arn                 string
+	Partition           string
+	AccountID           string
+	Region              string
+	ID                  string
+	Name                string
+	Description         string
+	ClientToken         string
+	CreateFingerprint   string
+	GroupArn            string
+	TagGroupArn         string
+	Created             sql.NullInt64
+	Modified            sql.NullInt64
+	CloudformationClaim string
 }
 
 func (q *Queries) PutApplication(ctx context.Context, arg PutApplicationParams) (int64, error) {
@@ -479,6 +487,7 @@ func (q *Queries) PutApplication(ctx context.Context, arg PutApplicationParams) 
 		arg.TagGroupArn,
 		arg.Created,
 		arg.Modified,
+		arg.CloudformationClaim,
 	)
 	if err != nil {
 		return 0, err
@@ -502,21 +511,23 @@ func (q *Queries) PutApplicationTag(ctx context.Context, arg PutApplicationTagPa
 }
 
 const putAssociation = `-- name: PutAssociation :exec
-INSERT INTO appregistry_resource_associations (application_arn, resource_arn, resource_name, resource_type, incarnation, apply_tag, created)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO appregistry_resource_associations (application_arn, resource_arn, resource_name, resource_type, incarnation, apply_tag, created, cloudformation_claim)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(application_arn, resource_arn) DO UPDATE SET
     resource_name = excluded.resource_name, resource_type = excluded.resource_type,
-    incarnation = excluded.incarnation, apply_tag = excluded.apply_tag, created = excluded.created
+    incarnation = excluded.incarnation, apply_tag = excluded.apply_tag, created = excluded.created,
+    cloudformation_claim = excluded.cloudformation_claim
 `
 
 type PutAssociationParams struct {
-	ApplicationArn string
-	ResourceArn    string
-	ResourceName   string
-	ResourceType   string
-	Incarnation    string
-	ApplyTag       int64
-	Created        sql.NullInt64
+	ApplicationArn      string
+	ResourceArn         string
+	ResourceName        string
+	ResourceType        string
+	Incarnation         string
+	ApplyTag            int64
+	Created             sql.NullInt64
+	CloudformationClaim string
 }
 
 func (q *Queries) PutAssociation(ctx context.Context, arg PutAssociationParams) error {
@@ -528,17 +539,19 @@ func (q *Queries) PutAssociation(ctx context.Context, arg PutAssociationParams) 
 		arg.Incarnation,
 		arg.ApplyTag,
 		arg.Created,
+		arg.CloudformationClaim,
 	)
 	return err
 }
 
 const putAttributeGroup = `-- name: PutAttributeGroup :execrows
-INSERT INTO appregistry_attribute_groups (arn, partition, account_id, region, id, name, description, attributes, client_token, create_fingerprint, created, modified)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO appregistry_attribute_groups (arn, partition, account_id, region, id, name, description, attributes, client_token, create_fingerprint, created, modified, cloudformation_claim)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(arn) DO UPDATE SET
     name = excluded.name, description = excluded.description, attributes = excluded.attributes,
     create_fingerprint = excluded.create_fingerprint,
-    client_token = excluded.client_token, created = excluded.created, modified = excluded.modified
+    client_token = excluded.client_token, created = excluded.created, modified = excluded.modified,
+    cloudformation_claim = excluded.cloudformation_claim
 WHERE appregistry_attribute_groups.partition = excluded.partition
   AND appregistry_attribute_groups.account_id = excluded.account_id
   AND appregistry_attribute_groups.region = excluded.region
@@ -546,18 +559,19 @@ WHERE appregistry_attribute_groups.partition = excluded.partition
 `
 
 type PutAttributeGroupParams struct {
-	Arn               string
-	Partition         string
-	AccountID         string
-	Region            string
-	ID                string
-	Name              string
-	Description       string
-	Attributes        string
-	ClientToken       string
-	CreateFingerprint string
-	Created           sql.NullInt64
-	Modified          sql.NullInt64
+	Arn                 string
+	Partition           string
+	AccountID           string
+	Region              string
+	ID                  string
+	Name                string
+	Description         string
+	Attributes          string
+	ClientToken         string
+	CreateFingerprint   string
+	Created             sql.NullInt64
+	Modified            sql.NullInt64
+	CloudformationClaim string
 }
 
 func (q *Queries) PutAttributeGroup(ctx context.Context, arg PutAttributeGroupParams) (int64, error) {
@@ -574,6 +588,7 @@ func (q *Queries) PutAttributeGroup(ctx context.Context, arg PutAttributeGroupPa
 		arg.CreateFingerprint,
 		arg.Created,
 		arg.Modified,
+		arg.CloudformationClaim,
 	)
 	if err != nil {
 		return 0, err
@@ -597,20 +612,21 @@ func (q *Queries) PutAttributeGroupTag(ctx context.Context, arg PutAttributeGrou
 }
 
 const putAttributeLink = `-- name: PutAttributeLink :execrows
-INSERT INTO appregistry_attribute_links (application_arn, attribute_group_arn)
-SELECT a.arn, g.arn FROM appregistry_applications a JOIN appregistry_attribute_groups g
+INSERT INTO appregistry_attribute_links (application_arn, attribute_group_arn, cloudformation_claim)
+SELECT a.arn, g.arn, ?1 FROM appregistry_applications a JOIN appregistry_attribute_groups g
 ON a.partition = g.partition AND a.account_id = g.account_id AND a.region = g.region
-WHERE a.arn = ?1 AND g.arn = ?2
-ON CONFLICT(application_arn, attribute_group_arn) DO UPDATE SET attribute_group_arn = excluded.attribute_group_arn
+WHERE a.arn = ?2 AND g.arn = ?3
+ON CONFLICT(application_arn, attribute_group_arn) DO UPDATE SET cloudformation_claim = excluded.cloudformation_claim
 `
 
 type PutAttributeLinkParams struct {
-	ApplicationArn    string
-	AttributeGroupArn string
+	CloudformationClaim string
+	ApplicationArn      string
+	AttributeGroupArn   string
 }
 
 func (q *Queries) PutAttributeLink(ctx context.Context, arg PutAttributeLinkParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, putAttributeLink, arg.ApplicationArn, arg.AttributeGroupArn)
+	result, err := q.db.ExecContext(ctx, putAttributeLink, arg.CloudformationClaim, arg.ApplicationArn, arg.AttributeGroupArn)
 	if err != nil {
 		return 0, err
 	}

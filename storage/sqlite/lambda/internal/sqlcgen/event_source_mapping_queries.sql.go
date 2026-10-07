@@ -14,7 +14,7 @@ import (
 )
 
 const allEventSourceMappings = `-- name: AllEventSourceMappings :many
-SELECT "partition", account, region, uuid, function_partition, function_account, function_region, function_name, function_qualifier, event_source_arn, version, state, state_transition_reason, last_modified, transition_at, batch_size, batching_window_seconds, report_batch_item_failures, maximum_concurrency, minimum_pollers, maximum_pollers, transition_state, last_processing_result, stream_starting_position, stream_parallelization_factor, stream_maximum_retry_attempts, stream_maximum_record_age_seconds, stream_bisect_batch_on_function_error, stream_tumbling_window_seconds, stream_on_failure, stream_starting_position_timestamp FROM lambda_event_source_mappings ORDER BY partition,region,account,uuid
+SELECT "partition", account, region, uuid, function_partition, function_account, function_region, function_name, function_qualifier, event_source_arn, version, state, state_transition_reason, last_modified, transition_at, batch_size, batching_window_seconds, report_batch_item_failures, maximum_concurrency, minimum_pollers, maximum_pollers, transition_state, last_processing_result, stream_starting_position, stream_parallelization_factor, stream_maximum_retry_attempts, stream_maximum_record_age_seconds, stream_bisect_batch_on_function_error, stream_tumbling_window_seconds, stream_on_failure, stream_starting_position_timestamp, owner_stack_id, owner_logical_id, owner_token FROM lambda_event_source_mappings ORDER BY partition,region,account,uuid
 `
 
 func (q *Queries) AllEventSourceMappings(ctx context.Context) ([]LambdaEventSourceMapping, error) {
@@ -58,6 +58,9 @@ func (q *Queries) AllEventSourceMappings(ctx context.Context) ([]LambdaEventSour
 			&i.StreamTumblingWindowSeconds,
 			&i.StreamOnFailure,
 			&i.StreamStartingPositionTimestamp,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -211,7 +214,7 @@ func (q *Queries) GetEventSourceFilterEncryption(ctx context.Context, arg GetEve
 }
 
 const getEventSourceMapping = `-- name: GetEventSourceMapping :one
-SELECT "partition", account, region, uuid, function_partition, function_account, function_region, function_name, function_qualifier, event_source_arn, version, state, state_transition_reason, last_modified, transition_at, batch_size, batching_window_seconds, report_batch_item_failures, maximum_concurrency, minimum_pollers, maximum_pollers, transition_state, last_processing_result, stream_starting_position, stream_parallelization_factor, stream_maximum_retry_attempts, stream_maximum_record_age_seconds, stream_bisect_batch_on_function_error, stream_tumbling_window_seconds, stream_on_failure, stream_starting_position_timestamp FROM lambda_event_source_mappings WHERE partition=? AND account=? AND region=? AND uuid=?
+SELECT "partition", account, region, uuid, function_partition, function_account, function_region, function_name, function_qualifier, event_source_arn, version, state, state_transition_reason, last_modified, transition_at, batch_size, batching_window_seconds, report_batch_item_failures, maximum_concurrency, minimum_pollers, maximum_pollers, transition_state, last_processing_result, stream_starting_position, stream_parallelization_factor, stream_maximum_retry_attempts, stream_maximum_record_age_seconds, stream_bisect_batch_on_function_error, stream_tumbling_window_seconds, stream_on_failure, stream_starting_position_timestamp, owner_stack_id, owner_logical_id, owner_token FROM lambda_event_source_mappings WHERE partition=? AND account=? AND region=? AND uuid=?
 `
 
 type GetEventSourceMappingParams struct {
@@ -261,6 +264,9 @@ func (q *Queries) GetEventSourceMapping(ctx context.Context, arg GetEventSourceM
 		&i.StreamTumblingWindowSeconds,
 		&i.StreamOnFailure,
 		&i.StreamStartingPositionTimestamp,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
@@ -388,7 +394,7 @@ func (q *Queries) ListEventSourceMappingTags(ctx context.Context, arg ListEventS
 }
 
 const listEventSourceMappings = `-- name: ListEventSourceMappings :many
-SELECT "partition", account, region, uuid, function_partition, function_account, function_region, function_name, function_qualifier, event_source_arn, version, state, state_transition_reason, last_modified, transition_at, batch_size, batching_window_seconds, report_batch_item_failures, maximum_concurrency, minimum_pollers, maximum_pollers, transition_state, last_processing_result, stream_starting_position, stream_parallelization_factor, stream_maximum_retry_attempts, stream_maximum_record_age_seconds, stream_bisect_batch_on_function_error, stream_tumbling_window_seconds, stream_on_failure, stream_starting_position_timestamp FROM lambda_event_source_mappings WHERE partition=? AND account=? AND region=? ORDER BY uuid
+SELECT "partition", account, region, uuid, function_partition, function_account, function_region, function_name, function_qualifier, event_source_arn, version, state, state_transition_reason, last_modified, transition_at, batch_size, batching_window_seconds, report_batch_item_failures, maximum_concurrency, minimum_pollers, maximum_pollers, transition_state, last_processing_result, stream_starting_position, stream_parallelization_factor, stream_maximum_retry_attempts, stream_maximum_record_age_seconds, stream_bisect_batch_on_function_error, stream_tumbling_window_seconds, stream_on_failure, stream_starting_position_timestamp, owner_stack_id, owner_logical_id, owner_token FROM lambda_event_source_mappings WHERE partition=? AND account=? AND region=? ORDER BY uuid
 `
 
 type ListEventSourceMappingsParams struct {
@@ -438,6 +444,9 @@ func (q *Queries) ListEventSourceMappings(ctx context.Context, arg ListEventSour
 			&i.StreamTumblingWindowSeconds,
 			&i.StreamOnFailure,
 			&i.StreamStartingPositionTimestamp,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -486,9 +495,9 @@ func (q *Queries) PutEventSourceFilterEncryption(ctx context.Context, arg PutEve
 }
 
 const putEventSourceMapping = `-- name: PutEventSourceMapping :exec
-INSERT INTO lambda_event_source_mappings(partition,account,region,uuid,function_partition,function_account,function_region,function_name,function_qualifier,event_source_arn,version,state,state_transition_reason,last_modified,transition_at,batch_size,batching_window_seconds,report_batch_item_failures,maximum_concurrency,minimum_pollers,maximum_pollers,transition_state,last_processing_result,stream_starting_position,stream_starting_position_timestamp,stream_parallelization_factor,stream_maximum_retry_attempts,stream_maximum_record_age_seconds,stream_bisect_batch_on_function_error,stream_tumbling_window_seconds,stream_on_failure)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-ON CONFLICT(partition,account,region,uuid) DO UPDATE SET function_partition=excluded.function_partition,function_account=excluded.function_account,function_region=excluded.function_region,function_name=excluded.function_name,function_qualifier=excluded.function_qualifier,event_source_arn=excluded.event_source_arn,version=excluded.version,state=excluded.state,state_transition_reason=excluded.state_transition_reason,last_modified=excluded.last_modified,transition_at=excluded.transition_at,batch_size=excluded.batch_size,batching_window_seconds=excluded.batching_window_seconds,report_batch_item_failures=excluded.report_batch_item_failures,maximum_concurrency=excluded.maximum_concurrency,minimum_pollers=excluded.minimum_pollers,maximum_pollers=excluded.maximum_pollers,transition_state=excluded.transition_state,stream_starting_position=excluded.stream_starting_position,stream_starting_position_timestamp=excluded.stream_starting_position_timestamp,stream_parallelization_factor=excluded.stream_parallelization_factor,stream_maximum_retry_attempts=excluded.stream_maximum_retry_attempts,stream_maximum_record_age_seconds=excluded.stream_maximum_record_age_seconds,stream_bisect_batch_on_function_error=excluded.stream_bisect_batch_on_function_error,stream_tumbling_window_seconds=excluded.stream_tumbling_window_seconds,stream_on_failure=excluded.stream_on_failure
+INSERT INTO lambda_event_source_mappings(partition,account,region,uuid,function_partition,function_account,function_region,function_name,function_qualifier,event_source_arn,version,state,state_transition_reason,last_modified,transition_at,batch_size,batching_window_seconds,report_batch_item_failures,maximum_concurrency,minimum_pollers,maximum_pollers,transition_state,last_processing_result,stream_starting_position,stream_starting_position_timestamp,stream_parallelization_factor,stream_maximum_retry_attempts,stream_maximum_record_age_seconds,stream_bisect_batch_on_function_error,stream_tumbling_window_seconds,stream_on_failure,owner_stack_id,owner_logical_id,owner_token)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+ON CONFLICT(partition,account,region,uuid) DO UPDATE SET function_partition=excluded.function_partition,function_account=excluded.function_account,function_region=excluded.function_region,function_name=excluded.function_name,function_qualifier=excluded.function_qualifier,event_source_arn=excluded.event_source_arn,version=excluded.version,state=excluded.state,state_transition_reason=excluded.state_transition_reason,last_modified=excluded.last_modified,transition_at=excluded.transition_at,batch_size=excluded.batch_size,batching_window_seconds=excluded.batching_window_seconds,report_batch_item_failures=excluded.report_batch_item_failures,maximum_concurrency=excluded.maximum_concurrency,minimum_pollers=excluded.minimum_pollers,maximum_pollers=excluded.maximum_pollers,transition_state=excluded.transition_state,stream_starting_position=excluded.stream_starting_position,stream_starting_position_timestamp=excluded.stream_starting_position_timestamp,stream_parallelization_factor=excluded.stream_parallelization_factor,stream_maximum_retry_attempts=excluded.stream_maximum_retry_attempts,stream_maximum_record_age_seconds=excluded.stream_maximum_record_age_seconds,stream_bisect_batch_on_function_error=excluded.stream_bisect_batch_on_function_error,stream_tumbling_window_seconds=excluded.stream_tumbling_window_seconds,stream_on_failure=excluded.stream_on_failure,owner_stack_id=excluded.owner_stack_id,owner_logical_id=excluded.owner_logical_id,owner_token=excluded.owner_token
 `
 
 type PutEventSourceMappingParams struct {
@@ -523,6 +532,9 @@ type PutEventSourceMappingParams struct {
 	StreamBisectBatchOnFunctionError sql.NullBool
 	StreamTumblingWindowSeconds      sql.NullInt64
 	StreamOnFailure                  sql.NullString
+	OwnerStackID                     string
+	OwnerLogicalID                   string
+	OwnerToken                       string
 }
 
 func (q *Queries) PutEventSourceMapping(ctx context.Context, arg PutEventSourceMappingParams) error {
@@ -558,6 +570,9 @@ func (q *Queries) PutEventSourceMapping(ctx context.Context, arg PutEventSourceM
 		arg.StreamBisectBatchOnFunctionError,
 		arg.StreamTumblingWindowSeconds,
 		arg.StreamOnFailure,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
 	)
 	return err
 }

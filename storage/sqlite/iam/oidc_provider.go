@@ -18,6 +18,7 @@ func (r reader) OIDCProvider(scope domain.Scope, key string) (domain.OIDCProvide
 		return result, err
 	}
 	var record domain.OIDCProviderRecord
+	record.CloudFormationOwner = row.CfnOwner
 	record.ARN = row.Arn
 	record.ID = row.ID
 	record.URL = row.Url
@@ -69,7 +70,7 @@ func (w writer) PutOIDCProvider(scope domain.Scope, record domain.OIDCProviderRe
 	if _, err := w.q.DeleteOIDCProvider(w.ctx, sqlcgen.DeleteOIDCProviderParams{Partition: scope.Partition, Account: scope.AccountID, ResourceKey: record.ARN}); err != nil {
 		return err
 	}
-	if err := w.q.InsertOIDCProvider(w.ctx, sqlcgen.InsertOIDCProviderParams{Partition: scope.Partition, Account: scope.AccountID, ResourceKey: record.ARN, Arn: record.ARN, ID: record.ID, Url: record.URL, CreatedAt: record.CreatedAt}); err != nil {
+	if err := w.q.InsertOIDCProvider(w.ctx, sqlcgen.InsertOIDCProviderParams{CfnOwner: record.CloudFormationOwner, Partition: scope.Partition, Account: scope.AccountID, ResourceKey: record.ARN, Arn: record.ARN, ID: record.ID, Url: record.URL, CreatedAt: record.CreatedAt}); err != nil {
 		return err
 	}
 	if err := w.writeOIDCProviderClientIDs(scope.Partition, scope.AccountID, record.ARN, record.ClientIDs); err != nil {

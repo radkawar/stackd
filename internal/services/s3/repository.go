@@ -33,6 +33,10 @@ type AccessPointRecord struct {
 	VPCID           string
 	PublicAccess    PublicAccessBlock
 	Policy          authorization.BoundPolicy
+	// CloudFormationOwner is the private claim of the AWS::S3::AccessPoint
+	// incarnation that created this access point. Public tags cannot set it,
+	// and it never reaches an AWS response. Empty means a direct-API access point.
+	CloudFormationOwner string
 }
 
 // AccessPointQuery selects names in lexical order, exclusively after After.
@@ -75,7 +79,14 @@ type BucketRecord struct {
 	Key               BucketKey
 	AccountID, Region string
 	// Incarnation is generated once at creation and survives metadata updates.
-	Incarnation       string
+	Incarnation string
+	// CloudFormationOwner is the private claim of the AWS::S3::Bucket
+	// incarnation that created this bucket. It is fixed at creation, cannot be
+	// set through tags or wire input, and never reaches an AWS response.
+	CloudFormationOwner string
+	// PolicyOwner is the private claim of the AWS::S3::BucketPolicy incarnation
+	// that attached the current policy. Public DeleteBucketPolicy clears it.
+	PolicyOwner       string
 	Created           time.Time
 	Policy            authorization.BoundPolicy
 	PublicAccess      *PublicAccessBlock

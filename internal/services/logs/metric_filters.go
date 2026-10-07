@@ -116,8 +116,10 @@ func (s *Service) putMetricFilter(tx Transaction, in *api.PutMetricFilterRequest
 	}
 	v.Created = s.clock.Now().UnixMilli()
 	replacing, regexFilters := false, 0
+	owner, w := cloudFormationClaim(tx.Context(), "", false)
 	for _, old := range rows {
 		if old.Key == v.Key {
+			owner, w = cloudFormationClaim(tx.Context(), old.CFNOwner, true)
 			v.Created, replacing = old.Created, true
 			continue
 		}
@@ -131,6 +133,10 @@ func (s *Service) putMetricFilter(tx Transaction, in *api.PutMetricFilterRequest
 			}
 		}
 	}
+	if w != nil {
+		return nil, w
+	}
+	v.CFNOwner = owner
 	if !replacing && len(rows) >= maxMetricFilters || regexCount != 0 && regexFilters >= maxRegexMetricFilters {
 		return nil, failure("LimitExceededException", "Resource limit exceeded.")
 	}
@@ -228,11 +234,15 @@ func (s *Service) deleteMetricFilter(tx Transaction, in *api.DeleteMetricFilterR
 	if w := resourceName(key.Name, "metric filter"); w != nil {
 		return nil, w
 	}
-	if _, err := tx.MetricFilter(key); err != nil {
+	old, err := tx.MetricFilter(key)
+	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return nil, failure("ResourceNotFoundException", "The specified metric filter does not exist.")
 		}
 		return nil, wireError(err)
+	}
+	if w := cloudFormationDelete(tx.Context(), old.CFNOwner); w != nil {
+		return nil, w
 	}
 	return &api.DeleteMetricFilterOutput{}, wireError(tx.DeleteMetricFilter(key))
 }

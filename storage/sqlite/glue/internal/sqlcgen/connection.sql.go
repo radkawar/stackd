@@ -31,8 +31,23 @@ func (q *Queries) DeleteGlueConnection(ctx context.Context, arg DeleteGlueConnec
 	return err
 }
 
+const deleteGlueConnectionEncryption = `-- name: DeleteGlueConnectionEncryption :exec
+DELETE FROM glue_connection_encryption WHERE partition=? AND account_id=? AND region=?
+`
+
+type DeleteGlueConnectionEncryptionParams struct {
+	Partition string
+	AccountID string
+	Region    string
+}
+
+func (q *Queries) DeleteGlueConnectionEncryption(ctx context.Context, arg DeleteGlueConnectionEncryptionParams) error {
+	_, err := q.db.ExecContext(ctx, deleteGlueConnectionEncryption, arg.Partition, arg.AccountID, arg.Region)
+	return err
+}
+
 const getGlueConnection = `-- name: GetGlueConnection :one
-SELECT "partition", account_id, region, name, connection_type, description, properties, match_criteria, physical_requirements, athena_properties, spark_properties, python_properties, tags, password, password_cipher, created_at, updated_at, last_updated_by FROM glue_connections WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
+SELECT "partition", account_id, region, name, connection_type, description, properties, match_criteria, physical_requirements, athena_properties, spark_properties, python_properties, tags, password, password_cipher, created_at, updated_at, last_updated_by, cfn_owner FROM glue_connections WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
 `
 
 type GetGlueConnectionParams struct {
@@ -69,12 +84,13 @@ func (q *Queries) GetGlueConnection(ctx context.Context, arg GetGlueConnectionPa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LastUpdatedBy,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const getGlueConnectionEncryption = `-- name: GetGlueConnectionEncryption :one
-SELECT "partition", account_id, region, key_id, return_encrypted FROM glue_connection_encryption WHERE partition = ? AND account_id = ? AND region = ?
+SELECT "partition", account_id, region, key_id, return_encrypted, cfn_owner FROM glue_connection_encryption WHERE partition = ? AND account_id = ? AND region = ?
 `
 
 type GetGlueConnectionEncryptionParams struct {
@@ -92,12 +108,13 @@ func (q *Queries) GetGlueConnectionEncryption(ctx context.Context, arg GetGlueCo
 		&i.Region,
 		&i.KeyID,
 		&i.ReturnEncrypted,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const listGlueConnections = `-- name: ListGlueConnections :many
-SELECT "partition", account_id, region, name, connection_type, description, properties, match_criteria, physical_requirements, athena_properties, spark_properties, python_properties, tags, password, password_cipher, created_at, updated_at, last_updated_by FROM glue_connections WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
+SELECT "partition", account_id, region, name, connection_type, description, properties, match_criteria, physical_requirements, athena_properties, spark_properties, python_properties, tags, password, password_cipher, created_at, updated_at, last_updated_by, cfn_owner FROM glue_connections WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
 `
 
 type ListGlueConnectionsParams struct {
@@ -134,6 +151,7 @@ func (q *Queries) ListGlueConnections(ctx context.Context, arg ListGlueConnectio
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.LastUpdatedBy,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -149,12 +167,13 @@ func (q *Queries) ListGlueConnections(ctx context.Context, arg ListGlueConnectio
 }
 
 const putGlueConnection = `-- name: PutGlueConnection :exec
-INSERT INTO glue_connections (partition,account_id,region,name,connection_type,description,properties,match_criteria,physical_requirements,athena_properties,spark_properties,python_properties,tags,password,password_cipher,created_at,updated_at,last_updated_by)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+INSERT INTO glue_connections (cfn_owner,partition,account_id,region,name,connection_type,description,properties,match_criteria,physical_requirements,athena_properties,spark_properties,python_properties,tags,password,password_cipher,created_at,updated_at,last_updated_by)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(partition,account_id,region,name) DO UPDATE SET connection_type=excluded.connection_type,description=excluded.description,properties=excluded.properties,match_criteria=excluded.match_criteria,physical_requirements=excluded.physical_requirements,athena_properties=excluded.athena_properties,spark_properties=excluded.spark_properties,python_properties=excluded.python_properties,tags=excluded.tags,password=excluded.password,password_cipher=excluded.password_cipher,updated_at=excluded.updated_at,last_updated_by=excluded.last_updated_by
 `
 
 type PutGlueConnectionParams struct {
+	CfnOwner             string
 	Partition            string
 	AccountID            string
 	Region               string
@@ -177,6 +196,7 @@ type PutGlueConnectionParams struct {
 
 func (q *Queries) PutGlueConnection(ctx context.Context, arg PutGlueConnectionParams) error {
 	_, err := q.db.ExecContext(ctx, putGlueConnection,
+		arg.CfnOwner,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -200,11 +220,12 @@ func (q *Queries) PutGlueConnection(ctx context.Context, arg PutGlueConnectionPa
 }
 
 const putGlueConnectionEncryption = `-- name: PutGlueConnectionEncryption :exec
-INSERT INTO glue_connection_encryption (partition,account_id,region,key_id,return_encrypted) VALUES (?,?,?,?,?)
+INSERT INTO glue_connection_encryption (cfn_owner,partition,account_id,region,key_id,return_encrypted) VALUES (?,?,?,?,?,?)
 ON CONFLICT(partition,account_id,region) DO UPDATE SET key_id=excluded.key_id,return_encrypted=excluded.return_encrypted
 `
 
 type PutGlueConnectionEncryptionParams struct {
+	CfnOwner        string
 	Partition       string
 	AccountID       string
 	Region          string
@@ -214,6 +235,7 @@ type PutGlueConnectionEncryptionParams struct {
 
 func (q *Queries) PutGlueConnectionEncryption(ctx context.Context, arg PutGlueConnectionEncryptionParams) error {
 	_, err := q.db.ExecContext(ctx, putGlueConnectionEncryption,
+		arg.CfnOwner,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,

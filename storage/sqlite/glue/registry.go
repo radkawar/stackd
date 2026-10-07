@@ -27,7 +27,7 @@ func registryDescriptionValue(v sql.NullString) *string {
 	return new(v.String)
 }
 func registryRow(v sqlcgen.GlueRegistry) domain.RegistryRecord {
-	return domain.RegistryRecord{Key: domain.ResourceKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.RegistryName}, Description: registryDescriptionValue(v.Description), Status: v.Status, Created: v.CreatedAt, Updated: v.UpdatedAt, Due: v.DueAt}
+	return domain.RegistryRecord{CFNOwner: v.CfnOwner, Key: domain.ResourceKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.RegistryName}, Description: registryDescriptionValue(v.Description), Status: v.Status, Created: v.CreatedAt, Updated: v.UpdatedAt, Due: v.DueAt}
 }
 func (r reader) registryTags(v domain.RegistryRecord) (domain.RegistryRecord, error) {
 	rows, err := r.q.ListGlueRegistryTags(r.ctx, sqlcgen.ListGlueRegistryTagsParams{Partition: v.Key.Partition, AccountID: v.Key.AccountID, Region: v.Key.Region, RegistryName: v.Key.Name})
@@ -64,7 +64,7 @@ func (r reader) Registries(scope domain.Scope) ([]domain.RegistryRecord, error) 
 }
 func (w writer) PutRegistry(v domain.RegistryRecord) error {
 	k := v.Key
-	if err := w.q.PutGlueRegistry(w.ctx, sqlcgen.PutGlueRegistryParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, RegistryName: k.Name, Description: registryDescription(v.Description), Status: v.Status, CreatedAt: v.Created, UpdatedAt: v.Updated, DueAt: v.Due}); err != nil {
+	if err := w.q.PutGlueRegistry(w.ctx, sqlcgen.PutGlueRegistryParams{CfnOwner: v.CFNOwner, Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, RegistryName: k.Name, Description: registryDescription(v.Description), Status: v.Status, CreatedAt: v.Created, UpdatedAt: v.Updated, DueAt: v.Due}); err != nil {
 		return err
 	}
 	if err := w.q.DeleteGlueRegistryTags(w.ctx, sqlcgen.DeleteGlueRegistryTagsParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, RegistryName: k.Name}); err != nil {

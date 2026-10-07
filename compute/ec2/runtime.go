@@ -14,6 +14,21 @@ import (
 
 var ErrNotFound = errors.New("native instance not found")
 
+// Config selects the native Linux QEMU backend. The controller and service
+// contracts are portable; configuring guest execution on other hosts is rejected.
+type Config struct {
+	SystemBinary   string
+	ImageBinary    string
+	NBDBinary      string
+	IOBinary       string
+	StateDirectory string
+	BIOSPath       string
+	UEFICodePath   string
+	UEFIVarsPath   string
+	Networks       GuestNetworks
+	CPULimits      ProcessLimits
+}
+
 // CapabilityError rejects a request the configured native backend cannot honor.
 type CapabilityError struct{ Feature string }
 
@@ -68,6 +83,14 @@ type Extent struct {
 	Length int64 `json:"length"`
 	Data   bool  `json:"data"`
 	Zero   bool  `json:"zero"`
+}
+
+// ExtentsKnown is false only for an offline encrypted ciphertext copy without
+// unwrapped material. The owner must carry retained stopped-volume allocation
+// metadata; a nil extent result must never be interpreted as an empty disk.
+type BackupResult struct {
+	Extents      []Extent
+	ExtentsKnown bool
 }
 
 // DiskStatus reports actual guest-visible native attachment, not desired EBS

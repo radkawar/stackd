@@ -10,8 +10,9 @@ import (
 
 func machineRecord(row sqlcgen.StepfunctionsMachine) domain.MachineRecord {
 	return domain.MachineRecord{
-		Key: domain.MachineKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Name: row.Name},
-		ID:  row.ID, RevisionID: row.RevisionID, Type: row.Type, Status: row.Status, Created: row.Created,
+		CFNOwner: row.CfnOwner,
+		Key:      domain.MachineKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Name: row.Name},
+		ID:       row.ID, RevisionID: row.RevisionID, Type: row.Type, Status: row.Status, Created: row.Created,
 		Version: row.Version, DeleteAt: timePointer(row.DeleteAt), NextVersion: row.NextVersion, Tags: map[string]string{},
 		FirstVersionDescription: row.FirstVersionDescription,
 	}
@@ -80,6 +81,7 @@ func (w writer) PutMachine(v domain.MachineRecord) error {
 		}
 	}
 	if err := w.q.PutMachine(w.ctx, sqlcgen.PutMachineParams{
+		CfnOwner:  v.CFNOwner,
 		Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, ID: v.ID, RevisionID: v.RevisionID,
 		Type: v.Type, Status: v.Status, Created: v.Created.UTC(), Version: v.Version, DeleteAt: nullableTime(v.DeleteAt), NextVersion: v.NextVersion,
 		FirstVersionDescription: v.FirstVersionDescription,
@@ -162,6 +164,7 @@ func versionRecord(row sqlcgen.StepfunctionsVersion) domain.VersionRecord {
 	return domain.VersionRecord{
 		Key:        domain.VersionKey{Machine: domain.MachineKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Name: row.MachineName}, MachineID: row.MachineID, Number: row.Number},
 		RevisionID: row.RevisionID, Created: row.Created, Description: row.Description,
+		CFNOwner: row.CfnOwner,
 	}
 }
 
@@ -193,7 +196,7 @@ func (w writer) PutVersion(v domain.VersionRecord) error {
 		return err
 	}
 	hadOld := err == nil
-	if err := w.q.PutVersion(w.ctx, sqlcgen.PutVersionParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, MachineName: k.Name, MachineID: v.Key.MachineID, Number: v.Key.Number, RevisionID: v.RevisionID, Created: v.Created.UTC(), Description: v.Description}); err != nil {
+	if err := w.q.PutVersion(w.ctx, sqlcgen.PutVersionParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, MachineName: k.Name, MachineID: v.Key.MachineID, Number: v.Key.Number, RevisionID: v.RevisionID, Created: v.Created.UTC(), Description: v.Description, CfnOwner: v.CFNOwner}); err != nil {
 		return err
 	}
 	if hadOld && old.RevisionID != v.RevisionID {
@@ -218,6 +221,7 @@ func (r reader) alias(row sqlcgen.StepfunctionsAlias) (domain.AliasRecord, error
 	v := domain.AliasRecord{
 		Key:         domain.AliasKey{Machine: domain.MachineKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Name: row.MachineName}, MachineID: row.MachineID, Name: row.Name},
 		Description: row.Description, Created: row.Created, Updated: row.Updated, Routes: []domain.AliasRoute{},
+		CFNOwner: row.CfnOwner,
 	}
 	rows, err := r.q.ListAliasRoutes(r.ctx, sqlcgen.ListAliasRoutesParams{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region, MachineName: row.MachineName, MachineID: row.MachineID, AliasName: row.Name})
 	if err != nil {
@@ -256,7 +260,7 @@ func (r reader) Aliases(k domain.MachineKey, machineID string) ([]domain.AliasRe
 
 func (w writer) PutAlias(v domain.AliasRecord) error {
 	k := v.Key.Machine
-	if err := w.q.PutAlias(w.ctx, sqlcgen.PutAliasParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, MachineName: k.Name, MachineID: v.Key.MachineID, Name: v.Key.Name, Description: v.Description, Created: v.Created.UTC(), Updated: v.Updated.UTC()}); err != nil {
+	if err := w.q.PutAlias(w.ctx, sqlcgen.PutAliasParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, MachineName: k.Name, MachineID: v.Key.MachineID, Name: v.Key.Name, Description: v.Description, Created: v.Created.UTC(), Updated: v.Updated.UTC(), CfnOwner: v.CFNOwner}); err != nil {
 		return err
 	}
 	if err := w.q.DeleteAliasRoutes(w.ctx, sqlcgen.DeleteAliasRoutesParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, MachineName: k.Name, MachineID: v.Key.MachineID, AliasName: v.Key.Name}); err != nil {
@@ -277,8 +281,9 @@ func (w writer) DeleteAlias(k domain.AliasKey) error {
 
 func (r reader) activity(row sqlcgen.StepfunctionsActivity) (domain.ActivityRecord, error) {
 	v := domain.ActivityRecord{
-		Key: domain.ActivityKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Name: row.Name},
-		ID:  row.ID, Created: row.Created, Tags: map[string]string{},
+		CFNOwner: row.CfnOwner,
+		Key:      domain.ActivityKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Name: row.Name},
+		ID:       row.ID, Created: row.Created, Tags: map[string]string{},
 		EncryptionConfig: domain.EncryptionConfig{EncryptionType: row.EncryptionType, KMSKeyARN: row.KmsKeyArn, DataKeyReuseSeconds: row.DataKeyReuseSeconds},
 	}
 	tags, err := r.q.ListActivityTags(r.ctx, sqlcgen.ListActivityTagsParams{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region, ActivityName: row.Name})
@@ -322,6 +327,7 @@ func (r reader) ActivityCount(k domain.Scope) (int64, error) {
 func (w writer) PutActivity(v domain.ActivityRecord) error {
 	k := v.Key
 	if err := w.q.PutActivity(w.ctx, sqlcgen.PutActivityParams{
+		CfnOwner:  v.CFNOwner,
 		Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, ID: v.ID, Created: v.Created.UTC(),
 		EncryptionType: v.EncryptionType, KmsKeyArn: v.KMSKeyARN, DataKeyReuseSeconds: v.DataKeyReuseSeconds,
 	}); err != nil {

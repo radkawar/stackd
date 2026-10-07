@@ -23,6 +23,7 @@ type ResourceKey struct {
 
 type APIRecord struct {
 	Key                                    APIKey
+	Owner                                  ResourceOwner
 	Name, Description, Version             string
 	ProtocolType, RouteSelectionExpression string
 	Disabled                               bool
@@ -31,6 +32,7 @@ type APIRecord struct {
 }
 type IntegrationRecord struct {
 	Key                              ResourceKey
+	Owner                            ResourceOwner
 	Description, URI, PayloadVersion string
 	CredentialsARN                   string
 	TimeoutMillis                    int32
@@ -38,6 +40,7 @@ type IntegrationRecord struct {
 }
 type AuthorizerRecord struct {
 	Key              ResourceKey
+	Owner            ResourceOwner
 	Name, Issuer     string
 	Audiences        []string
 	URI              string
@@ -45,12 +48,14 @@ type AuthorizerRecord struct {
 }
 type RouteRecord struct {
 	Key                                                              ResourceKey
+	Owner                                                            ResourceOwner
 	RouteKey, Target, AuthorizationType, AuthorizerID, OperationName string
 	RouteResponseSelectionExpression                                 string
 	Scopes                                                           []string
 }
 type RouteResponseRecord struct {
 	Key         ResourceKey
+	Owner       ResourceOwner
 	RouteID     string
 	ResponseKey string
 }
@@ -64,6 +69,7 @@ type RouteSettings struct {
 }
 type StageRecord struct {
 	Key                                                    ResourceKey
+	Owner                                                  ResourceOwner
 	Description, DeploymentID, LastDeploymentStatusMessage string
 	AutoDeploy                                             bool
 	Created, Updated                                       time.Time
@@ -74,6 +80,7 @@ type StageRecord struct {
 }
 type DeploymentRecord struct {
 	Key                      ResourceKey
+	Owner                    ResourceOwner
 	Description              string
 	RouteSelectionExpression string
 	AutoDeployed             bool
@@ -109,6 +116,7 @@ type Repository interface {
 	Attempt(context.Context, func(Transaction) error) error
 }
 type Reader interface {
+	DomainReader
 	Context() context.Context
 	API(APIKey) (APIRecord, error)
 	APIByID(string) (APIRecord, error)
@@ -130,6 +138,7 @@ type Reader interface {
 }
 type Transaction interface {
 	Reader
+	DomainTransaction
 	PutAPI(APIRecord) error
 	DeleteAPI(APIKey) error
 	PutIntegration(IntegrationRecord) error

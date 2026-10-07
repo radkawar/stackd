@@ -32,6 +32,7 @@ type ConnectionParameter struct {
 type ConnectionRecord struct {
 	Key                                                                ConnectionKey
 	ID, Description, AuthorizationType, State, StateReason             string
+	CFNOwner                                                           string
 	SecretARN, KmsKeyIdentifier                                        string
 	Username, APIKeyName, ClientID, AuthorizationEndpoint, OAuthMethod string
 	HasAuth, HasInvocation, HasOAuthHTTP                               bool

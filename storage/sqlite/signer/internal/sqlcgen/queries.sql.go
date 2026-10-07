@@ -52,7 +52,7 @@ func (q *Queries) GetAuthority(ctx context.Context, arg GetAuthorityParams) (Sig
 }
 
 const getCurrentProfile = `-- name: GetCurrentProfile :one
-SELECT "partition", account_id, region, name, arn, version, version_arn, status, is_current, validity_value, validity_type, created, revoked_at, effective_time, revocation_reason, revoked_by, certificate, private_key FROM signer_profiles WHERE partition=? AND account_id=? AND region=? AND name=? AND is_current=1
+SELECT "partition", account_id, region, name, arn, version, version_arn, status, is_current, validity_value, validity_type, created, revoked_at, effective_time, revocation_reason, revoked_by, certificate, private_key, cfn_owner FROM signer_profiles WHERE partition=? AND account_id=? AND region=? AND name=? AND is_current=1
 `
 
 type GetCurrentProfileParams struct {
@@ -89,6 +89,7 @@ func (q *Queries) GetCurrentProfile(ctx context.Context, arg GetCurrentProfilePa
 		&i.RevokedBy,
 		&i.Certificate,
 		&i.PrivateKey,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -142,7 +143,7 @@ func (q *Queries) GetJob(ctx context.Context, arg GetJobParams) (SignerJob, erro
 }
 
 const getProfile = `-- name: GetProfile :one
-SELECT "partition", account_id, region, name, arn, version, version_arn, status, is_current, validity_value, validity_type, created, revoked_at, effective_time, revocation_reason, revoked_by, certificate, private_key FROM signer_profiles WHERE partition=? AND account_id=? AND region=? AND name=? AND version=?
+SELECT "partition", account_id, region, name, arn, version, version_arn, status, is_current, validity_value, validity_type, created, revoked_at, effective_time, revocation_reason, revoked_by, certificate, private_key, cfn_owner FROM signer_profiles WHERE partition=? AND account_id=? AND region=? AND name=? AND version=?
 `
 
 type GetProfileParams struct {
@@ -181,6 +182,7 @@ func (q *Queries) GetProfile(ctx context.Context, arg GetProfileParams) (SignerP
 		&i.RevokedBy,
 		&i.Certificate,
 		&i.PrivateKey,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -336,7 +338,7 @@ func (q *Queries) ListProfileTags(ctx context.Context, versionArn string) ([]Lis
 }
 
 const listProfiles = `-- name: ListProfiles :many
-SELECT "partition", account_id, region, name, arn, version, version_arn, status, is_current, validity_value, validity_type, created, revoked_at, effective_time, revocation_reason, revoked_by, certificate, private_key FROM signer_profiles WHERE partition=? AND account_id=? AND region=? ORDER BY version_arn
+SELECT "partition", account_id, region, name, arn, version, version_arn, status, is_current, validity_value, validity_type, created, revoked_at, effective_time, revocation_reason, revoked_by, certificate, private_key, cfn_owner FROM signer_profiles WHERE partition=? AND account_id=? AND region=? ORDER BY version_arn
 `
 
 type ListProfilesParams struct {
@@ -373,6 +375,7 @@ func (q *Queries) ListProfiles(ctx context.Context, arg ListProfilesParams) ([]S
 			&i.RevokedBy,
 			&i.Certificate,
 			&i.PrivateKey,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -489,8 +492,8 @@ func (q *Queries) PutJobCertificate(ctx context.Context, arg PutJobCertificatePa
 }
 
 const putProfile = `-- name: PutProfile :exec
-INSERT INTO signer_profiles(partition,account_id,region,name,arn,version,version_arn,status,is_current,validity_value,validity_type,created,revoked_at,effective_time,revocation_reason,revoked_by,certificate,private_key)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+INSERT INTO signer_profiles(partition,account_id,region,name,arn,version,version_arn,status,is_current,validity_value,validity_type,created,revoked_at,effective_time,revocation_reason,revoked_by,certificate,private_key,cfn_owner)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(partition,account_id,region,name,version) DO UPDATE SET status=excluded.status,is_current=excluded.is_current,revoked_at=excluded.revoked_at,effective_time=excluded.effective_time,revocation_reason=excluded.revocation_reason,revoked_by=excluded.revoked_by
 `
 
@@ -513,6 +516,7 @@ type PutProfileParams struct {
 	RevokedBy        string
 	Certificate      []byte
 	PrivateKey       []byte
+	CfnOwner         string
 }
 
 func (q *Queries) PutProfile(ctx context.Context, arg PutProfileParams) error {
@@ -535,6 +539,7 @@ func (q *Queries) PutProfile(ctx context.Context, arg PutProfileParams) error {
 		arg.RevokedBy,
 		arg.Certificate,
 		arg.PrivateKey,
+		arg.CfnOwner,
 	)
 	return err
 }

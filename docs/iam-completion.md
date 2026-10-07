@@ -87,6 +87,14 @@ providers were deleted. [Credential-default tests](../internal/services/iam/cred
 also exercise permission-gated implicit key creation, disabled/deleted key rejection
 and owner-scoped key/MFA pagination. These checks do not complete IAM's semantic audit.
 
+CloudFormation access-key creation applies an explicit requested status through
+the separately authorized native `UpdateAccessKey` operation, because
+[native creation defaults to Active](https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateAccessKey.html).
+A status-update failure retains the admitted key ID and creation secret for
+private recovery and rollback. Recovery only observes the existing credential:
+it preserves its current status rather than reapplying stale creation properties,
+and an omitted status on a same-incarnation create replay is not an Active reset.
+
 Credential conditions and all-user listing authorization, service-linked role
 resource/protection rules, federation resources/discovery and instance-profile
 PassRole checks also consume generated inputs. This removes independent raw-field

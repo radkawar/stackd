@@ -26,8 +26,9 @@ type Bridge struct {
 // Bridges serializes attachment creation against removal across compute drivers.
 // Native endpoints and bridge ports own lifetime; there is no second refcount.
 type Bridges struct {
-	client *docker.Client
-	mu     sync.Mutex
+	client      *docker.Client
+	mu          sync.Mutex
+	daemonOwned bool
 }
 
 func NewBridges(client *docker.Client) (*Bridges, error) {
@@ -35,6 +36,20 @@ func NewBridges(client *docker.Client) (*Bridges, error) {
 		return nil, errors.New("native bridge management requires a Docker client")
 	}
 	return &Bridges{client: client}, nil
+}
+
+// NewDaemonBridges explicitly selects native operations inside the selected
+// Engine's Linux host/VM. The helper owns the same kernel flock as local
+// controllers and verifies the daemon's socket identity before admission.
+// This permits Desktop and remote controllers without claiming host-local
+// routing or filesystem access on the controller.
+func NewDaemonBridges(client *docker.Client) (*Bridges, error) {
+	bridges, err := NewBridges(client)
+	if err != nil {
+		return nil, err
+	}
+	bridges.daemonOwned = true
+	return bridges, nil
 }
 
 // WithBridge holds shared ownership until attach has created its native port or

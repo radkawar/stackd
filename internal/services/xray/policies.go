@@ -67,6 +67,10 @@ func (s *Service) putResourcePolicy(tx Transaction, in *api.PutResourcePolicyReq
 			break
 		}
 	}
+	owner, err := cloudFormationClaim(tx.Context(), old.CFNOwner, old.Revision != 0)
+	if err != nil {
+		return nil, err
+	}
 	if in.PolicyRevisionId != nil && value(in.PolicyRevisionId) != strconv.FormatInt(old.Revision, 10) {
 		return nil, revisionConflict(name)
 	}
@@ -91,7 +95,7 @@ func (s *Service) putResourcePolicy(tx Transaction, in *api.PutResourcePolicyReq
 	if err != nil {
 		return nil, err
 	}
-	p := PolicyRecord{Key: PolicyKey{Scope: scopeFor(tx.Context()), Name: name}, Policy: bound, Revision: old.Revision + 1, Updated: s.clock.Now().UTC().Truncate(time.Second)}
+	p := PolicyRecord{CFNOwner: owner, Key: PolicyKey{Scope: scopeFor(tx.Context()), Name: name}, Policy: bound, Revision: old.Revision + 1, Updated: s.clock.Now().UTC().Truncate(time.Second)}
 	if in.BypassPolicyLockoutCheck == nil || !bool(*in.BypassPolicyLockoutCheck) {
 		candidate := make([]PolicyRecord, 0, len(rows)+1)
 		for _, row := range rows {
@@ -145,6 +149,9 @@ func (s *Service) deleteResourcePolicy(tx Transaction, in *api.DeleteResourcePol
 	for _, row := range rows {
 		if row.Key.Name != name {
 			continue
+		}
+		if _, err := cloudFormationClaim(tx.Context(), row.CFNOwner, true); err != nil {
+			return nil, err
 		}
 		if in.PolicyRevisionId != nil && value(in.PolicyRevisionId) != strconv.FormatInt(row.Revision, 10) {
 			return nil, revisionConflict(name)

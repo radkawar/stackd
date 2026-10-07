@@ -36,6 +36,8 @@ type RamPermission struct {
 	DefaultVersion      int64
 	Created             time.Time
 	Updated             time.Time
+	CloudformationOwner string
+	ObjectID            string
 }
 
 type RamPermissionAction struct {
@@ -61,26 +63,29 @@ type RamPermissionVersion struct {
 }
 
 type RamPrincipal struct {
-	ShareArn      string
-	Position      int64
-	Principal     string
-	PrincipalID   string
-	Status        string
-	InvitationArn string
-	Organization  bool
-	Created       time.Time
-	Updated       time.Time
+	ShareArn            string
+	Position            int64
+	Principal           string
+	PrincipalID         string
+	Status              string
+	InvitationArn       string
+	Organization        bool
+	Created             time.Time
+	Updated             time.Time
+	CloudformationOwner string
 }
 
 type RamReceipt struct {
-	Partition string
-	AccountID string
-	Region    string
-	Operation string
-	Token     string
-	Hash      string
-	Arn       string
-	Version   int64
+	Partition           string
+	AccountID           string
+	Region              string
+	Operation           string
+	Token               string
+	Hash                string
+	Arn                 string
+	Version             int64
+	CloudformationOwner string
+	ObjectID            string
 }
 
 type RamReplacement struct {
@@ -111,29 +116,32 @@ type RamResource struct {
 	StatusMessage         string
 	Created               time.Time
 	Updated               time.Time
+	CloudformationOwner   string
 }
 
 type RamShare struct {
-	Arn           string
-	Partition     string
-	AccountID     string
-	Region        string
-	Name          string
-	Status        string
-	FeatureSet    string
-	PolicyID      string
-	AllowExternal bool
-	RetainOnLeave bool
-	Created       time.Time
-	Updated       time.Time
+	Arn                 string
+	Partition           string
+	AccountID           string
+	Region              string
+	Name                string
+	Status              string
+	FeatureSet          string
+	PolicyID            string
+	AllowExternal       bool
+	RetainOnLeave       bool
+	Created             time.Time
+	Updated             time.Time
+	CloudformationOwner string
 }
 
 type RamSharePermission struct {
-	ShareArn     string
-	Position     int64
-	Arn          string
-	ResourceType string
-	Version      int64
+	ShareArn            string
+	Position            int64
+	Arn                 string
+	ResourceType        string
+	Version             int64
+	CloudformationOwner string
 }
 
 type RamShareTag struct {

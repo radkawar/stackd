@@ -74,6 +74,7 @@ func (j *jsonFields) decode(text string, v any) {
 func repositoryRow(v sqlcgen.EcrRepository) (domain.RepositoryRecord, error) {
 	out := domain.RepositoryRecord{Key: domain.RepositoryKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name}, ARN: v.Arn, Created: timestamp(v.Created), Mutability: v.Mutability, EncryptionType: v.EncryptionType, KMSKeyID: v.KmsKeyID, DataKey: v.DataKey, ScanOnPush: v.ScanOnPush != 0, LifecyclePolicy: v.LifecyclePolicy, LifecycleDue: timestamp(v.LifecycleDue), LifecycleEvaluated: timestamp(v.LifecycleEvaluated), PreviewPolicy: v.PreviewPolicy, PreviewStatus: v.PreviewStatus, PreviewExpires: timestamp(v.PreviewExpires)}
 	out.Policy.Document = v.Policy
+	out.Ownership = v.Ownership
 	j := jsonFields{}
 	j.decode(v.Exclusions, &out.Exclusions)
 	j.decode(v.Tags, &out.Tags)
@@ -114,7 +115,7 @@ func (r reader) AllRepositories() ([]domain.RepositoryRecord, error) {
 }
 func (w writer) PutRepository(v domain.RepositoryRecord) error {
 	j := jsonFields{}
-	p := sqlcgen.PutRepositoryParams{Partition: v.Key.Partition, AccountID: v.Key.AccountID, Region: v.Key.Region, Name: v.Key.Name, Arn: v.ARN, Created: instant(v.Created), Mutability: v.Mutability, Exclusions: j.encode(v.Exclusions), Tags: j.encode(v.Tags), Policy: v.Policy.Document, PolicyPrincipals: j.encode(v.Policy.PrincipalIDs), EncryptionType: v.EncryptionType, KmsKeyID: v.KMSKeyID, DataKey: binary(v.DataKey), Grants: j.encode(v.Grants), GrantTokens: j.encode(v.GrantTokens), LifecyclePolicy: v.LifecyclePolicy, LifecycleDue: instant(v.LifecycleDue), LifecycleEvaluated: instant(v.LifecycleEvaluated), PreviewPolicy: v.PreviewPolicy, PreviewStatus: v.PreviewStatus, PreviewResults: j.encode(v.PreviewResults), PreviewExpires: instant(v.PreviewExpires)}
+	p := sqlcgen.PutRepositoryParams{Partition: v.Key.Partition, AccountID: v.Key.AccountID, Region: v.Key.Region, Name: v.Key.Name, Arn: v.ARN, Created: instant(v.Created), Mutability: v.Mutability, Exclusions: j.encode(v.Exclusions), Tags: j.encode(v.Tags), Policy: v.Policy.Document, PolicyPrincipals: j.encode(v.Policy.PrincipalIDs), EncryptionType: v.EncryptionType, KmsKeyID: v.KMSKeyID, DataKey: binary(v.DataKey), Grants: j.encode(v.Grants), GrantTokens: j.encode(v.GrantTokens), LifecyclePolicy: v.LifecyclePolicy, LifecycleDue: instant(v.LifecycleDue), LifecycleEvaluated: instant(v.LifecycleEvaluated), PreviewPolicy: v.PreviewPolicy, PreviewStatus: v.PreviewStatus, PreviewResults: j.encode(v.PreviewResults), PreviewExpires: instant(v.PreviewExpires), Ownership: v.Ownership}
 	if v.ScanOnPush {
 		p.ScanOnPush = 1
 	}
@@ -132,6 +133,7 @@ func (r reader) Registry(k domain.Scope) (domain.RegistryRecord, error) {
 		return domain.RegistryRecord{}, missing(e)
 	}
 	out := domain.RegistryRecord{Scope: k}
+	out.PolicyOwnership, out.ReplicationOwnership, out.ScanningOwnership = v.PolicyOwnership, v.ReplicationOwnership, v.ScanningOwnership
 	out.Policy.Document = v.Policy
 	j := jsonFields{}
 	j.decode(v.PolicyPrincipals, &out.Policy.PrincipalIDs)
@@ -142,6 +144,7 @@ func (r reader) Registry(k domain.Scope) (domain.RegistryRecord, error) {
 func (w writer) PutRegistry(v domain.RegistryRecord) error {
 	j := jsonFields{}
 	p := sqlcgen.PutRegistryParams{Partition: v.Scope.Partition, AccountID: v.Scope.AccountID, Region: v.Scope.Region, Policy: v.Policy.Document, PolicyPrincipals: j.encode(v.Policy.PrincipalIDs), Scanning: j.encode(v.Scanning), Replication: j.encode(v.Replication)}
+	p.PolicyOwnership, p.ReplicationOwnership, p.ScanningOwnership = v.PolicyOwnership, v.ReplicationOwnership, v.ScanningOwnership
 	if j.err != nil {
 		return j.err
 	}
@@ -159,6 +162,7 @@ func (r reader) AllRegistries() ([]domain.RegistryRecord, error) {
 	out := make([]domain.RegistryRecord, 0, len(rows))
 	for _, v := range rows {
 		record := domain.RegistryRecord{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}}
+		record.PolicyOwnership, record.ReplicationOwnership, record.ScanningOwnership = v.PolicyOwnership, v.ReplicationOwnership, v.ScanningOwnership
 		record.Policy.Document = v.Policy
 		j := jsonFields{}
 		j.decode(v.PolicyPrincipals, &record.Policy.PrincipalIDs)

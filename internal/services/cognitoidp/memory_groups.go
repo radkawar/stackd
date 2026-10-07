@@ -99,6 +99,9 @@ func (w memoryWriter) RemoveGroupUser(k GroupKey, username string) error {
 	}
 	removeMembership(w.s.groupUsers, k, username)
 	removeMembership(w.s.userGroups, UserKey{PoolKey: k.PoolKey, Username: username}, k.Name)
+	w.releaseOwners(k.PoolKey, func(v OwnershipRecord) bool {
+		return v.Key.Kind == OwnerKindMembership && v.MemberUser == username && v.MemberGroup == k.Name
+	})
 	return nil
 }
 
@@ -122,6 +125,9 @@ func (w memoryWriter) DeleteGroup(k GroupKey) error {
 	}
 	delete(w.s.groupUsers, k)
 	delete(w.s.groups, k)
+	w.releaseOwners(k.PoolKey, func(v OwnershipRecord) bool {
+		return v.Key.Kind == OwnerKindGroup && v.PhysicalID == k.Name || v.Key.Kind == OwnerKindMembership && v.MemberGroup == k.Name
+	})
 	return nil
 }
 

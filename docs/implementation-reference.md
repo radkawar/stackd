@@ -461,19 +461,35 @@ unselected workspace links do not prevent regular-file artifact publication.
 Requires Go 1.26.5 or newer. Module downloads are needed for the initial build;
 by default, the running emulator and its tests do not contact AWS.
 Control-plane-only use, including IAM embedding, requires no container runtime.
-Lambda ZIP, ECS tasks/services, DynamoDB Local, Kinesis, ElastiCache/MemoryDB and
-ORC inventory encoding use explicit per-instance Docker dependencies and locally installed images.
-CLI `-docker-host` constructs these; build the pinned inventory encoder with
-`docker build -t stackd/orc:2.2.2 engine/orc` before enabling that CLI option.
-`make build` creates `bin/stackd` and the static Linux Lambda telemetry helpers
-used by real execution. Install those artifacts together, or select their
-directory with `-lambda-telemetry-directory`.
-Lambda also requires the preinstalled disk-storage helper and daemon capabilities
-listed in [temporary-storage setup](lambda.md#temporary-storage-and-crash-recovery);
-its `/tmp` quota is disk-backed rather than charged to function memory.
-ECS requires local rootful Linux Docker with systemd/cgroup v2 and the preinstalled
-pinned `compute/docker.ToolkitImage`. `-compute-endpoint` selects the shared
-container-reachable AWS endpoint.
+Lambda ZIP/image functions, ECS tasks/services, CodeBuild, DynamoDB Local,
+Kinesis and ORC inventory use explicit per-instance Docker dependencies and
+locally installed images. CLI `-docker-host` selects transport only.
+`-lambda-runtime`, `-ecs-runtime`, `-codebuild-runtime`, `-dynamodb-runtime`,
+`-kinesis-runtime` and `-inventory-orc-runtime` independently enable their actual
+owners and all default to false. Other service-specific opt-ins remain unchanged.
+Build the inventory encoder with `docker build -t stackd/orc:2.2.2 engine/orc`
+before requesting `-inventory-orc-runtime`.
+`make build` creates the native `bin/stackd` and static Linux Lambda telemetry
+helpers. Only Lambda needs those helpers; install them beside stackd or set
+`-lambda-telemetry-directory`. Lambda also requires its installed storage helper
+and actual Linux daemon capabilities listed in
+[storage setup](lambda.md#temporary-storage-and-crash-recovery); its `/tmp` quota
+is disk-backed rather than charged to function memory.
+Only requested ECS requires local rootful Linux Docker with systemd/cgroup v2
+and the installed pinned `compute/docker.ToolkitImage`. `-compute-endpoint`
+selects the container-reachable AWS endpoint; it does not open an API socket.
+Native macOS controller builds are supported, including Darwin/arm64 on Apple
+Silicon. Opt-in Desktop Lambda/DynamoDB/Kinesis use actual Linux VM backends;
+Lambda's storage helper and Linux telemetry run inside that VM. The real
+container RIC/bootstrap uses stackd's Runtime API, not a synthetic invocation.
+Explicit callback host `host.docker.internal` preserves Desktop container DNS
+without host resolution or shadow mapping. Lambda VPC namespaces, bridges and
+nftables use daemon identity and real shared `flock` ownership inside the daemon
+VM; EC2/ECS/EKS/ALB retain their original local Linux host-security boundary.
+No actual macOS run was observed for this documentation change, and arbitrary
+remote engines or missing VM capabilities are not promised. See the exact
+[Desktop launch and platform preparation recipe](runtime-containers.md#native-macos-controller-with-docker-desktop),
+including Linux/amd64 `local-unified:latest` images and CPU-emulation limits.
 ALB execution additionally requires a static relay executable:
 `CGO_ENABLED=0 go build -o bin/stackd-elbv2-node ./cmd/stackd-elbv2-node`.
 Select its absolute path with `-elbv2-node-executable` alongside `-docker-host`.
@@ -486,9 +502,10 @@ set `-dns-listen` explicitly; constructing the services does not bind another
 listener. See [DNS scope and delegation](route53.md#dns-resolution-and-delegation-boundary)
 and [certificate trust](acm.md#trust-boundary) before configuring clients.
 
-CodeBuild also uses `-docker-host` and `-compute-endpoint`; build images must be
-installed locally for offline use. `-codebuild-fleet-image` requires an explicit
-local image ID or digest for real idle fleet containers. Basic ECR scans require
+CodeBuild uses `-docker-host -codebuild-runtime` and `-compute-endpoint`; build
+images must be installed locally for offline use, without Lambda helper
+prerequisites. `-codebuild-fleet-image` requires an explicit local image ID or
+digest for real idle fleet containers. Basic ECR scans require
 `-ecr-scanner /absolute/path/to/trivy` and `-ecr-scanner-cache /absolute/cache`:
 Trivy 0.74.0 and a pre-provisioned schema-2 vulnerability database are explicit
 inputs, never silently downloaded or replaced with clean findings.

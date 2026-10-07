@@ -272,9 +272,6 @@ func (s *Service) storeEditedTopicPolicy(tx Transaction, topic *TopicRecord, doc
 	if len(data) > 30720 {
 		return failure("InvalidParameter", "Invalid parameter: Policy exceeds the maximum size of 30 KB.")
 	}
-	if string(data) == topic.Policy.Document {
-		return nil
-	}
 	// Shorthand adds account principals, which are not identity-bound. Preserve
 	// every surviving ARN's immutable ID rather than rebinding a deleted identity.
 	retained := maps.Clone(topic.Policy.PrincipalIDs)
@@ -291,6 +288,7 @@ func (s *Service) storeEditedTopicPolicy(tx Transaction, topic *TopicRecord, doc
 		}
 	}
 	topic.Policy = authorization.BoundPolicy{Document: string(data), PrincipalIDs: retained}
+	clearCloudFormationPolicyClaim(topic)
 	topic.Updated = s.clock.Now()
 	return tx.PutTopic(*topic)
 }

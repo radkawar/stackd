@@ -67,11 +67,11 @@ func (r memoryReader) UsagePlanMembership(plan PlanKey, clientKeyID string) (Usa
 	if err := r.tx.Check(false); err != nil {
 		return UsagePlanMembership{}, err
 	}
-	created, ok := r.s.usageMemberships[ClientKey{Scope: plan.Scope, ID: clientKeyID}][plan]
+	row, ok := r.s.usageMemberships[ClientKey{Scope: plan.Scope, ID: clientKeyID}][plan]
 	if !ok {
 		return UsagePlanMembership{}, ErrNotFound
 	}
-	return UsagePlanMembership{Plan: plan, ClientKeyID: clientKeyID, Created: created}, nil
+	return row, nil
 }
 
 func (r memoryReader) UsagePlanKeys(plan PlanKey) ([]ClientKeyRecord, error) {
@@ -145,9 +145,9 @@ func (w memoryWriter) PutUsagePlanMembership(row UsagePlanMembership) error {
 	key := ClientKey{Scope: row.Plan.Scope, ID: row.ClientKeyID}
 	memberships := maps.Clone(w.s.usageMemberships[key])
 	if memberships == nil {
-		memberships = make(map[PlanKey]time.Time)
+		memberships = make(map[PlanKey]UsagePlanMembership)
 	}
-	memberships[row.Plan] = row.Created
+	memberships[row.Plan] = row
 	w.s.usageMemberships[key] = memberships
 	return nil
 }

@@ -3,6 +3,7 @@ package lambda
 import (
 	"context"
 	"errors"
+	"slices"
 
 	"stackd/internal/awswire"
 	"stackd/internal/services/eventbridge/eventpattern"
@@ -41,11 +42,13 @@ func (s *Service) captureStreamPage(ctx context.Context, mapping EventSourceMapp
 			}
 			if wire.Code == "TrimmedDataAccessException" {
 				s.streamDiagnostic(mapping, wire)
-				shard.Checkpoint = ""
-				shard.StartingPositionTimestamp = now.Add(-shard.Retention)
-				if err := s.repository.Update(ctx, func(tx Transaction) error { return tx.PutStreamShard(*shard) }); err != nil {
+				next := *shard
+				next.Checkpoint = ""
+				next.StartingPositionTimestamp = now.Add(-shard.Retention)
+				if err := s.repository.Update(ctx, func(tx Transaction) error { return tx.PutStreamShard(next) }); err != nil {
 					return err
 				}
+				*shard = next
 			}
 		}
 		return err
@@ -55,6 +58,13 @@ func (s *Service) captureStreamPage(ctx context.Context, mapping EventSourceMapp
 		s.sourceMetric(mapping, metricSourcePolled, 0)
 		return nil
 	}
+	// Do not expose an uncommitted page to retained execution when capture
+	// fails. Lane headers must be detached because appending changes them;
+	// existing record bytes are immutable and do not need to be copied.
+	next := *shard
+	if len(page.Records) != 0 {
+		next.Lanes = slices.Clone(shard.Lanes)
+	}
 	filtered := 0
 	for _, record := range page.Records {
 		matches, err := matchesStreamRecordFilters(mapping, filters, record.Payload)
@@ -62,20 +72,20 @@ func (s *Service) captureStreamPage(ctx context.Context, mapping EventSourceMapp
 			return err
 		}
 		if matches {
-			lane := streamLaneFor(record.ItemKey, len(shard.Lanes))
-			shard.Lanes[lane].Records = append(shard.Lanes[lane].Records, record)
+			lane := streamLaneFor(record.ItemKey, len(next.Lanes))
+			next.Lanes[lane].Records = append(next.Lanes[lane].Records, record)
 		} else {
 			filtered++
 		}
 	}
 	if page.Checkpoint != "" {
-		shard.Checkpoint = page.Checkpoint
+		next.Checkpoint = page.Checkpoint
 	}
-	shard.ReadComplete = page.Complete
+	next.ReadComplete = page.Complete
 	// Queued records, page checkpoint and source metrics commit atomically. An
 	// aggregate's entire deaggregated payload is retained before its source cursor.
 	if err := s.repository.Update(ctx, func(tx Transaction) error {
-		if err := tx.PutStreamShard(*shard); err != nil {
+		if err := tx.PutStreamShard(next); err != nil {
 			return err
 		}
 		if s.sourceMetricEnabled(mapping, metricSourcePolled) {
@@ -89,6 +99,7 @@ func (s *Service) captureStreamPage(ctx context.Context, mapping EventSourceMapp
 	}); err != nil {
 		return err
 	}
+	*shard = next
 	iterators[shard.Key.ShardID] = page.Iterator
 	s.jobs.Wake()
 	return nil

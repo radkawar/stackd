@@ -128,7 +128,7 @@ func (q *Queries) CreationTags(ctx context.Context, arg CreationTagsParams) ([]O
 }
 
 const creations = `-- name: Creations :many
-SELECT "partition", org_id, position, id, account_id, account_name, email, role_name, state, failure_reason, requested_at, due, completed_at, request_id, request_region, actor_arn FROM org_creations WHERE partition = ? AND org_id = ? ORDER BY position
+SELECT "partition", org_id, position, id, account_id, account_name, email, role_name, state, failure_reason, requested_at, due, completed_at, request_id, request_region, actor_arn, cloudformation_owner FROM org_creations WHERE partition = ? AND org_id = ? ORDER BY position
 `
 
 type CreationsParams struct {
@@ -162,6 +162,7 @@ func (q *Queries) Creations(ctx context.Context, arg CreationsParams) ([]OrgCrea
 			&i.RequestID,
 			&i.RequestRegion,
 			&i.ActorArn,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -491,7 +492,7 @@ func (q *Queries) Handshakes(ctx context.Context, partition string) ([]OrgHandsh
 }
 
 const members = `-- name: Members :many
-SELECT "partition", org_id, position, id, arn, name, email, status, state, joined_method, joined_timestamp FROM org_members WHERE partition = ? AND org_id = ? ORDER BY position
+SELECT "partition", org_id, position, id, arn, name, email, status, state, joined_method, joined_timestamp, cloudformation_owner, cloudformation_region FROM org_members WHERE partition = ? AND org_id = ? ORDER BY position
 `
 
 type MembersParams struct {
@@ -520,6 +521,8 @@ func (q *Queries) Members(ctx context.Context, arg MembersParams) ([]OrgMember, 
 			&i.State,
 			&i.JoinedMethod,
 			&i.JoinedTimestamp,
+			&i.CloudformationOwner,
+			&i.CloudformationRegion,
 		); err != nil {
 			return nil, err
 		}
@@ -535,7 +538,7 @@ func (q *Queries) Members(ctx context.Context, arg MembersParams) ([]OrgMember, 
 }
 
 const organizations = `-- name: Organizations :many
-SELECT "partition", org_id, position, arn, feature_set, master_account_id, master_account_arn, master_account_email, root_id, root_arn, root_name, credentials_management, root_sessions FROM org_organizations WHERE partition = ? ORDER BY position
+SELECT "partition", org_id, position, arn, feature_set, master_account_id, master_account_arn, master_account_email, root_id, root_arn, root_name, credentials_management, root_sessions, cloudformation_owner FROM org_organizations WHERE partition = ? ORDER BY position
 `
 
 func (q *Queries) Organizations(ctx context.Context, partition string) ([]OrgOrganization, error) {
@@ -561,6 +564,7 @@ func (q *Queries) Organizations(ctx context.Context, partition string) ([]OrgOrg
 			&i.RootName,
 			&i.CredentialsManagement,
 			&i.RootSessions,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -641,7 +645,7 @@ func (q *Queries) Partitions(ctx context.Context) ([]string, error) {
 }
 
 const policies = `-- name: Policies :many
-SELECT "partition", org_id, position, id, arn, name, description, type, content, aws_managed FROM org_policies WHERE partition = ? AND org_id = ? ORDER BY position
+SELECT "partition", org_id, position, id, arn, name, description, type, content, aws_managed, cloudformation_owner FROM org_policies WHERE partition = ? AND org_id = ? ORDER BY position
 `
 
 type PoliciesParams struct {
@@ -669,6 +673,7 @@ func (q *Queries) Policies(ctx context.Context, arg PoliciesParams) ([]OrgPolicy
 			&i.Type,
 			&i.Content,
 			&i.AwsManaged,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -756,27 +761,28 @@ func (q *Queries) PutCreationTags(ctx context.Context, arg PutCreationTagsParams
 }
 
 const putCreations = `-- name: PutCreations :exec
-INSERT INTO org_creations (partition, org_id, position, id, account_id, account_name, email, role_name, state, failure_reason, requested_at, due, completed_at, request_id, request_region, actor_arn)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO org_creations (partition, org_id, position, id, account_id, account_name, email, role_name, state, failure_reason, requested_at, due, completed_at, request_id, request_region, actor_arn, cloudformation_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type PutCreationsParams struct {
-	Partition     string
-	OrgID         string
-	Position      int64
-	ID            string
-	AccountID     string
-	AccountName   string
-	Email         string
-	RoleName      string
-	State         string
-	FailureReason string
-	RequestedAt   time.Time
-	Due           time.Time
-	CompletedAt   time.Time
-	RequestID     string
-	RequestRegion string
-	ActorArn      string
+	Partition           string
+	OrgID               string
+	Position            int64
+	ID                  string
+	AccountID           string
+	AccountName         string
+	Email               string
+	RoleName            string
+	State               string
+	FailureReason       string
+	RequestedAt         time.Time
+	Due                 time.Time
+	CompletedAt         time.Time
+	RequestID           string
+	RequestRegion       string
+	ActorArn            string
+	CloudformationOwner string
 }
 
 func (q *Queries) PutCreations(ctx context.Context, arg PutCreationsParams) error {
@@ -797,6 +803,7 @@ func (q *Queries) PutCreations(ctx context.Context, arg PutCreationsParams) erro
 		arg.RequestID,
 		arg.RequestRegion,
 		arg.ActorArn,
+		arg.CloudformationOwner,
 	)
 	return err
 }
@@ -1015,22 +1022,24 @@ func (q *Queries) PutHandshakeTag(ctx context.Context, arg PutHandshakeTagParams
 }
 
 const putMembers = `-- name: PutMembers :exec
-INSERT INTO org_members (partition, org_id, position, id, arn, name, email, status, state, joined_method, joined_timestamp)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO org_members (partition, org_id, position, id, arn, name, email, status, state, joined_method, joined_timestamp, cloudformation_owner, cloudformation_region)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type PutMembersParams struct {
-	Partition       string
-	OrgID           string
-	Position        int64
-	ID              string
-	Arn             string
-	Name            string
-	Email           string
-	Status          string
-	State           string
-	JoinedMethod    string
-	JoinedTimestamp float64
+	Partition            string
+	OrgID                string
+	Position             int64
+	ID                   string
+	Arn                  string
+	Name                 string
+	Email                string
+	Status               string
+	State                string
+	JoinedMethod         string
+	JoinedTimestamp      float64
+	CloudformationOwner  string
+	CloudformationRegion string
 }
 
 func (q *Queries) PutMembers(ctx context.Context, arg PutMembersParams) error {
@@ -1046,13 +1055,15 @@ func (q *Queries) PutMembers(ctx context.Context, arg PutMembersParams) error {
 		arg.State,
 		arg.JoinedMethod,
 		arg.JoinedTimestamp,
+		arg.CloudformationOwner,
+		arg.CloudformationRegion,
 	)
 	return err
 }
 
 const putOrganizations = `-- name: PutOrganizations :exec
-INSERT INTO org_organizations (partition, org_id, position, arn, feature_set, master_account_id, master_account_arn, master_account_email, root_id, root_arn, root_name, credentials_management, root_sessions)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO org_organizations (partition, org_id, position, arn, feature_set, master_account_id, master_account_arn, master_account_email, root_id, root_arn, root_name, credentials_management, root_sessions, cloudformation_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type PutOrganizationsParams struct {
@@ -1069,6 +1080,7 @@ type PutOrganizationsParams struct {
 	RootName              string
 	CredentialsManagement bool
 	RootSessions          bool
+	CloudformationOwner   string
 }
 
 func (q *Queries) PutOrganizations(ctx context.Context, arg PutOrganizationsParams) error {
@@ -1086,6 +1098,7 @@ func (q *Queries) PutOrganizations(ctx context.Context, arg PutOrganizationsPara
 		arg.RootName,
 		arg.CredentialsManagement,
 		arg.RootSessions,
+		arg.CloudformationOwner,
 	)
 	return err
 }
@@ -1131,21 +1144,22 @@ func (q *Queries) PutPartitions(ctx context.Context, arg PutPartitionsParams) er
 }
 
 const putPolicies = `-- name: PutPolicies :exec
-INSERT INTO org_policies (partition, org_id, position, id, arn, name, description, type, content, aws_managed)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO org_policies (partition, org_id, position, id, arn, name, description, type, content, aws_managed, cloudformation_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type PutPoliciesParams struct {
-	Partition   string
-	OrgID       string
-	Position    int64
-	ID          string
-	Arn         string
-	Name        string
-	Description string
-	Type        string
-	Content     string
-	AwsManaged  bool
+	Partition           string
+	OrgID               string
+	Position            int64
+	ID                  string
+	Arn                 string
+	Name                string
+	Description         string
+	Type                string
+	Content             string
+	AwsManaged          bool
+	CloudformationOwner string
 }
 
 func (q *Queries) PutPolicies(ctx context.Context, arg PutPoliciesParams) error {
@@ -1160,26 +1174,29 @@ func (q *Queries) PutPolicies(ctx context.Context, arg PutPoliciesParams) error 
 		arg.Type,
 		arg.Content,
 		arg.AwsManaged,
+		arg.CloudformationOwner,
 	)
 	return err
 }
 
 const putRegistry = `-- name: PutRegistry :exec
-INSERT INTO org_registry (partition, position, id, arn, name, email, status, state, joined_method, joined_timestamp)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO org_registry (partition, position, id, arn, name, email, status, state, joined_method, joined_timestamp, cloudformation_owner, cloudformation_region)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type PutRegistryParams struct {
-	Partition       string
-	Position        int64
-	ID              string
-	Arn             string
-	Name            string
-	Email           string
-	Status          string
-	State           string
-	JoinedMethod    string
-	JoinedTimestamp float64
+	Partition            string
+	Position             int64
+	ID                   string
+	Arn                  string
+	Name                 string
+	Email                string
+	Status               string
+	State                string
+	JoinedMethod         string
+	JoinedTimestamp      float64
+	CloudformationOwner  string
+	CloudformationRegion string
 }
 
 func (q *Queries) PutRegistry(ctx context.Context, arg PutRegistryParams) error {
@@ -1194,20 +1211,23 @@ func (q *Queries) PutRegistry(ctx context.Context, arg PutRegistryParams) error 
 		arg.State,
 		arg.JoinedMethod,
 		arg.JoinedTimestamp,
+		arg.CloudformationOwner,
+		arg.CloudformationRegion,
 	)
 	return err
 }
 
 const putResourcePolicy = `-- name: PutResourcePolicy :exec
-INSERT INTO org_resource_policies (partition, org_id, id, arn, content) VALUES (?, ?, ?, ?, ?)
+INSERT INTO org_resource_policies (partition, org_id, id, arn, content, cloudformation_owner) VALUES (?, ?, ?, ?, ?, ?)
 `
 
 type PutResourcePolicyParams struct {
-	Partition string
-	OrgID     string
-	ID        string
-	Arn       string
-	Content   string
+	Partition           string
+	OrgID               string
+	ID                  string
+	Arn                 string
+	Content             string
+	CloudformationOwner string
 }
 
 func (q *Queries) PutResourcePolicy(ctx context.Context, arg PutResourcePolicyParams) error {
@@ -1217,6 +1237,7 @@ func (q *Queries) PutResourcePolicy(ctx context.Context, arg PutResourcePolicyPa
 		arg.ID,
 		arg.Arn,
 		arg.Content,
+		arg.CloudformationOwner,
 	)
 	return err
 }
@@ -1296,17 +1317,18 @@ func (q *Queries) PutTags(ctx context.Context, arg PutTagsParams) error {
 }
 
 const putUnits = `-- name: PutUnits :exec
-INSERT INTO org_units (partition, org_id, position, id, arn, name)
-VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO org_units (partition, org_id, position, id, arn, name, cloudformation_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?)
 `
 
 type PutUnitsParams struct {
-	Partition string
-	OrgID     string
-	Position  int64
-	ID        string
-	Arn       string
-	Name      string
+	Partition           string
+	OrgID               string
+	Position            int64
+	ID                  string
+	Arn                 string
+	Name                string
+	CloudformationOwner string
 }
 
 func (q *Queries) PutUnits(ctx context.Context, arg PutUnitsParams) error {
@@ -1317,12 +1339,13 @@ func (q *Queries) PutUnits(ctx context.Context, arg PutUnitsParams) error {
 		arg.ID,
 		arg.Arn,
 		arg.Name,
+		arg.CloudformationOwner,
 	)
 	return err
 }
 
 const registry = `-- name: Registry :many
-SELECT "partition", position, id, arn, name, email, status, state, joined_method, joined_timestamp FROM org_registry WHERE partition = ? ORDER BY position
+SELECT "partition", position, id, arn, name, email, status, state, joined_method, joined_timestamp, cloudformation_owner, cloudformation_region FROM org_registry WHERE partition = ? ORDER BY position
 `
 
 func (q *Queries) Registry(ctx context.Context, partition string) ([]OrgRegistry, error) {
@@ -1345,6 +1368,8 @@ func (q *Queries) Registry(ctx context.Context, partition string) ([]OrgRegistry
 			&i.State,
 			&i.JoinedMethod,
 			&i.JoinedTimestamp,
+			&i.CloudformationOwner,
+			&i.CloudformationRegion,
 		); err != nil {
 			return nil, err
 		}
@@ -1360,7 +1385,7 @@ func (q *Queries) Registry(ctx context.Context, partition string) ([]OrgRegistry
 }
 
 const resourcePolicy = `-- name: ResourcePolicy :one
-SELECT id, arn, content FROM org_resource_policies WHERE partition = ? AND org_id = ?
+SELECT id, arn, content, cloudformation_owner FROM org_resource_policies WHERE partition = ? AND org_id = ?
 `
 
 type ResourcePolicyParams struct {
@@ -1369,15 +1394,21 @@ type ResourcePolicyParams struct {
 }
 
 type ResourcePolicyRow struct {
-	ID      string
-	Arn     string
-	Content string
+	ID                  string
+	Arn                 string
+	Content             string
+	CloudformationOwner string
 }
 
 func (q *Queries) ResourcePolicy(ctx context.Context, arg ResourcePolicyParams) (ResourcePolicyRow, error) {
 	row := q.db.QueryRowContext(ctx, resourcePolicy, arg.Partition, arg.OrgID)
 	var i ResourcePolicyRow
-	err := row.Scan(&i.ID, &i.Arn, &i.Content)
+	err := row.Scan(
+		&i.ID,
+		&i.Arn,
+		&i.Content,
+		&i.CloudformationOwner,
+	)
 	return i, err
 }
 
@@ -1497,7 +1528,7 @@ func (q *Queries) Tags(ctx context.Context, arg TagsParams) ([]OrgTag, error) {
 }
 
 const units = `-- name: Units :many
-SELECT "partition", org_id, position, id, arn, name FROM org_units WHERE partition = ? AND org_id = ? ORDER BY position
+SELECT "partition", org_id, position, id, arn, name, cloudformation_owner FROM org_units WHERE partition = ? AND org_id = ? ORDER BY position
 `
 
 type UnitsParams struct {
@@ -1521,6 +1552,7 @@ func (q *Queries) Units(ctx context.Context, arg UnitsParams) ([]OrgUnit, error)
 			&i.ID,
 			&i.Arn,
 			&i.Name,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}

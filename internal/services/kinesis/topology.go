@@ -64,7 +64,7 @@ func (p *topologyPlan) merge(left, right shardRoute) shardRoute {
 	return p.add(left.start, right.end, left.shard, right.shard)
 }
 
-func (p *topologyPlan) commit(tx Transaction, update StreamUpdate) error {
+func (p *topologyPlan) commit(s *Service, tx Transaction, update StreamUpdate) error {
 	if streamMode(p.stream) == api.StreamModePROVISIONED {
 		extra := p.peak - int32(*p.stream.Data.OpenShardCount)
 		if err := checkStreamCapacity(tx, p.stream.Key.Scope, api.StreamModePROVISIONED, extra, false); err != nil {
@@ -77,7 +77,7 @@ func (p *topologyPlan) commit(tx Transaction, update StreamUpdate) error {
 		}
 	}
 	update.PeakShardCount = p.peak
-	return beginStreamUpdate(tx, p.stream, update)
+	return s.beginStreamUpdate(tx, p.stream, update)
 }
 
 func (s *Service) scheduleReshard(tx Transaction, stream StreamRecord, count int32, update StreamUpdate) error {
@@ -122,5 +122,5 @@ func (s *Service) scheduleReshard(tx Transaction, stream StreamRecord, count int
 			position++
 		}
 	}
-	return plan.commit(tx, update)
+	return plan.commit(s, tx, update)
 }

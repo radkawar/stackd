@@ -41,7 +41,7 @@ func (q *Queries) DeleteDashboardTags(ctx context.Context, arg DeleteDashboardTa
 }
 
 const getDashboard = `-- name: GetDashboard :one
-SELECT "partition", account_id, name, body, updated, size, tagging_initialized FROM cloudwatch_dashboards
+SELECT "partition", account_id, name, body, updated, size, tagging_initialized, cfn_owner FROM cloudwatch_dashboards
 WHERE partition = ? AND account_id = ? AND name = ?
 `
 
@@ -62,6 +62,7 @@ func (q *Queries) GetDashboard(ctx context.Context, arg GetDashboardParams) (Clo
 		&i.Updated,
 		&i.Size,
 		&i.TaggingInitialized,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -165,11 +166,11 @@ func (q *Queries) ListDashboards(ctx context.Context, arg ListDashboardsParams) 
 }
 
 const putDashboard = `-- name: PutDashboard :exec
-INSERT INTO cloudwatch_dashboards (partition, account_id, name, body, updated, size, tagging_initialized)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO cloudwatch_dashboards (partition, account_id, name, body, updated, size, tagging_initialized, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, name) DO UPDATE SET
  body = excluded.body, updated = excluded.updated, size = excluded.size,
- tagging_initialized = excluded.tagging_initialized
+ tagging_initialized = excluded.tagging_initialized, cfn_owner = excluded.cfn_owner
 `
 
 type PutDashboardParams struct {
@@ -180,6 +181,7 @@ type PutDashboardParams struct {
 	Updated            time.Time
 	Size               int64
 	TaggingInitialized bool
+	CfnOwner           string
 }
 
 func (q *Queries) PutDashboard(ctx context.Context, arg PutDashboardParams) error {
@@ -191,6 +193,7 @@ func (q *Queries) PutDashboard(ctx context.Context, arg PutDashboardParams) erro
 		arg.Updated,
 		arg.Size,
 		arg.TaggingInitialized,
+		arg.CfnOwner,
 	)
 	return err
 }

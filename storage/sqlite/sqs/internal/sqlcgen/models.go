@@ -165,6 +165,8 @@ type SqsQueue struct {
 	RedrivePermission    string
 	MetricActiveUntil    sql.NullTime
 	NextMetricSample     sql.NullTime
+	CreationOwner        string
+	PolicyOwner          string
 }
 
 type SqsQueueTag struct {

@@ -31,6 +31,7 @@ func (r reader) Subnets(s domain.Scope) ([]domain.SubnetRecord, error) {
 func (r reader) subnet(row sqlcgen.Ec2Subnet) (domain.SubnetRecord, error) {
 	k := domain.ResourceKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.ResourceID}
 	out := domain.SubnetRecord{Key: k}
+	out.CloudFormationOwner = cloudFormationOwner(row.CloudformationResourceType, row.CloudformationOwner)
 	d := &out.Data
 	d.AssignIpv6AddressOnCreation = boolPointer[api.Boolean](row.AssignIpv6AddressOnCreation)
 	d.AvailabilityZone = stringPointer[api.String](row.AvailabilityZone)

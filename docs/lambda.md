@@ -50,18 +50,20 @@ docker pull nicolaka/netshoot@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed28
 docker pull ubuntu@sha256:2edbbc5dc405e9612ba3584ce95480277e3eb374407b5505fe26f17df77c7dbc
 make build
 ./bin/stackd -listen 0.0.0.0:4566 -database ./stackd.sqlite \
-  -docker-host unix:///var/run/docker.sock -lambda-keep-alive 10m
+  -docker-host unix:///var/run/docker.sock -lambda-runtime -lambda-keep-alive 10m
 ```
 
-The CLI requires an explicit Docker endpoint and constructs both Lambda and ECS
-executors. Consequently this CLI setup also requires ECS's preinstalled pinned
-toolkit and local rootful Linux Docker with systemd/cgroup v2; see
-[ECS setup](ecs.md#setup-and-supported-execution). A loopback-only AWS listener
-cannot be reached through Docker's Linux host gateway; `-compute-endpoint` selects
-the reachable AWS origin shared by Lambda and ECS. Lambda's
-`-lambda-callback-host` and `-lambda-runtime-listen` separately select its reachable
-Runtime API callback address and local bind address. No host DNS or trust roots
-are changed.
+The CLI requires an explicit Docker endpoint and `-lambda-runtime`. Docker
+transport alone enables no runtime; Lambda does not construct ECS or impose
+ECS's local Linux/systemd/cgroup-v2 admission. The native macOS
+[Docker Desktop recipe](runtime-containers.md#native-macos-controller-with-docker-desktop)
+uses port 4567 and static Linux helpers, with ECS intentionally disabled.
+A loopback-only AWS listener cannot be reached through Docker's Linux host
+gateway; `-compute-endpoint` selects the reachable AWS origin.
+`-lambda-callback-host` and `-lambda-runtime-listen` separately select the Runtime
+API callback address and bind address. Docker Desktop's `host.docker.internal`
+uses its built-in container DNS rather than a Linux host-gateway override.
+No host DNS or trust roots are changed.
 
 `make build` also produces static Linux `lambda-telemetry-amd64` and
 `lambda-telemetry-arm64` helpers beside the executable. The CLI uses that
@@ -96,6 +98,192 @@ clock governs warm-cache expiry and execution-role expiration; actual startup,
 customer code and invocation deadlines remain on wall time. A nil executor does
 not require Docker for IAM or other control-plane use, and cannot execute code.
 Stack shutdown closes the environments it created, not the caller's executor.
+
+## Container-image deployments
+
+`PackageType=Image` accepts an explicitly installed local Docker tag such as
+`local-unified:latest`, in addition to installed digest references. This local
+image admission is deliberately broader than AWS's ECR-only registry admission;
+it does not simulate an ECR push or invent an ECR repository digest.
+`CreateFunction` and `UpdateFunctionCode` inspect the installed image and stage
+an unstarted source-image container, then commit a namespace-labeled native
+snapshot with a unique owned tag before committing deployment state. No customer
+code runs while pinning. The original full Docker image configuration supplies
+the commit configuration, preserving its command, entrypoint, environment,
+working directory and platform. The derived image retains manifest/content even
+with Docker's containerd image store; a config ID alone is not a content lease.
+The actual admitted source config ID remains the public deployment identity;
+the distinct Docker-created snapshot ID is retained privately for execution.
+Retagging alone changes neither `$LATEST` nor a published version.
+`UpdateFunctionCode --image-uri` resolves the new tag and deploys it through the
+ordinary readiness and hot-swap lifecycle.
+`GetFunction` returns the supplied `ImageUri` and actual `ResolvedImageUri`
+(a repository digest when available, otherwise the local image ID), not a ZIP URL.
+Image identities, owned references and configuration snapshots persist across
+SQLite restart. Current, pending and published deployments retain their references,
+as do accepted calls, deployment/provisioned preparation and warm execution slots.
+Cold calls are rooted before Docker preparation begins. Reopening verifies native
+ownership and identity without resolving the supplied mutable tag again. Deletion
+and failed staging reconcile only unreferenced owned snapshot tags/artifacts and
+staging containers. Final collection follows actual runtime/extension completion
+and slot closure; a customer's SQS send is not a completion barrier. Shutdown joins
+accepted work and releases successfully closed slots, but preserves deployment
+roots for restart and roots whose native cleanup failed.
+Native image labels are the durable inventory: a commit completing after a
+transport failure or controller crash remains independently discoverable even
+after its staging container has gone. An untagged interrupted commit is cleaned
+only by its actual, labeled derived-image ID, never by the source-image ID.
+Cleanup never removes the caller's source tag/image, deletes user-tagged
+artifacts, forces image removal or prunes the daemon. Native cleanup failures
+remain errors for retry. Missing or externally retagged retained images fail
+honestly; there is no automatic pull or invented registry digest.
+
+The CloudFormation Function adapter supports both packages, replaces a function
+when `PackageType` changes, and exposes authoritative live read/list models.
+List identifiers use the regional provider's `FunctionName` primary identifier,
+not the native listing's function ARN. Code source properties remain write-only
+in that model, following the regional provider schema. A private retained
+stack/logical-resource/token claim fences stack commands against a same-name
+native recreation even if its public discovery tags were copied. Public tags
+neither establish nor satisfy that claim. Native and direct Cloud Control
+updates can mutate existing functions without adopting their private claims.
+
+Build x86_64 images with `docker build --platform linux/amd64`, including on
+Darwin/arm64 Docker Desktop. The installed image must actually have that Linux
+platform; a tag pointing at an arm64 image is not an amd64 deployment.
+Image functions omit `Runtime` and `Handler`; the Docker image's `ENTRYPOINT`,
+`CMD`, working directory and environment provide their defaults.
+`ImageConfig.EntryPoint`, `Command` and `WorkingDirectory` override those
+defaults through `CreateFunction` or `UpdateFunctionConfiguration`, without
+re-resolving a mutable image tag. Arguments are passed literally, not through a
+shell interpolator.
+
+Use an official AWS Lambda runtime base image or install the official
+[Runtime Interface Client](https://docs.aws.amazon.com/lambda/latest/dg/images-create.html)
+in the image. The client connects directly to stackd's Runtime API through
+`AWS_LAMBDA_RUNTIME_API`; the RIE is never executed as a fallback. The current
+process/telemetry supervisor also requires `/bin/bash` and `/bin/sleep` in the
+image, a writable `/tmp`, and code readable/executable by UID/GID `993`.
+ZIP `provided.al2023` deployments execute their `/var/task/bootstrap` directly
+in the official provided OS image, falling back to `/opt/bootstrap` only when
+the package has no bootstrap. A missing or non-executable entrypoint returns
+`Runtime.InvalidEntrypoint`. `_HANDLER` carries the configured handler name.
+This follows the [custom-runtime contract](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-custom.html),
+not the OS-only image's uninstalled `/var/runtime/bootstrap` language launcher.
+The telemetry and bounded-storage helper prerequisites above apply to both
+package types.
+
+The opt-in local execution regression builds two real Python RIC images from
+the installed pinned base, invokes them through the signed SDK, proves that
+retagging does not change deployed code, updates code, invokes the old published
+version, closes/recreates the executor under the same stable daemon namespace
+while reopening SQLite, and drives a real SQS source into the image function and
+out to an actual SQS output queue. A deterministic fence pauses an admitted cold
+call before native Docker preparation while another call hot-swaps or deletes
+its unpublished function; the accepted call must still execute its selected
+image. It also checks that rejected admission and final function deletion
+release owned native staging markers and image artifacts without deleting the
+caller's source image tag:
+
+```sh
+STACKD_LAMBDA_DOCKER=1 go test ./integration \
+  -run '^TestLambdaLocalImageDockerExecutionAndHotSwap$' -count=1
+```
+
+It requires the Docker CLI and the existing runtime/helper images. It is a local
+behavior regression, not a fabricated native AWS capture.
+
+The provided-runtime regression builds a real static Linux/amd64 Go bootstrap,
+packages its executable mode into a ZIP, invokes the Runtime API implementation,
+hot-swaps ZIP code, checks the old published version, and verifies
+`Runtime.InvalidEntrypoint` for a non-executable bootstrap:
+
+```sh
+STACKD_LAMBDA_DOCKER=1 go test ./integration \
+  -run '^TestLambdaProvidedAL2023DockerBootstrapAndHotSwap$' -count=1
+```
+
+It additionally needs the Go compiler and the installed pinned
+`provided.al2023` amd64 OS image.
+AWS's [image settings](https://docs.aws.amazon.com/lambda/latest/api/API_ImageConfig.html)
+and [image deployment guide](https://docs.aws.amazon.com/lambda/latest/dg/nodejs-image.html)
+define the override and tag-resolution contracts.
+
+## Function VPC placement
+
+Function `VpcConfig` is separate from an event source mapping's poller VPC.
+Admission validates scoped subnets and security groups through the current
+EC2 owner under the execution role. Runtime preparation allocates a real
+EC2-owned ENI for that function incarnation and execution lease; the Docker
+namespace uses its reserved IPv4 address, MAC, VPC bridge and DNS.
+Current EC2 security-group/NACL policy is installed before customer execution
+and refreshed while the environment lives. There is no metadata-only VPC or
+permission-free network fallback.
+
+VPC execution additionally requires the configured native function-network
+runtime, the installed pinned networking toolkit, a rootful Linux Docker daemon
+with bridge/veth and nftables capabilities, and execution-role EC2 network
+permissions. Docker Desktop uses daemon-owned bridge locks and a Runtime API
+callback relay; a private callback exemption does not bypass policy for arbitrary
+customer traffic or the AWS endpoint. Dual-stack IPv6 is rejected explicitly.
+Deleting an environment removes its customer/storage containers before releasing
+the exact owned native policy and EC2 ENI.
+
+Available EC2-owned VPC endpoints direct the corresponding customer SDKs through
+real private-IP listeners and current endpoint-policy/IAM intersection, in
+addition to security-group/NACL packet policy. Local endpoint URLs use
+`http://private-ip:443`; this is not a claim of AWS public DNS names, trusted TLS,
+or externally assigned public EIP identity. Private-subnet egress requires an
+available public NAT, its retained EIP and an attached internet gateway through
+the authoritative route topology; the daemon performs actual NAT forwarding.
+The native dependency smoke exercises SQS and the pinned Kafka-backed Kinesis
+runtime, including endpoint/SG/NACL/NAT withdrawal:
+
+```sh
+STACKD_LAMBDA_DOCKER=1 STACKD_KINESIS_DOCKER=1 go test ./integration \
+  -run '^TestLambdaVpcDockerEndpointsPolicyAndPrivateNatPackets$' -count=1
+```
+
+
+## CloudFormation additional configurations
+
+`AWS::Lambda::EventInvokeConfig`, `AWS::Lambda::Url`,
+`AWS::Lambda::CodeSigningConfig` and `AWS::Lambda::CapacityProvider` use the
+existing typed Lambda commands for create, update, delete and authoritative
+Cloud Control read/list. No configuration state is stored in the CFN adapter.
+Private incarnation claims persist in both memory and SQLite (migration 323);
+retrying a create with the same owner recovers its original configuration.
+Every command still checks current IAM. Native updates preserve private claims,
+but deleting and recreating the same configuration does not transfer them.
+Replacement cleanup uses the old physical identity, not desired properties.
+
+Event-invoke retry limit `0` is preserved as an explicitly configured value.
+Changing the function or qualifier replaces the resource; updates replace the
+declared error-handling settings and remove omitted destinations. Function URLs
+retain the actual HTTP endpoint and support IAM/NONE auth, CORS and buffered or
+streaming invocation. Omitting CORS on update clears it; omitting InvokeMode
+restores BUFFERED. URL creation requires the configured public endpoint.
+URL and event-invoke discovery use paginated native configuration APIs and require
+their native list filters (`TargetFunctionArn` and `FunctionName`, respectively).
+
+Code-signing configurations support allowed publishers, Warn/Enforce policy,
+description and tags; their IDs/ARNs are owner-generated. Code signing remains
+ZIP-only and is rejected for image functions.
+Capacity providers support native immutable instance/VPC/permissions/KMS
+properties, mutable scaling/tag propagation and tags. Creation requires the real
+managed EC2 backend; unsupported telemetry delivery or GPU policy requests fail
+honestly in the owner. CFN observes actual provider state and deletion completion.
+An empty deleting provider is removed by the native scheduler even when no
+runtime or managed backend is installed: there are no guests to terminate.
+Providers with retained guests still require the real backend for cleanup.
+`Ref` returns the provider name; `GetAtt Arn` and `State` are live projections.
+Native MicroVMImage, NetworkConnector and WebFunction-family resources have no
+implemented Lambda owner and are not registered by this adapter.
+
+Sources: [EventInvokeConfig](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-lambda-eventinvokeconfig.html),
+[Url](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-lambda-url.html),
+[CodeSigningConfig](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-lambda-codesigningconfig.html),
+[CapacityProvider](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-lambda-capacityprovider.html).
 
 ## CloudFormation aliases
 
@@ -142,8 +330,9 @@ The probe verified cleanup of its native stack, group, aliases, function/version
 provisioned configuration and role. Native private recovery behavior, weight-only
 provisioned timestamp changes and failed-pool recovery remain unmeasured; local
 incarnation/generation fences are not claims about AWS internals. This resource
-provider does not add Cloud Control alias read/list support or CodeDeploy
-`UpdatePolicy` rollout orchestration.
+provider now reads aliases and lists aliases for a required `FunctionName` using
+the live owner, including routing and provisioned settings. CodeDeploy
+`UpdatePolicy` rollout orchestration remains unsupported.
 
 Sources: [CloudFormation alias contract](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-lambda-alias.html),
 [captured registry schemas](../testdata/aws/cloudformation/resource_schemas.json),
@@ -202,7 +391,9 @@ wait failures remain recorded rather than relabeled successful workflows.
 
 Private AWS recovery tokens, Manual runtime mode, managed-instance scaling execution
 and eventual failure timing with a permanently retained alias remain uncalibrated.
-This does not add Cloud Control version read/list support.
+Cloud Control reads published versions and their runtime/scaling/provisioned
+settings from the owner; version listing requires the native `FunctionName` filter
+and excludes `$LATEST`.
 Sources: [version resource](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-lambda-version.html),
 [runtime policy](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-lambda-version-runtimepolicy.html),
 [scaling contract](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-lambda-version-functionscalingconfig.html),
@@ -247,8 +438,10 @@ state/archive/allocation/event rollback.
 
 Native private recovery, REFERENCE-mode stack publication, cross-account sharing,
 signing and broader runtime/architecture combinations remain uncalibrated by these
-captures. This does not add Cloud Control layer read/list support. Stack-managed
-sharing uses the [layer permission provider](#cloudformation-layer-permissions).
+captures. Cloud Control reads layer metadata and lists versions for the required
+`LayerName` filter. Native-schema write-only `Content` is omitted: a download URL
+is not an original S3 source. Stack-managed sharing uses the
+[layer permission provider](#cloudformation-layer-permissions).
 Sources: [resource contract](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-lambda-layerversion.html),
 [content contract](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-lambda-layerversion-content.html),
 [probe](../scripts/aws/cloudformation_lambda_layer_probe.py).
@@ -301,8 +494,8 @@ restart coverage establishes retained imports and grantee replacement; its
 private deletion fence was superseded by the native-calibrated SDK workflow.
 
 Native cross-account consumption, organization/wildcard grants and private recovery
-remain uncalibrated by these captures. This does not add Cloud Control permission
-read/list support.
+remain uncalibrated by these captures. Cloud Control reads current permission
+statements and lists native representable grants for a required `LayerVersionArn`.
 Sources: [resource contract](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-lambda-layerversionpermission.html),
 [Add API](https://docs.aws.amazon.com/lambda/latest/api/API_AddLayerVersionPermission.html),
 [Remove API](https://docs.aws.amazon.com/lambda/latest/api/API_RemoveLayerVersionPermission.html),
@@ -344,8 +537,9 @@ document update, version-target replacement, native overwrite, revocation and
 exact-resource cleanup. Storage race regressions cover atomic competing creates,
 current IAM, qualifier scope, receipt/event rollback, reopen and legacy migration.
 Native cross-account invocation and private recovery remain uncalibrated; these
-captures do not establish least-privilege handler permissions or Cloud Control
-read/list support.
+captures do not establish least-privilege handler permissions. Cloud Control
+reads the current whole policy through `GetResourcePolicy`; native ResourcePolicy
+has no list handler, so listing fails explicitly as unsupported.
 
 `AWS::Lambda::Permission` also uses the statement ID for deletion, not JSON
 equality. Native captures show deletion of both identical and changed same-ID
@@ -353,6 +547,11 @@ replacements; `Ref` and `Fn::GetAtt Id` return that statement ID. The SDK workfl
 verifies revoked access after deleting a grant recreated for another account.
 As AWS warns, do not reuse statement IDs when migrating permission resources to
 a full resource policy: deleting the old resource can remove the new grant.
+Cloud Control reads individual permissions from current native policy statements;
+its identifier is the native compound `FunctionName|Id`, while stack `Ref`/`Id`
+remain the statement ID. Listing requires `FunctionName`. Arbitrary deny,
+multi-principal or unsupported-condition statements are not flattened into
+individual permission resources; reading one fails explicitly as unsupported.
 
 Sources: [ResourcePolicy contract](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-lambda-resourcepolicy.html),
 [Permission migration warning](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-lambda-permission.html),
@@ -369,6 +568,17 @@ template boundary, converted to the internal SDK timestamp representation.
 `Ref` and `GetAtt Id`
 return the mapping UUID; `GetAtt EventSourceMappingArn` returns the owner ARN.
 `FunctionName` updates can retarget published aliases without changing the UUID.
+
+Mappings retain a typed private `MappingOwner` claim in the native record
+(SQLite migration 388), admitted atomically with the UUID. Stack and Cloud
+Control creates recover only that exact stack/logical-resource/token claim,
+including after a lost admission reply; public tags neither grant nor revoke
+ownership. Read, configuration mutation, tagging and deletion check current IAM
+and, for stack requests, that native claim. Stale stack commands cannot affect
+a recreated foreign mapping, even with copied public phase/discovery tags.
+Ordinary Cloud Control update/delete commands use the existing native UUID
+without adopting or replacing its private claim. Phase tags track admitted
+configuration only and do not authorize resource discovery or mutation.
 
 Kinesis and DynamoDB deployment accept batch/window and enabled controls, retry/age limits,
 parallelization, bisection, tumbling windows, partial responses, filters, metrics,
@@ -463,7 +673,9 @@ cross-account sources, private recovery tokens or native-engine equivalence.
 Enhanced fan-out deployment is not exercised by this workflow.
 [Amazon MQ](#cloudformation-amazon-mq-mappings) and
 [DocumentDB deployment](#cloudformation-documentdb-mappings) use their existing
-native source adapters. Cloud Control mapping read/list is unchanged.
+native source adapters. Cloud Control reads and paginates actual mapping records,
+including source-specific settings and live tags. Read-side filter-decryption
+errors are surfaced rather than replaced by remembered template settings.
 
 Sources: [resource contract](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-lambda-eventsourcemapping.html),
 [Kinesis source contract](https://docs.aws.amazon.com/lambda/latest/dg/with-kinesis.html),
@@ -1247,6 +1459,19 @@ Mapping deletion atomically removes its owned source state. A late accepted
 completion cannot recreate those checkpoints, but may still commit independent
 failure-destination work.
 
+Capture publishes queued records and its source cursor only after the repository
+transaction commits. A failed read or rolled-back page does not suspend previously
+captured retry, record-age or failure-destination work, and cannot leak new records
+into that work. Record age is measured from source arrival; an underfilled batch
+reaches its age decision even when the configured batching window is longer.
+
+Stream failure destinations require standard SQS queues or standard SNS topics
+(S3 remains supported). FIFO destinations are rejected at create/update admission,
+not accepted for an eventual failed delivery. Unrelated updates still do not
+reauthorize an unchanged standard destination; delivery checks its current policy.
+See the [OnFailure API](https://docs.aws.amazon.com/lambda/latest/api/API_OnFailure.html)
+and its [standard destination contract](https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-retain-records.html).
+
 Valid partial responses acknowledge only the prefix preceding the lowest failed
 sequence. An unchanged retry reuses its request ID; a failed suffix or bisected
 child establishes a new batch and retry budget. Actual function errors and
@@ -1329,8 +1554,9 @@ Native deny-one-action contrasts distinguish admission:
 `DescribeStreamConsumer` is not required by either measured path. Standard
 admission did not require `ListShards`/`DescribeStreamSummary`; enhanced fan-out
 did not require `DescribeStream`. The actual runtime role remains authoritative
-after admission and reopen. Permission failure pauses progress without spending
-the function retry budget; changing the role or source retires its old connection.
+after admission and reopen. Permission failure pauses source capture without
+spending the function retry budget; previously captured work continues its
+retry/age processing. Changing the role or source retires its old connection.
 
 `TRIM_HORIZON`, `LATEST` and `AT_TIMESTAMP` use actual source positions.
 Split/merge ancestry retains both parents; sibling shards can invoke concurrently,
@@ -1573,10 +1799,11 @@ and [DocumentDB change streams](https://docs.aws.amazon.com/documentdb/latest/de
 ## Architecture selection
 
 Image inspection verifies the locally installed image's actual OS/architecture,
-then container creation and recreation use its immutable image ID and an explicit
-`linux/amd64` or `linux/arm64` platform. A runtime-only image mapping cannot silently
-select the wrong CPU. Missing images, mismatches and unsupported architectures
-are execution configuration errors.
+then container creation and recreation use its retained owned snapshot reference
+(verified against its actual derived native config ID), or the configured ZIP-runtime image ID,
+and an explicit `linux/amd64` or `linux/arm64` platform. A runtime-only image mapping
+cannot silently select the wrong CPU. Missing images, mismatches and unsupported
+architectures are execution configuration errors.
 
 The native [architecture capture](../testdata/aws/lambda/architectures.json),
 produced by `scripts/aws/lambda_architectures_probe.py`, records default x86

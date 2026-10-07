@@ -50,7 +50,7 @@ func (r reader) Traces(selection domain.TraceSelection) ([]domain.TraceData, err
 }
 
 func groupRecord(row sqlcgen.XrayGroup) domain.GroupRecord {
-	return domain.GroupRecord{Key: domain.GroupKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Name: row.Name, ID: row.ID}, FilterExpression: row.FilterExpression, Version: row.Version, Tags: map[string]string{}}
+	return domain.GroupRecord{Key: domain.GroupKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Name: row.Name, ID: row.ID}, FilterExpression: row.FilterExpression, Version: row.Version, Tags: map[string]string{}, CFNOwner: row.CfnOwner}
 }
 
 func (r reader) Group(k domain.GroupKey) (domain.GroupRecord, error) {
@@ -95,7 +95,7 @@ func (r reader) Groups(scope domain.Scope) ([]domain.GroupRecord, error) {
 
 func (w writer) PutGroup(v domain.GroupRecord) error {
 	k := v.Key
-	if err := w.q.PutGroup(w.ctx, sqlcgen.PutGroupParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ID: k.ID, Name: k.Name, FilterExpression: v.FilterExpression, Version: v.Version}); err != nil {
+	if err := w.q.PutGroup(w.ctx, sqlcgen.PutGroupParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ID: k.ID, Name: k.Name, FilterExpression: v.FilterExpression, Version: v.Version, CfnOwner: v.CFNOwner}); err != nil {
 		return err
 	}
 	if err := w.q.DeleteGroupTags(w.ctx, sqlcgen.DeleteGroupTagsParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, GroupID: k.ID}); err != nil {

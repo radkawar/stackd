@@ -48,6 +48,11 @@ func TestPendingIssuanceAuthorityAndTokensSurviveSQLReopen(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
+	ownershipSchema, e := os.ReadFile("../schema/358_acm_cloudformation_ownership.sql")
+	if e != nil {
+		t.Fatal(e)
+	}
+	schema = append(schema, ownershipSchema...)
 	var db *sql.DB
 	var repo *backend.Repository
 	open := func(initial bool) {

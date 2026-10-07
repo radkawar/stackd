@@ -21,6 +21,9 @@ func (s *Service) getIntrospectionSchema(ctx context.Context, tx Transaction, in
 	if err != nil {
 		return nil, err
 	}
+	if ctx.Value(cfnSchemaOperationKey{}) == "read" {
+		return &api.GetIntrospectionSchemaOutput{Schema: api.Blob(record.Schema)}, nil
+	}
 	schema, err := s.compiled(record)
 	if err != nil {
 		return nil, bad("Schema is not available")

@@ -22,6 +22,9 @@ type Apigatewayv2Api struct {
 	Tags                     []byte
 	ProtocolType             string
 	RouteSelectionExpression string
+	OwnerStackID             string
+	OwnerLogicalID           string
+	OwnerToken               string
 }
 
 type Apigatewayv2Authorizer struct {
@@ -42,6 +45,9 @@ type Apigatewayv2Authorizer struct {
 	SimpleResponses      int64
 	CredentialsArn       string
 	ValidationExpression string
+	OwnerStackID         string
+	OwnerLogicalID       string
+	OwnerToken           string
 }
 
 type Apigatewayv2AuthorizerCache struct {
@@ -96,6 +102,30 @@ type Apigatewayv2Deployment struct {
 	AutoDeployed             int64
 	CreatedAt                time.Time
 	RouteSelectionExpression string
+	OwnerStackID             string
+	OwnerLogicalID           string
+	OwnerToken               string
+}
+
+type Apigatewayv2Domain struct {
+	Partition               string
+	AccountID               string
+	Region                  string
+	Name                    string
+	OwnerStackID            string
+	OwnerLogicalID          string
+	OwnerToken              string
+	CertificateArn          string
+	CertificateID           string
+	CertificateName         string
+	OwnershipCertificateArn string
+	OwnershipCertificateID  string
+	SecurityPolicy          string
+	IpAddressType           string
+	TruststoreUri           string
+	TruststoreVersion       string
+	TruststorePem           []byte
+	Tags                    []byte
 }
 
 type Apigatewayv2Integration struct {
@@ -110,6 +140,23 @@ type Apigatewayv2Integration struct {
 	TimeoutMillis       int64
 	PassthroughBehavior string
 	CredentialsArn      string
+	OwnerStackID        string
+	OwnerLogicalID      string
+	OwnerToken          string
+}
+
+type Apigatewayv2Mapping struct {
+	Partition      string
+	AccountID      string
+	Region         string
+	DomainName     string
+	ID             string
+	OwnerStackID   string
+	OwnerLogicalID string
+	OwnerToken     string
+	ApiID          string
+	Stage          string
+	Path           string
 }
 
 type Apigatewayv2Route struct {
@@ -125,16 +172,22 @@ type Apigatewayv2Route struct {
 	OperationName                    string
 	Scopes                           []byte
 	RouteResponseSelectionExpression string
+	OwnerStackID                     string
+	OwnerLogicalID                   string
+	OwnerToken                       string
 }
 
 type Apigatewayv2RouteResponse struct {
-	Partition   string
-	AccountID   string
-	Region      string
-	GatewayID   string
-	ID          string
-	RouteID     string
-	ResponseKey string
+	Partition      string
+	AccountID      string
+	Region         string
+	GatewayID      string
+	ID             string
+	RouteID        string
+	ResponseKey    string
+	OwnerStackID   string
+	OwnerLogicalID string
+	OwnerToken     string
 }
 
 type Apigatewayv2RouteSetting struct {
@@ -168,4 +221,7 @@ type Apigatewayv2Stage struct {
 	DataTrace                   bool
 	AccessLogDestinationArn     string
 	AccessLogFormat             string
+	OwnerStackID                string
+	OwnerLogicalID              string
+	OwnerToken                  string
 }

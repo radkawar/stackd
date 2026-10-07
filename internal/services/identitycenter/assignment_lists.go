@@ -3,6 +3,7 @@ package identitycenter
 import (
 	"slices"
 	api "stackd/internal/awsapi/ssoadmin"
+	"stackd/internal/services/identitystore"
 )
 
 func (s *Service) registerAssignmentLists() {
@@ -19,6 +20,9 @@ func (s *Service) registerAssignmentLists() {
 			return nil, e
 		}
 		rows = slices.DeleteFunc(rows, func(v Assignment) bool { return v.PermissionSetARN != p.ARN || v.AccountID != value(in.AccountId) })
+		if owner := identitystore.CloudFormationOwner(tx.Context()); owner != "" {
+			rows = slices.DeleteFunc(rows, func(v Assignment) bool { return v.CloudFormationOwner != owner })
+		}
 		rows, next, e := pageSlice(rows, value(in.NextToken), "ListAccountAssignments/"+p.ARN+"/"+value(in.AccountId), intValue(in.MaxResults), assignmentKey)
 		if e != nil {
 			return nil, e

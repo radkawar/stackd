@@ -62,7 +62,7 @@ func (q *Queries) DeleteExperimentTreatments(ctx context.Context, definitionRow 
 }
 
 const getExperimentDefinitionRow = `-- name: GetExperimentDefinitionRow :one
-SELECT row_id, "partition", account_id, region, application_id, id, snapshot_number, name, environment_id, profile_id, flag_key, audience_rule, audience_description, hypothesis, launch_criteria, kms_key_identifier, status, created_at, updated_at FROM appconfig_experiment_definitions WHERE partition=? AND account_id=? AND region=? AND application_id=? AND id=? AND snapshot_number=?
+SELECT row_id, "partition", account_id, region, application_id, id, snapshot_number, name, environment_id, profile_id, flag_key, audience_rule, audience_description, hypothesis, launch_criteria, kms_key_identifier, status, created_at, updated_at, cfn_owner, cfn_token FROM appconfig_experiment_definitions WHERE partition=? AND account_id=? AND region=? AND application_id=? AND id=? AND snapshot_number=?
 `
 
 type GetExperimentDefinitionRowParams struct {
@@ -104,6 +104,8 @@ func (q *Queries) GetExperimentDefinitionRow(ctx context.Context, arg GetExperim
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CfnOwner,
+		&i.CfnToken,
 	)
 	return i, err
 }
@@ -176,7 +178,7 @@ func (q *Queries) ListExperimentAttributes(ctx context.Context, treatmentRow int
 }
 
 const listExperimentDefinitions = `-- name: ListExperimentDefinitions :many
-SELECT row_id, "partition", account_id, region, application_id, id, snapshot_number, name, environment_id, profile_id, flag_key, audience_rule, audience_description, hypothesis, launch_criteria, kms_key_identifier, status, created_at, updated_at FROM appconfig_experiment_definitions WHERE partition=? AND account_id=? AND region=? AND (application_id=?4 OR ?4='') AND snapshot_number=0 ORDER BY application_id,id
+SELECT row_id, "partition", account_id, region, application_id, id, snapshot_number, name, environment_id, profile_id, flag_key, audience_rule, audience_description, hypothesis, launch_criteria, kms_key_identifier, status, created_at, updated_at, cfn_owner, cfn_token FROM appconfig_experiment_definitions WHERE partition=? AND account_id=? AND region=? AND (application_id=?4 OR ?4='') AND snapshot_number=0 ORDER BY application_id,id
 `
 
 type ListExperimentDefinitionsParams struct {
@@ -220,6 +222,8 @@ func (q *Queries) ListExperimentDefinitions(ctx context.Context, arg ListExperim
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.CfnOwner,
+			&i.CfnToken,
 		); err != nil {
 			return nil, err
 		}
@@ -327,7 +331,7 @@ func (q *Queries) ListExperimentOverrides(ctx context.Context, runRow int64) ([]
 }
 
 const listExperimentRuns = `-- name: ListExperimentRuns :many
-SELECT row_id, definition_row, number, description, status, exposure, has_overrides, has_result, executive_summary, reasons_to_launch, reasons_not_to_launch, started_at, updated_at, ended_at FROM appconfig_experiment_runs WHERE definition_row=? ORDER BY number
+SELECT row_id, definition_row, number, description, status, exposure, has_overrides, has_result, executive_summary, reasons_to_launch, reasons_not_to_launch, started_at, updated_at, ended_at, cfn_owner, cfn_token FROM appconfig_experiment_runs WHERE definition_row=? ORDER BY number
 `
 
 func (q *Queries) ListExperimentRuns(ctx context.Context, definitionRow int64) ([]AppconfigExperimentRun, error) {
@@ -354,6 +358,8 @@ func (q *Queries) ListExperimentRuns(ctx context.Context, definitionRow int64) (
 			&i.StartedAt,
 			&i.UpdatedAt,
 			&i.EndedAt,
+			&i.CfnOwner,
+			&i.CfnToken,
 		); err != nil {
 			return nil, err
 		}
@@ -452,8 +458,8 @@ func (q *Queries) PutExperimentAttributeItem(ctx context.Context, arg PutExperim
 }
 
 const putExperimentDefinition = `-- name: PutExperimentDefinition :one
-INSERT INTO appconfig_experiment_definitions (partition,account_id,region,application_id,id,snapshot_number,name,environment_id,profile_id,flag_key,audience_rule,audience_description,hypothesis,launch_criteria,kms_key_identifier,status,created_at,updated_at)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+INSERT INTO appconfig_experiment_definitions (partition,account_id,region,application_id,id,snapshot_number,name,environment_id,profile_id,flag_key,audience_rule,audience_description,hypothesis,launch_criteria,kms_key_identifier,status,created_at,updated_at,cfn_owner,cfn_token)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT (partition,account_id,region,application_id,id,snapshot_number) DO UPDATE SET name=excluded.name,environment_id=excluded.environment_id,profile_id=excluded.profile_id,flag_key=excluded.flag_key,audience_rule=excluded.audience_rule,audience_description=excluded.audience_description,hypothesis=excluded.hypothesis,launch_criteria=excluded.launch_criteria,kms_key_identifier=excluded.kms_key_identifier,status=excluded.status,created_at=excluded.created_at,updated_at=excluded.updated_at RETURNING row_id
 `
 
@@ -476,6 +482,8 @@ type PutExperimentDefinitionParams struct {
 	Status              string
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
+	CfnOwner            string
+	CfnToken            string
 }
 
 func (q *Queries) PutExperimentDefinition(ctx context.Context, arg PutExperimentDefinitionParams) (int64, error) {
@@ -498,6 +506,8 @@ func (q *Queries) PutExperimentDefinition(ctx context.Context, arg PutExperiment
 		arg.Status,
 		arg.CreatedAt,
 		arg.UpdatedAt,
+		arg.CfnOwner,
+		arg.CfnToken,
 	)
 	var row_id int64
 	err := row.Scan(&row_id)
@@ -568,8 +578,8 @@ func (q *Queries) PutExperimentOverride(ctx context.Context, arg PutExperimentOv
 }
 
 const putExperimentRun = `-- name: PutExperimentRun :one
-INSERT INTO appconfig_experiment_runs (definition_row,number,description,status,exposure,has_overrides,has_result,executive_summary,reasons_to_launch,reasons_not_to_launch,started_at,updated_at,ended_at)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+INSERT INTO appconfig_experiment_runs (definition_row,number,description,status,exposure,has_overrides,has_result,executive_summary,reasons_to_launch,reasons_not_to_launch,started_at,updated_at,ended_at,cfn_owner,cfn_token)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(definition_row,number) DO UPDATE SET description=excluded.description,status=excluded.status,exposure=excluded.exposure,has_overrides=excluded.has_overrides,has_result=excluded.has_result,executive_summary=excluded.executive_summary,reasons_to_launch=excluded.reasons_to_launch,reasons_not_to_launch=excluded.reasons_not_to_launch,started_at=excluded.started_at,updated_at=excluded.updated_at,ended_at=excluded.ended_at RETURNING row_id
 `
 
@@ -587,6 +597,8 @@ type PutExperimentRunParams struct {
 	StartedAt          time.Time
 	UpdatedAt          time.Time
 	EndedAt            time.Time
+	CfnOwner           string
+	CfnToken           string
 }
 
 func (q *Queries) PutExperimentRun(ctx context.Context, arg PutExperimentRunParams) (int64, error) {
@@ -604,6 +616,8 @@ func (q *Queries) PutExperimentRun(ctx context.Context, arg PutExperimentRunPara
 		arg.StartedAt,
 		arg.UpdatedAt,
 		arg.EndedAt,
+		arg.CfnOwner,
+		arg.CfnToken,
 	)
 	var row_id int64
 	err := row.Scan(&row_id)

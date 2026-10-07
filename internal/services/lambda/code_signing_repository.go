@@ -15,6 +15,7 @@ func (k CodeSigningConfigKey) ARN() string {
 
 type CodeSigningConfigRecord struct {
 	Key         CodeSigningConfigKey
+	Owner       AdditionalOwner
 	Description string
 	Policy      string
 	Publishers  []string

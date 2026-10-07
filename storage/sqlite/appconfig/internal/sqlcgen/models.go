@@ -17,6 +17,8 @@ type AppconfigApplication struct {
 	ID          string
 	Name        string
 	Description string
+	CfnOwner    string
+	CfnToken    string
 }
 
 type AppconfigAssociation struct {
@@ -30,6 +32,8 @@ type AppconfigAssociation struct {
 	ExtensionArn     string
 	ResourceArn      string
 	ExtensionVersion int64
+	CfnOwner         string
+	CfnToken         string
 }
 
 type AppconfigDeployment struct {
@@ -65,6 +69,8 @@ type AppconfigDeployment struct {
 	Due                  time.Time
 	Generation           int64
 	PipelineActionID     string
+	CfnOwner             string
+	CfnToken             string
 }
 
 type AppconfigDeploymentDynamicParameter struct {
@@ -128,6 +134,8 @@ type AppconfigEnvironment struct {
 	State         string
 	LastPoll      time.Time
 	CreatedAt     time.Time
+	CfnOwner      string
+	CfnToken      string
 }
 
 type AppconfigEnvironmentMonitor struct {
@@ -175,6 +183,8 @@ type AppconfigExperimentDefinition struct {
 	Status              string
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
+	CfnOwner            string
+	CfnToken            string
 }
 
 type AppconfigExperimentEvent struct {
@@ -217,6 +227,8 @@ type AppconfigExperimentRun struct {
 	StartedAt          time.Time
 	UpdatedAt          time.Time
 	EndedAt            time.Time
+	CfnOwner           string
+	CfnToken           string
 }
 
 type AppconfigExperimentTreatment struct {
@@ -239,6 +251,8 @@ type AppconfigExtension struct {
 	Description string
 	Arn         string
 	Version     int64
+	CfnOwner    string
+	CfnToken    string
 }
 
 type AppconfigExtensionAction struct {
@@ -275,6 +289,8 @@ type AppconfigHostedVersion struct {
 	VersionLabel  string
 	KmsKeyArn     string
 	Content       []byte
+	CfnOwner      string
+	CfnToken      string
 }
 
 type AppconfigProfile struct {
@@ -294,6 +310,8 @@ type AppconfigProfile struct {
 	LastPoll         time.Time
 	NextVersion      int64
 	CreatedAt        time.Time
+	CfnOwner         string
+	CfnToken         string
 }
 
 type AppconfigProfileValidator struct {
@@ -344,4 +362,6 @@ type AppconfigStrategy struct {
 	DurationMinutes  int64
 	FinalBakeMinutes int64
 	GrowthFactor     float64
+	CfnOwner         string
+	CfnToken         string
 }

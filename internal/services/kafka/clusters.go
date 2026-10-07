@@ -57,6 +57,9 @@ func (s *Service) create(ctx context.Context, t Transaction, name string, p *api
 	if p.NumberOfBrokerNodes != nil {
 		v.Brokers = int32(*p.NumberOfBrokerNodes)
 	}
+	if owner, ok := cloudFormationOwnerFor(ctx, cloudFormationCluster); ok {
+		v.OwnerStackID, v.OwnerLogicalID, v.OwnerToken = owner.StackID, owner.LogicalID, owner.Token
+	}
 	if e := s.authorize(ctx, v, action, requestTags(tags)); e != nil {
 		return v, e
 	}

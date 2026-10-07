@@ -39,7 +39,7 @@ func (w writer) PutShard(v domain.ShardRecord) error {
 }
 func consumer(v sqlcgen.KinesisConsumer) domain.ConsumerRecord {
 	k := domain.ConsumerKey{Stream: domain.StreamKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name}, Name: v.ConsumerName, CreatedAt: v.CreatedAt}
-	return domain.ConsumerRecord{Key: k, DeleteAt: v.DeleteAt.UTC(), Data: api.ConsumerDescription{ConsumerARN: stringPointer[api.ConsumerARN](v.ConsumerArn), ConsumerCreationTimestamp: timePointer(v.CreationTimestamp), ConsumerName: stringPointer[api.ConsumerName](v.DataName), ConsumerStatus: stringPointer[api.ConsumerStatus](v.Status), StreamARN: stringPointer[api.StreamARN](v.StreamArn)}}
+	return domain.ConsumerRecord{Key: k, Owner: domain.ResourceOwner{StackID: v.OwnerStackID, LogicalID: v.OwnerLogicalID, Token: v.OwnerToken}, DeleteAt: v.DeleteAt.UTC(), Data: api.ConsumerDescription{ConsumerARN: stringPointer[api.ConsumerARN](v.ConsumerArn), ConsumerCreationTimestamp: timePointer(v.CreationTimestamp), ConsumerName: stringPointer[api.ConsumerName](v.DataName), ConsumerStatus: stringPointer[api.ConsumerStatus](v.Status), StreamARN: stringPointer[api.StreamARN](v.StreamArn)}}
 }
 func (r reader) Consumer(key domain.ConsumerKey) (domain.ConsumerRecord, error) {
 	k := key.Stream
@@ -62,7 +62,10 @@ func (r reader) Consumers(k domain.StreamKey) ([]domain.ConsumerRecord, error) {
 }
 func (w writer) PutConsumer(v domain.ConsumerRecord) error {
 	k, d := v.Key.Stream, &v.Data
-	return w.q.PutConsumer(w.ctx, sqlcgen.PutConsumerParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, ConsumerName: v.Key.Name, CreatedAt: v.Key.CreatedAt, ConsumerArn: nullableString(d.ConsumerARN), CreationTimestamp: nullableTime(d.ConsumerCreationTimestamp), DataName: nullableString(d.ConsumerName), Status: nullableString(d.ConsumerStatus), StreamArn: nullableString(d.StreamARN), DeleteAt: v.DeleteAt.UTC()})
+	if err := w.q.PutConsumer(w.ctx, sqlcgen.PutConsumerParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, ConsumerName: v.Key.Name, CreatedAt: v.Key.CreatedAt, ConsumerArn: nullableString(d.ConsumerARN), CreationTimestamp: nullableTime(d.ConsumerCreationTimestamp), DataName: nullableString(d.ConsumerName), Status: nullableString(d.ConsumerStatus), StreamArn: nullableString(d.StreamARN), DeleteAt: v.DeleteAt.UTC()}); err != nil {
+		return err
+	}
+	return w.q.SetConsumerOwner(w.ctx, sqlcgen.SetConsumerOwnerParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, ConsumerName: v.Key.Name, CreatedAt: v.Key.CreatedAt, OwnerStackID: v.Owner.StackID, OwnerLogicalID: v.Owner.LogicalID, OwnerToken: v.Owner.Token})
 }
 func (w writer) DeleteConsumer(key domain.ConsumerKey) error {
 	k := key.Stream

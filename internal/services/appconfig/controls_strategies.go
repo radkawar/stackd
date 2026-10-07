@@ -59,7 +59,7 @@ func (s *Service) controlStrategy(r Reader, action, id string) (Strategy, error)
 	if err != nil {
 		return Strategy{}, err
 	}
-	return v, s.authorizeResource(r, sc, action, strategyARN(sc, v.ID))
+	return v, s.authorizeResource(r, sc, action, strategyARN(sc, v.ID), v.Ownership)
 }
 
 func replicated(v Strategy) bool { return v.ReplicateTo == string(api.ReplicateToSSM_DOCUMENT) }
@@ -95,7 +95,7 @@ func (s *Service) createStrategy(tx Transaction, in *api.CreateDeploymentStrateg
 	if err != nil {
 		return nil, err
 	}
-	v := Strategy{Scope: sc, Name: value(in.Name), Description: value(in.Description), GrowthType: value(in.GrowthType), ReplicateTo: value(in.ReplicateTo), DurationMinutes: number(in.DeploymentDurationInMinutes), FinalBakeMinutes: number(in.FinalBakeTimeInMinutes)}
+	v := Strategy{Scope: sc, Name: value(in.Name), Description: value(in.Description), GrowthType: value(in.GrowthType), ReplicateTo: value(in.ReplicateTo), DurationMinutes: number(in.DeploymentDurationInMinutes), FinalBakeMinutes: number(in.FinalBakeTimeInMinutes), Ownership: cloudFormationClaim(tx.Context(), "deploymentstrategy")}
 	if in.GrowthFactor != nil {
 		v.GrowthFactor = float64(*in.GrowthFactor)
 	}

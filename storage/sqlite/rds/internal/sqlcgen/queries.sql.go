@@ -10,7 +10,7 @@ import (
 )
 
 const allDatabases = `-- name: AllDatabases :many
-SELECT "partition", account_id, region, kind, name, engine, engine_version, database_name, username, class, parameter_group, cluster, runtime_id, status, desired, operation, restore_snapshot, ciphertext, pending_ciphertext, address, port, requested_port, version, created, due, deletion_protection, http_enabled, copy_tags, pending_parameters FROM rds_database ORDER BY partition,account_id,region,kind,name
+SELECT "partition", account_id, region, kind, name, engine, engine_version, database_name, username, class, parameter_group, cluster, runtime_id, status, desired, operation, restore_snapshot, ciphertext, pending_ciphertext, address, port, requested_port, version, created, due, deletion_protection, http_enabled, copy_tags, pending_parameters, resource_id, owner_stack_id, owner_logical_id, owner_token FROM rds_database ORDER BY partition,account_id,region,kind,name
 `
 
 func (q *Queries) AllDatabases(ctx context.Context) ([]RdsDatabase, error) {
@@ -52,6 +52,10 @@ func (q *Queries) AllDatabases(ctx context.Context) ([]RdsDatabase, error) {
 			&i.HttpEnabled,
 			&i.CopyTags,
 			&i.PendingParameters,
+			&i.ResourceID,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -67,7 +71,7 @@ func (q *Queries) AllDatabases(ctx context.Context) ([]RdsDatabase, error) {
 }
 
 const allSnapshots = `-- name: AllSnapshots :many
-SELECT "partition", account_id, region, kind, name, source, source_runtime_id, runtime_id, engine, engine_version, database_name, username, class, status, ciphertext, version, created, due FROM rds_snapshot ORDER BY partition,account_id,region,kind,name
+SELECT "partition", account_id, region, kind, name, source, source_runtime_id, runtime_id, engine, engine_version, database_name, username, class, status, ciphertext, version, created, due, owner_stack_id, owner_logical_id, owner_token FROM rds_snapshot ORDER BY partition,account_id,region,kind,name
 `
 
 func (q *Queries) AllSnapshots(ctx context.Context) ([]RdsSnapshot, error) {
@@ -98,6 +102,9 @@ func (q *Queries) AllSnapshots(ctx context.Context) ([]RdsSnapshot, error) {
 			&i.Version,
 			&i.Created,
 			&i.Due,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -274,7 +281,7 @@ func (q *Queries) DeleteTags(ctx context.Context, arg DeleteTagsParams) error {
 }
 
 const getDatabase = `-- name: GetDatabase :one
-SELECT "partition", account_id, region, kind, name, engine, engine_version, database_name, username, class, parameter_group, cluster, runtime_id, status, desired, operation, restore_snapshot, ciphertext, pending_ciphertext, address, port, requested_port, version, created, due, deletion_protection, http_enabled, copy_tags, pending_parameters FROM rds_database WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND kind = ?4 AND name = ?5
+SELECT "partition", account_id, region, kind, name, engine, engine_version, database_name, username, class, parameter_group, cluster, runtime_id, status, desired, operation, restore_snapshot, ciphertext, pending_ciphertext, address, port, requested_port, version, created, due, deletion_protection, http_enabled, copy_tags, pending_parameters, resource_id, owner_stack_id, owner_logical_id, owner_token FROM rds_database WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND kind = ?4 AND name = ?5
 `
 
 type GetDatabaseParams struct {
@@ -324,12 +331,16 @@ func (q *Queries) GetDatabase(ctx context.Context, arg GetDatabaseParams) (RdsDa
 		&i.HttpEnabled,
 		&i.CopyTags,
 		&i.PendingParameters,
+		&i.ResourceID,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
 
 const getParameterGroup = `-- name: GetParameterGroup :one
-SELECT "partition", account_id, region, kind, name, family, description FROM rds_parameter_group WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND kind = ?4 AND name = ?5
+SELECT "partition", account_id, region, kind, name, family, description, resource_id, owner_stack_id, owner_logical_id, owner_token FROM rds_parameter_group WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND kind = ?4 AND name = ?5
 `
 
 type GetParameterGroupParams struct {
@@ -357,12 +368,16 @@ func (q *Queries) GetParameterGroup(ctx context.Context, arg GetParameterGroupPa
 		&i.Name,
 		&i.Family,
 		&i.Description,
+		&i.ResourceID,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
 
 const getSnapshot = `-- name: GetSnapshot :one
-SELECT "partition", account_id, region, kind, name, source, source_runtime_id, runtime_id, engine, engine_version, database_name, username, class, status, ciphertext, version, created, due FROM rds_snapshot WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND kind = ?4 AND name = ?5
+SELECT "partition", account_id, region, kind, name, source, source_runtime_id, runtime_id, engine, engine_version, database_name, username, class, status, ciphertext, version, created, due, owner_stack_id, owner_logical_id, owner_token FROM rds_snapshot WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND kind = ?4 AND name = ?5
 `
 
 type GetSnapshotParams struct {
@@ -401,12 +416,15 @@ func (q *Queries) GetSnapshot(ctx context.Context, arg GetSnapshotParams) (RdsSn
 		&i.Version,
 		&i.Created,
 		&i.Due,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
 
 const getSubnetGroup = `-- name: GetSubnetGroup :one
-SELECT "partition", account_id, region, kind, name, description, vpc_id FROM rds_subnet_group WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND kind = ?4 AND name = ?5
+SELECT "partition", account_id, region, kind, name, description, vpc_id, resource_id, owner_stack_id, owner_logical_id, owner_token FROM rds_subnet_group WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND kind = ?4 AND name = ?5
 `
 
 type GetSubnetGroupParams struct {
@@ -434,12 +452,16 @@ func (q *Queries) GetSubnetGroup(ctx context.Context, arg GetSubnetGroupParams) 
 		&i.Name,
 		&i.Description,
 		&i.VpcID,
+		&i.ResourceID,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
 
 const listDatabases = `-- name: ListDatabases :many
-SELECT "partition", account_id, region, kind, name, engine, engine_version, database_name, username, class, parameter_group, cluster, runtime_id, status, desired, operation, restore_snapshot, ciphertext, pending_ciphertext, address, port, requested_port, version, created, due, deletion_protection, http_enabled, copy_tags, pending_parameters FROM rds_database WHERE partition=?1 AND account_id=?2 AND region=?3 ORDER BY kind,name
+SELECT "partition", account_id, region, kind, name, engine, engine_version, database_name, username, class, parameter_group, cluster, runtime_id, status, desired, operation, restore_snapshot, ciphertext, pending_ciphertext, address, port, requested_port, version, created, due, deletion_protection, http_enabled, copy_tags, pending_parameters, resource_id, owner_stack_id, owner_logical_id, owner_token FROM rds_database WHERE partition=?1 AND account_id=?2 AND region=?3 ORDER BY kind,name
 `
 
 type ListDatabasesParams struct {
@@ -487,6 +509,10 @@ func (q *Queries) ListDatabases(ctx context.Context, arg ListDatabasesParams) ([
 			&i.HttpEnabled,
 			&i.CopyTags,
 			&i.PendingParameters,
+			&i.ResourceID,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -502,7 +528,7 @@ func (q *Queries) ListDatabases(ctx context.Context, arg ListDatabasesParams) ([
 }
 
 const listParameterGroups = `-- name: ListParameterGroups :many
-SELECT "partition", account_id, region, kind, name, family, description FROM rds_parameter_group WHERE partition=?1 AND account_id=?2 AND region=?3 ORDER BY kind,name
+SELECT "partition", account_id, region, kind, name, family, description, resource_id, owner_stack_id, owner_logical_id, owner_token FROM rds_parameter_group WHERE partition=?1 AND account_id=?2 AND region=?3 ORDER BY kind,name
 `
 
 type ListParameterGroupsParams struct {
@@ -528,6 +554,10 @@ func (q *Queries) ListParameterGroups(ctx context.Context, arg ListParameterGrou
 			&i.Name,
 			&i.Family,
 			&i.Description,
+			&i.ResourceID,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -593,7 +623,7 @@ func (q *Queries) ListParameters(ctx context.Context, arg ListParametersParams) 
 }
 
 const listSnapshots = `-- name: ListSnapshots :many
-SELECT "partition", account_id, region, kind, name, source, source_runtime_id, runtime_id, engine, engine_version, database_name, username, class, status, ciphertext, version, created, due FROM rds_snapshot WHERE partition=?1 AND account_id=?2 AND region=?3 ORDER BY kind,name
+SELECT "partition", account_id, region, kind, name, source, source_runtime_id, runtime_id, engine, engine_version, database_name, username, class, status, ciphertext, version, created, due, owner_stack_id, owner_logical_id, owner_token FROM rds_snapshot WHERE partition=?1 AND account_id=?2 AND region=?3 ORDER BY kind,name
 `
 
 type ListSnapshotsParams struct {
@@ -630,6 +660,9 @@ func (q *Queries) ListSnapshots(ctx context.Context, arg ListSnapshotsParams) ([
 			&i.Version,
 			&i.Created,
 			&i.Due,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -645,7 +678,7 @@ func (q *Queries) ListSnapshots(ctx context.Context, arg ListSnapshotsParams) ([
 }
 
 const listSubnetGroups = `-- name: ListSubnetGroups :many
-SELECT "partition", account_id, region, kind, name, description, vpc_id FROM rds_subnet_group WHERE partition=?1 AND account_id=?2 AND region=?3 ORDER BY kind,name
+SELECT "partition", account_id, region, kind, name, description, vpc_id, resource_id, owner_stack_id, owner_logical_id, owner_token FROM rds_subnet_group WHERE partition=?1 AND account_id=?2 AND region=?3 ORDER BY kind,name
 `
 
 type ListSubnetGroupsParams struct {
@@ -671,6 +704,10 @@ func (q *Queries) ListSubnetGroups(ctx context.Context, arg ListSubnetGroupsPara
 			&i.Name,
 			&i.Description,
 			&i.VpcID,
+			&i.ResourceID,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -785,7 +822,7 @@ func (q *Queries) ListTags(ctx context.Context, arg ListTagsParams) ([]RdsTag, e
 }
 
 const putDatabase = `-- name: PutDatabase :exec
-INSERT INTO rds_database (partition,account_id,region,kind,name,engine,engine_version,database_name,username,class,parameter_group,cluster,runtime_id,status,desired,operation,restore_snapshot,ciphertext,pending_ciphertext,address,port,requested_port,version,created,due,deletion_protection,http_enabled,copy_tags,pending_parameters) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29) ON CONFLICT (partition,account_id,region,kind,name) DO UPDATE SET engine=excluded.engine,engine_version=excluded.engine_version,database_name=excluded.database_name,username=excluded.username,class=excluded.class,parameter_group=excluded.parameter_group,cluster=excluded.cluster,runtime_id=excluded.runtime_id,status=excluded.status,desired=excluded.desired,operation=excluded.operation,restore_snapshot=excluded.restore_snapshot,ciphertext=excluded.ciphertext,pending_ciphertext=excluded.pending_ciphertext,address=excluded.address,port=excluded.port,requested_port=excluded.requested_port,version=excluded.version,created=excluded.created,due=excluded.due,deletion_protection=excluded.deletion_protection,http_enabled=excluded.http_enabled,copy_tags=excluded.copy_tags,pending_parameters=excluded.pending_parameters
+INSERT INTO rds_database (partition,account_id,region,kind,name,engine,engine_version,database_name,username,class,parameter_group,cluster,runtime_id,status,desired,operation,restore_snapshot,ciphertext,pending_ciphertext,address,port,requested_port,version,created,due,deletion_protection,http_enabled,copy_tags,pending_parameters,resource_id,owner_stack_id,owner_logical_id,owner_token) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33) ON CONFLICT (partition,account_id,region,kind,name) DO UPDATE SET engine=excluded.engine,engine_version=excluded.engine_version,database_name=excluded.database_name,username=excluded.username,class=excluded.class,parameter_group=excluded.parameter_group,cluster=excluded.cluster,runtime_id=excluded.runtime_id,status=excluded.status,desired=excluded.desired,operation=excluded.operation,restore_snapshot=excluded.restore_snapshot,ciphertext=excluded.ciphertext,pending_ciphertext=excluded.pending_ciphertext,address=excluded.address,port=excluded.port,requested_port=excluded.requested_port,version=excluded.version,created=excluded.created,due=excluded.due,deletion_protection=excluded.deletion_protection,http_enabled=excluded.http_enabled,copy_tags=excluded.copy_tags,pending_parameters=excluded.pending_parameters,resource_id=excluded.resource_id,owner_stack_id=excluded.owner_stack_id,owner_logical_id=excluded.owner_logical_id,owner_token=excluded.owner_token
 `
 
 type PutDatabaseParams struct {
@@ -818,6 +855,10 @@ type PutDatabaseParams struct {
 	HttpEnabled        int64
 	CopyTags           int64
 	PendingParameters  int64
+	ResourceID         string
+	OwnerStackID       string
+	OwnerLogicalID     string
+	OwnerToken         string
 }
 
 func (q *Queries) PutDatabase(ctx context.Context, arg PutDatabaseParams) error {
@@ -851,6 +892,10 @@ func (q *Queries) PutDatabase(ctx context.Context, arg PutDatabaseParams) error 
 		arg.HttpEnabled,
 		arg.CopyTags,
 		arg.PendingParameters,
+		arg.ResourceID,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
 	)
 	return err
 }
@@ -885,17 +930,21 @@ func (q *Queries) PutParameter(ctx context.Context, arg PutParameterParams) erro
 }
 
 const putParameterGroup = `-- name: PutParameterGroup :exec
-INSERT INTO rds_parameter_group (partition,account_id,region,kind,name,family,description) VALUES (?1,?2,?3,?4,?5,?6,?7) ON CONFLICT (partition,account_id,region,kind,name) DO UPDATE SET family=excluded.family,description=excluded.description
+INSERT INTO rds_parameter_group (partition,account_id,region,kind,name,family,description,resource_id,owner_stack_id,owner_logical_id,owner_token) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11) ON CONFLICT (partition,account_id,region,kind,name) DO UPDATE SET family=excluded.family,description=excluded.description,resource_id=excluded.resource_id,owner_stack_id=excluded.owner_stack_id,owner_logical_id=excluded.owner_logical_id,owner_token=excluded.owner_token
 `
 
 type PutParameterGroupParams struct {
-	Partition   string
-	AccountID   string
-	Region      string
-	Kind        string
-	Name        string
-	Family      string
-	Description string
+	Partition      string
+	AccountID      string
+	Region         string
+	Kind           string
+	Name           string
+	Family         string
+	Description    string
+	ResourceID     string
+	OwnerStackID   string
+	OwnerLogicalID string
+	OwnerToken     string
 }
 
 func (q *Queries) PutParameterGroup(ctx context.Context, arg PutParameterGroupParams) error {
@@ -907,12 +956,16 @@ func (q *Queries) PutParameterGroup(ctx context.Context, arg PutParameterGroupPa
 		arg.Name,
 		arg.Family,
 		arg.Description,
+		arg.ResourceID,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
 	)
 	return err
 }
 
 const putSnapshot = `-- name: PutSnapshot :exec
-INSERT INTO rds_snapshot (partition,account_id,region,kind,name,source,source_runtime_id,runtime_id,engine,engine_version,database_name,username,class,status,ciphertext,version,created,due) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18) ON CONFLICT (partition,account_id,region,kind,name) DO UPDATE SET source=excluded.source,source_runtime_id=excluded.source_runtime_id,runtime_id=excluded.runtime_id,engine=excluded.engine,engine_version=excluded.engine_version,database_name=excluded.database_name,username=excluded.username,class=excluded.class,status=excluded.status,ciphertext=excluded.ciphertext,version=excluded.version,created=excluded.created,due=excluded.due
+INSERT INTO rds_snapshot (partition,account_id,region,kind,name,source,source_runtime_id,runtime_id,engine,engine_version,database_name,username,class,status,ciphertext,version,created,due,owner_stack_id,owner_logical_id,owner_token) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21) ON CONFLICT (partition,account_id,region,kind,name) DO UPDATE SET source=excluded.source,source_runtime_id=excluded.source_runtime_id,runtime_id=excluded.runtime_id,engine=excluded.engine,engine_version=excluded.engine_version,database_name=excluded.database_name,username=excluded.username,class=excluded.class,status=excluded.status,ciphertext=excluded.ciphertext,version=excluded.version,created=excluded.created,due=excluded.due,owner_stack_id=excluded.owner_stack_id,owner_logical_id=excluded.owner_logical_id,owner_token=excluded.owner_token
 `
 
 type PutSnapshotParams struct {
@@ -934,6 +987,9 @@ type PutSnapshotParams struct {
 	Version         int64
 	Created         int64
 	Due             int64
+	OwnerStackID    string
+	OwnerLogicalID  string
+	OwnerToken      string
 }
 
 func (q *Queries) PutSnapshot(ctx context.Context, arg PutSnapshotParams) error {
@@ -956,6 +1012,9 @@ func (q *Queries) PutSnapshot(ctx context.Context, arg PutSnapshotParams) error 
 		arg.Version,
 		arg.Created,
 		arg.Due,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
 	)
 	return err
 }
@@ -990,17 +1049,21 @@ func (q *Queries) PutSubnet(ctx context.Context, arg PutSubnetParams) error {
 }
 
 const putSubnetGroup = `-- name: PutSubnetGroup :exec
-INSERT INTO rds_subnet_group (partition,account_id,region,kind,name,description,vpc_id) VALUES (?1,?2,?3,?4,?5,?6,?7) ON CONFLICT (partition,account_id,region,kind,name) DO UPDATE SET description=excluded.description,vpc_id=excluded.vpc_id
+INSERT INTO rds_subnet_group (partition,account_id,region,kind,name,description,vpc_id,resource_id,owner_stack_id,owner_logical_id,owner_token) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11) ON CONFLICT (partition,account_id,region,kind,name) DO UPDATE SET description=excluded.description,vpc_id=excluded.vpc_id,resource_id=excluded.resource_id,owner_stack_id=excluded.owner_stack_id,owner_logical_id=excluded.owner_logical_id,owner_token=excluded.owner_token
 `
 
 type PutSubnetGroupParams struct {
-	Partition   string
-	AccountID   string
-	Region      string
-	Kind        string
-	Name        string
-	Description string
-	VpcID       string
+	Partition      string
+	AccountID      string
+	Region         string
+	Kind           string
+	Name           string
+	Description    string
+	VpcID          string
+	ResourceID     string
+	OwnerStackID   string
+	OwnerLogicalID string
+	OwnerToken     string
 }
 
 func (q *Queries) PutSubnetGroup(ctx context.Context, arg PutSubnetGroupParams) error {
@@ -1012,6 +1075,10 @@ func (q *Queries) PutSubnetGroup(ctx context.Context, arg PutSubnetGroupParams) 
 		arg.Name,
 		arg.Description,
 		arg.VpcID,
+		arg.ResourceID,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
 	)
 	return err
 }

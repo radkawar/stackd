@@ -285,6 +285,10 @@ func (s *Service) writeNetworkACLEntry(ctx context.Context, tx Transaction, req 
 	if err := dryRun(req.DryRun); err != nil {
 		return nil, err
 	}
+	slot := record.Key.ID + "|" + strconv.FormatBool(routingBool(entry.Egress)) + "|" + strconv.FormatInt(int64(*entry.RuleNumber), 10)
+	if err := relationAdmission(ctx, tx, "NetworkAclEntry", slot, slot); err != nil {
+		return nil, err
+	}
 	if index >= 0 {
 		record.Data.Entries[index] = entry
 	} else {
@@ -330,6 +334,10 @@ func (s *Service) deleteNetworkACLEntry(ctx context.Context, tx Transaction, req
 		return nil, absentNetworkACLEntry(record.Key.ID, *req.RuleNumber, routingBool(req.Egress))
 	}
 	if err := dryRun(req.DryRun); err != nil {
+		return nil, err
+	}
+	slot := record.Key.ID + "|" + strconv.FormatBool(routingBool(req.Egress)) + "|" + strconv.FormatInt(int64(*req.RuleNumber), 10)
+	if err := relationAdmission(ctx, tx, "NetworkAclEntry", slot, ""); err != nil {
 		return nil, err
 	}
 	record.Data.Entries = append(record.Data.Entries[:index], record.Data.Entries[index+1:]...)
@@ -387,6 +395,9 @@ func (s *Service) replaceNetworkACLAssociation(ctx context.Context, tx Transacti
 	}
 	id, err := tx.NextID(scopeFor(ctx), "aclassoc")
 	if err != nil {
+		return nil, err
+	}
+	if err := relationAdmission(ctx, tx, "SubnetNetworkAclAssociation", subnet.Key.ID, id); err != nil {
 		return nil, err
 	}
 	association.NetworkAclAssociationId = new(api.String(id))

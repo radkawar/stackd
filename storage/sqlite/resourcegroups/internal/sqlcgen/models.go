@@ -17,25 +17,26 @@ type ResourcegroupsAppliedMembership struct {
 }
 
 type ResourcegroupsGroup struct {
-	Arn            string
-	Partition      string
-	AccountID      string
-	Region         string
-	Name           string
-	Description    string
-	QueryPresent   int64
-	QueryType      sql.NullString
-	QueryString    sql.NullString
-	Created        sql.NullInt64
-	ManagedType    string
-	ApplicationArn string
-	SourceArn      string
-	SourceName     string
-	ParentArn      string
-	Incarnation    string
-	DisplayName    string
-	Owner          string
-	Criticality    sql.NullInt64
+	Arn                 string
+	Partition           string
+	AccountID           string
+	Region              string
+	Name                string
+	Description         string
+	QueryPresent        int64
+	QueryType           sql.NullString
+	QueryString         sql.NullString
+	Created             sql.NullInt64
+	ManagedType         string
+	ApplicationArn      string
+	SourceArn           string
+	SourceName          string
+	ParentArn           string
+	Incarnation         string
+	DisplayName         string
+	Owner               string
+	Criticality         sql.NullInt64
+	CloudformationClaim string
 }
 
 type ResourcegroupsGroupTag struct {

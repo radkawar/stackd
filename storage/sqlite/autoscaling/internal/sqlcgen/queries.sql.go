@@ -512,7 +512,7 @@ func (q *Queries) GetActivity(ctx context.Context, arg GetActivityParams) (AsgAc
 }
 
 const getGroup = `-- name: GetGroup :one
-SELECT group_pk, "partition", account_id, region, name, native_id, origin_event_id, deleting, reconcile_at, reconcile_cause, pending_instance_warmup, metric_at, version, data_auto_scaling_group_arn, data_auto_scaling_group_name, has_data_availability_zone_distribution, data_availability_zone_distribution_capacity_distribution_strategy, has_data_availability_zone_ids, has_data_availability_zones, data_capacity_rebalance, has_data_capacity_reservation_specification, data_capacity_reservation_specification_capacity_reservation_preference, has_data_capacity_reservation_specification_capacity_reservation_target, has_data_capacity_reservation_specification_capacity_reservation_target_capacity_reservation_ids, has_data_capacity_reservation_specification_capacity_reservation_target_capacity_reservation_resource_group_arns, data_context, data_created_time, data_default_cooldown, data_default_instance_warmup, data_deletion_protection, data_desired_capacity, data_desired_capacity_type, has_data_enabled_metrics, data_health_check_grace_period, data_health_check_type, has_data_instance_lifecycle_policy, has_data_instance_lifecycle_policy_retention_triggers, data_instance_lifecycle_policy_retention_triggers_terminate_hook_abandon, data_launch_configuration_name, has_data_launch_template, data_launch_template_launch_template_id, data_launch_template_launch_template_name, data_launch_template_version, has_data_load_balancer_names, data_max_instance_lifetime, data_max_size, data_min_size, data_new_instances_protected_from_scale_in, data_placement_group, data_predicted_capacity, data_service_linked_role_arn, data_status, has_data_suspended_processes, has_data_tags, has_data_target_group_arns, has_data_termination_policies, has_data_traffic_sources, data_vpc_zone_identifier, data_warm_pool_size, has_data_warm_pool_configuration, data_warm_pool_configuration_min_size, data_warm_pool_configuration_max_group_prepared_capacity, data_warm_pool_configuration_pool_state, data_warm_pool_configuration_status, has_data_warm_pool_configuration_instance_reuse_policy, data_warm_pool_configuration_instance_reuse_policy_reuse_on_scale_in, scale_up_version FROM asg_groups WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name = ?4
+SELECT group_pk, "partition", account_id, region, name, native_id, origin_event_id, deleting, reconcile_at, reconcile_cause, pending_instance_warmup, metric_at, version, data_auto_scaling_group_arn, data_auto_scaling_group_name, has_data_availability_zone_distribution, data_availability_zone_distribution_capacity_distribution_strategy, has_data_availability_zone_ids, has_data_availability_zones, data_capacity_rebalance, has_data_capacity_reservation_specification, data_capacity_reservation_specification_capacity_reservation_preference, has_data_capacity_reservation_specification_capacity_reservation_target, has_data_capacity_reservation_specification_capacity_reservation_target_capacity_reservation_ids, has_data_capacity_reservation_specification_capacity_reservation_target_capacity_reservation_resource_group_arns, data_context, data_created_time, data_default_cooldown, data_default_instance_warmup, data_deletion_protection, data_desired_capacity, data_desired_capacity_type, has_data_enabled_metrics, data_health_check_grace_period, data_health_check_type, has_data_instance_lifecycle_policy, has_data_instance_lifecycle_policy_retention_triggers, data_instance_lifecycle_policy_retention_triggers_terminate_hook_abandon, data_launch_configuration_name, has_data_launch_template, data_launch_template_launch_template_id, data_launch_template_launch_template_name, data_launch_template_version, has_data_load_balancer_names, data_max_instance_lifetime, data_max_size, data_min_size, data_new_instances_protected_from_scale_in, data_placement_group, data_predicted_capacity, data_service_linked_role_arn, data_status, has_data_suspended_processes, has_data_tags, has_data_target_group_arns, has_data_termination_policies, has_data_traffic_sources, data_vpc_zone_identifier, data_warm_pool_size, has_data_warm_pool_configuration, data_warm_pool_configuration_min_size, data_warm_pool_configuration_max_group_prepared_capacity, data_warm_pool_configuration_pool_state, data_warm_pool_configuration_status, has_data_warm_pool_configuration_instance_reuse_policy, data_warm_pool_configuration_instance_reuse_policy_reuse_on_scale_in, scale_up_version, ownership FROM asg_groups WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name = ?4
 `
 
 type GetGroupParams struct {
@@ -598,12 +598,13 @@ func (q *Queries) GetGroup(ctx context.Context, arg GetGroupParams) (AsgGroup, e
 		&i.HasDataWarmPoolConfigurationInstanceReusePolicy,
 		&i.DataWarmPoolConfigurationInstanceReusePolicyReuseOnScaleIn,
 		&i.ScaleUpVersion,
+		&i.Ownership,
 	)
 	return i, err
 }
 
 const getHook = `-- name: GetHook :one
-SELECT hook_pk, "partition", account_id, region, group_name, name, group_id, data_auto_scaling_group_name, data_default_result, data_global_timeout, data_heartbeat_timeout, data_lifecycle_hook_name, data_lifecycle_transition, data_notification_metadata, data_notification_target_arn, data_role_arn FROM asg_hooks WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND group_name = ?4 AND name = ?5
+SELECT hook_pk, "partition", account_id, region, group_name, name, group_id, data_auto_scaling_group_name, data_default_result, data_global_timeout, data_heartbeat_timeout, data_lifecycle_hook_name, data_lifecycle_transition, data_notification_metadata, data_notification_target_arn, data_role_arn, ownership FROM asg_hooks WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND group_name = ?4 AND name = ?5
 `
 
 type GetHookParams struct {
@@ -640,6 +641,7 @@ func (q *Queries) GetHook(ctx context.Context, arg GetHookParams) (AsgHook, erro
 		&i.DataNotificationMetadata,
 		&i.DataNotificationTargetArn,
 		&i.DataRoleArn,
+		&i.Ownership,
 	)
 	return i, err
 }
@@ -697,7 +699,7 @@ func (q *Queries) GetInstance(ctx context.Context, arg GetInstanceParams) (AsgIn
 }
 
 const getPolicy = `-- name: GetPolicy :one
-SELECT policy_pk, "partition", account_id, region, group_name, name, group_id, last_scale_at, data_adjustment_type, has_data_alarms, data_auto_scaling_group_name, data_cooldown, data_enabled, data_estimated_instance_warmup, data_metric_aggregation_type, data_min_adjustment_magnitude, data_min_adjustment_step, data_policy_arn, data_policy_name, data_policy_type, data_scaling_adjustment, has_data_step_adjustments, has_data_target_tracking_configuration, has_data_target_tracking_configuration_customized_metric_specification, has_data_target_tracking_configuration_customized_metric_specification_dimensions, data_target_tracking_configuration_customized_metric_specification_metric_name, has_data_target_tracking_configuration_customized_metric_specification_metrics, data_target_tracking_configuration_customized_metric_specification_namespace, data_target_tracking_configuration_customized_metric_specification_period, data_target_tracking_configuration_customized_metric_specification_statistic, data_target_tracking_configuration_customized_metric_specification_unit, data_target_tracking_configuration_disable_scale_in, has_data_target_tracking_configuration_predefined_metric_specification, data_target_tracking_configuration_predefined_metric_specification_predefined_metric_type, data_target_tracking_configuration_predefined_metric_specification_resource_label, data_target_tracking_configuration_target_value FROM asg_policies WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND group_name = ?4 AND name = ?5
+SELECT policy_pk, "partition", account_id, region, group_name, name, group_id, last_scale_at, data_adjustment_type, has_data_alarms, data_auto_scaling_group_name, data_cooldown, data_enabled, data_estimated_instance_warmup, data_metric_aggregation_type, data_min_adjustment_magnitude, data_min_adjustment_step, data_policy_arn, data_policy_name, data_policy_type, data_scaling_adjustment, has_data_step_adjustments, has_data_target_tracking_configuration, has_data_target_tracking_configuration_customized_metric_specification, has_data_target_tracking_configuration_customized_metric_specification_dimensions, data_target_tracking_configuration_customized_metric_specification_metric_name, has_data_target_tracking_configuration_customized_metric_specification_metrics, data_target_tracking_configuration_customized_metric_specification_namespace, data_target_tracking_configuration_customized_metric_specification_period, data_target_tracking_configuration_customized_metric_specification_statistic, data_target_tracking_configuration_customized_metric_specification_unit, data_target_tracking_configuration_disable_scale_in, has_data_target_tracking_configuration_predefined_metric_specification, data_target_tracking_configuration_predefined_metric_specification_predefined_metric_type, data_target_tracking_configuration_predefined_metric_specification_resource_label, data_target_tracking_configuration_target_value, ownership FROM asg_policies WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND group_name = ?4 AND name = ?5
 `
 
 type GetPolicyParams struct {
@@ -754,12 +756,13 @@ func (q *Queries) GetPolicy(ctx context.Context, arg GetPolicyParams) (AsgPolicy
 		&i.DataTargetTrackingConfigurationPredefinedMetricSpecificationPredefinedMetricType,
 		&i.DataTargetTrackingConfigurationPredefinedMetricSpecificationResourceLabel,
 		&i.DataTargetTrackingConfigurationTargetValue,
+		&i.Ownership,
 	)
 	return i, err
 }
 
 const getSchedule = `-- name: GetSchedule :one
-SELECT schedule_pk, "partition", account_id, region, group_name, name, group_id, next_due, origin_event_id, data_auto_scaling_group_name, data_desired_capacity, data_end_time, data_max_size, data_min_size, data_recurrence, data_scheduled_action_arn, data_scheduled_action_name, data_start_time, data_time, data_time_zone FROM asg_schedules WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND group_name = ?4 AND name = ?5
+SELECT schedule_pk, "partition", account_id, region, group_name, name, group_id, next_due, origin_event_id, data_auto_scaling_group_name, data_desired_capacity, data_end_time, data_max_size, data_min_size, data_recurrence, data_scheduled_action_arn, data_scheduled_action_name, data_start_time, data_time, data_time_zone, ownership FROM asg_schedules WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND group_name = ?4 AND name = ?5
 `
 
 type GetScheduleParams struct {
@@ -800,6 +803,7 @@ func (q *Queries) GetSchedule(ctx context.Context, arg GetScheduleParams) (AsgSc
 		&i.DataStartTime,
 		&i.DataTime,
 		&i.DataTimeZone,
+		&i.Ownership,
 	)
 	return i, err
 }
@@ -1378,7 +1382,7 @@ func (q *Queries) ListGroupKeys(ctx context.Context, arg ListGroupKeysParams) ([
 }
 
 const listGroups = `-- name: ListGroups :many
-SELECT group_pk, "partition", account_id, region, name, native_id, origin_event_id, deleting, reconcile_at, reconcile_cause, pending_instance_warmup, metric_at, version, data_auto_scaling_group_arn, data_auto_scaling_group_name, has_data_availability_zone_distribution, data_availability_zone_distribution_capacity_distribution_strategy, has_data_availability_zone_ids, has_data_availability_zones, data_capacity_rebalance, has_data_capacity_reservation_specification, data_capacity_reservation_specification_capacity_reservation_preference, has_data_capacity_reservation_specification_capacity_reservation_target, has_data_capacity_reservation_specification_capacity_reservation_target_capacity_reservation_ids, has_data_capacity_reservation_specification_capacity_reservation_target_capacity_reservation_resource_group_arns, data_context, data_created_time, data_default_cooldown, data_default_instance_warmup, data_deletion_protection, data_desired_capacity, data_desired_capacity_type, has_data_enabled_metrics, data_health_check_grace_period, data_health_check_type, has_data_instance_lifecycle_policy, has_data_instance_lifecycle_policy_retention_triggers, data_instance_lifecycle_policy_retention_triggers_terminate_hook_abandon, data_launch_configuration_name, has_data_launch_template, data_launch_template_launch_template_id, data_launch_template_launch_template_name, data_launch_template_version, has_data_load_balancer_names, data_max_instance_lifetime, data_max_size, data_min_size, data_new_instances_protected_from_scale_in, data_placement_group, data_predicted_capacity, data_service_linked_role_arn, data_status, has_data_suspended_processes, has_data_tags, has_data_target_group_arns, has_data_termination_policies, has_data_traffic_sources, data_vpc_zone_identifier, data_warm_pool_size, has_data_warm_pool_configuration, data_warm_pool_configuration_min_size, data_warm_pool_configuration_max_group_prepared_capacity, data_warm_pool_configuration_pool_state, data_warm_pool_configuration_status, has_data_warm_pool_configuration_instance_reuse_policy, data_warm_pool_configuration_instance_reuse_policy_reuse_on_scale_in, scale_up_version FROM asg_groups WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name > ?4 AND (?5 = 0 OR name IN (SELECT value FROM json_each(?6))) ORDER BY name LIMIT ?7
+SELECT group_pk, "partition", account_id, region, name, native_id, origin_event_id, deleting, reconcile_at, reconcile_cause, pending_instance_warmup, metric_at, version, data_auto_scaling_group_arn, data_auto_scaling_group_name, has_data_availability_zone_distribution, data_availability_zone_distribution_capacity_distribution_strategy, has_data_availability_zone_ids, has_data_availability_zones, data_capacity_rebalance, has_data_capacity_reservation_specification, data_capacity_reservation_specification_capacity_reservation_preference, has_data_capacity_reservation_specification_capacity_reservation_target, has_data_capacity_reservation_specification_capacity_reservation_target_capacity_reservation_ids, has_data_capacity_reservation_specification_capacity_reservation_target_capacity_reservation_resource_group_arns, data_context, data_created_time, data_default_cooldown, data_default_instance_warmup, data_deletion_protection, data_desired_capacity, data_desired_capacity_type, has_data_enabled_metrics, data_health_check_grace_period, data_health_check_type, has_data_instance_lifecycle_policy, has_data_instance_lifecycle_policy_retention_triggers, data_instance_lifecycle_policy_retention_triggers_terminate_hook_abandon, data_launch_configuration_name, has_data_launch_template, data_launch_template_launch_template_id, data_launch_template_launch_template_name, data_launch_template_version, has_data_load_balancer_names, data_max_instance_lifetime, data_max_size, data_min_size, data_new_instances_protected_from_scale_in, data_placement_group, data_predicted_capacity, data_service_linked_role_arn, data_status, has_data_suspended_processes, has_data_tags, has_data_target_group_arns, has_data_termination_policies, has_data_traffic_sources, data_vpc_zone_identifier, data_warm_pool_size, has_data_warm_pool_configuration, data_warm_pool_configuration_min_size, data_warm_pool_configuration_max_group_prepared_capacity, data_warm_pool_configuration_pool_state, data_warm_pool_configuration_status, has_data_warm_pool_configuration_instance_reuse_policy, data_warm_pool_configuration_instance_reuse_policy_reuse_on_scale_in, scale_up_version, ownership FROM asg_groups WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name > ?4 AND (?5 = 0 OR name IN (SELECT value FROM json_each(?6))) ORDER BY name LIMIT ?7
 `
 
 type ListGroupsParams struct {
@@ -1476,6 +1480,7 @@ func (q *Queries) ListGroups(ctx context.Context, arg ListGroupsParams) ([]AsgGr
 			&i.HasDataWarmPoolConfigurationInstanceReusePolicy,
 			&i.DataWarmPoolConfigurationInstanceReusePolicyReuseOnScaleIn,
 			&i.ScaleUpVersion,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -1811,7 +1816,7 @@ func (q *Queries) ListGroupsTrafficSources(ctx context.Context, groupPk int64) (
 }
 
 const listHooks = `-- name: ListHooks :many
-SELECT hook_pk, "partition", account_id, region, group_name, name, group_id, data_auto_scaling_group_name, data_default_result, data_global_timeout, data_heartbeat_timeout, data_lifecycle_hook_name, data_lifecycle_transition, data_notification_metadata, data_notification_target_arn, data_role_arn FROM asg_hooks WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND group_name = ?4 ORDER BY name
+SELECT hook_pk, "partition", account_id, region, group_name, name, group_id, data_auto_scaling_group_name, data_default_result, data_global_timeout, data_heartbeat_timeout, data_lifecycle_hook_name, data_lifecycle_transition, data_notification_metadata, data_notification_target_arn, data_role_arn, ownership FROM asg_hooks WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND group_name = ?4 ORDER BY name
 `
 
 type ListHooksParams struct {
@@ -1852,6 +1857,7 @@ func (q *Queries) ListHooks(ctx context.Context, arg ListHooksParams) ([]AsgHook
 			&i.DataNotificationMetadata,
 			&i.DataNotificationTargetArn,
 			&i.DataRoleArn,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -1990,7 +1996,7 @@ func (q *Queries) ListLifecycleActions(ctx context.Context, arg ListLifecycleAct
 }
 
 const listPolicies = `-- name: ListPolicies :many
-SELECT policy_pk, "partition", account_id, region, group_name, name, group_id, last_scale_at, data_adjustment_type, has_data_alarms, data_auto_scaling_group_name, data_cooldown, data_enabled, data_estimated_instance_warmup, data_metric_aggregation_type, data_min_adjustment_magnitude, data_min_adjustment_step, data_policy_arn, data_policy_name, data_policy_type, data_scaling_adjustment, has_data_step_adjustments, has_data_target_tracking_configuration, has_data_target_tracking_configuration_customized_metric_specification, has_data_target_tracking_configuration_customized_metric_specification_dimensions, data_target_tracking_configuration_customized_metric_specification_metric_name, has_data_target_tracking_configuration_customized_metric_specification_metrics, data_target_tracking_configuration_customized_metric_specification_namespace, data_target_tracking_configuration_customized_metric_specification_period, data_target_tracking_configuration_customized_metric_specification_statistic, data_target_tracking_configuration_customized_metric_specification_unit, data_target_tracking_configuration_disable_scale_in, has_data_target_tracking_configuration_predefined_metric_specification, data_target_tracking_configuration_predefined_metric_specification_predefined_metric_type, data_target_tracking_configuration_predefined_metric_specification_resource_label, data_target_tracking_configuration_target_value FROM asg_policies WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND group_name = ?4 ORDER BY name
+SELECT policy_pk, "partition", account_id, region, group_name, name, group_id, last_scale_at, data_adjustment_type, has_data_alarms, data_auto_scaling_group_name, data_cooldown, data_enabled, data_estimated_instance_warmup, data_metric_aggregation_type, data_min_adjustment_magnitude, data_min_adjustment_step, data_policy_arn, data_policy_name, data_policy_type, data_scaling_adjustment, has_data_step_adjustments, has_data_target_tracking_configuration, has_data_target_tracking_configuration_customized_metric_specification, has_data_target_tracking_configuration_customized_metric_specification_dimensions, data_target_tracking_configuration_customized_metric_specification_metric_name, has_data_target_tracking_configuration_customized_metric_specification_metrics, data_target_tracking_configuration_customized_metric_specification_namespace, data_target_tracking_configuration_customized_metric_specification_period, data_target_tracking_configuration_customized_metric_specification_statistic, data_target_tracking_configuration_customized_metric_specification_unit, data_target_tracking_configuration_disable_scale_in, has_data_target_tracking_configuration_predefined_metric_specification, data_target_tracking_configuration_predefined_metric_specification_predefined_metric_type, data_target_tracking_configuration_predefined_metric_specification_resource_label, data_target_tracking_configuration_target_value, ownership FROM asg_policies WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND group_name = ?4 ORDER BY name
 `
 
 type ListPoliciesParams struct {
@@ -2051,6 +2057,7 @@ func (q *Queries) ListPolicies(ctx context.Context, arg ListPoliciesParams) ([]A
 			&i.DataTargetTrackingConfigurationPredefinedMetricSpecificationPredefinedMetricType,
 			&i.DataTargetTrackingConfigurationPredefinedMetricSpecificationResourceLabel,
 			&i.DataTargetTrackingConfigurationTargetValue,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -2422,7 +2429,7 @@ func (q *Queries) ListRefreshes(ctx context.Context, arg ListRefreshesParams) ([
 }
 
 const listSchedules = `-- name: ListSchedules :many
-SELECT schedule_pk, "partition", account_id, region, group_name, name, group_id, next_due, origin_event_id, data_auto_scaling_group_name, data_desired_capacity, data_end_time, data_max_size, data_min_size, data_recurrence, data_scheduled_action_arn, data_scheduled_action_name, data_start_time, data_time, data_time_zone FROM asg_schedules WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND group_name = ?4 ORDER BY name
+SELECT schedule_pk, "partition", account_id, region, group_name, name, group_id, next_due, origin_event_id, data_auto_scaling_group_name, data_desired_capacity, data_end_time, data_max_size, data_min_size, data_recurrence, data_scheduled_action_arn, data_scheduled_action_name, data_start_time, data_time, data_time_zone, ownership FROM asg_schedules WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND group_name = ?4 ORDER BY name
 `
 
 type ListSchedulesParams struct {
@@ -2467,6 +2474,7 @@ func (q *Queries) ListSchedules(ctx context.Context, arg ListSchedulesParams) ([
 			&i.DataStartTime,
 			&i.DataTime,
 			&i.DataTimeZone,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -2574,7 +2582,7 @@ func (q *Queries) PendingLifecycleActions(ctx context.Context) ([]AsgLifecycleAc
 }
 
 const pendingSchedules = `-- name: PendingSchedules :many
-SELECT schedule_pk, "partition", account_id, region, group_name, name, group_id, next_due, origin_event_id, data_auto_scaling_group_name, data_desired_capacity, data_end_time, data_max_size, data_min_size, data_recurrence, data_scheduled_action_arn, data_scheduled_action_name, data_start_time, data_time, data_time_zone FROM asg_schedules WHERE next_due IS NOT NULL ORDER BY next_due, partition, account_id, region, group_name, name
+SELECT schedule_pk, "partition", account_id, region, group_name, name, group_id, next_due, origin_event_id, data_auto_scaling_group_name, data_desired_capacity, data_end_time, data_max_size, data_min_size, data_recurrence, data_scheduled_action_arn, data_scheduled_action_name, data_start_time, data_time, data_time_zone, ownership FROM asg_schedules WHERE next_due IS NOT NULL ORDER BY next_due, partition, account_id, region, group_name, name
 `
 
 func (q *Queries) PendingSchedules(ctx context.Context) ([]AsgSchedule, error) {
@@ -2607,6 +2615,7 @@ func (q *Queries) PendingSchedules(ctx context.Context) ([]AsgSchedule, error) {
 			&i.DataStartTime,
 			&i.DataTime,
 			&i.DataTimeZone,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -2743,17 +2752,20 @@ func (q *Queries) PutActivity(ctx context.Context, arg PutActivityParams) (int64
 
 const putGroup = `-- name: PutGroup :one
 INSERT INTO asg_groups (
+ ownership,
  partition, account_id, region, name, native_id, origin_event_id, deleting, reconcile_at, version, data_auto_scaling_group_arn, data_auto_scaling_group_name, has_data_availability_zone_distribution, data_availability_zone_distribution_capacity_distribution_strategy, has_data_availability_zone_ids, has_data_availability_zones, data_capacity_rebalance, has_data_capacity_reservation_specification, data_capacity_reservation_specification_capacity_reservation_preference, has_data_capacity_reservation_specification_capacity_reservation_target, has_data_capacity_reservation_specification_capacity_reservation_target_capacity_reservation_ids, has_data_capacity_reservation_specification_capacity_reservation_target_capacity_reservation_resource_group_arns, data_context, data_created_time, data_default_cooldown, data_default_instance_warmup, data_deletion_protection, data_desired_capacity, data_desired_capacity_type, has_data_enabled_metrics, data_health_check_grace_period, data_health_check_type, has_data_instance_lifecycle_policy, has_data_instance_lifecycle_policy_retention_triggers, data_instance_lifecycle_policy_retention_triggers_terminate_hook_abandon, data_launch_configuration_name, has_data_launch_template, data_launch_template_launch_template_id, data_launch_template_launch_template_name, data_launch_template_version, has_data_load_balancer_names, data_max_instance_lifetime, data_max_size, data_min_size, data_new_instances_protected_from_scale_in, data_placement_group, data_predicted_capacity, data_service_linked_role_arn, data_status, has_data_suspended_processes, has_data_tags, has_data_target_group_arns, has_data_termination_policies, has_data_traffic_sources, data_vpc_zone_identifier, data_warm_pool_size
  , reconcile_cause, pending_instance_warmup, metric_at
  , scale_up_version
  , has_data_warm_pool_configuration, data_warm_pool_configuration_min_size, data_warm_pool_configuration_max_group_prepared_capacity, data_warm_pool_configuration_pool_state, data_warm_pool_configuration_status, has_data_warm_pool_configuration_instance_reuse_policy, data_warm_pool_configuration_instance_reuse_policy_reuse_on_scale_in
 ) VALUES (
- ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39, ?40, ?41, ?42, ?43, ?44, ?45, ?46, ?47, ?48, ?49, ?50, ?51, ?52, ?53, ?54, ?55
- , ?56, ?57, ?58
- , ?59
- , ?60, ?61, ?62, ?63, ?64, ?65, ?66
+ ?1,
+ ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39, ?40, ?41, ?42, ?43, ?44, ?45, ?46, ?47, ?48, ?49, ?50, ?51, ?52, ?53, ?54, ?55, ?56
+ , ?57, ?58, ?59
+ , ?60
+ , ?61, ?62, ?63, ?64, ?65, ?66, ?67
 )
 ON CONFLICT(partition, account_id, region, name) DO UPDATE SET
+ ownership = excluded.ownership,
  native_id = excluded.native_id,
  origin_event_id = excluded.origin_event_id,
  deleting = excluded.deleting,
@@ -2820,6 +2832,7 @@ RETURNING group_pk
 `
 
 type PutGroupParams struct {
+	Ownership                                                                                            string
 	Partition                                                                                            string
 	AccountID                                                                                            string
 	Region                                                                                               string
@@ -2890,6 +2903,7 @@ type PutGroupParams struct {
 
 func (q *Queries) PutGroup(ctx context.Context, arg PutGroupParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, putGroup,
+		arg.Ownership,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -2964,11 +2978,14 @@ func (q *Queries) PutGroup(ctx context.Context, arg PutGroupParams) (int64, erro
 
 const putHook = `-- name: PutHook :exec
 INSERT INTO asg_hooks (
+ ownership,
  partition, account_id, region, group_name, name, group_id, data_auto_scaling_group_name, data_default_result, data_global_timeout, data_heartbeat_timeout, data_lifecycle_hook_name, data_lifecycle_transition, data_notification_metadata, data_notification_target_arn, data_role_arn
 ) VALUES (
- ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15
+ ?1,
+ ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16
 )
 ON CONFLICT(partition, account_id, region, group_name, name) DO UPDATE SET
+ ownership = excluded.ownership,
  group_id = excluded.group_id,
  data_auto_scaling_group_name = excluded.data_auto_scaling_group_name,
  data_default_result = excluded.data_default_result,
@@ -2982,6 +2999,7 @@ ON CONFLICT(partition, account_id, region, group_name, name) DO UPDATE SET
 `
 
 type PutHookParams struct {
+	Ownership                 string
 	Partition                 string
 	AccountID                 string
 	Region                    string
@@ -3001,6 +3019,7 @@ type PutHookParams struct {
 
 func (q *Queries) PutHook(ctx context.Context, arg PutHookParams) error {
 	_, err := q.db.ExecContext(ctx, putHook,
+		arg.Ownership,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -3174,11 +3193,14 @@ func (q *Queries) PutLifecycleAction(ctx context.Context, arg PutLifecycleAction
 
 const putPolicy = `-- name: PutPolicy :one
 INSERT INTO asg_policies (
+ ownership,
  partition, account_id, region, group_name, name, group_id, last_scale_at, data_adjustment_type, has_data_alarms, data_auto_scaling_group_name, data_cooldown, data_enabled, data_estimated_instance_warmup, data_metric_aggregation_type, data_min_adjustment_magnitude, data_min_adjustment_step, data_policy_arn, data_policy_name, data_policy_type, data_scaling_adjustment, has_data_step_adjustments, has_data_target_tracking_configuration, has_data_target_tracking_configuration_customized_metric_specification, has_data_target_tracking_configuration_customized_metric_specification_dimensions, data_target_tracking_configuration_customized_metric_specification_metric_name, has_data_target_tracking_configuration_customized_metric_specification_metrics, data_target_tracking_configuration_customized_metric_specification_namespace, data_target_tracking_configuration_customized_metric_specification_period, data_target_tracking_configuration_customized_metric_specification_statistic, data_target_tracking_configuration_customized_metric_specification_unit, data_target_tracking_configuration_disable_scale_in, has_data_target_tracking_configuration_predefined_metric_specification, data_target_tracking_configuration_predefined_metric_specification_predefined_metric_type, data_target_tracking_configuration_predefined_metric_specification_resource_label, data_target_tracking_configuration_target_value
 ) VALUES (
- ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35
+ ?1,
+ ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36
 )
 ON CONFLICT(partition, account_id, region, group_name, name) DO UPDATE SET
+ ownership = excluded.ownership,
  group_id = excluded.group_id,
  last_scale_at = excluded.last_scale_at,
  data_adjustment_type = excluded.data_adjustment_type,
@@ -3213,6 +3235,7 @@ RETURNING policy_pk
 `
 
 type PutPolicyParams struct {
+	Ownership                                                                        string
 	Partition                                                                        string
 	AccountID                                                                        string
 	Region                                                                           string
@@ -3252,6 +3275,7 @@ type PutPolicyParams struct {
 
 func (q *Queries) PutPolicy(ctx context.Context, arg PutPolicyParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, putPolicy,
+		arg.Ownership,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -3475,11 +3499,14 @@ func (q *Queries) PutRefreshMember(ctx context.Context, arg PutRefreshMemberPara
 
 const putSchedule = `-- name: PutSchedule :exec
 INSERT INTO asg_schedules (
+ ownership,
  partition, account_id, region, group_name, name, group_id, next_due, origin_event_id, data_auto_scaling_group_name, data_desired_capacity, data_end_time, data_max_size, data_min_size, data_recurrence, data_scheduled_action_arn, data_scheduled_action_name, data_start_time, data_time, data_time_zone
 ) VALUES (
- ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19
+ ?1,
+ ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20
 )
 ON CONFLICT(partition, account_id, region, group_name, name) DO UPDATE SET
+ ownership = excluded.ownership,
  group_id = excluded.group_id,
  next_due = excluded.next_due,
  origin_event_id = excluded.origin_event_id,
@@ -3497,6 +3524,7 @@ ON CONFLICT(partition, account_id, region, group_name, name) DO UPDATE SET
 `
 
 type PutScheduleParams struct {
+	Ownership                string
 	Partition                string
 	AccountID                string
 	Region                   string
@@ -3520,6 +3548,7 @@ type PutScheduleParams struct {
 
 func (q *Queries) PutSchedule(ctx context.Context, arg PutScheduleParams) error {
 	_, err := q.db.ExecContext(ctx, putSchedule,
+		arg.Ownership,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,

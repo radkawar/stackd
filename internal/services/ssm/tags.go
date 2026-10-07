@@ -66,6 +66,9 @@ func (s *Service) tagParameter(tx Transaction, kind, name, action string, condit
 	if err := s.authorize(tx, action, p, conditions); err != nil {
 		return ParameterRecord{}, err
 	}
+	if err := cloudFormationParameterConflict(tx.Context(), p); err != nil {
+		return ParameterRecord{}, err
+	}
 	return p, nil
 }
 

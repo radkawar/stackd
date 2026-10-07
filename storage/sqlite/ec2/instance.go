@@ -89,8 +89,9 @@ func (r reader) instanceRows(rows []sqlcgen.Ec2Instance) ([]domain.InstanceRecor
 
 func (r reader) instance(row sqlcgen.Ec2Instance) (domain.InstanceRecord, error) {
 	out := domain.InstanceRecord{
-		Key:           domain.ResourceKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.ResourceID},
-		ReservationID: row.ReservationID, UserData: row.UserData, MetadataTokenKey: row.MetadataTokenKey, PublicKey: row.PublicKey,
+		Key:                 domain.ResourceKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.ResourceID},
+		CloudFormationOwner: cloudFormationOwner(row.CloudformationResourceType, row.CloudformationOwner),
+		ReservationID:       row.ReservationID, UserData: row.UserData, MetadataTokenKey: row.MetadataTokenKey, PublicKey: row.PublicKey,
 		LambdaCapacityProviderARN: row.LambdaCapacityProviderArn, LambdaManagedGeneration: row.LambdaManagedGeneration,
 		IdentityCredentials:     domain.InstanceCredentialReferences{V1: row.IdentityCredentialIDV1, V2: row.IdentityCredentialIDV2},
 		IdentityInfoLastUpdated: row.IdentityInfoLastUpdated.Time,

@@ -26,6 +26,7 @@ func (s *Service) tagsForResource(tx Transaction, action, arn string) (map[strin
 	if err := tagResourceExists(tx, scope, arn); err != nil {
 		return nil, err
 	}
+
 	return tags, nil
 }
 
@@ -49,7 +50,7 @@ func tagResourceExists(r Reader, scope Scope, arn string) error {
 			return err
 		}
 		if found && row.ARN == arn {
-			return nil
+			return checkCloudFormationClaim(r.Context(), row.CFNOwnership)
 		}
 	case "config-rule":
 		rows, err := r.Rules(scope)
@@ -58,7 +59,7 @@ func tagResourceExists(r Reader, scope Scope, arn string) error {
 		}
 		for _, row := range rows {
 			if row.ARN == arn {
-				return nil
+				return checkCloudFormationClaim(r.Context(), row.CFNOwnership)
 			}
 		}
 	case "config-aggregator":
@@ -68,7 +69,7 @@ func tagResourceExists(r Reader, scope Scope, arn string) error {
 		}
 		for _, row := range rows {
 			if row.ARN == arn {
-				return nil
+				return checkCloudFormationClaim(r.Context(), row.CFNOwnership)
 			}
 		}
 	case "aggregation-authorization":
@@ -78,7 +79,7 @@ func tagResourceExists(r Reader, scope Scope, arn string) error {
 		}
 		for _, row := range rows {
 			if row.ARN == arn {
-				return nil
+				return checkCloudFormationClaim(r.Context(), row.CFNOwnership)
 			}
 		}
 	}

@@ -24,10 +24,12 @@ func (k Key) ARN() string {
 }
 
 // Database retains controls, never a plaintext password. Cluster writer members
-// reference the cluster's incarnation; they do not own another native database.
-// Version fences all runtime completions, including a deleted/recreated name.
+// share their cluster's engine RuntimeID, but retain independent ResourceID and
+// controller claims. Version fences runtime completions across every mutation.
 type Database struct {
 	Key                                                                  Key
+	ResourceID                                                           string
+	Owner                                                                CloudFormationOwner
 	Engine, EngineVersion, DatabaseName, Username, Class, ParameterGroup string
 	Cluster, RuntimeID, Status, Desired, Operation, RestoreSnapshot      string
 	Ciphertext, PendingCiphertext                                        []byte
@@ -42,6 +44,7 @@ type Database struct {
 
 type Snapshot struct {
 	Key                                                                                              Key
+	Owner                                                                                            CloudFormationOwner
 	Source, SourceRuntimeID, RuntimeID, Engine, EngineVersion, DatabaseName, Username, Class, Status string
 	Ciphertext                                                                                       []byte
 	Parameters, Tags                                                                                 map[string]string
@@ -51,6 +54,8 @@ type Snapshot struct {
 
 type ParameterGroup struct {
 	Key                            Key
+	ResourceID                     string
+	Owner                          CloudFormationOwner
 	Family, Description            string
 	Parameters, ApplyMethods, Tags map[string]string
 }
@@ -59,6 +64,8 @@ type Subnet struct {
 }
 type SubnetGroup struct {
 	Key                Key
+	ResourceID         string
+	Owner              CloudFormationOwner
 	Description, VPCID string
 	Subnets            []Subnet
 	Tags               map[string]string

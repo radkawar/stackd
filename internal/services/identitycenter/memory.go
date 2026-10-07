@@ -205,8 +205,13 @@ func (w memoryWriter) PutPermissionSet(v PermissionSet) error {
 	return memoryPut(w, w.v.permissions, v.ARN, clonePermission(v))
 }
 func (w memoryWriter) DeletePermissionSet(k string) error { return memoryDelete(w, w.v.permissions, k) }
-func (w memoryWriter) PutAssignment(v Assignment) error   { return memoryPut(w, w.v.assignments, v, v) }
+func (w memoryWriter) PutAssignment(v Assignment) error {
+	key := v
+	key.CloudFormationOwner = ""
+	return memoryPut(w, w.v.assignments, key, v)
+}
 func (w memoryWriter) DeleteAssignment(v Assignment) error {
+	v.CloudFormationOwner = ""
 	return memoryDelete(w, w.v.assignments, v)
 }
 func (w memoryWriter) PutProvisioning(v Provisioning) error {

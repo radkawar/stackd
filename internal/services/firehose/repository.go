@@ -29,6 +29,7 @@ func (k StreamKey) ARN() string {
 type StreamRecord struct {
 	Key          StreamKey
 	ID           string
+	CFNOwner     string
 	Status       string
 	Version      int64
 	Created      time.Time

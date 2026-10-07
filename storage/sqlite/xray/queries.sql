@@ -29,10 +29,10 @@ SELECT * FROM xray_resource_policies
 WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name;
 
 -- name: PutResourcePolicy :exec
-INSERT INTO xray_resource_policies (partition, account_id, region, name, document, revision, updated)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO xray_resource_policies (partition, account_id, region, name, document, revision, updated, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, name) DO UPDATE SET
- document = excluded.document, revision = excluded.revision, updated = excluded.updated;
+ document = excluded.document, revision = excluded.revision, updated = excluded.updated, cfn_owner = excluded.cfn_owner;
 
 -- name: DeleteResourcePolicy :exec
 DELETE FROM xray_resource_policies WHERE partition = ? AND account_id = ? AND region = ? AND name = ?;

@@ -19,6 +19,7 @@ type StepfunctionsActivity struct {
 	EncryptionType      string
 	KmsKeyArn           string
 	DataKeyReuseSeconds int64
+	CfnOwner            string
 }
 
 type StepfunctionsActivityTag struct {
@@ -40,6 +41,7 @@ type StepfunctionsAlias struct {
 	Description string
 	Created     time.Time
 	Updated     time.Time
+	CfnOwner    string
 }
 
 type StepfunctionsAliasRoute struct {
@@ -169,6 +171,7 @@ type StepfunctionsMachine struct {
 	DeleteAt                sql.NullTime
 	NextVersion             int64
 	FirstVersionDescription string
+	CfnOwner                string
 }
 
 type StepfunctionsMachineTag struct {
@@ -293,4 +296,5 @@ type StepfunctionsVersion struct {
 	RevisionID  string
 	Created     time.Time
 	Description string
+	CfnOwner    string
 }

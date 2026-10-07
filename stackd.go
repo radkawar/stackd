@@ -3,6 +3,7 @@ package stackd
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net/http"
@@ -101,6 +102,7 @@ import (
 	ssooidcapi "stackd/internal/awsapi/ssooidc"
 	stepfunctionsapi "stackd/internal/awsapi/stepfunctions"
 	stsapi "stackd/internal/awsapi/sts"
+	wafv2api "stackd/internal/awsapi/wafv2"
 	xrayapi "stackd/internal/awsapi/xray"
 	"stackd/internal/awscommands"
 	"stackd/internal/awswire"
@@ -176,6 +178,7 @@ import (
 	"stackd/internal/services/ssmmessages"
 	"stackd/internal/services/stepfunctions"
 	"stackd/internal/services/sts"
+	"stackd/internal/services/wafv2"
 	"stackd/internal/services/xray"
 	"stackd/journal"
 	"stackd/storage"
@@ -228,8 +231,11 @@ type Config struct {
 	// Stack closes environments it creates, but never closes the injected executor.
 	LambdaExecutor lambdaruntime.Executor
 	// LambdaSourceNetworks owns real poller sockets in EC2 network namespaces.
-	LambdaSourceNetworks  *lambdaruntime.SourceNetworkRuntime
-	LambdaManagedCapacity LambdaManagedCapacityConfig
+	LambdaSourceNetworks *lambdaruntime.SourceNetworkRuntime
+	// LambdaFunctionNetworkRuntime attaches real function execution environments
+	// to their scoped EC2 VPC interfaces and security-group policy.
+	LambdaFunctionNetworkRuntime *lambdaruntime.FunctionNetworkRuntime
+	LambdaManagedCapacity        LambdaManagedCapacityConfig
 	// ECSExecutor owns real task containers. Close detaches running tasks so a
 	// retained store can reconnect; StopTask owns native resource destruction.
 	ECSExecutor ecsruntime.Executor
@@ -400,7 +406,7 @@ func New(config Config) (stack *Stack, err error) {
 	trailEvents.Organizations, trailEvents.OrganizationRoles = trailOrganizations, trailRoles
 	organizationEvents.Organizations, organizationEvents.Roles = trailOrganizations, trailRoles
 	kmsService := kms.NewWithConfig(kms.Config{Storage: backends.KMS, Authorizer: authorizer, APIEvents: apiEvents, Clock: config.Clock, Regions: accountService, Roles: iamService})
-	if err := iamService.RegisterServiceLinkedRole(kmsRoleTemplate(), kmsRoleUsage{kmsService}); err != nil {
+	if err := iamService.RegisterServiceLinkedRole(integrations.KMSRoleTemplate(), integrations.KMSRoleUsage{Keys: kmsService}); err != nil {
 		_ = iamService.Close()
 		return nil, fmt.Errorf("register KMS service-linked role: %w", err)
 	}
@@ -433,6 +439,7 @@ func New(config Config) (stack *Stack, err error) {
 	lambdaOutcomes := &integrations.LambdaOutcomes{Roles: serviceRoles, SQS: sqsService}
 	lambdaKafka := &integrations.LambdaKafka{Roles: serviceRoles}
 	lambdaNetworks := &integrations.LambdaSourceNetworks{Roles: serviceRoles}
+	lambdaFunctionNetworks := &integrations.LambdaFunctionNetworks{Roles: serviceRoles, Runtime: config.LambdaFunctionNetworkRuntime}
 	if config.LambdaSourceNetworks != nil {
 		lambdaNetworks.Runtime = config.LambdaSourceNetworks
 	}
@@ -449,6 +456,7 @@ func New(config Config) (stack *Stack, err error) {
 		DynamoDB: integrations.LambdaDynamoDB{Roles: serviceRoles, Streams: dynamoStreams},
 		Kinesis:  integrations.LambdaKinesis{Roles: serviceRoles, Streams: kinesisService},
 		Kafka:    lambdaKafka, MQ: lambdaMQ, DocumentDB: lambdaDocuments, SourceNetworks: lambdaNetworks,
+		FunctionNetworks:     lambdaFunctionNetworks,
 		CodeSigningAuthority: integrations.LambdaSignerAuthority{Signer: signerService},
 		Capacity:             lambdaCapacity,
 		DurableEncryption:    integrations.LambdaDurableEncryption{KMS: kmsService, Activity: iamService},
@@ -488,8 +496,15 @@ func New(config Config) (stack *Stack, err error) {
 	buildService := codebuild.New(codebuild.Config{PipelineArtifacts: pipelineArtifacts, Repository: backends.CodeBuild, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, Executor: config.CodeBuildExecutor, Roles: integrations.CodeBuildRoles{ServiceRoles: serviceRoles}, Objects: integrations.CodeBuildObjects{S3: s3Service}, SourceBuckets: integrations.CodeBuildSourceBuckets{Repository: backends.S3}, Secrets: integrations.CodeBuildSecrets{Secrets: secretsManagerService}, Parameters: integrations.CodeBuildParameters{Parameters: parameterService}, Cipher: integrations.CodeBuildCredentialCipher{Keys: integrations.ServiceDataKeys{KMS: kmsService, Activity: iamService, Service: "codebuild"}}, Logs: integrations.CodeBuildLogs{Logs: logsService}, Registry: integrations.CodeBuildRegistry{ECR: ecrService, Endpoint: config.PublicEndpoint}, Events: integrations.CodeBuildEvents{Publisher: servicePublisher}, Endpoint: config.ComputeEndpoint, FleetImage: config.CodeBuildFleetImage})
 	gatewayLogs := &integrations.GatewayLogs{Logs: logsService, Roles: serviceRoles}
 	apiGatewayService := apigateway.New(apigateway.Config{Repository: backends.APIGateway, Authorizer: authorizer, PolicyBinder: authorizer, Recorder: apiEvents, Clock: config.Clock, Endpoint: config.PublicEndpoint, Metrics: cloudwatchService, Logs: gatewayLogs})
+	wafService := wafv2.New(wafv2.Config{Repository: backends.WAFv2, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, Resources: integrations.WAFRESTStages{Gateway: apiGatewayService}, Metrics: cloudwatchService})
 	gatewayLogs.Accounts = apiGatewayService
-	apiGatewayV2Service := apigatewayv2.New(apigatewayv2.Config{Repository: backends.APIGatewayV2, Authorizer: authorizer, PolicyBinder: authorizer, Recorder: apiEvents, Clock: config.Clock, Endpoint: config.PublicEndpoint, Logs: gatewayLogs})
+	certificateUsage := &integrations.ELBV2CertificateUsage{}
+	acmCertificateUsage := &integrations.ACMCertificateUsage{}
+	acmService := acm.New(acm.Config{Repository: backends.ACM, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, DNS: certificateDNS, Usage: acmCertificateUsage})
+	acmJobs := scheduler.New(config.Clock, acmService.JobSource())
+	acmService.SetWake(acmJobs.Wake)
+	apiGatewayV2Service := apigatewayv2.New(apigatewayv2.Config{Repository: backends.APIGatewayV2, Authorizer: authorizer, PolicyBinder: authorizer, Recorder: apiEvents, Clock: config.Clock, Endpoint: config.PublicEndpoint, Logs: gatewayLogs, Certificates: acmService, Truststores: integrations.APIGatewayV2Truststores{S3: s3Service}})
+	acmCertificateUsage.APIGateway = apiGatewayV2Service
 	gatewayInvocationRoles := integrations.GatewayInvocationRoles{Roles: serviceRoles, Clock: config.Clock}
 	apiGatewayWebSocketService := apigatewaywebsocket.New(apigatewaywebsocket.Config{Resolver: apiGatewayV2Service, Functions: lambdaService, Roles: gatewayInvocationRoles, Authorization: authorizer, Clock: config.Clock, Metrics: apiGatewayService, Logs: gatewayLogs})
 	firehoseProcessor.Functions = lambdaService
@@ -506,6 +521,7 @@ func New(config Config) (stack *Stack, err error) {
 	ec2Service := ec2.New(ec2.Config{Repository: backends.EC2, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, Regions: accountService, Snapshots: ebsService, Volumes: ebsService, ImageSnapshots: ebsService, InstanceRuntime: config.EC2Executor, InstanceVolumes: ebsService, InstanceImages: ebsService, InstanceProfiles: &integrations.EC2InstanceProfiles{IAM: iamService, Roles: serviceRoles}, InstanceIdentities: &integrations.EC2InstanceIdentityCredentials{IAM: iamService, Credentials: credentials}, InstanceEvents: integrations.EC2Events{Publisher: servicePublisher}, InstanceMetrics: ec2Metrics})
 	parameterImages.EC2 = ec2Service
 	lambdaNetworks.EC2 = ec2Service
+	lambdaFunctionNetworks.EC2 = ec2Service
 	lambdaCapacity.EC2 = ec2Service
 	ramOrganizations := integrations.RAMOrganizations{Storage: backends.Organizations, IdentityRepository: iamRepository, Organizations: organizationsService, IAM: iamService}
 	// TODO: Comeback connect remaining RAM resource families through their service owners.
@@ -518,10 +534,6 @@ func New(config Config) (stack *Stack, err error) {
 	buildService.SetResourceShares(integrations.CodeBuildResourceShares{RAM: ramService})
 	ec2Service.SetSharedSubnets(integrations.RAMSharedSubnets{RAM: ramService})
 	var endpoint *gateway.Gateway
-	certificateUsage := &integrations.ELBV2CertificateUsage{}
-	acmService := acm.New(acm.Config{Repository: backends.ACM, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, DNS: certificateDNS, Usage: certificateUsage})
-	acmJobs := scheduler.New(config.Clock, acmService.JobSource())
-	acmService.SetWake(acmJobs.Wake)
 	var route53Service *route53.Service
 	elbv2Service := elbv2.New(elbv2.Config{
 		Repository: backends.ELBv2, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, Runtime: config.ELBV2Runtime,
@@ -530,6 +542,7 @@ func New(config Config) (stack *Stack, err error) {
 		Certificates: integrations.ELBV2Certificates{IAM: iamService, ACM: acmService}, Metrics: cloudwatchService,
 	})
 	certificateUsage.ELBV2 = elbv2Service
+	acmCertificateUsage.ELBV2 = elbv2Service
 	iamService.SetServerCertificateUsage(certificateUsage)
 	ecsService := ecs.New(ecs.Config{Repository: backends.ECS, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, Roles: iamService, Executor: config.ECSExecutor, TaskRoles: integrations.ECSTaskRoles{ServiceRoles: serviceRoles}, Networks: &integrations.ECSTaskNetworks{EC2: ec2Service, Roles: serviceRoles}, LoadBalancers: &integrations.ECSLoadBalancers{ELBv2: elbv2Service, EC2: ec2Service, Roles: serviceRoles}, Logs: integrations.ECSLogs{Logs: logsService, Clock: config.Clock}, Parameters: integrations.ECSParameters{Parameters: parameterService, Secrets: secretsManagerService}, EnvironmentFiles: integrations.ECSEnvironmentFiles{S3: s3Service}, Events: integrations.ECSEvents{Publisher: servicePublisher}, Metrics: cloudwatchService, ServiceState: scalingResources, Endpoint: config.ComputeEndpoint})
 	scalingResources.ECS = ecsService
@@ -686,7 +699,7 @@ func New(config Config) (stack *Stack, err error) {
 		}
 		messageError = errors.Join(messageError, appsyncService.Close(), docdbService.Close(), mqService.Close())
 		messageError = errors.Join(messageError, pipelineService.Close(), appconfigService.Close(), resourceGroupsService.Close())
-		messageError = errors.Join(messageError, guarddutyService.Close())
+		messageError = errors.Join(messageError, guarddutyService.Close(), wafService.Close())
 		return errors.Join(messageError, configService.Close(), taggingService.Close(), sesService.Close(), autoScalingService.Close(), ssmCommands.Close(), ssmDocuments.Close(), cloudcontrolService.Close(), cloudformationService.Close(), eksService.Close(), elasticacheService.Close(), memorydbService.Close(), searchService.Close(), schedulerService.Close(), pipesService.Close(), kafkaService.Close(), parameterService.Close(), rdsDataService.Close(), rdsService.Close(), buildService.Close(), apiGatewayWebSocketService.Close(), apiGatewayService.Close(), workflowService.Close(), athenaService.Close(), glueService.Close(), secretsManagerService.Close(), scalingService.Close(), ecsService.Close(), elbv2Service.Close(), ec2Service.Close(), ebsService.Close(), ecrService.Close(), firehoseService.Close(), lambdaService.Close(), dynamoService.Close(), logsService.Close(), cloudwatchService.Close(), cloudtrailService.Close(), eventbridgeService.Close(), kinesisService.Close(), snsService.Close(), s3Service.Close(), organizationsService.Close(), accountService.Close(), sqsService.Close(), kmsService.Close(), iamService.Close(), xrayService.Close())
 	}
 	if dnsAuthority != nil {
@@ -775,7 +788,7 @@ func New(config Config) (stack *Stack, err error) {
 			return nil, fmt.Errorf("register %s service-linked role: %w", template.ServiceName, err)
 		}
 	}
-	jobs, err := scheduler.Join(backends.Read, guarddutyService.JobDriver(), pipelineService.JobDriver(), observationJobs, acmJobs, resourceGroupsService.JobDriver(), appconfigService.JobDriver(), configService.JobDriver(), taggingService.JobDriver(), sesService.JobDriver(), autoScalingService.JobDriver(), cloudcontrolService.JobDriver(), cloudformationService.JobDriver(), eksService.JobDriver(), elasticacheService.JobDriver(), memorydbService.JobDriver(), searchService.JobDriver(), iamService.JobDriver(), organizationsService.JobDriver(), sqsService.JobDriver(), kmsService.JobDriver(), eventbridgeService.JobDriver(), lambdaService.JobDriver(), logsService.JobDriver(), cloudtrailService.JobDriver(), dynamoService.JobDriver(), kinesisService.JobDriver(), kafkaService.JobDriver(), firehoseService.JobDriver(), cloudwatchService.JobDriver(), snsService.JobDriver(), s3Service.JobDriver(), ecsService.JobDriver(), elbv2Service.JobDriver(), ebsService.JobDriver(), ec2Service.JobDriver(), ecrService.JobDriver(), buildService.JobDriver(), scalingService.JobDriver(), xrayService.JobDriver(), workflowService.JobDriver(), secretsManagerService.JobDriver(), parameterService.JobDriver(), ssmDocuments.JobDriver(), ssmCommands.JobDriver(), apiGatewayService.JobDriver(), glueService.JobDriver(), athenaService.JobDriver(), rdsService.JobDriver(), rdsDataService.JobDriver(), docdbService.JobDriver(), mqService.JobDriver(), schedulerService.JobDriver(), pipesService.JobDriver())
+	jobs, err := scheduler.Join(backends.Read, wafService.JobDriver(), guarddutyService.JobDriver(), pipelineService.JobDriver(), observationJobs, acmJobs, resourceGroupsService.JobDriver(), appconfigService.JobDriver(), configService.JobDriver(), taggingService.JobDriver(), sesService.JobDriver(), autoScalingService.JobDriver(), cloudcontrolService.JobDriver(), cloudformationService.JobDriver(), eksService.JobDriver(), elasticacheService.JobDriver(), memorydbService.JobDriver(), searchService.JobDriver(), iamService.JobDriver(), organizationsService.JobDriver(), sqsService.JobDriver(), kmsService.JobDriver(), eventbridgeService.JobDriver(), lambdaService.JobDriver(), logsService.JobDriver(), cloudtrailService.JobDriver(), dynamoService.JobDriver(), kinesisService.JobDriver(), kafkaService.JobDriver(), firehoseService.JobDriver(), cloudwatchService.JobDriver(), snsService.JobDriver(), s3Service.JobDriver(), ecsService.JobDriver(), elbv2Service.JobDriver(), ebsService.JobDriver(), ec2Service.JobDriver(), ecrService.JobDriver(), buildService.JobDriver(), scalingService.JobDriver(), xrayService.JobDriver(), workflowService.JobDriver(), secretsManagerService.JobDriver(), parameterService.JobDriver(), ssmDocuments.JobDriver(), ssmCommands.JobDriver(), apiGatewayService.JobDriver(), glueService.JobDriver(), athenaService.JobDriver(), rdsService.JobDriver(), rdsDataService.JobDriver(), docdbService.JobDriver(), mqService.JobDriver(), schedulerService.JobDriver(), pipesService.JobDriver())
 	if err != nil {
 		_ = closeServices()
 		return nil, fmt.Errorf("join service jobs: %w", err)
@@ -858,6 +871,7 @@ func New(config Config) (stack *Stack, err error) {
 		{"ssm", ssmService, ssmapi.DecodeRequest},
 		{"stepfunctions", workflowService, stepfunctionsapi.DecodeRequest},
 		{"sts", stsService, stsapi.DecodeRequest},
+		{"wafv2", wafService, wafv2api.DecodeRequest},
 		{"xray", xrayService, xrayapi.DecodeRequest},
 	}
 	commands := make(map[string]awscommands.CommandExecutor, len(services))
@@ -879,16 +893,7 @@ func New(config Config) (stack *Stack, err error) {
 	schedulerTargets.Commands = workflowTasks.Commands
 	pipesTargets.Commands = workflowTasks.Commands
 	pipesDiagnostics.Commands = workflowTasks.Commands
-	cloudformationHandlers := integrations.CloudFormationMessagingHandlers(workflowTasks.Commands)
-	for name, handler := range integrations.CloudFormationComputeHandlers(workflowTasks.Commands) {
-		cloudformationHandlers[name] = handler
-	}
-	for name, handler := range integrations.CloudFormationBootstrapHandlers(workflowTasks.Commands) {
-		cloudformationHandlers[name] = handler
-	}
-	for name, handler := range integrations.CloudFormationKMSHandlers(workflowTasks.Commands) {
-		cloudformationHandlers[name] = handler
-	}
+	cloudformationHandlers := integrations.CloudFormationHandlers(workflowTasks.Commands, kafkaService)
 	cloudformationService.SetTemplateSources(integrations.CloudFormationTemplateSource{S3: s3Service}, integrations.CloudFormationParameterSource{Commands: workflowTasks.Commands})
 	cloudcontrolService.SetHandlers(cloudformationHandlers)
 	cloudformationService.SetHandlers(cloudformationHandlers)
@@ -908,6 +913,83 @@ func New(config Config) (stack *Stack, err error) {
 	}
 	appsyncIAM.Gateway = endpoint
 	ssmMessages = ssmmessages.New(ssmmessages.Config{Backend: ssmCommands, Authenticate: endpoint.Authenticate, Clock: config.Clock})
+	issuer := iamService.OutboundIdentityHandler()
+	functionURLs := lambda.NewFunctionURLHandler(lambdaService, endpoint, iamService, organizationsService)
+	apiExecution := apigatewayexec.New(apigatewayexec.Config{HTTP: apiGatewayV2Service, REST: apiGatewayService, Authentication: endpoint, Authorization: authorizer, Functions: lambdaService, Roles: gatewayInvocationRoles, UsagePlans: apiGatewayService, Metrics: apiGatewayService, Keys: integrations.GatewayKeys{Cognito: cognitoService, Discovery: oidcDiscovery}, Clock: config.Clock, Logs: gatewayLogs, WebACLs: integrations.GatewayWebACLs{WAF: wafService}})
+	websocketExecution := apigatewaywebsocket.NewHandler(apiGatewayWebSocketService, endpoint)
+	registryHandler := ecrService.RegistryHandler()
+	buildCredentials := buildService.CredentialsHandler()
+	sesVerification := sesService.VerificationHandler()
+	ssoAuthorization := identityCenterService.AuthorizationHandler()
+	ordinaryHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Browser authorization shares this listener with S3. Do not reserve a
+		// valid bucket/object name or intercept signed and presigned API calls.
+		if r.URL.Path == identitycenter.AuthorizePath && r.Header.Get("Authorization") == "" && r.Header.Get("X-Amz-Target") == "" {
+			query := r.URL.Query()
+			browserGet := r.Method == http.MethodGet && (query.Has("client_id") || query.Has("response_type"))
+			browserPost := r.Method == http.MethodPost && strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded")
+			if !query.Has("X-Amz-Signature") && (browserGet || browserPost) {
+				ssoAuthorization.ServeHTTP(w, r)
+				return
+			}
+		}
+		if strings.HasPrefix(r.URL.Path, identitycenter.AuthorizationPath) {
+			ssoAuthorization.ServeHTTP(w, r)
+			return
+		}
+		if appsyncService.HandlesDataRequest(r) {
+			appsyncService.ServeDataHTTP(w, r)
+			return
+		}
+		if r.URL.Path == sesv2.VerificationPath {
+			sesVerification.ServeHTTP(w, r)
+			return
+		}
+		if ssmmessages.Handles(r) {
+			ssmMessages.ServeHTTP(w, r)
+			return
+		}
+		if ecr.IsRegistryRequest(r) {
+			registryHandler.ServeHTTP(w, r)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/_stackd/codebuild/credentials/") {
+			buildCredentials.ServeHTTP(w, r)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, apigatewayexec.Prefix) {
+			if websocketExecution.ServeExecution(w, r) {
+				return
+			}
+			apiExecution.ServeHTTP(w, r)
+			return
+		}
+		if s3Service.ServeWebsite(w, r) {
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/_stackd/oidc/") {
+			issuer.ServeHTTP(w, r)
+			return
+		}
+		if eksService.ServeOIDCIssuer(w, r) {
+			return
+		}
+		if ec2Service.ServeInstanceIdentityCertificate(w, r) {
+			return
+		}
+		if snsService.ServeSigningCertificate(w, r) {
+			return
+		}
+		if lambdaService.ServeCodeDownload(w, r) {
+			return
+		}
+		if functionURLs.ServeFunctionURL(w, r) {
+			return
+		}
+		endpoint.ServeHTTP(w, r)
+	})
+	handler := apiGatewayV2Service.DomainDispatcher(apiExecution, websocketExecution, ordinaryHandler)
+	lambdaFunctionNetworks.SetHandler(handler)
 	sqsService.StartWorkers()
 	organizationsService.StartWorkers()
 	iamService.StartWorkers()
@@ -992,95 +1074,21 @@ func New(config Config) (stack *Stack, err error) {
 		_ = closeServices()
 		return nil, fmt.Errorf("resume MemoryDB engines: %w", err)
 	}
-	issuer := iamService.OutboundIdentityHandler()
-	functionURLs := lambda.NewFunctionURLHandler(lambdaService, endpoint, iamService, organizationsService)
-	apiExecution := apigatewayexec.New(apigatewayexec.Config{HTTP: apiGatewayV2Service, REST: apiGatewayService, Authentication: endpoint, Authorization: authorizer, Functions: lambdaService, Roles: gatewayInvocationRoles, UsagePlans: apiGatewayService, Metrics: apiGatewayService, Keys: integrations.GatewayKeys{Cognito: cognitoService, Discovery: oidcDiscovery}, Clock: config.Clock, Logs: gatewayLogs})
-	websocketExecution := apigatewaywebsocket.NewHandler(apiGatewayWebSocketService, endpoint)
-	registryHandler := ecrService.RegistryHandler()
-	buildCredentials := buildService.CredentialsHandler()
-	sesVerification := sesService.VerificationHandler()
-	ssoAuthorization := identityCenterService.AuthorizationHandler()
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Browser authorization shares this listener with S3. Do not reserve a
-		// valid bucket/object name or intercept signed and presigned API calls.
-		if r.URL.Path == identitycenter.AuthorizePath && r.Header.Get("Authorization") == "" && r.Header.Get("X-Amz-Target") == "" {
-			query := r.URL.Query()
-			browserGet := r.Method == http.MethodGet && (query.Has("client_id") || query.Has("response_type"))
-			browserPost := r.Method == http.MethodPost && strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded")
-			if !query.Has("X-Amz-Signature") && (browserGet || browserPost) {
-				ssoAuthorization.ServeHTTP(w, r)
-				return
-			}
-		}
-		if strings.HasPrefix(r.URL.Path, identitycenter.AuthorizationPath) {
-			ssoAuthorization.ServeHTTP(w, r)
-			return
-		}
-		if appsyncService.HandlesDataRequest(r) {
-			appsyncService.ServeDataHTTP(w, r)
-			return
-		}
-		if r.URL.Path == sesv2.VerificationPath {
-			sesVerification.ServeHTTP(w, r)
-			return
-		}
-		if ssmmessages.Handles(r) {
-			ssmMessages.ServeHTTP(w, r)
-			return
-		}
-		if ecr.IsRegistryRequest(r) {
-			registryHandler.ServeHTTP(w, r)
-			return
-		}
-		if strings.HasPrefix(r.URL.Path, "/_stackd/codebuild/credentials/") {
-			buildCredentials.ServeHTTP(w, r)
-			return
-		}
-		if strings.HasPrefix(r.URL.Path, apigatewayexec.Prefix) {
-			if websocketExecution.ServeExecution(w, r) {
-				return
-			}
-			apiExecution.ServeHTTP(w, r)
-			return
-		}
-		if s3Service.ServeWebsite(w, r) {
-			return
-		}
-		if strings.HasPrefix(r.URL.Path, "/_stackd/oidc/") {
-			issuer.ServeHTTP(w, r)
-			return
-		}
-		if eksService.ServeOIDCIssuer(w, r) {
-			return
-		}
-		if ec2Service.ServeInstanceIdentityCertificate(w, r) {
-			return
-		}
-		if snsService.ServeSigningCertificate(w, r) {
-			return
-		}
-		if lambdaService.ServeCodeDownload(w, r) {
-			return
-		}
-		if functionURLs.ServeFunctionURL(w, r) {
-			return
-		}
-		endpoint.ServeHTTP(w, r)
-	})
-	return &Stack{handler: handler, close: closeServices, clock: config.Clock, journal: backends.Journal, jobs: jobs, dns: dnsServer}, nil
+	return &Stack{handler: handler, tlsConfig: apiGatewayV2Service.DomainTLSConfig, close: closeServices, clock: config.Clock, journal: backends.Journal, jobs: jobs, dns: dnsServer}, nil
 }
 
 // Stack is an isolated HTTP endpoint and its background service workers. Close
 // stops workers and detaches retained ECS tasks; callers own their HTTP listeners.
 type Stack struct {
-	handler http.Handler
-	close   func() error
-	once    sync.Once
-	err     error
-	clock   clock.Clock
-	journal journal.Storage
-	jobs    *scheduler.Driver
-	dns     *dnsruntime.Server
+	handler   http.Handler
+	tlsConfig func(*tls.Config) *tls.Config
+	close     func() error
+	once      sync.Once
+	err       error
+	clock     clock.Clock
+	journal   journal.Storage
+	jobs      *scheduler.Driver
+	dns       *dnsruntime.Server
 }
 
 func (s *Stack) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -1094,6 +1102,12 @@ func (s *Stack) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		s.handler.ServeHTTP(w, r)
 	}
+}
+
+// TLSConfig binds custom-domain SNI to current ACM owner state. The optional
+// fallback serves ordinary API endpoint names without weakening owned domains.
+func (s *Stack) TLSConfig(fallback *tls.Config) *tls.Config {
+	return s.tlsConfig(fallback)
 }
 
 // DNSAddress returns the owned UDP/TCP DNS endpoint, or empty when unconfigured.

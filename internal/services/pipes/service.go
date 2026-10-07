@@ -258,6 +258,11 @@ func (s *Service) load(ctx context.Context, r Reader, name, action string) (Pipe
 	if rejected := s.authorize(ctx, PipeRecord{Key: k, Tags: p.Tags}, action, nil); rejected != nil {
 		return p, rejected
 	}
+	if e == nil {
+		if err := cloudFormationOwned(ctx, p); err != nil {
+			return p, err
+		}
+	}
 	if e == nil && (action == "DescribePipe" || action == "UpdatePipe") {
 		return s.open(ctx, p)
 	}

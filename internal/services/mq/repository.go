@@ -31,6 +31,9 @@ type BrokerRecord struct {
 	AuditLogCursor         LogCursor
 	LogDeliveryError       string
 	LogDue                 time.Time
+	// Ownership is the immutable private CloudFormation incarnation claim set
+	// at CreateBroker. Unlike Tags it is never accepted or rendered by MQ APIs.
+	Ownership string
 }
 type Endpoint struct {
 	Address, ConsoleURL, NativeID string
@@ -63,6 +66,9 @@ type ConfigurationRecord struct {
 	Created                                                                   time.Time
 	Tags                                                                      map[string]string
 	Revisions                                                                 []ConfigurationRevisionRecord
+	// Ownership is the immutable private CloudFormation incarnation claim set
+	// at CreateConfiguration; broker-generated defaults are never claimed.
+	Ownership string
 }
 type Reader interface {
 	Context() context.Context

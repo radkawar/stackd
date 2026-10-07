@@ -32,6 +32,9 @@ type Domain struct {
 	Tags                                                          map[string]string
 	Created, Updated, Due                                         time.Time
 	Version, ConfigVersion                                        int64
+	// Ownership is the immutable private CloudFormation incarnation claim set
+	// at CreateDomain. Neither the OpenSearch nor the legacy ES API exposes it.
+	Ownership string
 }
 
 type Repository interface {

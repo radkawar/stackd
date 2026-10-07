@@ -75,6 +75,7 @@ import (
 	ssooidcapi "stackd/internal/awsapi/ssooidc"
 	stepfunctionsapi "stackd/internal/awsapi/stepfunctions"
 	stsapi "stackd/internal/awsapi/sts"
+	wafv2api "stackd/internal/awsapi/wafv2"
 	xrayapi "stackd/internal/awsapi/xray"
 )
 
@@ -222,6 +223,8 @@ func NewInput(service, operation string) (any, error) {
 		return stepfunctionsapi.NewInput(operation)
 	case "sts":
 		return stsapi.NewInput(operation)
+	case "wafv2":
+		return wafv2api.NewInput(operation)
 	case "xray":
 		return xrayapi.NewInput(operation)
 	default:

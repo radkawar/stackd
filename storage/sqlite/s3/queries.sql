@@ -17,15 +17,16 @@ SELECT count(*) FROM s3_access_points WHERE partition = ? AND account_id = ? AND
 -- name: PutAccessPoint :exec
 INSERT INTO s3_access_points (
     partition, account_id, region, name, alias, bucket_partition, bucket_name, bucket_account_id, created, vpc_id,
-    block_public_acls, ignore_public_acls, block_public_policy, restrict_public_buckets, policy_document, policy_trust
+    block_public_acls, ignore_public_acls, block_public_policy, restrict_public_buckets, policy_document, policy_trust,
+    cloudformation_owner
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, name) DO UPDATE SET
 alias = excluded.alias, bucket_partition = excluded.bucket_partition, bucket_name = excluded.bucket_name,
 bucket_account_id = excluded.bucket_account_id, created = excluded.created, vpc_id = excluded.vpc_id,
 block_public_acls = excluded.block_public_acls, ignore_public_acls = excluded.ignore_public_acls,
 block_public_policy = excluded.block_public_policy, restrict_public_buckets = excluded.restrict_public_buckets,
-policy_document = excluded.policy_document, policy_trust = excluded.policy_trust;
+policy_document = excluded.policy_document, policy_trust = excluded.policy_trust, cloudformation_owner = excluded.cloudformation_owner;
 
 -- name: DeleteAccessPoint :execrows
 DELETE FROM s3_access_points WHERE partition = ? AND account_id = ? AND region = ? AND name = ?;
@@ -60,10 +61,11 @@ SELECT * FROM s3_buckets WHERE partition = ? AND account_id = ? ORDER BY name CO
 
 -- name: PutBucket :exec
 INSERT INTO s3_buckets (partition, name, account_id, region, created, policy_document, policy_trust, ownership, versioning, encryption_algorithm, kms_key_id, owner_account_id, owner_id, acl_legacy, bucket_key_enabled, requester_pays,
-object_lock_enabled, default_retention_mode, default_retention_days, default_retention_years, default_event_hold_days, default_event_hold_years, sse_customer_blocked, abac_enabled, acceleration_status, incarnation)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, false, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+object_lock_enabled, default_retention_mode, default_retention_days, default_retention_years, default_event_hold_days, default_event_hold_years, sse_customer_blocked, abac_enabled, acceleration_status, incarnation,
+cloudformation_owner, policy_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, false, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, name) DO UPDATE SET account_id = excluded.account_id, region = excluded.region,
-created = excluded.created, policy_document = excluded.policy_document, policy_trust = excluded.policy_trust, ownership = excluded.ownership, versioning = excluded.versioning,
+created = excluded.created, policy_document = excluded.policy_document, policy_trust = excluded.policy_trust, policy_owner = excluded.policy_owner, ownership = excluded.ownership, versioning = excluded.versioning,
 encryption_algorithm = excluded.encryption_algorithm, kms_key_id = excluded.kms_key_id, sse_customer_blocked = excluded.sse_customer_blocked, abac_enabled = excluded.abac_enabled, acceleration_status = excluded.acceleration_status,
 owner_account_id = excluded.owner_account_id, owner_id = excluded.owner_id, acl_legacy = false, bucket_key_enabled = excluded.bucket_key_enabled, requester_pays = excluded.requester_pays,
 object_lock_enabled = excluded.object_lock_enabled, default_retention_mode = excluded.default_retention_mode,

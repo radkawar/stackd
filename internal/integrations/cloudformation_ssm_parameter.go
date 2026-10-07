@@ -8,7 +8,36 @@ import (
 
 	api "stackd/internal/awsapi/ssm"
 	"stackd/internal/services/cloudformation"
+	"stackd/internal/services/ssm"
+	"stackd/internal/services/ssmdocuments"
 )
+
+// cfnSSMClaim is the private native provenance of one exact resource
+// incarnation. The SSM owners store it on the parameter or document row in
+// the transaction that creates it; it is never a tag.
+func cfnSSMClaim(r cloudformation.ResourceRequest) string {
+	claim, _ := json.Marshal([]string{r.Type, r.StackID, r.LogicalID, r.Token})
+	return string(claim)
+}
+
+// cfnSSMParameterContext binds this incarnation's parameter claim. Cloud
+// Control creates claim their new parameter; other Cloud Control operations
+// act on an existing parameter under current IAM alone.
+func cfnSSMParameterContext(ctx context.Context, r cloudformation.ResourceRequest, create bool) context.Context {
+	if r.CloudControl && !create {
+		return ctx
+	}
+	return ssm.WithCloudFormationParameterOwner(ctx, cfnSSMClaim(r))
+}
+
+// cfnSSMDocumentContext binds this incarnation's document claim with the same
+// Cloud Control rule as parameters.
+func cfnSSMDocumentContext(ctx context.Context, r cloudformation.ResourceRequest, create bool) context.Context {
+	if r.CloudControl && !create {
+		return ctx
+	}
+	return ssmdocuments.WithCloudFormationDocumentOwner(ctx, cfnSSMClaim(r))
+}
 
 // CloudFormationBootstrapHandlers provisions the standard bootstrap dependencies
 // through their existing owners, including their ordinary authorization checks.
@@ -48,7 +77,7 @@ func cfnSSMTags(p cloudformation.Properties) (map[string]string, error) {
 	}
 	for k, v := range raw {
 		text, ok := v.(string)
-		if !ok || k == "" || strings.HasPrefix(strings.ToLower(k), "aws:") || strings.HasPrefix(k, cfnComputeTagPrefix) {
+		if !ok || k == "" || strings.HasPrefix(strings.ToLower(k), "aws:") {
 			return nil, fmt.Errorf("invalid SSM parameter tag %q", k)
 		}
 		out[k] = text
@@ -69,55 +98,68 @@ func (h cfnSSMParameter) tags(ctx context.Context, name string) (map[string]stri
 	}
 	return tags, nil
 }
+
+// desiredTags are the parameter's customer tags: stack tags and resource
+// tags. They carry no ownership; only the private claim
+// fences parameter commands and recovery.
 func (h cfnSSMParameter) desiredTags(r cloudformation.ResourceRequest) map[string]string {
-	tags := cfnComputeOwnedTags(r)
+	tags := cfnResourceTags(r)
 	own, _ := cfnSSMTags(r.Properties)
+	if len(own) != 0 && tags == nil {
+		return own
+	}
 	for k, v := range own {
 		tags[k] = v
 	}
 	return tags
 }
-func (h cfnSSMParameter) result(name string, p cloudformation.Properties) cloudformation.ResourceResult {
-	return cloudformation.ResourceResult{PhysicalID: name, Ref: name, Attributes: map[string]any{"Type": p["Type"], "Value": p["Value"]}}
+func (h cfnSSMParameter) result(r cloudformation.ResourceRequest, name string) cloudformation.ResourceResult {
+	arn := "arn:" + r.Scope.Partition + ":ssm:" + r.Scope.Region + ":" + r.Scope.Account + ":parameter"
+	if !strings.HasPrefix(name, "/") {
+		arn += "/"
+	}
+	return cloudformation.ResourceResult{PhysicalID: name, Ref: name, Attributes: map[string]any{"Type": r.Properties["Type"], "Value": r.Properties["Value"], "Arn": arn + name}}
 }
 func (h cfnSSMParameter) Create(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
 	if err := h.Validate(r.Properties); err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
 	name := cfnComputeName(r, "Name", 1011)
-	_, err := cfnComputeCall[api.GetParameterOutput](ctx, h.commands, "ssm", "GetParameter", map[string]any{"Name": name})
-	if err == nil {
-		tags, err := h.tags(ctx, name)
-		if err != nil {
-			return cloudformation.ResourceResult{}, err
-		}
-		if err := cfnComputeOwnership(r, tags); err != nil {
-			return cloudformation.ResourceResult{}, cfnResourceCreateOwnedError(r, err)
-		}
-		return h.result(name, r.Properties), nil
-	}
-	if !cfnMessagingMissing(err, "ParameterNotFound") {
-		return cloudformation.ResourceResult{}, err
-	}
+	ctx = cfnSSMParameterContext(ctx, r, true)
 	in := cfnComputeCopy(r.Properties, "Type", "Value", "Description", "AllowedPattern", "DataType", "Tier", "Policies")
 	in["Name"], in["Tags"] = name, cfnComputeTagList(h.desiredTags(r))
+	// The owner admits a new parameter with this claim, or returns the one this
+	// exact incarnation already committed; any other parameter is rejected.
 	if err := cfnComputeRun(ctx, h.commands, "ssm", "PutParameter", in); err != nil {
+		if cfnMessagingMissing(err, "ParameterAlreadyExists") {
+			return cloudformation.ResourceResult{}, cfnResourceCreateOwnedError(r, err)
+		}
+		// A failed reply is not evidence that admission did not occur.
+		if recovered, recoveryErr := h.RecoverCreation(ctx, r); recoveryErr == nil {
+			return recovered, err
+		}
 		return cloudformation.ResourceResult{}, err
 	}
-	return h.result(name, r.Properties), nil
+	return h.result(r, name), nil
+}
+
+// RecoverCreation observes only the parameter whose private claim is this exact
+// incarnation. A same-name parameter with copied tags is foreign.
+func (h cfnSSMParameter) RecoverCreation(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
+	name := cfnComputeName(r, "Name", 1011)
+	if _, err := cfnComputeCall[api.GetParameterOutput](cfnSSMParameterContext(ctx, r, true), h.commands, "ssm", "GetParameter", map[string]any{"Name": name}); err != nil {
+		return cloudformation.ResourceResult{}, cfnStorageMissing(err, "ParameterNotFound")
+	}
+	return h.result(r, name), nil
 }
 func (h cfnSSMParameter) Update(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
 	if err := h.Validate(r.Properties); err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
+	ctx = cfnSSMParameterContext(ctx, r, false)
 	tags, err := h.tags(ctx, r.PhysicalID)
 	if err != nil {
 		return cloudformation.ResourceResult{}, err
-	}
-	if !r.CloudControl {
-		if err := cfnComputeOwnership(r, tags); err != nil {
-			return cloudformation.ResourceResult{}, err
-		}
 	}
 	in := cfnComputeCopy(r.Properties, "Type", "Value", "Description", "AllowedPattern", "DataType", "Tier", "Policies")
 	for _, k := range []string{"Description", "AllowedPattern"} {
@@ -129,11 +171,11 @@ func (h cfnSSMParameter) Update(ctx context.Context, r cloudformation.ResourceRe
 		in["Policies"] = "[]"
 	}
 	in["Name"], in["Overwrite"] = r.PhysicalID, true
-	result := h.result(r.PhysicalID, r.Properties)
+	result := h.result(r, r.PhysicalID)
 	if err := cfnComputeRun(ctx, h.commands, "ssm", "PutParameter", in); err != nil {
 		return result, err
 	}
-	desired := cfnResourceMutationTags(r, tags, h.desiredTags(r))
+	desired := h.desiredTags(r)
 	if removed := cfnComputeRemovedTags(tags, desired); len(removed) > 0 {
 		if err := cfnComputeRun(ctx, h.commands, "ssm", "RemoveTagsFromResource", map[string]any{"ResourceType": "Parameter", "ResourceId": r.PhysicalID, "TagKeys": removed}); err != nil {
 			return result, err
@@ -146,19 +188,7 @@ func (h cfnSSMParameter) Update(ctx context.Context, r cloudformation.ResourceRe
 }
 func (h cfnSSMParameter) Delete(ctx context.Context, r cloudformation.ResourceRequest) error {
 	name := cfnComputeName(r, "Name", 1011)
-	tags, err := h.tags(ctx, name)
-	if cfnMessagingMissing(err, "ParameterNotFound", "InvalidResourceId") {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if !r.CloudControl {
-		if err := cfnComputeOwnership(r, tags); err != nil {
-			return err
-		}
-	}
-	err = cfnComputeRun(ctx, h.commands, "ssm", "DeleteParameter", map[string]any{"Name": name})
+	err := cfnComputeRun(cfnSSMParameterContext(ctx, r, false), h.commands, "ssm", "DeleteParameter", map[string]any{"Name": name})
 	if cfnMessagingMissing(err, "ParameterNotFound") {
 		return nil
 	}
@@ -211,7 +241,7 @@ func (h cfnSSMParameter) Read(ctx context.Context, r cloudformation.ResourceRequ
 	}
 	public := map[string]any{}
 	for k, v := range tags {
-		if !strings.HasPrefix(k, cfnComputeTagPrefix) && !strings.HasPrefix(k, "aws:") {
+		if !strings.HasPrefix(k, "aws:") {
 			public[k] = v
 		}
 	}

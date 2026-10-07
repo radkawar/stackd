@@ -89,13 +89,18 @@ func (s *Service) putConfigurationAggregator(tx Transaction, in *api.PutConfigur
 	}
 	for _, o := range old {
 		if o.Name == a.Name {
+			if err := checkCloudFormationClaim(tx.Context(), o.CFNOwnership); err != nil {
+				return nil, err
+			}
 			a.ARN = o.ARN
+			a.CFNOwnership = o.CFNOwnership
 			a.CreatedAt = o.CreatedAt
 			break
 		}
 	}
 	creating := a.ARN == ""
 	if creating {
+		a.CFNOwnership = creationOwnership(tx.Context())
 		a.ARN = fmt.Sprintf("arn:%s:config:%s:%s:config-aggregator/config-aggregator-%s", scope.Partition, scope.Region, scope.AccountID, opaqueRuleID()[:7])
 	}
 	if err := s.authorizeResource(tx.Context(), "PutConfigurationAggregator", a.ARN); err != nil {
@@ -146,6 +151,9 @@ func (s *Service) deleteConfigurationAggregator(tx Transaction, in *api.DeleteCo
 	if err := s.authorizeResource(tx.Context(), "DeleteConfigurationAggregator", a.ARN); err != nil {
 		return nil, err
 	}
+	if err := checkCloudFormationClaim(tx.Context(), a.CFNOwnership); err != nil {
+		return nil, err
+	}
 	if err := tx.DeleteAggregator(scope, name); err != nil {
 		return nil, err
 	}
@@ -194,12 +202,17 @@ func (s *Service) putAggregationAuthorization(tx Transaction, in *api.PutAggrega
 	creating := true
 	for _, old := range all {
 		if old.AccountID == a.AccountID && old.Region == a.Region {
+			if err := checkCloudFormationClaim(tx.Context(), old.CFNOwnership); err != nil {
+				return nil, err
+			}
 			a.CreatedAt = old.CreatedAt
+			a.CFNOwnership = old.CFNOwnership
 			creating = false
 			break
 		}
 	}
 	if creating {
+		a.CFNOwnership = creationOwnership(tx.Context())
 		if err := s.putCreationTags(tx, a.ARN, in.Tags); err != nil {
 			return nil, err
 		}
@@ -214,6 +227,9 @@ func (s *Service) deleteAggregationAuthorization(tx Transaction, in *api.DeleteA
 	scope := scopeFor(tx.Context())
 	arn := fmt.Sprintf("arn:%s:config:%s:%s:aggregation-authorization/%s/%s", scope.Partition, scope.Region, scope.AccountID, value(in.AuthorizedAccountId), value(in.AuthorizedAwsRegion))
 	if err := s.authorizeResource(tx.Context(), "DeleteAggregationAuthorization", arn); err != nil {
+		return nil, err
+	}
+	if err := checkCloudFormationOwnership(tx, arn, true); err != nil {
 		return nil, err
 	}
 	if err := tx.DeleteAggregationAuthorization(scopeFor(tx.Context()), value(in.AuthorizedAccountId), value(in.AuthorizedAwsRegion)); err != nil {

@@ -3,8 +3,8 @@ SELECT * FROM glue_registries WHERE partition=? AND account_id=? AND region=? AN
 -- name: ListGlueRegistries :many
 SELECT * FROM glue_registries WHERE partition=? AND account_id=? AND region=? ORDER BY registry_name;
 -- name: PutGlueRegistry :exec
-INSERT INTO glue_registries (partition,account_id,region,registry_name,description,status,created_at,updated_at,due_at)
-VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT (partition,account_id,region,registry_name) DO UPDATE SET
+INSERT INTO glue_registries (cfn_owner,partition,account_id,region,registry_name,description,status,created_at,updated_at,due_at)
+VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT (partition,account_id,region,registry_name) DO UPDATE SET
  description=excluded.description,status=excluded.status,created_at=excluded.created_at,updated_at=excluded.updated_at,due_at=excluded.due_at;
 -- name: DeleteGlueRegistry :exec
 DELETE FROM glue_registries WHERE partition=? AND account_id=? AND region=? AND registry_name=?;

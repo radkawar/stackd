@@ -23,6 +23,7 @@ type memoryState struct {
 	publicAccess map[Scope]SnapshotPublicAccess
 	sharedTags   map[SharedTagsKey]map[string]string
 	counters     map[Scope]uint64
+	creations    map[CloudFormationCreationKey]string
 }
 type MemoryRepository struct{ store *memory.Store[memoryState] }
 
@@ -36,6 +37,7 @@ func NewMemoryRepository(domain *memory.Domain) *MemoryRepository {
 		publicAccess: map[Scope]SnapshotPublicAccess{},
 		sharedTags:   map[SharedTagsKey]map[string]string{},
 		counters:     map[Scope]uint64{},
+		creations:    map[CloudFormationCreationKey]string{},
 	}
 	return &MemoryRepository{memory.New(domain, initial, func(s memoryState) memoryState {
 		s.snapshots = maps.Clone(s.snapshots)
@@ -46,6 +48,7 @@ func NewMemoryRepository(domain *memory.Domain) *MemoryRepository {
 		s.publicAccess = maps.Clone(s.publicAccess)
 		s.sharedTags = maps.Clone(s.sharedTags)
 		s.counters = maps.Clone(s.counters)
+		s.creations = maps.Clone(s.creations)
 		return s
 	})}
 }
@@ -325,6 +328,12 @@ func (w memoryWriter) nextResourceID(prefix string, scope Scope) (string, error)
 func (w memoryWriter) PutSnapshot(v SnapshotRecord) error {
 	if err := w.tx.Check(true); err != nil {
 		return err
+	}
+	if prior, ok := w.s.snapshots[v.Key]; ok && prior.CloudFormationOwner.Owner != "" {
+		if v.CloudFormationOwner.Owner != "" && v.CloudFormationOwner != prior.CloudFormationOwner {
+			return ownershipFailure()
+		}
+		v.CloudFormationOwner = prior.CloudFormationOwner
 	}
 	w.s.snapshots[v.Key] = cloneSnapshot(v)
 	return nil

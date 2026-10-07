@@ -10,7 +10,7 @@ import (
 )
 
 const allDomains = `-- name: AllDomains :many
-SELECT "partition", account_id, region, name, incarnation, engine_version, status, native_endpoint, last_error, access_policy, instance_type, instance_count, created, updated, due, version, config_version FROM opensearch_domain ORDER BY partition, account_id, region, name
+SELECT "partition", account_id, region, name, incarnation, engine_version, status, native_endpoint, last_error, access_policy, instance_type, instance_count, created, updated, due, version, config_version, ownership FROM opensearch_domain ORDER BY partition, account_id, region, name
 `
 
 func (q *Queries) AllDomains(ctx context.Context) ([]OpensearchDomain, error) {
@@ -40,6 +40,7 @@ func (q *Queries) AllDomains(ctx context.Context) ([]OpensearchDomain, error) {
 			&i.Due,
 			&i.Version,
 			&i.ConfigVersion,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -139,7 +140,7 @@ func (q *Queries) DeleteTags(ctx context.Context, arg DeleteTagsParams) error {
 }
 
 const getDomain = `-- name: GetDomain :one
-SELECT "partition", account_id, region, name, incarnation, engine_version, status, native_endpoint, last_error, access_policy, instance_type, instance_count, created, updated, due, version, config_version FROM opensearch_domain WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name = ?4
+SELECT "partition", account_id, region, name, incarnation, engine_version, status, native_endpoint, last_error, access_policy, instance_type, instance_count, created, updated, due, version, config_version, ownership FROM opensearch_domain WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name = ?4
 `
 
 type GetDomainParams struct {
@@ -175,6 +176,7 @@ func (q *Queries) GetDomain(ctx context.Context, arg GetDomainParams) (Opensearc
 		&i.Due,
 		&i.Version,
 		&i.ConfigVersion,
+		&i.Ownership,
 	)
 	return i, err
 }
@@ -224,7 +226,7 @@ func (q *Queries) ListAdvancedOptions(ctx context.Context, arg ListAdvancedOptio
 }
 
 const listDomains = `-- name: ListDomains :many
-SELECT "partition", account_id, region, name, incarnation, engine_version, status, native_endpoint, last_error, access_policy, instance_type, instance_count, created, updated, due, version, config_version FROM opensearch_domain WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY name
+SELECT "partition", account_id, region, name, incarnation, engine_version, status, native_endpoint, last_error, access_policy, instance_type, instance_count, created, updated, due, version, config_version, ownership FROM opensearch_domain WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY name
 `
 
 type ListDomainsParams struct {
@@ -260,6 +262,7 @@ func (q *Queries) ListDomains(ctx context.Context, arg ListDomainsParams) ([]Ope
 			&i.Due,
 			&i.Version,
 			&i.ConfigVersion,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -391,13 +394,14 @@ const putDomain = `-- name: PutDomain :exec
 INSERT INTO opensearch_domain (
  partition, account_id, region, name, incarnation, engine_version, status,
  native_endpoint, last_error, access_policy, instance_type, instance_count,
- created, updated, due, version, config_version
+ created, updated, due, version, config_version, ownership
 ) VALUES (
  ?1, ?2, ?3, ?4,
  ?5, ?6, ?7,
  ?8, ?9, ?10,
  ?11, ?12, ?13,
- ?14, ?15, ?16, ?17
+ ?14, ?15, ?16, ?17,
+ ?18
 ) ON CONFLICT (partition, account_id, region, name) DO UPDATE SET
  incarnation = excluded.incarnation, engine_version = excluded.engine_version,
  status = excluded.status, native_endpoint = excluded.native_endpoint,
@@ -425,8 +429,11 @@ type PutDomainParams struct {
 	Due            int64
 	Version        int64
 	ConfigVersion  int64
+	Ownership      string
 }
 
+// Ownership is written only by the inserting CreateDomain transaction; later
+// domain writes cannot reassign the private CloudFormation incarnation claim.
 func (q *Queries) PutDomain(ctx context.Context, arg PutDomainParams) error {
 	_, err := q.db.ExecContext(ctx, putDomain,
 		arg.Partition,
@@ -446,6 +453,7 @@ func (q *Queries) PutDomain(ctx context.Context, arg PutDomainParams) error {
 		arg.Due,
 		arg.Version,
 		arg.ConfigVersion,
+		arg.Ownership,
 	)
 	return err
 }

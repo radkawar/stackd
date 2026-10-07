@@ -95,6 +95,7 @@ func (s *Service) saveDeployment(tx Transaction, key APIKey, description string,
 	return v, nil
 }
 func (s *Service) autoDeploy(tx Transaction, key APIKey) error {
+	tx = derivedResourceTransaction(tx)
 	stages, err := tx.Stages(key)
 	if err != nil {
 		return err
@@ -146,6 +147,11 @@ func (s *Service) createDeployment(tx Transaction, in *api.CreateDeploymentInput
 	if err != nil {
 		return nil, err
 	}
+	if v, found, err := recoverOwnedResource(tx, owner.Key, tx.Deployments); err != nil {
+		return nil, err
+	} else if found {
+		return new(api.CreateDeploymentOutput(deploymentOutput(v))), nil
+	}
 	var stage *StageRecord
 	if in.StageName != nil {
 		v, err := tx.Stage(ResourceKey{owner.Key, value(in.StageName)})
@@ -172,7 +178,7 @@ func (s *Service) createDeployment(tx Transaction, in *api.CreateDeploymentInput
 		stage.DeploymentID = v.Key.ID
 		stage.Updated = s.clock.Now()
 		stage.LastDeploymentStatusMessage = ""
-		if err := tx.PutStage(*stage); err != nil {
+		if err := derivedResourceTransaction(tx).PutStage(*stage); err != nil {
 			return nil, err
 		}
 	}

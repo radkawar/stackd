@@ -56,7 +56,7 @@ func (q *Queries) DeleteKeyPairTags(ctx context.Context, arg DeleteKeyPairTagsPa
 }
 
 const getKeyPair = `-- name: GetKeyPair :one
-SELECT "partition", account_id, region, resource_id, key_pair_id, key_name, key_fingerprint, key_type, public_key, create_time, tags_present FROM ec2_key_pairs WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
+SELECT "partition", account_id, region, resource_id, key_pair_id, key_name, key_fingerprint, key_type, public_key, create_time, tags_present, cloudformation_resource_type, cloudformation_owner FROM ec2_key_pairs WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
 `
 
 type GetKeyPairParams struct {
@@ -86,6 +86,8 @@ func (q *Queries) GetKeyPair(ctx context.Context, arg GetKeyPairParams) (Ec2KeyP
 		&i.PublicKey,
 		&i.CreateTime,
 		&i.TagsPresent,
+		&i.CloudformationResourceType,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
@@ -138,7 +140,7 @@ func (q *Queries) ListKeyPairTags(ctx context.Context, arg ListKeyPairTagsParams
 }
 
 const listKeyPairs = `-- name: ListKeyPairs :many
-SELECT "partition", account_id, region, resource_id, key_pair_id, key_name, key_fingerprint, key_type, public_key, create_time, tags_present FROM ec2_key_pairs WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
+SELECT "partition", account_id, region, resource_id, key_pair_id, key_name, key_fingerprint, key_type, public_key, create_time, tags_present, cloudformation_resource_type, cloudformation_owner FROM ec2_key_pairs WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
 `
 
 type ListKeyPairsParams struct {
@@ -168,6 +170,8 @@ func (q *Queries) ListKeyPairs(ctx context.Context, arg ListKeyPairsParams) ([]E
 			&i.PublicKey,
 			&i.CreateTime,
 			&i.TagsPresent,
+			&i.CloudformationResourceType,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}

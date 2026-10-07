@@ -75,6 +75,10 @@ func (s *Service) getFunction(ctx context.Context, in *api.GetFunctionInput) (*a
 				out.Concurrency = &api.Concurrency{ReservedConcurrentExecutions: new(api.ReservedConcurrentExecutions(reserved))}
 			}
 		}
+		if record.Image != nil {
+			out.Code = &api.FunctionCodeLocation{RepositoryType: new(api.String("ECR")), ImageUri: new(api.String(record.Image.URI)), ResolvedImageUri: new(api.String(record.Image.ResolvedURI))}
+			return nil
+		}
 		out.Code = &api.FunctionCodeLocation{RepositoryType: new(api.String("S3")), ResolvedS3Object: resolvedS3Object(record.Reference)}
 		if record.Reference == nil {
 			location, err := s.issueCodeURL(tx, CodeArchiveKey{Scope: key.Scope, SHA256: record.CodeSHA256})

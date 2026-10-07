@@ -62,6 +62,9 @@ func (s *Service) loadPublishingDestination(r Reader, detector, id, action strin
 		}
 		return v, invalidPublishingDestination()
 	}
+	if err := checkCloudFormationOwnership(r.Context(), v.CFNOwnership); err != nil {
+		return v, err
+	}
 	if _, err := r.Detector(sc, detector); err != nil {
 		return v, err
 	}

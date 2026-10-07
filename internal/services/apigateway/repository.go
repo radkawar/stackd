@@ -13,6 +13,7 @@ var ErrNotFound = errors.New("API Gateway resource not found")
 type Scope struct{ Partition, AccountID, Region string }
 
 type AccountRecord struct {
+	Ownership Ownership
 	Scope
 	CloudWatchRoleARN string
 }
@@ -42,6 +43,7 @@ type StageKey struct {
 }
 
 type APIRecord struct {
+	Ownership                                  Ownership
 	Key                                        APIKey
 	Name, Description, Version, RootResourceID string
 	Created                                    time.Time
@@ -51,10 +53,12 @@ type APIRecord struct {
 	Tags                                       map[string]string
 }
 type ResourceRecord struct {
+	Ownership                Ownership
 	Key                      ResourceKey
 	ParentID, PathPart, Path string
 }
 type MethodRecord struct {
+	Ownership                                      Ownership
 	Key                                            MethodKey
 	AuthorizationType, AuthorizerID, OperationName string
 	Scopes                                         []string
@@ -67,6 +71,7 @@ type IntegrationRecord struct {
 	TimeoutMillis  int32
 }
 type AuthorizerRecord struct {
+	Ownership        Ownership
 	Key              AuthorizerKey
 	Name, AuthType   string
 	ProviderARNs     []string
@@ -86,6 +91,7 @@ type DeploymentRoute struct {
 }
 type DeploymentResource struct{ ResourceID, Path string }
 type DeploymentRecord struct {
+	Ownership    Ownership
 	Key          DeploymentKey
 	Description  string
 	Created      time.Time
@@ -100,6 +106,11 @@ type MethodSettings struct {
 	DataTraceEnabled bool
 }
 type StageRecord struct {
+	Ownership Ownership
+	// Incarnation is a private, scope-unique creation sequence. It is not a
+	// timestamp: deleting and recreating a stage at the same clock instant
+	// must invalidate associations to the previous stage.
+	Incarnation               uint64
 	Key                       StageKey
 	DeploymentID, Description string
 	Created, Updated          time.Time
@@ -172,6 +183,7 @@ type Transaction interface {
 	DeleteAuthorizer(AuthorizerKey) error
 	PutDeployment(DeploymentRecord) error
 	DeleteDeployment(DeploymentKey) error
+	NextStageIncarnation(Scope) (uint64, error)
 	PutStage(StageRecord) error
 	DeleteStage(StageKey) error
 	PutAuthorizerCache(AuthorizerCacheRecord) error

@@ -2,6 +2,7 @@ package integrations
 
 import (
 	"fmt"
+	"strings"
 
 	api "stackd/internal/awsapi/s3"
 )
@@ -42,10 +43,11 @@ func (f *cfnS3NotificationFilter) native() (*api.NotificationConfigurationFilter
 	}
 	out := &api.NotificationConfigurationFilter{Key: &api.S3KeyFilter{}}
 	for _, rule := range f.S3Key.Rules {
-		if rule.Name != "prefix" && rule.Name != "suffix" {
+		// S3 admits filter rule names case-insensitively and normalizes them.
+		if !strings.EqualFold(rule.Name, "prefix") && !strings.EqualFold(rule.Name, "suffix") {
 			return nil, fmt.Errorf("notification filter Name must be prefix or suffix")
 		}
-		out.Key.FilterRules = append(out.Key.FilterRules, api.FilterRule{Name: new(api.FilterRuleName(rule.Name)), Value: new(api.FilterRuleValue(rule.Value))})
+		out.Key.FilterRules = append(out.Key.FilterRules, api.FilterRule{Name: new(api.FilterRuleName(strings.ToLower(rule.Name))), Value: new(api.FilterRuleValue(rule.Value))})
 	}
 	return out, nil
 }

@@ -120,7 +120,7 @@ func (s *Service) experimentAdmission(r Reader, c experimentChange) (experimentA
 		if e != nil {
 			return a, e
 		}
-		a.run = ExperimentRun{Scope: d.Scope, ApplicationID: d.ApplicationID, DefinitionID: d.ID, Number: 1, Snapshot: cloneExperimentDefinition(d), Status: "RUNNING"}
+		a.run = ExperimentRun{Scope: d.Scope, ApplicationID: d.ApplicationID, DefinitionID: d.ID, Number: 1, Snapshot: cloneExperimentDefinition(d), Status: "RUNNING", Ownership: cloudFormationClaim(r.Context(), "experimentrun")}
 		for _, run := range runs {
 			if run.Number >= a.run.Number {
 				a.run.Number = run.Number + 1

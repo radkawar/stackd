@@ -120,6 +120,7 @@ func register[I, O any](s *Service, name string, fn func(Transaction, *I) (*O, e
 		}
 		var out *O
 		err = s.repository.Attempt(ctx, func(tx Transaction) error {
+			tx = bindCloudFormationOwnership(tx)
 			var e error
 			out, e = fn(tx, in)
 			if e != nil {

@@ -14,6 +14,18 @@ was already automatically deleted. Tags belong to groups, not individual schedul
 Lists use deterministic scoped pagination; tokens cannot be reused in another
 account, Region, operation or filter set.
 
+CloudFormation Schedule and ScheduleGroup ownership is private native state,
+admitted with the resource transaction. Public ClientToken values and group tags
+cannot grant that claim. Cloud Control creates also retain an exact private claim
+for authorized creation recovery; ordinary native/Cloud Control updates preserve
+surviving claims without adopting unclaimed resources. Group deletion clears its
+children, and each schedule binds the immutable native group incarnation.
+Migration `394_scheduler_cloudformation_ownership.sql` assigns distinct native
+identities to existing groups and binds their existing schedules, but leaves
+all pre-cutover resources unclaimed. Recovery, no-op updates and cleanup enter
+the current native IAM boundary; public tag edits do not revoke private ownership.
+This is bounded local ownership behavior, not additional scheduling/AWS parity.
+
 Supported expressions are `at(yyyy-mm-ddThh:mm:ss)`, positive `rate` expressions
 using minutes, hours or days, and six-field Scheduler cron expressions. An omitted
 time zone means UTC; named zones use the IANA database. Spring-forward cron gaps

@@ -96,6 +96,17 @@ func (r memoryReader) Pools(scope Scope) ([]PoolRecord, error) {
 	slices.SortFunc(out, func(a, b PoolRecord) int { return cmp.Compare(a.Key.ID, b.Key.ID) })
 	return out, nil
 }
+func (r memoryReader) PoolByOwner(scope Scope, owner ResourceOwner) (PoolRecord, error) {
+	if e := r.tx.Check(false); e != nil {
+		return PoolRecord{}, e
+	}
+	for k, v := range r.s.pools {
+		if k.Scope == scope && owner.Token != "" && v.Owner == owner {
+			return clonePool(v), nil
+		}
+	}
+	return PoolRecord{}, ErrNotFound
+}
 func (r memoryReader) Identity(p, g, id string) (IdentityRecord, error) {
 	if e := r.tx.Check(false); e != nil {
 		return IdentityRecord{}, e
@@ -132,6 +143,10 @@ func (r memoryReader) Identities(pool PoolKey) ([]IdentityRecord, error) {
 func (w memoryWriter) PutPool(v PoolRecord) error {
 	if e := w.tx.Check(true); e != nil {
 		return e
+	}
+	// The owner claim is written with a new row; upserts never rewrite it.
+	if prior, ok := w.s.pools[v.Key]; ok {
+		v.Owner = prior.Owner
 	}
 	w.s.pools[v.Key] = clonePool(v)
 	w.s.poolIDs[regionalID{v.Key.Partition, v.Key.Region, v.Key.ID}] = v.Key

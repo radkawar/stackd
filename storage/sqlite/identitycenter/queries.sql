@@ -5,8 +5,8 @@ SELECT * FROM identitycenter_instances WHERE arn=?;
 SELECT * FROM identitycenter_instances WHERE partition=? AND account_id=? AND region=? ORDER BY arn;
 
 -- name: PutInstance :exec
-INSERT INTO identitycenter_instances (arn,partition,account_id,region,store_id,name,client_token,created) VALUES (?,?,?,?,?,?,?,?)
-ON CONFLICT(arn) DO UPDATE SET partition=excluded.partition,account_id=excluded.account_id,region=excluded.region,store_id=excluded.store_id,name=excluded.name,client_token=excluded.client_token,created=excluded.created;
+INSERT INTO identitycenter_instances (arn,partition,account_id,region,store_id,name,client_token,created,cloudformation_owner) VALUES (?,?,?,?,?,?,?,?,?)
+ON CONFLICT(arn) DO UPDATE SET partition=excluded.partition,account_id=excluded.account_id,region=excluded.region,store_id=excluded.store_id,name=excluded.name,client_token=excluded.client_token,created=excluded.created,cloudformation_owner=excluded.cloudformation_owner;
 
 -- name: DeleteInstance :exec
 DELETE FROM identitycenter_instances WHERE arn=?;
@@ -27,8 +27,8 @@ SELECT * FROM identitycenter_permission_sets WHERE arn=?;
 SELECT * FROM identitycenter_permission_sets WHERE instance_arn=? ORDER BY arn;
 
 -- name: PutPermissionSet :exec
-INSERT INTO identitycenter_permission_sets (arn,instance_arn,name,description,relay_state,inline_policy,duration_ns,created,boundary_arn,boundary_name,boundary_path) VALUES (?,?,?,?,?,?,?,?,?,?,?)
-ON CONFLICT(arn) DO UPDATE SET instance_arn=excluded.instance_arn,name=excluded.name,description=excluded.description,relay_state=excluded.relay_state,inline_policy=excluded.inline_policy,duration_ns=excluded.duration_ns,created=excluded.created,boundary_arn=excluded.boundary_arn,boundary_name=excluded.boundary_name,boundary_path=excluded.boundary_path;
+INSERT INTO identitycenter_permission_sets (arn,instance_arn,name,description,relay_state,inline_policy,duration_ns,created,boundary_arn,boundary_name,boundary_path,cloudformation_owner) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+ON CONFLICT(arn) DO UPDATE SET instance_arn=excluded.instance_arn,name=excluded.name,description=excluded.description,relay_state=excluded.relay_state,inline_policy=excluded.inline_policy,duration_ns=excluded.duration_ns,created=excluded.created,boundary_arn=excluded.boundary_arn,boundary_name=excluded.boundary_name,boundary_path=excluded.boundary_path,cloudformation_owner=excluded.cloudformation_owner;
 
 -- name: DeletePermissionSet :exec
 DELETE FROM identitycenter_permission_sets WHERE arn=?;
@@ -64,7 +64,7 @@ INSERT INTO identitycenter_customer_managed_policies (permission_set_arn,positio
 SELECT * FROM identitycenter_assignments WHERE instance_arn=? ORDER BY permission_set_arn,account_id,principal_type,principal_id;
 
 -- name: PutAssignment :exec
-INSERT INTO identitycenter_assignments (instance_arn,permission_set_arn,account_id,principal_type,principal_id) VALUES (?,?,?,?,?) ON CONFLICT DO NOTHING;
+INSERT INTO identitycenter_assignments (instance_arn,permission_set_arn,account_id,principal_type,principal_id,cloudformation_owner) VALUES (?,?,?,?,?,?) ON CONFLICT DO NOTHING;
 
 -- name: DeleteAssignment :exec
 DELETE FROM identitycenter_assignments WHERE instance_arn=? AND permission_set_arn=? AND account_id=? AND principal_type=? AND principal_id=?;

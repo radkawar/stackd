@@ -100,7 +100,13 @@ func (p *Control) controlAccessPoint(reader Reader, account, name string, alias 
 	if errors.Is(err, ErrNotFound) {
 		return AccessPointRecord{}, failure("NoSuchAccessPoint", "The specified accesspoint does not exist", 404)
 	}
-	return point, err
+	if err != nil {
+		return point, err
+	}
+	if wire := checkAccessPointOwner(reader.Context(), point); wire != nil {
+		return AccessPointRecord{}, wire
+	}
+	return point, nil
 }
 
 func (p *Control) createAccessPoint(ctx context.Context, in *api.CreateAccessPointInput) (*preparedResponse, *awswire.Error) {
@@ -133,6 +139,17 @@ func (p *Control) createAccessPoint(ctx context.Context, in *api.CreateAccessPoi
 				return err
 			}
 		}
+		claim, claimed := cloudFormationOwner(tx.Context(), cloudFormationAccessPoint)
+		if claimed {
+			// The exact incarnation that committed this access point recovers
+			// it unchanged, even if its bucket changed since; names and tags
+			// never prove ownership.
+			if existing, err := tx.AccessPoint(point.Key); err == nil && existing.CloudFormationOwner == claim {
+				return response.prepare(c, &api.CreateAccessPointOutput{AccessPointArn: new(api.S3AccessPointArn(existing.Key.ARN())), Alias: new(api.Alias(existing.Alias))})
+			} else if err != nil && !errors.Is(err, ErrNotFound) {
+				return err
+			}
+		}
 		point.Bucket = BucketKey{Partition: m.Partition, Name: value(in.Bucket)}
 		bucket, err := tx.Bucket(point.Bucket)
 		if errors.Is(err, ErrNotFound) {
@@ -160,6 +177,7 @@ func (p *Control) createAccessPoint(ctx context.Context, in *api.CreateAccessPoi
 		} else if !errors.Is(err, ErrNotFound) {
 			return err
 		}
+		point.CloudFormationOwner = claim
 		count, err := tx.AccessPointCount(m.Partition, point.Key.AccountID, m.Region)
 		if err != nil {
 			return err

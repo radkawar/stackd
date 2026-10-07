@@ -117,12 +117,14 @@ func (s *Service) listTagsForResource(tx Transaction, in *api.ListTagsForResourc
 		if w != nil {
 			return nil, w
 		}
+		observeCloudFormation(tx.Context(), "Destination", d.Key.Name, d.CFNOwner)
 		return &api.ListTagsForResourceResponse{Tags: apiTags(d.Tags)}, nil
 	}
 	g, w := s.loadGroup(tx, ref, "ListTagsForResource", "")
 	if w != nil {
 		return nil, w
 	}
+	observeCloudFormation(tx.Context(), "LogGroup", g.Key.Name, g.CFNOwner)
 	return &api.ListTagsForResourceResponse{Tags: apiTags(g.Tags)}, nil
 }
 func (s *Service) listTagsLogGroup(tx Transaction, in *api.ListTagsLogGroupRequest) (*api.ListTagsLogGroupResponse, *awswire.Error) {
@@ -143,6 +145,11 @@ func (s *Service) destinationForTagging(r Reader, arn, action string, tags map[s
 	}
 	d, err := r.Destination(k)
 	d.Key = k
+	if err == nil {
+		if w := cloudFormationDelete(r.Context(), d.CFNOwner); w != nil {
+			return d, w
+		}
+	}
 	if w := s.authorizeDestination(r, action, d, tags, keys); w != nil {
 		return d, w
 	}

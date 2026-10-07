@@ -21,6 +21,7 @@ func (r reader) Dashboard(key domain.DashboardKey) (domain.DashboardRecord, erro
 		return domain.DashboardRecord{}, err
 	}
 	out := domain.DashboardRecord{
+		CFNOwner:       row.CfnOwner,
 		DashboardEntry: domain.DashboardEntry{Key: key, Updated: row.Updated, Size: row.Size},
 		Body:           row.Body, Tags: make(map[string]string, len(tags)), TaggingInitialized: row.TaggingInitialized,
 	}
@@ -52,7 +53,8 @@ func (w writer) PutDashboard(record domain.DashboardRecord) error {
 	key := record.Key
 	if err := w.q.PutDashboard(w.ctx, sqlcgen.PutDashboardParams{
 		Partition: key.Partition, AccountID: key.AccountID, Name: key.Name,
-		Body: record.Body, Updated: record.Updated, Size: record.Size, TaggingInitialized: record.TaggingInitialized,
+		CfnOwner: record.CFNOwner,
+		Body:     record.Body, Updated: record.Updated, Size: record.Size, TaggingInitialized: record.TaggingInitialized,
 	}); err != nil {
 		return err
 	}

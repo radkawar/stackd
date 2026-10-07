@@ -55,6 +55,13 @@ func (s *Service) rotateSecret(tx Transaction, in *api.RotateSecretInput) (*api.
 	if err := checkWritable(tx.Context(), secret); err != nil {
 		return nil, err
 	}
+	replay, err := admitCloudFormationAspect(tx.Context(), &secret, "rotation", secret.RotationEnabled != nil && *secret.RotationEnabled)
+	if err != nil {
+		return nil, err
+	}
+	if replay {
+		return &api.RotateSecretOutput{ARN: str[api.SecretARNType](secret.ARN), Name: str[api.SecretNameType](secret.Key.Name), VersionId: (*api.SecretVersionIdType)(in.ClientRequestToken)}, nil
+	}
 	if err := validateVersionToken(in.ClientRequestToken); err != nil {
 		return nil, err
 	}
@@ -221,6 +228,7 @@ func (s *Service) cancelRotateSecret(tx Transaction, in *api.CancelRotateSecretI
 		return nil, err
 	}
 	secret.RotationEnabled, secret.RotationDue, secret.NextRotation = ptr(false), nil, nil
+	secret.RotationOwnership = CloudFormationOwnership{}
 	secret.Changed = s.clock.Now().UTC()
 	// Cancellation revokes future callbacks; a running Lambda is not killed.
 	// Its pending value and labels remain intact, as do the retained settings.

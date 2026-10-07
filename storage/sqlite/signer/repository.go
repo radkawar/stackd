@@ -85,7 +85,7 @@ func (r reader) Profiles(sc domain.Scope) ([]domain.Profile, error) {
 	return out, nil
 }
 func (r reader) profile(v sqlcgen.SignerProfile) (domain.Profile, error) {
-	out := domain.Profile{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name, ARN: v.Arn, Version: v.Version, VersionARN: v.VersionArn, Status: v.Status, Current: v.IsCurrent, ValidityValue: v.ValidityValue, ValidityType: v.ValidityType, Created: v.Created, RevokedAt: v.RevokedAt, EffectiveTime: v.EffectiveTime, RevocationReason: v.RevocationReason, RevokedBy: v.RevokedBy, Certificate: v.Certificate, PrivateKey: v.PrivateKey, Tags: map[string]string{}}
+	out := domain.Profile{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name, ARN: v.Arn, Version: v.Version, VersionARN: v.VersionArn, Status: v.Status, Current: v.IsCurrent, ValidityValue: v.ValidityValue, ValidityType: v.ValidityType, Created: v.Created, RevokedAt: v.RevokedAt, EffectiveTime: v.EffectiveTime, RevocationReason: v.RevocationReason, RevokedBy: v.RevokedBy, Certificate: v.Certificate, PrivateKey: v.PrivateKey, Tags: map[string]string{}, Owner: v.CfnOwner}
 	tags, e := r.q.ListProfileTags(r.ctx, v.VersionArn)
 	if e != nil {
 		return out, e
@@ -96,7 +96,7 @@ func (r reader) profile(v sqlcgen.SignerProfile) (domain.Profile, error) {
 	return out, nil
 }
 func (w writer) PutProfile(v domain.Profile) error {
-	e := w.q.PutProfile(w.ctx, sqlcgen.PutProfileParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, Name: v.Name, Arn: v.ARN, Version: v.Version, VersionArn: v.VersionARN, Status: v.Status, IsCurrent: v.Current, ValidityValue: v.ValidityValue, ValidityType: v.ValidityType, Created: v.Created, RevokedAt: v.RevokedAt, EffectiveTime: v.EffectiveTime, RevocationReason: v.RevocationReason, RevokedBy: v.RevokedBy, Certificate: v.Certificate, PrivateKey: v.PrivateKey})
+	e := w.q.PutProfile(w.ctx, sqlcgen.PutProfileParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, Name: v.Name, Arn: v.ARN, Version: v.Version, VersionArn: v.VersionARN, Status: v.Status, IsCurrent: v.Current, ValidityValue: v.ValidityValue, ValidityType: v.ValidityType, Created: v.Created, RevokedAt: v.RevokedAt, EffectiveTime: v.EffectiveTime, RevocationReason: v.RevocationReason, RevokedBy: v.RevokedBy, Certificate: v.Certificate, PrivateKey: v.PrivateKey, CfnOwner: v.Owner})
 	if e != nil {
 		return e
 	}

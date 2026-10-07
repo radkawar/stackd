@@ -16,11 +16,14 @@ func (s *Service) tagResource(ctx context.Context, tx Transaction, action, arn s
 	if err != nil {
 		return nil, err
 	}
-	check := func(tags map[string]string, err error) error {
+	check := func(tags map[string]string, owner CloudFormationOwner, err error) error {
 		if errors.Is(err, ErrNotFound) {
 			return notFound(key.Kind)
 		}
 		if err != nil {
+			return err
+		}
+		if err = checkCloudFormationOwner(ctx, key, owner); err != nil {
 			return err
 		}
 		return s.authorize(ctx, action, key, tags, requestTags)
@@ -28,7 +31,7 @@ func (s *Service) tagResource(ctx context.Context, tx Transaction, action, arn s
 	switch key.Kind {
 	case "cluster":
 		v, e := tx.Cluster(key)
-		if e = check(v.Tags, e); e != nil {
+		if e = check(v.Tags, v.Owner, e); e != nil {
 			return nil, e
 		}
 		if change != nil {
@@ -41,7 +44,7 @@ func (s *Service) tagResource(ctx context.Context, tx Transaction, action, arn s
 		return v.Tags, e
 	case "db":
 		v, e := tx.Instance(key)
-		if e = check(v.Tags, e); e != nil {
+		if e = check(v.Tags, v.Owner, e); e != nil {
 			return nil, e
 		}
 		if change != nil {
@@ -54,7 +57,10 @@ func (s *Service) tagResource(ctx context.Context, tx Transaction, action, arn s
 		return v.Tags, e
 	case "cluster-snapshot":
 		v, e := tx.Snapshot(key)
-		if e = check(v.Tags, e); e != nil {
+		if e = check(v.Tags, v.Owner, e); e != nil {
+			return nil, e
+		}
+		if e = checkCloudFormationSnapshot(ctx, key, "cluster-"+v.SourceRuntimeID); e != nil {
 			return nil, e
 		}
 		if change != nil {
@@ -81,7 +87,7 @@ func (s *Service) addTags(ctx context.Context, tx Transaction, in *api.AddTagsTo
 			current[k] = v
 		}
 		if len(current) > 50 {
-			return nil, failure("InvalidParameterValue", "At most 50 tags are supported.")
+			return nil, failure("InvalidParameterValue", "At most 50 customer tags are supported.")
 		}
 		return current, nil
 	})

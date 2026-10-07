@@ -47,7 +47,7 @@ func (q *Queries) AddMetricSample(ctx context.Context, arg AddMetricSampleParams
 }
 
 const allStreams = `-- name: AllStreams :many
-SELECT "partition", account_id, region, name, engine_id, next_partition, retention_next_at, channel_count, consumer_count, encryption_type, key_id, max_record_size_kib, open_shard_count, retention_hours, stream_arn, created_at, stream_id, mode_present, mode, stream_name, status, warm_present, warm_current, warm_target, monitoring_present, shard_updates_present, encryption_updates_present FROM kinesis_streams ORDER BY partition, account_id, region, name
+SELECT "partition", account_id, region, name, engine_id, next_partition, retention_next_at, channel_count, consumer_count, encryption_type, key_id, max_record_size_kib, open_shard_count, retention_hours, stream_arn, created_at, stream_id, mode_present, mode, stream_name, status, warm_present, warm_current, warm_target, monitoring_present, shard_updates_present, encryption_updates_present, owner_stack_id, owner_logical_id, owner_token FROM kinesis_streams ORDER BY partition, account_id, region, name
 `
 
 func (q *Queries) AllStreams(ctx context.Context) ([]KinesisStream, error) {
@@ -87,6 +87,9 @@ func (q *Queries) AllStreams(ctx context.Context) ([]KinesisStream, error) {
 			&i.MonitoringPresent,
 			&i.ShardUpdatesPresent,
 			&i.EncryptionUpdatesPresent,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -427,7 +430,7 @@ func (q *Queries) GetAccount(ctx context.Context, arg GetAccountParams) (Kinesis
 }
 
 const getConsumer = `-- name: GetConsumer :one
-SELECT "partition", account_id, region, name, consumer_name, created_at, consumer_arn, creation_timestamp, data_name, status, stream_arn, delete_at FROM kinesis_consumers WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name = ?4 AND consumer_name = ?5 AND created_at = ?6
+SELECT "partition", account_id, region, name, consumer_name, created_at, consumer_arn, creation_timestamp, data_name, status, stream_arn, delete_at, owner_stack_id, owner_logical_id, owner_token FROM kinesis_consumers WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name = ?4 AND consumer_name = ?5 AND created_at = ?6
 `
 
 type GetConsumerParams struct {
@@ -462,6 +465,9 @@ func (q *Queries) GetConsumer(ctx context.Context, arg GetConsumerParams) (Kines
 		&i.Status,
 		&i.StreamArn,
 		&i.DeleteAt,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
@@ -533,7 +539,7 @@ func (q *Queries) GetPendingUpdate(ctx context.Context, arg GetPendingUpdatePara
 }
 
 const getPolicy = `-- name: GetPolicy :one
-SELECT "partition", account_id, region, arn, document, trust_policy, principals_present, effective_document, effective_trust_policy, effective_principals_present, publish_at FROM kinesis_policies WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND arn = ?4
+SELECT "partition", account_id, region, arn, document, trust_policy, principals_present, effective_document, effective_trust_policy, effective_principals_present, publish_at, owner_stack_id, owner_logical_id, owner_token FROM kinesis_policies WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND arn = ?4
 `
 
 type GetPolicyParams struct {
@@ -563,12 +569,15 @@ func (q *Queries) GetPolicy(ctx context.Context, arg GetPolicyParams) (KinesisPo
 		&i.EffectiveTrustPolicy,
 		&i.EffectivePrincipalsPresent,
 		&i.PublishAt,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
 
 const getStream = `-- name: GetStream :one
-SELECT "partition", account_id, region, name, engine_id, next_partition, retention_next_at, channel_count, consumer_count, encryption_type, key_id, max_record_size_kib, open_shard_count, retention_hours, stream_arn, created_at, stream_id, mode_present, mode, stream_name, status, warm_present, warm_current, warm_target, monitoring_present, shard_updates_present, encryption_updates_present FROM kinesis_streams WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name = ?4
+SELECT "partition", account_id, region, name, engine_id, next_partition, retention_next_at, channel_count, consumer_count, encryption_type, key_id, max_record_size_kib, open_shard_count, retention_hours, stream_arn, created_at, stream_id, mode_present, mode, stream_name, status, warm_present, warm_current, warm_target, monitoring_present, shard_updates_present, encryption_updates_present, owner_stack_id, owner_logical_id, owner_token FROM kinesis_streams WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name = ?4
 `
 
 type GetStreamParams struct {
@@ -614,6 +623,9 @@ func (q *Queries) GetStream(ctx context.Context, arg GetStreamParams) (KinesisSt
 		&i.MonitoringPresent,
 		&i.ShardUpdatesPresent,
 		&i.EncryptionUpdatesPresent,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
@@ -648,7 +660,7 @@ func (q *Queries) GetTagSet(ctx context.Context, arg GetTagSetParams) (KinesisTa
 }
 
 const listConsumers = `-- name: ListConsumers :many
-SELECT "partition", account_id, region, name, consumer_name, created_at, consumer_arn, creation_timestamp, data_name, status, stream_arn, delete_at FROM kinesis_consumers WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name = ?4 ORDER BY consumer_name, created_at
+SELECT "partition", account_id, region, name, consumer_name, created_at, consumer_arn, creation_timestamp, data_name, status, stream_arn, delete_at, owner_stack_id, owner_logical_id, owner_token FROM kinesis_consumers WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name = ?4 ORDER BY consumer_name, created_at
 `
 
 type ListConsumersParams struct {
@@ -685,6 +697,9 @@ func (q *Queries) ListConsumers(ctx context.Context, arg ListConsumersParams) ([
 			&i.Status,
 			&i.StreamArn,
 			&i.DeleteAt,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -1134,7 +1149,7 @@ func (q *Queries) ListShards(ctx context.Context, arg ListShardsParams) ([]Kines
 }
 
 const listStreams = `-- name: ListStreams :many
-SELECT "partition", account_id, region, name, engine_id, next_partition, retention_next_at, channel_count, consumer_count, encryption_type, key_id, max_record_size_kib, open_shard_count, retention_hours, stream_arn, created_at, stream_id, mode_present, mode, stream_name, status, warm_present, warm_current, warm_target, monitoring_present, shard_updates_present, encryption_updates_present FROM kinesis_streams WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name > ?4 ORDER BY name LIMIT ?5
+SELECT "partition", account_id, region, name, engine_id, next_partition, retention_next_at, channel_count, consumer_count, encryption_type, key_id, max_record_size_kib, open_shard_count, retention_hours, stream_arn, created_at, stream_id, mode_present, mode, stream_name, status, warm_present, warm_current, warm_target, monitoring_present, shard_updates_present, encryption_updates_present, owner_stack_id, owner_logical_id, owner_token FROM kinesis_streams WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name > ?4 ORDER BY name LIMIT ?5
 `
 
 type ListStreamsParams struct {
@@ -1188,6 +1203,9 @@ func (q *Queries) ListStreams(ctx context.Context, arg ListStreamsParams) ([]Kin
 			&i.MonitoringPresent,
 			&i.ShardUpdatesPresent,
 			&i.EncryptionUpdatesPresent,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -1808,6 +1826,94 @@ func (q *Queries) PutTagSet(ctx context.Context, arg PutTagSetParams) error {
 		arg.Region,
 		arg.Arn,
 		arg.TagsPresent,
+	)
+	return err
+}
+
+const setConsumerOwner = `-- name: SetConsumerOwner :exec
+UPDATE kinesis_consumers SET owner_stack_id = ?1, owner_logical_id = ?2, owner_token = ?3
+WHERE partition = ?4 AND account_id = ?5 AND region = ?6 AND name = ?7 AND consumer_name = ?8 AND created_at = ?9
+`
+
+type SetConsumerOwnerParams struct {
+	OwnerStackID   string
+	OwnerLogicalID string
+	OwnerToken     string
+	Partition      string
+	AccountID      string
+	Region         string
+	Name           string
+	ConsumerName   string
+	CreatedAt      int64
+}
+
+func (q *Queries) SetConsumerOwner(ctx context.Context, arg SetConsumerOwnerParams) error {
+	_, err := q.db.ExecContext(ctx, setConsumerOwner,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.Name,
+		arg.ConsumerName,
+		arg.CreatedAt,
+	)
+	return err
+}
+
+const setPolicyOwner = `-- name: SetPolicyOwner :exec
+UPDATE kinesis_policies SET owner_stack_id = ?1, owner_logical_id = ?2, owner_token = ?3
+WHERE partition = ?4 AND account_id = ?5 AND region = ?6 AND arn = ?7
+`
+
+type SetPolicyOwnerParams struct {
+	OwnerStackID   string
+	OwnerLogicalID string
+	OwnerToken     string
+	Partition      string
+	AccountID      string
+	Region         string
+	Arn            string
+}
+
+func (q *Queries) SetPolicyOwner(ctx context.Context, arg SetPolicyOwnerParams) error {
+	_, err := q.db.ExecContext(ctx, setPolicyOwner,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.Arn,
+	)
+	return err
+}
+
+const setStreamOwner = `-- name: SetStreamOwner :exec
+UPDATE kinesis_streams SET owner_stack_id = ?1, owner_logical_id = ?2, owner_token = ?3
+WHERE partition = ?4 AND account_id = ?5 AND region = ?6 AND name = ?7
+`
+
+type SetStreamOwnerParams struct {
+	OwnerStackID   string
+	OwnerLogicalID string
+	OwnerToken     string
+	Partition      string
+	AccountID      string
+	Region         string
+	Name           string
+}
+
+func (q *Queries) SetStreamOwner(ctx context.Context, arg SetStreamOwnerParams) error {
+	_, err := q.db.ExecContext(ctx, setStreamOwner,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.Name,
 	)
 	return err
 }

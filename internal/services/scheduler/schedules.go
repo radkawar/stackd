@@ -45,16 +45,20 @@ func (s *Service) prepareSchedule(tx Transaction, in *api.CreateScheduleInput, u
 		return v, failure("ValidationException", "Invalid schedule or group name.")
 	}
 	g, err := s.group(tx, k.Group)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrNotFound) {
 		return v, err
 	}
 	action := "CreateSchedule"
 	if update {
 		action = "UpdateSchedule"
 	}
-	if err = s.authorize(tx, action, k.ARN(), g.Tags, map[string][]string{"scheduler:GroupName": {k.Group.Name}}); err != nil {
+	if rejected := s.authorize(tx, action, k.ARN(), g.Tags, map[string][]string{"scheduler:GroupName": {k.Group.Name}}); rejected != nil {
+		return v, rejected
+	}
+	if err != nil {
 		return v, err
 	}
+	v.ParentID = g.ID
 	old, err := tx.Schedule(k)
 	if err != nil && !errors.Is(err, ErrNotFound) {
 		return v, err
@@ -70,6 +74,12 @@ func (s *Service) prepareSchedule(tx Transaction, in *api.CreateScheduleInput, u
 	hash := hex.EncodeToString(digest[:])
 	token := value(in.ClientToken)
 	if !errors.Is(err, ErrNotFound) && old.Revision != 0 {
+		if err := cloudFormationScheduleCheck(tx.Context(), old.CFNOwner); err != nil {
+			return v, err
+		}
+		if old.ParentID != g.ID {
+			return v, failure("ConflictException", "Schedule parent incarnation changed.", 409)
+		}
 		if !update && token != "" && old.CreateToken == token && old.CreateHash == hash {
 			return old, nil
 		}
@@ -123,7 +133,10 @@ func (s *Service) prepareSchedule(tx Transaction, in *api.CreateScheduleInput, u
 	v.Revision = 1
 	v.CreateToken = token
 	v.CreateHash = hash
+	v.CFNOwner = cloudFormationScheduleClaim(tx.Context())
 	if update {
+		v.CFNOwner = old.CFNOwner
+		v.ParentID = old.ParentID
 		v.Created = old.Created
 		v.Revision = old.Revision + 1
 		v.CreateToken = old.CreateToken
@@ -223,13 +236,23 @@ func (s *Service) updateSchedule(tx Transaction, in *api.UpdateScheduleInput) (*
 
 func (s *Service) schedule(tx Transaction, k ScheduleKey, action string) (ScheduleRecord, error) {
 	g, err := s.group(tx, k.Group)
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return ScheduleRecord{}, err
+	}
+	if rejected := s.authorize(tx, action, k.ARN(), g.Tags, map[string][]string{"scheduler:GroupName": {k.Group.Name}}); rejected != nil {
+		return ScheduleRecord{}, rejected
+	}
 	if err != nil {
 		return ScheduleRecord{}, err
 	}
-	if err = s.authorize(tx, action, k.ARN(), g.Tags, map[string][]string{"scheduler:GroupName": {k.Group.Name}}); err != nil {
-		return ScheduleRecord{}, err
+	row, err := tx.Schedule(k)
+	if err == nil {
+		err = cloudFormationScheduleCheck(tx.Context(), row.CFNOwner)
+		if err == nil && row.ParentID != g.ID {
+			err = failure("ConflictException", "Schedule parent incarnation changed.", 409)
+		}
 	}
-	return tx.Schedule(k)
+	return row, err
 }
 
 func (s *Service) getSchedule(tx Transaction, in *api.GetScheduleInput) (*api.GetScheduleOutput, error) {

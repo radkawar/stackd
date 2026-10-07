@@ -22,6 +22,7 @@ type GroupKey struct {
 // ID is the ARN incarnation, and survives a change to any mutable group setting.
 type GroupRecord struct {
 	Key                   GroupKey
+	Ownership             string
 	ID                    string
 	Data                  api.AutoScalingGroup
 	OriginEventID         string
@@ -85,6 +86,7 @@ type PolicyKey struct {
 }
 type PolicyRecord struct {
 	Key         PolicyKey
+	Ownership   string
 	GroupID     string
 	Data        api.ScalingPolicy
 	LastScaleAt time.Time
@@ -96,6 +98,7 @@ type ScheduleKey struct {
 }
 type ScheduleRecord struct {
 	Key           ScheduleKey
+	Ownership     string
 	GroupID       string
 	Data          api.ScheduledUpdateGroupAction
 	NextDue       time.Time
@@ -107,9 +110,10 @@ type HookKey struct {
 	Name string
 }
 type HookRecord struct {
-	Key     HookKey
-	GroupID string
-	Data    api.LifecycleHook
+	Key       HookKey
+	Ownership string
+	GroupID   string
+	Data      api.LifecycleHook
 }
 
 // LifecycleAction retains the consumer-visible token and both deadlines. A

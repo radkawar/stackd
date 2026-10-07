@@ -61,6 +61,9 @@ func keyFor(ctx context.Context, reference string) (TrailKey, *awswire.Error) {
 	return key, nil
 }
 func (s *Service) authorize(r Reader, action string, trail TrailRecord, requestTags map[string]string) *awswire.Error {
+	if wire := cloudFormationOwned(r.Context(), trail.CFNOwner); wire != nil {
+		return wire
+	}
 	grant := false
 	if trail.OrganizationID != "" {
 		m := awsctx.FromContext(r.Context())
@@ -160,7 +163,12 @@ func (s *Service) createTrail(ctx context.Context, in *api.CreateTrailInput) (*a
 	if wire != nil {
 		return nil, wire
 	}
+	owner, wire := cloudFormationClaim(ctx, "", false)
+	if wire != nil {
+		return nil, wire
+	}
 	trail := TrailRecord{Key: key, ID: uuid.NewString(), Bucket: value(in.S3BucketName), Prefix: value(in.S3KeyPrefix), KMSKeyID: value(in.KmsKeyId), SNSTopicName: value(in.SnsTopicName), LogsGroupARN: value(in.CloudWatchLogsLogGroupArn), LogsRoleARN: value(in.CloudWatchLogsRoleArn), IncludeGlobal: true, RecursiveLogging: true, MultiRegion: enabled(in.IsMultiRegionTrail), Selection: defaultSelection(), Tags: tags}
+	trail.CFNOwner = owner
 	trail.LogFileValidation = enabled(in.EnableLogFileValidation)
 	if in.IncludeGlobalServiceEvents != nil {
 		trail.IncludeGlobal = bool(*in.IncludeGlobalServiceEvents)
@@ -217,6 +225,11 @@ func (s *Service) createTrail(ctx context.Context, in *api.CreateTrailInput) (*a
 		}
 		if wire := s.authorize(tx, "CreateTrail", trail, tags); wire != nil {
 			return wire
+		}
+		if len(tags) > 0 {
+			if wire := s.authorize(tx, "AddTags", trail, tags); wire != nil {
+				return wire
+			}
 		}
 		if err := s.ensureOrganizationRoles(tx.Context(), trail); err != nil {
 			return err

@@ -13,6 +13,7 @@ var ErrNotFound = errors.New("ELBv2 resource not found")
 type Scope struct{ Partition, AccountID, Region string }
 type LoadBalancerRecord struct {
 	Scope
+	Ownership             string
 	Data                  api.LoadBalancer
 	Tags                  api.TagList
 	DeletionProtection    bool
@@ -26,18 +27,21 @@ type LoadBalancerRecord struct {
 }
 type TargetGroupRecord struct {
 	Scope
+	Ownership           string
 	Data                api.TargetGroup
 	Tags                api.TagList
 	DeregistrationDelay time.Duration
 }
 type ListenerRecord struct {
 	Scope
+	Ownership     string
 	Data          api.Listener
 	Tags          api.TagList
 	CertificateID string
 }
 type RuleRecord struct {
 	Scope
+	Ownership   string
 	Data        api.Rule
 	ListenerARN string
 	Tags        api.TagList

@@ -72,6 +72,7 @@ import (
 	ssooidcmodel "stackd/internal/awscatalog/models/ssooidc"
 	stepfunctionsmodel "stackd/internal/awscatalog/models/stepfunctions"
 	stsmodel "stackd/internal/awscatalog/models/sts"
+	wafv2model "stackd/internal/awscatalog/models/wafv2"
 	xraymodel "stackd/internal/awscatalog/models/xray"
 )
 
@@ -146,5 +147,6 @@ var catalog = map[string]Service{
 	"ssooidc":                   newService(ssooidcmodel.Info, ssooidcmodel.Operations, ssooidcmodel.Shapes),
 	"stepfunctions":             newService(stepfunctionsmodel.Info, stepfunctionsmodel.Operations, stepfunctionsmodel.Shapes),
 	"sts":                       newService(stsmodel.Info, stsmodel.Operations, stsmodel.Shapes),
+	"wafv2":                     newService(wafv2model.Info, wafv2model.Operations, wafv2model.Shapes),
 	"xray":                      newService(xraymodel.Info, xraymodel.Operations, xraymodel.Shapes),
 }

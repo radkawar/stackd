@@ -9,6 +9,7 @@ import (
 
 	api "stackd/internal/awsapi/eventbridge"
 	"stackd/internal/services/cloudformation"
+	events "stackd/internal/services/eventbridge"
 )
 
 type cfnEventRule struct{ commands StepFunctionsCommands }
@@ -43,12 +44,13 @@ func cfnEventRuleTargets(p map[string]any) ([]any, error) {
 		return nil, fmt.Errorf("property Targets must be a list")
 	}
 	ids := map[string]bool{}
-	for _, item := range list {
+	copied := false
+	for index, item := range list {
 		target, ok := cfnComputeObject(item)
 		if !ok {
 			return nil, fmt.Errorf("property Targets entries must be objects")
 		}
-		if err := cfnComputeProperties(target, "Id", "Arn", "RoleArn", "Input", "InputPath", "InputTransformer", "RetryPolicy", "DeadLetterConfig", "SqsParameters", "HttpParameters"); err != nil {
+		if err := cfnComputeProperties(target, "Id", "Arn", "RoleArn", "Input", "InputPath", "InputTransformer", "RetryPolicy", "DeadLetterConfig", "SqsParameters", "HttpParameters", "KinesisParameters", "EcsParameters"); err != nil {
 			return nil, err
 		}
 		if err := cfnComputeRequired(target, "Id", "Arn"); err != nil {
@@ -62,7 +64,7 @@ func cfnEventRuleTargets(p map[string]any) ([]any, error) {
 			return nil, fmt.Errorf("target IDs must be nonempty and unique")
 		}
 		ids[id] = true
-		for key, allowed := range map[string][]string{"InputTransformer": {"InputTemplate", "InputPathsMap"}, "RetryPolicy": {"MaximumRetryAttempts", "MaximumEventAgeInSeconds"}, "DeadLetterConfig": {"Arn"}, "SqsParameters": {"MessageGroupId"}, "HttpParameters": {"HeaderParameters", "PathParameterValues", "QueryStringParameters"}} {
+		for key, allowed := range map[string][]string{"InputTransformer": {"InputTemplate", "InputPathsMap"}, "RetryPolicy": {"MaximumRetryAttempts", "MaximumEventAgeInSeconds"}, "DeadLetterConfig": {"Arn"}, "SqsParameters": {"MessageGroupId"}, "HttpParameters": {"HeaderParameters", "PathParameterValues", "QueryStringParameters"}, "KinesisParameters": {"PartitionKeyPath"}, "EcsParameters": {"TaskDefinitionArn", "TaskCount", "LaunchType", "NetworkConfiguration", "PlatformVersion", "Group", "CapacityProviderStrategy", "EnableECSManagedTags", "EnableExecuteCommand", "PlacementConstraints", "PlacementStrategies", "PropagateTags", "ReferenceId", "TagList"}} {
 			if value, found := target[key]; found {
 				object, ok := cfnComputeObject(value)
 				if !ok {
@@ -72,6 +74,32 @@ func cfnEventRuleTargets(p map[string]any) ([]any, error) {
 					return nil, err
 				}
 			}
+		}
+		if ecs, ok := cfnComputeObject(target["EcsParameters"]); ok {
+			// CFN uses PlacementStrategies/TagList; the native target owner
+			// uses PlacementStrategy/Tags. Preserve all other typed settings.
+			// https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-events-rule-ecsparameters.html
+			native := map[string]any{}
+			for key, value := range ecs {
+				switch key {
+				case "PlacementStrategies":
+					native["PlacementStrategy"] = value
+				case "TagList":
+					native["Tags"] = value
+				default:
+					native[key] = value
+				}
+			}
+			if !copied {
+				list = append([]any(nil), list...)
+				copied = true
+			}
+			adapted := map[string]any{}
+			for key, value := range target {
+				adapted[key] = value
+			}
+			adapted["EcsParameters"] = native
+			list[index] = adapted
 		}
 	}
 	return list, nil
@@ -136,7 +164,8 @@ func (h cfnEventRule) put(ctx context.Context, r cloudformation.ResourceRequest,
 	input := cfnComputeCopy(r.Properties, "Description", "ScheduleExpression", "State", "RoleArn")
 	input["Name"] = name
 	input["EventBusName"] = cfnEventRuleBus(r.Properties)
-	input["Tags"] = cfnComputeTagList(cfnComputeOwnedTags(r))
+	tags, _ := cfnComputeTags(r.Properties)
+	input["Tags"] = cfnComputeTagList(tags)
 	if p := r.Properties["EventPattern"]; p != nil {
 		input["EventPattern"], _ = cfnComputeDocument(p)
 	}
@@ -206,17 +235,48 @@ func (h cfnEventRule) targets(ctx context.Context, r cloudformation.ResourceRequ
 	}
 	return nil
 }
+
+// owned reads the exact scoped rule's private incarnation under current
+// native DescribeRule IAM. Public tags never participate.
+func (h cfnEventRule) owned(ctx context.Context, r cloudformation.ResourceRequest, name string) error {
+	provider, ok := h.commands.providers["eventbridge"]
+	if !ok {
+		return fmt.Errorf("EventBridge owner unavailable")
+	}
+	owner, ok := provider.executor.(interface {
+		CloudFormationRuleOwned(context.Context, string, string, string) error
+	})
+	if !ok {
+		return fmt.Errorf("EventBridge rule incarnation authority unavailable")
+	}
+	return owner.CloudFormationRuleOwned(ctx, cfnEventRuleBus(r.Properties), name, cfnMessagingMarker(r))
+}
+func (h cfnEventRule) RecoverCreation(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
+	r = cfnEventRuleIdentity(r)
+	name := cfnEventRuleName(r)
+	if err := h.owned(ctx, r, name); err != nil {
+		return cloudformation.ResourceResult{}, err
+	}
+	return cfnEventRuleResult(r, name), nil
+}
 func (h cfnEventRule) Create(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
 	if err := h.Validate(r.Properties); err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
+	r = cfnEventRuleIdentity(r)
+	// CFN and Cloud Control admissions both store the private claim atomically
+	// with the new native row; PutRule rejects any existing unclaimed/foreign row.
+	ctx = events.WithCloudFormationOwner(ctx, "Rule", cfnMessagingMarker(r), "")
 	name := cfnEventRuleName(r)
 	result := cfnEventRuleResult(r, name)
-	err := cfnEventOwned(ctx, h.commands, r, result.Attributes["Arn"].(string))
-	if err != nil && !cfnComputeMissing(err) {
+	if err := h.owned(ctx, r, name); err != nil && !cfnComputeMissing(err) {
 		return cloudformation.ResourceResult{}, err
 	}
 	if err := h.put(ctx, r, name); err != nil {
+		// A failed command reply is not evidence that admission did not occur.
+		if h.owned(ctx, r, name) == nil {
+			return result, err
+		}
 		return cloudformation.ResourceResult{}, err
 	}
 	return result, h.targets(ctx, r, name)
@@ -225,11 +285,14 @@ func (h cfnEventRule) Update(ctx context.Context, r cloudformation.ResourceReque
 	if _, err := h.ReplacementInScope(r.Scope, r.Previous, r.Properties); err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
+	ctx = cfnEventsContext(ctx, r, "Rule", "")
+	r = cfnEventRuleIdentity(r)
 	name := cfnEventRuleName(r)
 	result := cfnEventRuleResult(r, name)
-	arn := result.Attributes["Arn"].(string)
-	if err := cfnEventOwned(ctx, h.commands, r, arn); err != nil {
-		return cloudformation.ResourceResult{}, err
+	if !r.CloudControl {
+		if err := h.owned(ctx, r, name); err != nil {
+			return cloudformation.ResourceResult{}, err
+		}
 	}
 	if err := h.put(ctx, r, name); err != nil {
 		return result, err
@@ -237,17 +300,20 @@ func (h cfnEventRule) Update(ctx context.Context, r cloudformation.ResourceReque
 	if err := h.targets(ctx, r, name); err != nil {
 		return result, err
 	}
-	return result, cfnEventSyncTags(ctx, h.commands, r, arn)
+	return result, cfnEventSyncTags(ctx, h.commands, r, result.Attributes["Arn"].(string))
 }
 func (h cfnEventRule) Delete(ctx context.Context, r cloudformation.ResourceRequest) error {
+	ctx = cfnEventsContext(ctx, r, "Rule", "")
+	r = cfnEventRuleIdentity(r)
 	name := cfnEventRuleName(r)
-	result := cfnEventRuleResult(r, name)
-	if err := cfnEventOwned(ctx, h.commands, r, result.Attributes["Arn"].(string)); err != nil {
-		return cfnComputeAbsent(err)
+	if !r.CloudControl {
+		if err := h.owned(ctx, r, name); err != nil {
+			return cfnComputeAbsent(err)
+		}
 	}
 	r.Properties = cfnComputeCopy(r.Properties, "EventBusName")
 	if err := h.targets(ctx, r, name); err != nil {
-		return err
+		return cfnComputeAbsent(err)
 	}
 	return cfnComputeAbsent(cfnComputeRun(ctx, h.commands, "eventbridge", "DeleteRule", map[string]any{"Name": name, "EventBusName": cfnEventRuleBus(r.Properties)}))
 }

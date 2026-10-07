@@ -125,9 +125,10 @@ const (
 // identity hint: it never implies the VMM or guest is running. Console and health
 // fields contain observed backend output, not synthesized guest success.
 type InstanceRecord struct {
-	Key           ResourceKey
-	Data          api.Instance
-	ReservationID string
+	Key                 ResourceKey
+	CloudFormationOwner CloudFormationOwner
+	Data                api.Instance
+	ReservationID       string
 	// These service-only launch identities cannot be changed by EC2 attributes.
 	LambdaCapacityProviderARN string
 	LambdaManagedGeneration   string

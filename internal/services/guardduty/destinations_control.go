@@ -72,6 +72,7 @@ func registerDestinationMutation[I, O any](s *Service, name string, prepare func
 
 func (s *Service) preparePublishingDestination(r Reader, in *api.CreatePublishingDestinationRequest) (PublishingDestination, error) {
 	v := PublishingDestination{Scope: scopeFor(r.Context()), DetectorID: value(in.DetectorId), ID: newID(), Type: value(in.DestinationType), ClientToken: value(in.ClientToken), Tags: stringTags(in.Tags)}
+	v.CFNOwnership = creationOwnership(r.Context())
 	v.ARN = publishingDestinationARN(v.Scope, v.DetectorID, v.ID)
 	_, existing, err := s.admitPublishingDestinationCreate(r, v)
 	if err != nil {
@@ -121,6 +122,11 @@ func (s *Service) admitPublishingDestinationCreate(r Reader, v PublishingDestina
 	}
 	if len(v.Tags) > 0 {
 		if err := s.authorize(r.Context(), "TagResource", resource, existing.Tags, v.Tags, keys); err != nil {
+			return Detector{}, existing, err
+		}
+	}
+	if existing.ID != "" {
+		if err := checkCloudFormationOwnership(r.Context(), existing.CFNOwnership); err != nil {
 			return Detector{}, existing, err
 		}
 	}

@@ -78,11 +78,21 @@ func (s *Service) loadCodeSigningConfig(r Reader, key CodeSigningConfigKey, acti
 	if err != nil || key.Scope != scopeFor(r.Context()) {
 		return v, failure("ResourceNotFoundException", "Code signing configuration not found: "+key.ARN(), 404)
 	}
-	return v, nil
+	return v, requireAdditionalOwner(r.Context(), v.Owner)
 }
 
 func (s *Service) createCodeSigningConfig(ctx context.Context, in *api.CreateCodeSigningConfigInput) (*api.CreateCodeSigningConfigOutput, *awswire.Error) {
-	v := CodeSigningConfigRecord{Key: CodeSigningConfigKey{Scope: scopeFor(ctx), ID: "csc-" + strings.ReplaceAll(uuid.NewString(), "-", "")[:17]}, Policy: "Warn", Modified: s.clock.Now(), Tags: map[string]string{}}
+	v := CodeSigningConfigRecord{Key: CodeSigningConfigKey{Scope: scopeFor(ctx)}, Policy: "Warn", Modified: s.clock.Now(), Tags: map[string]string{}}
+	owner, _, err := additionalOwnerFor(ctx)
+	if err != nil {
+		return nil, wireError(err)
+	}
+	v.Owner = owner
+	if owner != (AdditionalOwner{}) {
+		v.Key.ID = additionalSigningID(owner)
+	} else {
+		v.Key.ID = "csc-" + strings.ReplaceAll(uuid.NewString(), "-", "")[:17]
+	}
 	for k, val := range in.Tags {
 		v.Tags[string(k)] = string(val)
 	}
@@ -96,9 +106,21 @@ func (s *Service) createCodeSigningConfig(ctx context.Context, in *api.CreateCod
 		return nil, wire
 	}
 	out := &api.CreateCodeSigningConfigOutput{CodeSigningConfig: codeSigningOutput(v)}
-	err := s.repository.Update(ctx, func(tx Transaction) error {
+	err = s.repository.Update(ctx, func(tx Transaction) error {
 		if wire := s.authorize(tx.Context(), "CreateCodeSigningConfig", "*", nil, v.Tags, nil); wire != nil {
 			return wire
+		}
+		if current, err := tx.CodeSigningConfig(v.Key); err == nil {
+			if owner == (AdditionalOwner{}) {
+				return failure("ResourceConflictException", "Code signing configuration already exists.", 409)
+			}
+			if err := requireAdditionalOwner(tx.Context(), current.Owner); err != nil {
+				return err
+			}
+			out.CodeSigningConfig = codeSigningOutput(current)
+			return s.recordCall(tx.Context(), "CreateCodeSigningConfig", in, out, nil)
+		} else if !errors.Is(err, ErrNotFound) {
+			return err
 		}
 		if len(v.Tags) > 0 {
 			if wire := s.authorize(tx.Context(), "TagResource", v.Key.ARN(), nil, v.Tags, nil); wire != nil {

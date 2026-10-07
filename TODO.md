@@ -27,8 +27,35 @@ keeps service-specific accounting and error semantics authoritative.
   service/execution owners; record the sampled boundaries and remaining work in
   [the consistency audit](docs/service-consistency.md). Correct inventory identity
   mismatches and include complete Signer/SSO/SSO OIDC prerequisite models.
-  The current inventory has 127 services, 8,207 modeled operations, 2,238
+  The current inventory has 127 services, 8,207 modeled operations, 2,290
   registered/partial operations and no registrations outside the selection.
+- [x] Replace CloudFormation public ownership-marker authority with exact typed
+  private incarnation claims, scoped creation receipts and current native IAM.
+  Ordinary native/Cloud Control edits preserve claims; same-name recreations and
+  copied customer tags do not adopt them. SQL schemas through 402 persist the
+  new owner families without promoting legacy public tags.
+  [Private creation-claim boundaries](docs/sqlite-state.md#private-cloudformation-creation-claims).
+- [x] Execute local Docker Lambda image deployment, retag isolation, publication,
+  hot swap, SQLite reopen, accepted cold calls and actual native artifact cleanup.
+  Real Python RIC/Kafka fixtures also verify LATEST checkpoints, batching windows,
+  retry/bisect/age controls and SQS failure destinations on memory and SQLite;
+  real FIFO partial-failure and cron/rate guest fixtures pass independently.
+  These are local Linux observations, not AWS captures or Docker Desktop evidence.
+  [Image lifetime and source-reference boundary](docs/lambda.md#container-image-deployments).
+- [x] Cross-build the ordinary CLI for Darwin arm64 and amd64 without requiring
+  Linux ECS cgroup setup for unrelated Lambda/native engines. The documented
+  source-built endpoint recipe uses port 4567 and an explicit guest-reachable
+  origin. Cross-compilation is not a macOS Docker runtime smoke.
+- [x] Deploy a 67-resource Guard stack through the public endpoint on port 4567:
+  CREATE_COMPLETE, UPDATE_COMPLETE, SQLite controller restart and DELETE_COMPLETE.
+  Native SDK reads verify the owned resources and final absence. Real image and
+  provided-runtime customer code exercises DynamoDB/GSI, Kafka/FIFO mappings,
+  suffix-filtered S3 delivery, REST/HTTP proxy routes and asynchronous SQS failure
+  delivery with zero retries. Reopen retains the original login/JWKS/refresh
+  session and prior DynamoDB data. Actual HTTP integration deadlines return 504
+  while accepted customer execution completes.
+  This fixture establishes those local Linux paths, not hosted Google OAuth,
+  public DNS, WebSocket message execution or macOS Docker behavior.
 - [x] Separate native probe accounts and private raw captures from published
   fixtures: explicit `--account` identity guards, valid distinct account aliases,
   recursive encoded/archive redaction and locally regenerated authenticated
@@ -768,10 +795,12 @@ historical snapshots, not a conformance score.
   AWS-supported service. The current 62-namespace primary-backed catalog now
   governs implemented resource owners, including S3 and Secrets Manager; new
   resource owners must supply their actual authorization context to that engine.
-- [x] Generate CloudFormation property contracts from twenty native registry
-  schemas. Prove unmodified CDK bootstrap/deploy/update/replacement/rollback/
-  destroy, real owner effects and SQLite restart. Cloud Control reuses five
-  authoritative resource owners for asynchronous create/update/delete and reads.
+- [x] Generate CloudFormation property contracts from the pinned official regional
+  public registry archive, retaining the original twenty native `DescribeType`
+  captures separately. Prove unmodified CDK bootstrap/deploy/update/replacement/
+  rollback/destroy, real owner effects and SQLite restart. Cloud Control reuses
+  registered authoritative resource owners for asynchronous mutations and reads;
+  registry schema presence is not implementation evidence.
 - [ ] Complete remaining CloudFormation/Cloud Control resource and operation
   semantics, existing-owner automatic import and durable rollback. Prove SAM
   serverless deployments (Lambda, API Gateway, DynamoDB, SQS and IAM), complete

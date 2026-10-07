@@ -133,14 +133,21 @@ func (s *Service) loadDatabase(ctx context.Context, tx Reader, action, kind, nam
 	if e != nil {
 		return v, e
 	}
+	if e = checkCloudFormationOwner(ctx, k, v.Owner); e != nil {
+		return v, e
+	}
+	id := "db-" + v.ResourceID
+	if kind == "cluster" {
+		id = "cluster-" + v.ResourceID
+	}
+	if e = checkCloudFormationSnapshot(ctx, k, id); e != nil {
+		return v, e
+	}
 	return v, s.authorize(ctx, action, k, v.Tags, nil)
 }
 
 func tagsFrom(in api.TagList) (map[string]string, error) {
 	out := make(map[string]string, len(in))
-	if len(in) > 50 {
-		return nil, failure("InvalidParameterValue", "At most 50 tags are supported.")
-	}
 	for _, t := range in {
 
 		k, v := value(t.Key), value(t.Value)
@@ -152,6 +159,9 @@ func tagsFrom(in api.TagList) (map[string]string, error) {
 		}
 		out[k] = v
 
+	}
+	if len(out) > 50 {
+		return nil, failure("InvalidParameterValue", "At most 50 customer tags are supported.")
 	}
 	return out, nil
 }
@@ -244,8 +254,32 @@ func (s *Service) ensureRuntime() error {
 	return nil
 }
 
+// CloudFormationRequestedPort distinguishes an owner-selected listener from a
+// fixed port while the endpoint is unavailable during a native transition.
+func (s *Service) CloudFormationRequestedPort(ctx context.Context, kind, name string) (int32, error) {
+	if s.documents != nil {
+		if port, handled, err := s.documents.CloudFormationRequestedPort(ctx, kind, name); handled || err != nil {
+			return port, err
+		}
+	}
+	action := "DescribeDBInstances"
+	if kind == "cluster" {
+		action = "DescribeDBClusters"
+	}
+	var port int32
+	err := s.repository.View(ctx, func(r Reader) error {
+		v, err := s.loadDatabase(r.Context(), r, action, kind, name)
+		if err != nil {
+			return err
+		}
+		port = v.RequestedPort
+		return nil
+	})
+	return port, err
+}
+
 func instanceDTO(v Database) api.DBInstance {
-	out := api.DBInstance{DBInstanceIdentifier: new(api.String(v.Key.Name)), DBInstanceArn: new(api.String(v.Key.ARN())), DbiResourceId: new(api.String("db-" + v.RuntimeID)), DBInstanceClass: new(api.String(v.Class)), DBInstanceStatus: new(api.String(v.Status)), Engine: new(api.String(v.Engine)), EngineVersion: new(api.String(v.EngineVersion)), MasterUsername: new(api.String(v.Username)), InstanceCreateTime: new(api.TStamp(v.Created)), MultiAZ: new(api.Boolean(false)), StorageEncrypted: new(api.Boolean(false)), PubliclyAccessible: new(api.Boolean(false)), DeletionProtection: new(api.Boolean(v.DeletionProtection)), CopyTagsToSnapshot: new(api.Boolean(v.CopyTags)), BackupRetentionPeriod: new(api.Integer(0)), AutoMinorVersionUpgrade: new(api.Boolean(false)), IAMDatabaseAuthenticationEnabled: new(api.Boolean(false)), TagList: tagList(v.Tags)}
+	out := api.DBInstance{DBInstanceIdentifier: new(api.String(v.Key.Name)), DBInstanceArn: new(api.String(v.Key.ARN())), DbiResourceId: new(api.String("db-" + v.ResourceID)), DBInstanceClass: new(api.String(v.Class)), DBInstanceStatus: new(api.String(v.Status)), Engine: new(api.String(v.Engine)), EngineVersion: new(api.String(v.EngineVersion)), MasterUsername: new(api.String(v.Username)), InstanceCreateTime: new(api.TStamp(v.Created)), MultiAZ: new(api.Boolean(false)), StorageEncrypted: new(api.Boolean(false)), PubliclyAccessible: new(api.Boolean(false)), DeletionProtection: new(api.Boolean(v.DeletionProtection)), CopyTagsToSnapshot: new(api.Boolean(v.CopyTags)), BackupRetentionPeriod: new(api.Integer(0)), AutoMinorVersionUpgrade: new(api.Boolean(false)), IAMDatabaseAuthenticationEnabled: new(api.Boolean(false)), TagList: tagList(v.Tags)}
 	if v.DatabaseName != "" {
 		out.DBName = new(api.String(v.DatabaseName))
 	}
@@ -262,7 +296,7 @@ func instanceDTO(v Database) api.DBInstance {
 }
 
 func clusterDTO(v Database, members []Database) api.DBCluster {
-	out := api.DBCluster{DBClusterIdentifier: new(api.String(v.Key.Name)), DBClusterArn: new(api.String(v.Key.ARN())), DbClusterResourceId: new(api.String("cluster-" + v.RuntimeID)), Status: new(api.String(v.Status)), Engine: new(api.String(v.Engine)), EngineVersion: new(api.String(v.EngineVersion)), EngineMode: new(api.String("provisioned")), MasterUsername: new(api.String(v.Username)), ClusterCreateTime: new(api.TStamp(v.Created)), MultiAZ: new(api.BooleanOptional(false)), StorageEncrypted: new(api.Boolean(false)), DeletionProtection: new(api.BooleanOptional(v.DeletionProtection)), CopyTagsToSnapshot: new(api.BooleanOptional(v.CopyTags)), HttpEndpointEnabled: new(api.BooleanOptional(v.HTTPEnabled)), IAMDatabaseAuthenticationEnabled: new(api.BooleanOptional(false)), TagList: tagList(v.Tags)}
+	out := api.DBCluster{DBClusterIdentifier: new(api.String(v.Key.Name)), DBClusterArn: new(api.String(v.Key.ARN())), DbClusterResourceId: new(api.String("cluster-" + v.ResourceID)), Status: new(api.String(v.Status)), Engine: new(api.String(v.Engine)), EngineVersion: new(api.String(v.EngineVersion)), EngineMode: new(api.String("provisioned")), MasterUsername: new(api.String(v.Username)), ClusterCreateTime: new(api.TStamp(v.Created)), MultiAZ: new(api.BooleanOptional(false)), StorageEncrypted: new(api.Boolean(false)), DeletionProtection: new(api.BooleanOptional(v.DeletionProtection)), CopyTagsToSnapshot: new(api.BooleanOptional(v.CopyTags)), HttpEndpointEnabled: new(api.BooleanOptional(v.HTTPEnabled)), IAMDatabaseAuthenticationEnabled: new(api.BooleanOptional(false)), TagList: tagList(v.Tags)}
 	if v.DatabaseName != "" {
 		out.DatabaseName = new(api.String(v.DatabaseName))
 	}

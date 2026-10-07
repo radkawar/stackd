@@ -29,6 +29,7 @@ type Route53RecordSet struct {
 	MultiValue   bool
 	AliasZoneID  string
 	AliasDnsName string
+	CfnOwner     string
 }
 
 type Route53RecordValue struct {

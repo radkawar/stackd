@@ -1,6 +1,6 @@
 -- name: PutStack :exec
-INSERT INTO cloudformation_stacks (id, partition, account, region, name, status, status_reason, description, template, role_arn, operation_id, created, updated, deleted, parameters_present, tags_present, capabilities_present, outputs_present, imports_present, disable_rollback, termination_protection, event_sequence)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO cloudformation_stacks (id, partition, account, region, name, status, status_reason, description, template, role_arn, operation_id, created, updated, deleted, parameters_present, tags_present, capabilities_present, outputs_present, imports_present, disable_rollback, termination_protection, event_sequence, nested_owner, parent_id, root_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (id) DO UPDATE SET
     partition = excluded.partition,
     account = excluded.account,
@@ -22,7 +22,10 @@ ON CONFLICT (id) DO UPDATE SET
     imports_present = excluded.imports_present,
     disable_rollback = excluded.disable_rollback,
     termination_protection = excluded.termination_protection,
-    event_sequence = excluded.event_sequence;
+    event_sequence = excluded.event_sequence,
+    nested_owner = excluded.nested_owner,
+    parent_id = excluded.parent_id,
+    root_id = excluded.root_id;
 
 -- name: PutResource :exec
 INSERT INTO cloudformation_resources (stack_id, logical_id, type, physical_id, ref, token, generation, current, status, status_reason, deletion_policy, update_replace_policy, properties, event_properties, attributes, updated)

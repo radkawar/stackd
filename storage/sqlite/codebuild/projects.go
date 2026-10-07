@@ -33,6 +33,7 @@ func (r reader) project(row sqlcgen.CodebuildProject) (domain.ProjectRecord, err
 	out := domain.ProjectRecord{
 		Key:         domain.ProjectKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Name: row.ProjectName},
 		BuildNumber: row.BuildNumber,
+		Ownership:   row.Ownership,
 		Data: api.Project{
 			Arn: stringPointer[api.String](row.Arn), Name: stringPointer[api.ProjectName](row.Name),
 			AutoRetryLimit: integerPointer[api.WrapperInt](row.AutoRetryLimit), ConcurrentBuildLimit: integerPointer[api.WrapperInt](row.ConcurrentBuildLimit),
@@ -64,7 +65,8 @@ func (w writer) PutProject(v domain.ProjectRecord) error {
 	k, d := v.Key, v.Data
 	row := sqlcgen.PutProjectParams{
 		Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ProjectName: k.Name, BuildNumber: v.BuildNumber,
-		Arn: nullableString(d.Arn), Name: nullableString(d.Name), AutoRetryLimit: nullableInteger(d.AutoRetryLimit),
+		Ownership: v.Ownership,
+		Arn:       nullableString(d.Arn), Name: nullableString(d.Name), AutoRetryLimit: nullableInteger(d.AutoRetryLimit),
 		ConcurrentBuildLimit: nullableInteger(d.ConcurrentBuildLimit), Created: nullableTime(d.Created), Description: nullableString(d.Description),
 		EncryptionKey: nullableString(d.EncryptionKey), LastModified: nullableTime(d.LastModified), ProjectVisibility: nullableString(d.ProjectVisibility),
 		PublicProjectAlias: nullableString(d.PublicProjectAlias), QueuedTimeoutInMinutes: nullableInteger(d.QueuedTimeoutInMinutes),

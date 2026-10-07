@@ -138,6 +138,32 @@ func (s *Service) admitHosted(r Reader, in *api.CreateHostedConfigurationVersion
 // and KMS protection outside repository transactions, then commits only if
 // the profile's version sequence and encryption settings are unchanged.
 func (s *Service) createHostedVersion(ctx context.Context, in *api.CreateHostedConfigurationVersionInput) (*api.HostedConfigurationVersion, error) {
+	owner, owned, err := cloudFormationOwnership(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if owned {
+		// A recovered CloudFormation create observes its own committed version
+		// instead of publishing a second immutable version. The replay returns
+		// identity metadata; content remains readable through its Get command.
+		var replay *api.HostedConfigurationVersion
+		if err := s.repository.Attempt(ctx, func(tx Transaction) error {
+			v, found, err := s.ownedHostedVersion(tx, value(in.ApplicationId), value(in.ConfigurationProfileId), owner)
+			if err != nil || !found {
+				return err
+			}
+			replay = hostedOutput(v, nil)
+			return s.recordCall(tx.Context(), "CreateHostedConfigurationVersion", in, replay, nil)
+		}); err != nil {
+			return nil, err
+		}
+		if replay != nil {
+			return replay, nil
+		}
+	}
+	if target, ok := ctx.Value(cloudFormationTargetKey{}).(cloudFormationTarget); ok && target.Recover {
+		return nil, failure("ResourceNotFoundException", "This resource incarnation has no admitted native resource.")
+	}
 	var d hostedDraft
 	if err := s.repository.View(ctx, func(r Reader) error {
 		var err error
@@ -168,7 +194,7 @@ func (s *Service) createHostedVersion(ctx context.Context, in *api.CreateHostedC
 		}
 		content.Content = normalized
 	}
-	content, _, _, err := s.runExtensions(ctx, "PRE_CREATE_HOSTED_CONFIGURATION_VERSION", d.app, nil, &d.profile, content, nil)
+	content, _, _, err = s.runExtensions(ctx, "PRE_CREATE_HOSTED_CONFIGURATION_VERSION", d.app, nil, &d.profile, content, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +203,7 @@ func (s *Service) createHostedVersion(ctx context.Context, in *api.CreateHostedC
 	if len(content.Content) > hostedContentLimit {
 		return nil, hostedContentTooLarge(len(content.Content))
 	}
-	version := HostedVersion{Scope: sc, ApplicationID: d.app.ID, ProfileID: d.profile.ID, Number: d.number, Description: value(in.Description), ContentType: content.ContentType, VersionLabel: value(in.VersionLabel), Content: content.Content}
+	version := HostedVersion{Scope: sc, ApplicationID: d.app.ID, ProfileID: d.profile.ID, Number: d.number, Description: value(in.Description), ContentType: content.ContentType, VersionLabel: value(in.VersionLabel), Content: content.Content, Ownership: cloudFormationClaim(ctx, "hostedconfigurationversion")}
 	if d.profile.KMSKeyIdentifier != "" {
 		if s.effects == nil {
 			return nil, failure("BadRequestException", "KMS encryption is not configured")
@@ -197,6 +223,13 @@ func (s *Service) createHostedVersion(ctx context.Context, in *api.CreateHostedC
 		}
 		if current.profile.KMSKeyIdentifier != d.profile.KMSKeyIdentifier || current.profile.Type != d.profile.Type {
 			return failure("ConflictException", "The configuration profile changed while the hosted configuration version was being created.")
+		}
+		if owned {
+			if _, found, err := s.ownedHostedVersion(tx, value(in.ApplicationId), value(in.ConfigurationProfileId), owner); err != nil {
+				return err
+			} else if found {
+				return failure("ConflictException", "A hosted configuration version for this CloudFormation resource incarnation was created concurrently.")
+			}
 		}
 		if err := tx.PutHostedVersion(version); err != nil {
 			return err
@@ -246,7 +279,7 @@ func (s *Service) controlHostedVersion(r Reader, action string, app, profile str
 	if i < 0 {
 		return HostedVersion{}, hostedVersionMissing(sc, a.ID, p.ID, n)
 	}
-	return rows[i], nil
+	return rows[i], cloudFormationFenceClaim(r.Context(), resource, rows[i].Ownership)
 }
 
 // getHostedVersion decrypts KMS-protected content through the KMS owner
@@ -290,7 +323,11 @@ func (s *Service) deleteHostedVersion(tx Transaction, in *api.DeleteHostedConfig
 	if err != nil {
 		return nil, err
 	}
+	resource := hostedVersionARN(v.Scope, v.ApplicationID, v.ProfileID, v.Number)
 	if err := tx.DeleteHostedVersion(v.Scope, v.ApplicationID, v.ProfileID, v.Number); err != nil {
+		return nil, err
+	}
+	if err := tx.PutTags(v.Scope, resource, nil); err != nil {
 		return nil, err
 	}
 	return &api.Unit{}, nil

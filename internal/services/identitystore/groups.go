@@ -23,7 +23,10 @@ func (s *Service) createGroup(tx Transaction, in *api.CreateGroupInput) (*api.Cr
 	if name == "" || reservedName(name) {
 		return nil, bad("DisplayName is required and must not be reserved.")
 	}
-	if _, e := tx.GroupByName(store, name); e == nil {
+	if existing, e := tx.GroupByName(store, name); e == nil {
+		if owner := CloudFormationOwner(tx.Context()); owner != "" && existing.CloudFormationOwner == owner {
+			return &api.CreateGroupOutput{IdentityStoreId: in.IdentityStoreId, GroupId: new(api.ResourceId(existing.ID))}, nil
+		}
 		return nil, conflict("DisplayName already exists.")
 	} else if !errors.Is(e, ErrNotFound) {
 		return nil, e
@@ -32,7 +35,7 @@ func (s *Service) createGroup(tx Transaction, in *api.CreateGroupInput) (*api.Cr
 	if e != nil {
 		return nil, e
 	}
-	if e := tx.PutGroup(Group{StoreID: store, ID: id, DisplayName: name, Description: value(in.Description)}); e != nil {
+	if e := tx.PutGroup(Group{StoreID: store, ID: id, DisplayName: name, Description: value(in.Description), CloudFormationOwner: CloudFormationOwner(tx.Context())}); e != nil {
 		return nil, e
 	}
 	return &api.CreateGroupOutput{IdentityStoreId: in.IdentityStoreId, GroupId: new(api.ResourceId(id))}, nil
@@ -49,6 +52,9 @@ func (s *Service) describeGroup(tx Transaction, in *api.DescribeGroupInput) (*ap
 	if e != nil {
 		return nil, e
 	}
+	if e := CheckCloudFormationOwner(tx.Context(), g.CloudFormationOwner); e != nil {
+		return nil, e
+	}
 	out := api.DescribeGroupOutput(apiGroup(g))
 	return &out, nil
 }
@@ -57,7 +63,11 @@ func (s *Service) deleteGroup(tx Transaction, in *api.DeleteGroupInput) (*api.De
 	if e := s.admit(tx, "DeleteGroup", store, "", id, ""); e != nil {
 		return nil, e
 	}
-	if _, e := tx.Group(Key{store, id}); e != nil {
+	g, e := tx.Group(Key{store, id})
+	if e != nil {
+		return nil, e
+	}
+	if e := CheckCloudFormationOwner(tx.Context(), g.CloudFormationOwner); e != nil {
 		return nil, e
 	}
 	return &api.DeleteGroupOutput{}, tx.DeleteGroup(Key{store, id})

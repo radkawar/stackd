@@ -216,6 +216,7 @@ type IamCredential struct {
 	CredentialRequestParentEventID         string
 	CredentialInScopeOfIssuerType          string
 	CredentialInScopeOfCredentialsIssuedTo string
+	CfnOwner                               string
 }
 
 type IamCredentialReport struct {
@@ -273,6 +274,7 @@ type IamGroup struct {
 	GroupID     string
 	Arn         string
 	CreateDate  time.Time
+	CfnOwner    string
 }
 
 type IamGroupAttached struct {
@@ -280,6 +282,7 @@ type IamGroupAttached struct {
 	Account     string
 	ResourceKey string
 	Entry1      string
+	CfnOwner    string
 }
 
 type IamGroupInline struct {
@@ -288,6 +291,7 @@ type IamGroupInline struct {
 	ResourceKey string
 	Entry1      string
 	Value       string
+	CfnOwner    string
 }
 
 type IamGroupMember struct {
@@ -295,6 +299,14 @@ type IamGroupMember struct {
 	Account     string
 	ResourceKey string
 	Entry1      string
+	CfnOwner    string
+}
+
+type IamGroupMembershipClaim struct {
+	Partition   string
+	Account     string
+	ResourceKey string
+	Owner       string
 }
 
 type IamInstanceProfile struct {
@@ -307,6 +319,7 @@ type IamInstanceProfile struct {
 	Arn                 string
 	RoleID              string
 	CreateDate          time.Time
+	CfnOwner            string
 }
 
 type IamInstanceProfileTag struct {
@@ -359,6 +372,7 @@ type IamManagedPolicy struct {
 	IsAttachable                  bool
 	CreateDate                    time.Time
 	UpdateDate                    time.Time
+	CfnOwner                      string
 }
 
 type IamManagedPolicyTag struct {
@@ -397,6 +411,7 @@ type IamMfaDevice struct {
 	BindingVisibleValueUserID    string
 	BindingValueSkewSteps        int64
 	BindingVisibleValueSkewSteps int64
+	CfnOwner                     string
 }
 
 type IamMfaDeviceBindingPending struct {
@@ -436,6 +451,7 @@ type IamOidcProvider struct {
 	ID          string
 	Url         string
 	CreatedAt   time.Time
+	CfnOwner    string
 }
 
 type IamOidcProviderClientID struct {
@@ -495,6 +511,7 @@ type IamRole struct {
 	MaxSessionDuration             int64
 	IdentityCenterInstanceArn      string
 	IdentityCenterPermissionSetArn string
+	CfnOwner                       string
 }
 
 type IamRoleAttached struct {
@@ -502,6 +519,7 @@ type IamRoleAttached struct {
 	Account     string
 	ResourceKey string
 	Entry1      string
+	CfnOwner    string
 }
 
 type IamRoleInline struct {
@@ -510,6 +528,7 @@ type IamRoleInline struct {
 	ResourceKey string
 	Entry1      string
 	Value       string
+	CfnOwner    string
 }
 
 type IamRolePermissionsBoundary struct {
@@ -572,6 +591,7 @@ type IamSamlProvider struct {
 	AssertionEncryptionMode string
 	CreatedAt               time.Time
 	ValidUntil              time.Time
+	CfnOwner                string
 }
 
 type IamSamlProviderIssuer struct {
@@ -629,6 +649,7 @@ type IamServerCertificate struct {
 	UploadDate     time.Time
 	Expiration     time.Time
 	TaggingInvalid bool
+	CfnOwner       string
 }
 
 type IamServerCertificateTag struct {
@@ -724,6 +745,7 @@ type IamUser struct {
 	Arn              string
 	CreateDate       time.Time
 	PasswordLastUsed *time.Time
+	CfnOwner         string
 }
 
 type IamUserAttached struct {
@@ -731,6 +753,7 @@ type IamUserAttached struct {
 	Account     string
 	ResourceKey string
 	Entry1      string
+	CfnOwner    string
 }
 
 type IamUserInline struct {
@@ -739,6 +762,7 @@ type IamUserInline struct {
 	ResourceKey string
 	Entry1      string
 	Value       string
+	CfnOwner    string
 }
 
 type IamUserPermissionsBoundary struct {

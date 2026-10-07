@@ -70,6 +70,9 @@ func (s *Service) putRule(ctx context.Context, in *api.PutRuleInput) (out *api.P
 		if err := s.authorizeRule(tx, "PutRule", old, conditions); err != nil {
 			return err
 		}
+		if err := cloudFormationRuleCheck(tx.Context(), old, foundErr == nil); err != nil {
+			return err
+		}
 		if old.ManagedBy != "" {
 			return managedRuleError(old, false)
 		}
@@ -92,6 +95,10 @@ func (s *Service) putRule(ctx context.Context, in *api.PutRuleInput) (out *api.P
 		}
 		rule := RuleRecord{Key: k, Pattern: value(in.EventPattern), Description: value(in.Description), State: state, CreatedBy: old.CreatedBy, RoleARN: value(in.RoleArn), Tags: tags,
 			ScheduleExpression: value(in.ScheduleExpression), HasPattern: in.EventPattern != nil, HasDescription: in.Description != nil, HasScheduleExpression: in.ScheduleExpression != nil}
+		rule.CFNOwner = old.CFNOwner
+		if foundErr != nil {
+			rule.CFNOwner = cloudFormationClaim(tx.Context(), "Rule")
+		}
 		if state != "DISABLED" && rule.ScheduleExpression != "" {
 			if foundErr == nil && old.State != "DISABLED" && old.ScheduleExpression == rule.ScheduleExpression {
 				rule.NextSchedule = old.NextSchedule
@@ -160,9 +167,16 @@ func (s *Service) deleteRule(ctx context.Context, in *api.DeleteRuleInput) (out 
 		if err != nil && !errors.Is(err, ErrNotFound) {
 			return err
 		}
+		found := err == nil
 		rule.Key = k
 		if err := s.authorizeRule(tx, "DeleteRule", rule, nil); err != nil {
 			return err
+		}
+		if err := cloudFormationRuleCheck(tx.Context(), rule, found); err != nil {
+			return err
+		}
+		if !found && cloudFormationClaim(tx.Context(), "Rule") != "" {
+			return ErrNotFound // Controller deletion observes absence; it never acts on a successor.
 		}
 		if rule.ManagedBy != "" && (in.Force == nil || !bool(*in.Force)) {
 			return managedRuleError(rule, true)

@@ -8,16 +8,19 @@ SELECT * FROM opensearch_domain WHERE partition = sqlc.arg(partition) AND accoun
 SELECT * FROM opensearch_domain ORDER BY partition, account_id, region, name;
 
 -- name: PutDomain :exec
+-- Ownership is written only by the inserting CreateDomain transaction; later
+-- domain writes cannot reassign the private CloudFormation incarnation claim.
 INSERT INTO opensearch_domain (
  partition, account_id, region, name, incarnation, engine_version, status,
  native_endpoint, last_error, access_policy, instance_type, instance_count,
- created, updated, due, version, config_version
+ created, updated, due, version, config_version, ownership
 ) VALUES (
  sqlc.arg(partition), sqlc.arg(account_id), sqlc.arg(region), sqlc.arg(name),
  sqlc.arg(incarnation), sqlc.arg(engine_version), sqlc.arg(status),
  sqlc.arg(native_endpoint), sqlc.arg(last_error), sqlc.arg(access_policy),
  sqlc.arg(instance_type), sqlc.arg(instance_count), sqlc.arg(created),
- sqlc.arg(updated), sqlc.arg(due), sqlc.arg(version), sqlc.arg(config_version)
+ sqlc.arg(updated), sqlc.arg(due), sqlc.arg(version), sqlc.arg(config_version),
+ sqlc.arg(ownership)
 ) ON CONFLICT (partition, account_id, region, name) DO UPDATE SET
  incarnation = excluded.incarnation, engine_version = excluded.engine_version,
  status = excluded.status, native_endpoint = excluded.native_endpoint,

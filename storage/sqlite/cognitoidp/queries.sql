@@ -281,3 +281,67 @@ ON CONFLICT(partition,account_id,region,pool_id,username,kind) DO UPDATE SET exp
 
 -- name: DeleteEmailCode :exec
 DELETE FROM cognitoidp_email_codes WHERE partition=? AND account_id=? AND region=? AND pool_id=? AND username=? AND kind=?;
+
+-- name: ListClientsByIDInPartition :many
+SELECT * FROM cognitoidp_clients WHERE partition = ? AND client_id = ? ORDER BY region, account_id;
+
+-- name: GetPoolByDomain :one
+SELECT * FROM cognitoidp_pools WHERE partition = ? AND region = ? AND domain = ?;
+
+-- name: GetResourceOwner :one
+SELECT * FROM cognitoidp_resource_owners WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND kind = ? AND name = ?;
+
+-- name: GetPoolResourceOwner :one
+SELECT * FROM cognitoidp_resource_owners WHERE partition = ? AND account_id = ? AND region = ? AND kind = 'pool' AND stack_id = ? AND logical_id = ? AND token = ?;
+
+-- name: PutResourceOwner :exec
+INSERT INTO cognitoidp_resource_owners (
+ partition, account_id, region, pool_id, kind, name, physical_id, member_user, member_group, stack_id, logical_id, token
+) VALUES (
+ ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+)
+ON CONFLICT (partition, account_id, region, pool_id, kind, name) DO UPDATE SET
+ physical_id = excluded.physical_id,
+ member_user = excluded.member_user,
+ member_group = excluded.member_group,
+ stack_id = excluded.stack_id,
+ logical_id = excluded.logical_id,
+ token = excluded.token;
+
+-- name: DeleteResourceOwner :exec
+DELETE FROM cognitoidp_resource_owners WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND kind = ? AND name = ?;
+
+-- name: DeleteResourceOwnersByPhysicalID :exec
+DELETE FROM cognitoidp_resource_owners WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND kind = ? AND physical_id = ?;
+
+-- name: DeleteMembershipOwnersByUser :exec
+DELETE FROM cognitoidp_resource_owners WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND kind = 'membership' AND member_user = ?;
+
+-- name: DeleteMembershipOwnersByGroup :exec
+DELETE FROM cognitoidp_resource_owners WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND kind = 'membership' AND member_group = ?;
+
+-- name: DeleteMembershipOwner :exec
+DELETE FROM cognitoidp_resource_owners WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND kind = 'membership' AND member_user = ? AND member_group = ?;
+
+-- name: GetIdentityProvider :one
+SELECT * FROM cognitoidp_identity_providers WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND provider_name = ?;
+
+-- name: ListIdentityProviders :many
+SELECT * FROM cognitoidp_identity_providers WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? ORDER BY provider_name;
+
+-- name: PutIdentityProvider :exec
+INSERT INTO cognitoidp_identity_providers (
+ partition, account_id, region, pool_id, provider_name, provider_type, provider_details, attribute_mapping, idp_identifiers, creation_date, last_modified_date
+) VALUES (
+ ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+)
+ON CONFLICT (partition, account_id, region, pool_id, provider_name) DO UPDATE SET
+ provider_type = excluded.provider_type,
+ provider_details = excluded.provider_details,
+ attribute_mapping = excluded.attribute_mapping,
+ idp_identifiers = excluded.idp_identifiers,
+ creation_date = excluded.creation_date,
+ last_modified_date = excluded.last_modified_date;
+
+-- name: DeleteIdentityProvider :exec
+DELETE FROM cognitoidp_identity_providers WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND provider_name = ?;

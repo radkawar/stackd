@@ -8,6 +8,7 @@ import (
 
 	api "stackd/internal/awsapi/sns"
 	"stackd/internal/services/cloudformation"
+	"stackd/internal/services/sns"
 )
 
 type cfnSNSTopic struct{ commands StepFunctionsCommands }
@@ -201,18 +202,7 @@ func (h cfnSNSTopic) Create(ctx context.Context, r cloudformation.ResourceReques
 	if name == "" {
 		name = cfnMessagingName(r, 256, p.fifo())
 	}
-	arn := fmt.Sprintf("arn:%s:sns:%s:%s:%s", r.Scope.Partition, r.Scope.Region, r.Scope.Account, name)
-	tags, err := h.tags(ctx, arn)
-	if err == nil {
-		if err := cfnMessagingOwned(tags, r); err != nil {
-			return cloudformation.ResourceResult{}, err
-		}
-		return h.result(arn), h.subscriptions(ctx, r, arn, p.Subscription, nil)
-	}
-	if !cfnMessagingMissing(err, "ResourceNotFound", "NotFound") {
-		return cloudformation.ResourceResult{}, err
-	}
-	tags, err = cfnMessagingTags(r, p.Tags)
+	tags, err := cfnSNSTopicTags(r, p.Tags)
 	if err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
@@ -220,11 +210,24 @@ func (h cfnSNSTopic) Create(ctx context.Context, r cloudformation.ResourceReques
 	if err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
+	ctx = sns.WithCloudFormationTopicClaim(ctx, cfnSNSTopicClaim(r))
 	out, err := cfnMessagingCall[api.CreateTopicOutput](ctx, h.commands, "sns", "CreateTopic", &api.CreateTopicInput{Name: new(api.TopicName(name)), Attributes: attrs, Tags: cfnSNSNativeTags(tags)})
 	if err != nil {
+		recovered, recoveryErr := h.RecoverCreation(ctx, r)
+		if recoveryErr == nil {
+			return recovered, err
+		}
 		return cloudformation.ResourceResult{}, err
 	}
-	arn = string(*out.TopicArn)
+	arn := string(*out.TopicArn)
+	r.PhysicalID = arn
+	claim := cfnSNSTopicClaim(r)
+	_, observation, err := h.observe(ctx, arn)
+	if err != nil {
+		return h.result(arn), err
+	}
+	claim.Incarnation = observation.Incarnation
+	ctx = sns.WithCloudFormationTopicClaim(ctx, claim)
 	return h.result(arn), h.subscriptions(ctx, r, arn, p.Subscription, nil)
 }
 func (h cfnSNSTopic) Update(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
@@ -243,11 +246,12 @@ func (h cfnSNSTopic) Update(ctx context.Context, r cloudformation.ResourceReques
 	if err := cfnMessagingDecode(r.Properties, &next); err != nil {
 		return result, err
 	}
-	tags, err := h.tags(ctx, r.PhysicalID)
+	ctx, err = h.ownedContext(ctx, r)
 	if err != nil {
 		return result, err
 	}
-	if err := cfnMessagingOwned(tags, r); err != nil {
+	tags, err := h.tags(ctx, r.PhysicalID)
+	if err != nil {
 		return result, err
 	}
 	attrs, err := next.attributes(false)
@@ -274,16 +278,14 @@ func (h cfnSNSTopic) Update(ctx context.Context, r cloudformation.ResourceReques
 	if err := h.subscriptions(ctx, r, r.PhysicalID, next.Subscription, old.Subscription); err != nil {
 		return result, err
 	}
-	wanted, err := cfnMessagingTags(r, next.Tags)
+	wanted, err := cfnSNSTopicTags(r, next.Tags)
 	if err != nil {
 		return result, err
 	}
 	var remove []string
 	for k := range tags {
-		if !strings.HasPrefix(k, "stackd:cloudformation:") {
-			if _, ok := wanted[k]; !ok {
-				remove = append(remove, k)
-			}
+		if _, ok := wanted[k]; !ok {
+			remove = append(remove, k)
 		}
 	}
 	if len(remove) > 0 {
@@ -297,15 +299,20 @@ func (h cfnSNSTopic) Update(ctx context.Context, r cloudformation.ResourceReques
 	return result, nil
 }
 func (h cfnSNSTopic) Delete(ctx context.Context, r cloudformation.ResourceRequest) error {
-	tags, err := h.tags(ctx, r.PhysicalID)
+	if r.PhysicalID == "" {
+		return fmt.Errorf("topic deletion requires a physical identifier")
+	}
+	ctx, err := h.ownedContext(ctx, r)
 	if cfnMessagingMissing(err, "ResourceNotFound", "NotFound") {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	if err := cfnMessagingOwned(tags, r); err != nil {
-		return err
+	if r.CloudControl {
+		if _, _, err := h.observe(ctx, r.PhysicalID); err != nil {
+			return err
+		}
 	}
 	out, err := cfnMessagingCall[api.GetTopicAttributesOutput](ctx, h.commands, "sns", "GetTopicAttributes", &api.GetTopicAttributesInput{TopicArn: new(api.TopicARN(r.PhysicalID))})
 	if err != nil {

@@ -46,6 +46,10 @@ class LambdaProof(Proof):
         self.function = self.mapping = None
         self.group = self.prefix + '-lambda'
 
+    def controller_command(self):
+        return super().controller_command() + [
+            '-lambda-runtime', '-lambda-telemetry-directory', self.args.telemetry_directory]
+
     def mapping_state(self, state):
         row = self.functions.get_event_source_mapping(UUID=self.mapping)
         return row if row['State'] == state else None

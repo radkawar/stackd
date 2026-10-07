@@ -2,8 +2,8 @@
 SELECT * FROM ecr_repositories WHERE partition = ? AND account_id = ? AND region = ? AND name = ?;
 
 -- name: PutRepository :exec
-INSERT INTO ecr_repositories (partition,account_id,region,name,arn,created,mutability,exclusions,tags,policy,policy_principals,encryption_type,kms_key_id,data_key,grants,grant_tokens,scan_on_push,lifecycle_policy,lifecycle_due,lifecycle_evaluated,preview_policy,preview_status,preview_results,preview_expires) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-ON CONFLICT (partition,account_id,region,name) DO UPDATE SET arn=excluded.arn,created=excluded.created,mutability=excluded.mutability,exclusions=excluded.exclusions,tags=excluded.tags,policy=excluded.policy,policy_principals=excluded.policy_principals,encryption_type=excluded.encryption_type,kms_key_id=excluded.kms_key_id,data_key=excluded.data_key,grants=excluded.grants,grant_tokens=excluded.grant_tokens,scan_on_push=excluded.scan_on_push,lifecycle_policy=excluded.lifecycle_policy,lifecycle_due=excluded.lifecycle_due,lifecycle_evaluated=excluded.lifecycle_evaluated,preview_policy=excluded.preview_policy,preview_status=excluded.preview_status,preview_results=excluded.preview_results,preview_expires=excluded.preview_expires;
+INSERT INTO ecr_repositories (partition,account_id,region,name,arn,created,mutability,exclusions,tags,policy,policy_principals,encryption_type,kms_key_id,data_key,grants,grant_tokens,scan_on_push,lifecycle_policy,lifecycle_due,lifecycle_evaluated,preview_policy,preview_status,preview_results,preview_expires,ownership) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+ON CONFLICT (partition,account_id,region,name) DO UPDATE SET arn=excluded.arn,created=excluded.created,mutability=excluded.mutability,exclusions=excluded.exclusions,tags=excluded.tags,policy=excluded.policy,policy_principals=excluded.policy_principals,encryption_type=excluded.encryption_type,kms_key_id=excluded.kms_key_id,data_key=excluded.data_key,grants=excluded.grants,grant_tokens=excluded.grant_tokens,scan_on_push=excluded.scan_on_push,lifecycle_policy=excluded.lifecycle_policy,lifecycle_due=excluded.lifecycle_due,lifecycle_evaluated=excluded.lifecycle_evaluated,preview_policy=excluded.preview_policy,preview_status=excluded.preview_status,preview_results=excluded.preview_results,preview_expires=excluded.preview_expires,ownership=excluded.ownership;
 
 -- name: DeleteRepository :exec
 DELETE FROM ecr_repositories WHERE partition = ? AND account_id = ? AND region = ? AND name = ?;
@@ -12,8 +12,8 @@ DELETE FROM ecr_repositories WHERE partition = ? AND account_id = ? AND region =
 SELECT * FROM ecr_registries WHERE partition = ? AND account_id = ? AND region = ?;
 
 -- name: PutRegistry :exec
-INSERT INTO ecr_registries (partition,account_id,region,policy,policy_principals,scanning,replication) VALUES (?,?,?,?,?,?,?)
-ON CONFLICT (partition,account_id,region) DO UPDATE SET policy=excluded.policy,policy_principals=excluded.policy_principals,scanning=excluded.scanning,replication=excluded.replication;
+INSERT INTO ecr_registries (partition,account_id,region,policy,policy_principals,scanning,replication,policy_ownership,replication_ownership,scanning_ownership) VALUES (?,?,?,?,?,?,?,?,?,?)
+ON CONFLICT (partition,account_id,region) DO UPDATE SET policy=excluded.policy,policy_principals=excluded.policy_principals,scanning=excluded.scanning,replication=excluded.replication,policy_ownership=excluded.policy_ownership,replication_ownership=excluded.replication_ownership,scanning_ownership=excluded.scanning_ownership;
 
 -- name: GetImage :one
 SELECT * FROM ecr_images WHERE partition = ? AND account_id = ? AND region = ? AND repository = ? AND digest = ?;

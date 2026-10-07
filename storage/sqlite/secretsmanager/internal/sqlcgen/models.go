@@ -103,6 +103,19 @@ type SecretsmanagerSecret struct {
 	NextRotation            sql.NullTime
 	RotationDue             sql.NullTime
 	PrimaryRegion           string
+	CfnOwner                string
+	CfnToken                string
+	PolicyOwner             string
+	PolicyToken             string
+	RotationOwner           string
+	RotationToken           string
+	AttachmentOwner         string
+	AttachmentToken         string
+	AttachmentEngine        string
+	AttachmentHost          string
+	AttachmentPort          float64
+	AttachmentDbInstance    string
+	AttachmentDbCluster     string
 }
 
 type SecretsmanagerTag struct {

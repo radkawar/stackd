@@ -226,17 +226,33 @@ func (s *Service) changeResourceRecordSets(tx Transaction, in *api.ChangeResourc
 			return nil, invalid("Alias target is unavailable: " + e.Error())
 		}
 	}
+	binding := cloudFormationOwnership(tx.Context())
+	stamp := binding != nil && binding.claim != ""
 	deleted := map[string]bool{}
 	for i, r := range records {
 		key := recordKey(r)
 		index := slices.IndexFunc(z.Records, func(existing RecordSet) bool { return recordKey(existing) == key })
 		switch actions[i] {
 		case "CREATE":
-			if index >= 0 {
+			if stamp {
+				r.Owner = binding.claim
+			}
+			if index < 0 {
+				z.Records = append(z.Records, r)
+			} else if stamp && z.Records[index].Owner == binding.claim {
+				z.Records[index] = r
+			} else {
 				return nil, invalid("The resource record set already exists.")
 			}
-			z.Records = append(z.Records, r)
 		case "UPSERT":
+			if stamp {
+				if index >= 0 && binding.enforce && z.Records[index].Owner != binding.claim {
+					return nil, invalid("The resource record set belongs to another CloudFormation resource.")
+				}
+				r.Owner = binding.claim
+			} else if index >= 0 {
+				r.Owner = z.Records[index].Owner
+			}
 			if index < 0 {
 				z.Records = append(z.Records, r)
 			} else {
@@ -247,7 +263,14 @@ func (s *Service) changeResourceRecordSets(tx Transaction, in *api.ChangeResourc
 				return nil, invalid("A record set cannot be deleted twice in one batch.")
 			}
 			deleted[key] = true
-			if index < 0 || !recordEqual(z.Records[index], r) {
+			if index < 0 {
+				return nil, invalid("DELETE must match the existing record set, including TTL and all values.")
+			}
+			if stamp {
+				if binding.enforce && z.Records[index].Owner != binding.claim {
+					return nil, invalid("The resource record set belongs to another CloudFormation resource.")
+				}
+			} else if !recordEqual(z.Records[index], r) {
 				return nil, invalid("DELETE must match the existing record set, including TTL and all values.")
 			}
 			if r.Name == z.Name && (r.Type == "NS" || r.Type == "SOA") {
@@ -300,6 +323,7 @@ func (s *Service) listResourceRecordSets(tx Transaction, in *api.ListResourceRec
 	if e != nil {
 		return nil, e
 	}
+	cloudFormationOwnership(tx.Context()).observe(z)
 	n, e := pageSize(in.MaxItems)
 	if e != nil {
 		return nil, e

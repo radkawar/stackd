@@ -215,11 +215,11 @@ INSERT INTO ebs_snapshot_shares (partition, account_id, region, snapshot_id, rec
 VALUES (?, ?, ?, ?, ?, ?, ?);
 
 -- name: GetSnapshotPublicAccess :one
-SELECT state FROM ebs_snapshot_public_access WHERE partition = ? AND account_id = ? AND region = ?;
+SELECT state, owner_stack_id, owner_logical_id, owner_token FROM ebs_snapshot_public_access WHERE partition = ? AND account_id = ? AND region = ?;
 
 -- name: PutSnapshotPublicAccess :exec
-INSERT INTO ebs_snapshot_public_access (partition, account_id, region, state) VALUES (?, ?, ?, ?)
-ON CONFLICT(partition, account_id, region) DO UPDATE SET state = excluded.state;
+INSERT INTO ebs_snapshot_public_access (partition, account_id, region, state, owner_stack_id, owner_logical_id, owner_token) VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(partition, account_id, region) DO UPDATE SET state = excluded.state, owner_stack_id = excluded.owner_stack_id, owner_logical_id = excluded.owner_logical_id, owner_token = excluded.owner_token;
 
 -- name: ListSharedTags :many
 SELECT key, value FROM ebs_snapshot_shared_tags
@@ -385,3 +385,21 @@ WHERE partition = ? AND account_id = ? AND region = ? AND volume_id = ?;
 -- name: PutVolumeModificationStart :exec
 INSERT INTO ebs_volume_modification_starts (partition, account_id, region, volume_id, position, started)
 VALUES (?, ?, ?, ?, ?, ?);
+
+-- name: GetCloudFormationClaim :one
+SELECT resource_type, owner FROM ebs_cloudformation_claims
+WHERE partition = ? AND account_id = ? AND region = ? AND resource_id = ?;
+
+-- name: PutCloudFormationClaim :exec
+INSERT INTO ebs_cloudformation_claims (partition, account_id, region, resource_id, resource_type, owner)
+VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT(partition, account_id, region, resource_id) DO NOTHING;
+
+-- name: GetCloudFormationCreation :one
+SELECT resource_id FROM ebs_cloudformation_creations
+WHERE partition = ? AND account_id = ? AND region = ? AND resource_type = ? AND owner = ?;
+
+-- name: PutCloudFormationCreation :exec
+INSERT INTO ebs_cloudformation_creations (partition, account_id, region, resource_type, owner, resource_id)
+VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT(partition, account_id, region, resource_type, owner) DO NOTHING;

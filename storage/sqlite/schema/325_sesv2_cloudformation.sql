@@ -1,0 +1,1 @@
+ALTER TABLE sesv2_templates ADD COLUMN cfn_owner TEXT NOT NULL DEFAULT '';

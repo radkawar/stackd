@@ -23,7 +23,7 @@ func (s *Service) registerPolicyOperations() {
 			return nil, err
 		}
 		p, ok := o.policies[inputString(in.PolicyId)]
-		if !ok {
+		if !ok || !claimVisible(r, p.CloudFormationOwner) {
 			return nil, failure("PolicyNotFoundException", "The policy does not exist.")
 		}
 		return &api.DescribePolicyOutput{Policy: new(p.api())}, nil
@@ -36,6 +36,9 @@ func (s *Service) registerPolicyOperations() {
 		p, ok := o.policies[inputString(in.PolicyId)]
 		if !ok {
 			return nil, failure("PolicyNotFoundException", "The policy does not exist.")
+		}
+		if err := claimMutation(r, p.CloudFormationOwner); err != nil {
+			return nil, err
 		}
 		if p.PolicySummary.AWSManaged {
 			return nil, failure("InvalidInputException", "IMMUTABLE_POLICY: AWS managed policies cannot be deleted.")
@@ -82,6 +85,20 @@ func (s *operationState) createPolicy(r *http.Request, in *api.CreatePolicyInput
 	if o.organization.FeatureSet != "ALL" {
 		return nil, failure("ConstraintViolationException", "ORGANIZATION_NOT_IN_ALL_FEATURES_MODE")
 	}
+	// A controller replay of the same incarnation observes its committed
+	// policy, even after a native rename; it never adopts a same-name policy.
+	owner := cloudFormationClaim(r)
+	if owner != "" {
+		for _, p := range o.policies {
+			if p.CloudFormationOwner != owner {
+				continue
+			}
+			if p.PolicySummary.Type != inputString(in.Type) {
+				return nil, failure("DuplicatePolicyException", "This CloudFormation incarnation already owns another policy.")
+			}
+			return &api.CreatePolicyOutput{Policy: new(p.api())}, nil
+		}
+	}
 	count := 0
 	for _, p := range o.policies {
 		if p.PolicySummary.Type == inputString(in.Type) && p.PolicySummary.Name == inputString(in.Name) {
@@ -102,7 +119,7 @@ func (s *operationState) createPolicy(r *http.Request, in *api.CreatePolicyInput
 		return nil, err
 	}
 	id := s.createdResourceID
-	p := policy{Content: inputString(in.Content), PolicySummary: policySummary{ID: id, ARN: o.arn(awsctx.FromContext(r.Context()).Partition, "policy", strings.ToLower(inputString(in.Type))+"/"+id), Name: inputString(in.Name), Description: inputString(in.Description), Type: inputString(in.Type)}}
+	p := policy{Content: inputString(in.Content), PolicySummary: policySummary{ID: id, ARN: o.arn(awsctx.FromContext(r.Context()).Partition, "policy", strings.ToLower(inputString(in.Type))+"/"+id), Name: inputString(in.Name), Description: inputString(in.Description), Type: inputString(in.Type)}, CloudFormationOwner: owner}
 	o.policies[id] = p
 	o.tags[id] = tags
 	return &api.CreatePolicyOutput{Policy: new(p.api())}, nil
@@ -116,6 +133,9 @@ func (s *operationState) updatePolicy(r *http.Request, in *api.UpdatePolicyInput
 	p, ok := o.policies[inputString(in.PolicyId)]
 	if !ok {
 		return nil, failure("PolicyNotFoundException", "The policy does not exist.")
+	}
+	if err := claimMutation(r, p.CloudFormationOwner); err != nil {
+		return nil, err
 	}
 	if p.PolicySummary.AWSManaged {
 		return nil, failure("InvalidInputException", "IMMUTABLE_POLICY: AWS managed policies cannot be modified.")
@@ -160,6 +180,9 @@ func (s *operationState) changeAttachment(r *http.Request, policyID, targetID st
 	p, ok := o.policies[policyID]
 	if !ok {
 		return failure("PolicyNotFoundException", "The policy does not exist.")
+	}
+	if err := claimMutation(r, p.CloudFormationOwner); err != nil {
+		return err
 	}
 	if !o.targetExists(targetID) {
 		return failure("TargetNotFoundException", "The target does not exist.")
@@ -208,7 +231,7 @@ func (s *operationState) listPolicies(r *http.Request, in paginationInput, filte
 	}
 	items := make(api.Policies, 0)
 	for id, p := range o.policies {
-		if p.PolicySummary.Type == filter && (target == "" || slices.Contains(o.attachments[target], id)) {
+		if p.PolicySummary.Type == filter && (target == "" || slices.Contains(o.attachments[target], id)) && claimVisible(r, p.CloudFormationOwner) {
 			items = append(items, p.PolicySummary.api())
 		}
 	}
@@ -220,7 +243,7 @@ func (s *operationState) listTargets(r *http.Request, in *api.ListTargetsForPoli
 	if err != nil {
 		return nil, err
 	}
-	if _, ok := o.policies[inputString(in.PolicyId)]; !ok {
+	if p, ok := o.policies[inputString(in.PolicyId)]; !ok || !claimVisible(r, p.CloudFormationOwner) {
 		return nil, failure("PolicyNotFoundException", "The policy does not exist.")
 	}
 	items := make(api.PolicyTargets, 0)

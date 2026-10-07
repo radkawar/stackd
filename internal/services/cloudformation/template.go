@@ -404,11 +404,10 @@ func parseTemplateResource(entry map[string]any, path string) (TemplateResource,
 		return r, fmt.Errorf("%s.Type %q is unsupported", path, r.Type)
 	}
 	for _, key := range []string{"DeletionPolicy", "UpdateReplacePolicy"} {
-		if raw, exists := entry[key]; exists && raw != "Delete" && raw != "Retain" {
+		if raw, exists := entry[key]; exists && raw != "Delete" && raw != "Retain" && raw != "Snapshot" {
 			if key == "DeletionPolicy" && raw == "RetainExceptOnCreate" {
 				continue
 			}
-			// TODO: Comeback: implement resource snapshots before admitting Snapshot policies.
 			return r, fmt.Errorf("%s.%s policy %q is unsupported", path, key, raw)
 		}
 	}
@@ -611,6 +610,18 @@ func (t *Template) ValidateHandlers(handlers map[string]ResourceHandler) error {
 		if handler == nil {
 			// TODO: Comeback: add typed resource handlers rather than accepting unsupported resource effects.
 			return fmt.Errorf("resource %s has unsupported type %s", name, resource.Type)
+		}
+		for _, policy := range []string{resource.DeletionPolicy, resource.UpdateReplacePolicy} {
+			if policy != "Snapshot" {
+				continue
+			}
+			validator, ok := handler.(ResourceDeletionPolicyValidator)
+			if !ok {
+				return fmt.Errorf("resource %s does not support Snapshot deletion", name)
+			}
+			if err := validator.ValidateDeletionPolicy(policy); err != nil {
+				return fmt.Errorf("resource %s: %w", name, err)
+			}
 		}
 		if !templateHasIntrinsic(map[string]any(resource.Properties)) {
 			if err := handler.Validate(resource.Properties); err != nil {

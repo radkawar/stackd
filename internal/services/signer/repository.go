@@ -26,6 +26,8 @@ type Profile struct {
 	RevocationReason, RevokedBy            string
 	Certificate, PrivateKey                []byte
 	Tags                                   map[string]string
+	// Owner is private native authority for one CloudFormation incarnation.
+	Owner string
 }
 type Job struct {
 	Scope

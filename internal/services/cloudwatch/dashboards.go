@@ -58,6 +58,11 @@ func (s *Service) putDashboard(tx Transaction, in *api.PutDashboardInput) (*api.
 		return nil, wireError(err)
 	}
 	creating := errors.Is(err, ErrNotFound)
+	owner, ownerWire := cloudFormationClaim(tx.Context(), record.CFNOwner, !creating)
+	if ownerWire != nil {
+		return nil, ownerWire
+	}
+	record.CFNOwner = owner
 	var requested map[string]string
 	if creating {
 		record.Key = key
@@ -109,6 +114,7 @@ func (s *Service) getDashboard(tx Transaction, in *api.GetDashboardInput) (*api.
 	if errors.Is(err, ErrNotFound) {
 		return nil, &awswire.Error{Code: "ResourceNotFound", Message: "Dashboard " + name + " does not exist", StatusCode: 404}
 	}
+	observeCloudFormation(tx.Context(), "Dashboard", name, record.CFNOwner)
 	return &api.GetDashboardOutput{
 		DashboardArn: new(api.DashboardArn(key.ARN())), DashboardName: new(api.DashboardName(name)), DashboardBody: new(api.DashboardBody(record.Body)),
 	}, nil
@@ -183,6 +189,11 @@ func (s *Service) deleteDashboards(tx Transaction, in *api.DeleteDashboardsInput
 		if err != nil && !errors.Is(err, ErrNotFound) {
 			return nil, wireError(err)
 		}
+		if err == nil {
+			if w := cloudFormationOwned(tx.Context(), record.CFNOwner); w != nil {
+				return nil, w
+			}
+		}
 		if w := s.authorizeDashboard(tx, "DeleteDashboards", key, record.Tags, nil, nil); w != nil {
 			return nil, w
 		}
@@ -227,6 +238,9 @@ func (s *Service) dashboardTagTarget(tx Transaction, arn, action string, request
 	}
 	if errors.Is(err, ErrNotFound) {
 		return nil, failure("ResourceNotFoundException", "The specified resource does not exist.")
+	}
+	if w := cloudFormationOwned(tx.Context(), record.CFNOwner); w != nil {
+		return nil, w
 	}
 	return &record, nil
 }

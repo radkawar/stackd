@@ -807,6 +807,47 @@ account principals against the authenticated bootstrap account and known IAM
 account scopes. Shorthand accepts syntactic account IDs without an existence check,
 matching AWS's different admission rules.
 
+CloudFormation EventBus and EventBusPolicy ownership is private native metadata,
+not resource tags or policy presentation. Each independently managed statement
+has a scoped Sid/incarnation claim stored atomically with its policy in memory
+or schema 391's service-owned SQLite rows. Public tag mutation and Describe/List
+do not create, transfer or revoke that authority; legacy public markers are not
+backfilled. Same-token admission/recovery and every mutation still check current
+native IAM. Authorized ordinary in-place `PutPermission`, including complete
+policy replacement, preserves the exact claim for each surviving Sid. Removing
+a Sid through a single-statement removal, whole-policy removal or complete
+policy replacement clears its claim: recreating the same Sid through the native
+API leaves an unclaimed replacement that stale stack cleanup cannot delete.
+CloudFormation and Cloud Control creation retain the admitted physical ID when
+a native permission reply is lost, while still returning the original command
+error. Recovery rechecks current native IAM and the private scoped claim;
+same-token replay preserves an unchanged policy's incarnation and modification
+time.
+
+An inline EventBus policy cannot modify or remove independently claimed
+statements. Native configuration and tag transactions fence the pending inline
+policy against those private claims before their writes; unrelated bus updates,
+including DLQ removal and configuration changes, retain both the policy and
+its independent statement claims. Replacing or removing the whole inline policy
+requires that its independently owned statements have first been removed by
+their individual owners. These are controller ownership boundaries, not extra
+restrictions on authorized ordinary native permission administration.
+
+CloudFormation and Cloud Control `AWS::Events::Rule` admission stores a private
+rule incarnation claim atomically with the new native rule row, in memory or
+schema 392's typed SQLite column. Create never claims an existing unclaimed or
+foreign rule, including one carrying copied legacy `stackd:cloudformation:*`
+tags; rule tags are customer metadata and are neither emitted as markers nor
+backfilled. A lost native rule reply retains the admitted physical ID and returns
+the original command error; replay resumes native target reconciliation.
+Lost-reply recovery and every controller update, state change,
+target/tag change and deletion check current native IAM and then the exact
+scoped claim inside the same native transaction. Authorized ordinary native
+rule, state, target and tag changes preserve the claim; deleting the rule
+clears it, so a same-name native recreation is unclaimed and a stale stack's
+target or rule transaction cannot mutate it. This covers rule ownership only,
+not broader EventBridge CloudFormation parity.
+
 ## Evidence and remaining workflows
 
 `testdata/aws/eventbridge/patterns.json` contains native grammar, matching and

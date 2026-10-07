@@ -16,6 +16,8 @@ type (
 	SubscriptionKey        = domain.SubscriptionKey
 	MessageKey             = domain.MessageKey
 	TopicRecord            = domain.TopicRecord
+	TopicCreationOwner     = domain.TopicCreationOwner
+	PolicyOwnership        = domain.PolicyOwnership
 	FeedbackConfig         = domain.FeedbackConfig
 	ArchiveConfig          = domain.ArchiveConfig
 	ArchiveEntry           = domain.ArchiveEntry

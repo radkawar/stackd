@@ -33,6 +33,7 @@ func (r reader) Connections(scope domain.Scope) ([]domain.ConnectionRecord, erro
 }
 func decodeConnection(v sqlcgen.GlueConnection) (domain.ConnectionRecord, error) {
 	row := domain.ConnectionRecord{Key: domain.ResourceKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name}, Password: v.Password, PasswordCipher: v.PasswordCipher, Connection: api.Connection{Name: new(api.NameString(v.Name)), ConnectionType: new(api.ConnectionType(v.ConnectionType)), Description: crawlerPointer[api.DescriptionString](v.Description), ConnectionSchemaVersion: new(api.ConnectionSchemaVersion(1)), CreationTime: new(time.Unix(0, v.CreatedAt).UTC()), LastUpdatedTime: new(time.Unix(0, v.UpdatedAt).UTC())}}
+	row.CFNOwner = v.CfnOwner
 	if v.LastUpdatedBy != "" {
 		row.Connection.LastUpdatedBy = new(api.NameString(v.LastUpdatedBy))
 	}
@@ -49,6 +50,7 @@ func decodeConnection(v sqlcgen.GlueConnection) (domain.ConnectionRecord, error)
 func (w writer) PutConnection(row domain.ConnectionRecord) error {
 	c := row.Connection
 	v := sqlcgen.PutGlueConnectionParams{Partition: row.Key.Partition, AccountID: row.Key.AccountID, Region: row.Key.Region, Name: row.Key.Name, ConnectionType: string(*c.ConnectionType), Description: crawlerString(c.Description), Password: row.Password, PasswordCipher: row.PasswordCipher, CreatedAt: c.CreationTime.UnixNano(), UpdatedAt: c.LastUpdatedTime.UnixNano()}
+	v.CfnOwner = row.CFNOwner
 	if c.LastUpdatedBy != nil {
 		v.LastUpdatedBy = string(*c.LastUpdatedBy)
 	}
@@ -75,12 +77,16 @@ func (r reader) ConnectionEncryption(scope domain.Scope) (domain.ConnectionEncry
 	if err != nil {
 		return domain.ConnectionEncryptionRecord{}, crawlerMissing(err)
 	}
-	return domain.ConnectionEncryptionRecord{Scope: scope, KeyID: v.KeyID, ReturnEncrypted: v.ReturnEncrypted != 0}, nil
+	return domain.ConnectionEncryptionRecord{CFNOwner: v.CfnOwner, Scope: scope, KeyID: v.KeyID, ReturnEncrypted: v.ReturnEncrypted != 0}, nil
 }
 func (w writer) PutConnectionEncryption(v domain.ConnectionEncryptionRecord) error {
 	p := sqlcgen.PutGlueConnectionEncryptionParams{Partition: v.Scope.Partition, AccountID: v.Scope.AccountID, Region: v.Scope.Region, KeyID: v.KeyID}
+	p.CfnOwner = v.CFNOwner
 	if v.ReturnEncrypted {
 		p.ReturnEncrypted = 1
 	}
 	return w.q.PutGlueConnectionEncryption(w.ctx, p)
+}
+func (w writer) DeleteConnectionEncryption(scope domain.Scope) error {
+	return w.q.DeleteGlueConnectionEncryption(w.ctx, sqlcgen.DeleteGlueConnectionEncryptionParams{Partition: scope.Partition, AccountID: scope.AccountID, Region: scope.Region})
 }

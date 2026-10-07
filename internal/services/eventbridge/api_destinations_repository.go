@@ -11,6 +11,7 @@ type APIDestinationKey struct {
 type APIDestinationRecord struct {
 	Key                                              APIDestinationKey
 	ID, Description, ConnectionARN, Endpoint, Method string
+	CFNOwner                                         string
 	Rate                                             int
 	Created, Modified, RateWindow                    time.Time
 	RateCount                                        int

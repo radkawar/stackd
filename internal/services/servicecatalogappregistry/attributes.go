@@ -101,6 +101,9 @@ func (s *Service) createAttributeGroup(tx Transaction, in *api.CreateAttributeGr
 		return nil, err
 	}
 	if replay {
+		if claim := parentClaim(tx.Context()); claim != "" && group.CloudFormationClaim != claim {
+			return nil, failure("ConflictException", "The client token belongs to an independent attribute group.")
+		}
 		if group.CreateFingerprint != fingerprint {
 			return nil, failure("ConflictException", "The client token is already associated with a different request.")
 		}
@@ -113,6 +116,7 @@ func (s *Service) createAttributeGroup(tx Transaction, in *api.CreateAttributeGr
 	}
 	group.Name, group.Description, group.Attributes = value(in.Name), value(in.Description), value(in.Attributes)
 	group.ClientToken, group.CreateFingerprint = value(in.ClientToken), fingerprint
+	group.CloudFormationClaim = parentClaim(tx.Context())
 	group.Created = s.clock.Now()
 	group.Modified, group.Tags = group.Created, tags
 	if err := tx.PutAttributeGroup(group); err != nil {
@@ -179,6 +183,9 @@ func (s *Service) listAttributeGroups(tx Transaction, in *api.ListAttributeGroup
 	if err != nil {
 		return nil, err
 	}
+	for _, g := range rows {
+		observeClaim(tx.Context(), g.ID, g.CloudFormationClaim)
+	}
 	page, next, err := paginate(tx.Context(), "ListAttributeGroups", "", in.NextToken, in.MaxResults, rows, func(g AttributeGroup) string { return g.ARN })
 	if err != nil {
 		return nil, err
@@ -203,13 +210,22 @@ func (s *Service) associateAttributeGroup(tx Transaction, in *api.AssociateAttri
 	if err != nil {
 		return nil, err
 	}
-	if slices.Contains(links, group.ARN) {
+	out := &api.AssociateAttributeGroupResponse{ApplicationArn: new(api.ApplicationArn(application.ARN)), AttributeGroupArn: new(api.AttributeGroupArn(group.ARN))}
+	claim := edgeClaim(tx.Context())
+	for _, link := range links {
+		if link.AttributeGroupARN != group.ARN {
+			continue
+		}
+		// Only the exact creating incarnation replays; any other edge is independent.
+		if claim != "" && link.CloudFormationClaim == claim {
+			return out, nil
+		}
 		return nil, failure("ConflictException", "The attribute group is already associated with this application.")
 	}
-	if err := tx.AssociateAttributeGroup(application.ARN, group.ARN); err != nil {
+	if err := tx.AssociateAttributeGroup(AttributeGroupAssociation{ApplicationARN: application.ARN, AttributeGroupARN: group.ARN, CloudFormationClaim: claim}); err != nil {
 		return nil, err
 	}
-	return &api.AssociateAttributeGroupResponse{ApplicationArn: new(api.ApplicationArn(application.ARN)), AttributeGroupArn: new(api.AttributeGroupArn(group.ARN))}, nil
+	return out, nil
 }
 
 func (s *Service) disassociateAttributeGroup(tx Transaction, in *api.DisassociateAttributeGroupRequest) (*api.DisassociateAttributeGroupResponse, error) {
@@ -225,7 +241,11 @@ func (s *Service) disassociateAttributeGroup(tx Transaction, in *api.Disassociat
 	if err != nil {
 		return nil, err
 	}
-	if !slices.Contains(links, group.ARN) {
+	found := false
+	for _, link := range links {
+		found = found || link.AttributeGroupARN == group.ARN && edgeOwned(tx.Context(), link.CloudFormationClaim)
+	}
+	if !found {
 		return nil, failure("ResourceNotFoundException", "The attribute group is not associated with this application.")
 	}
 	if err := tx.DisassociateAttributeGroup(application.ARN, group.ARN); err != nil {
@@ -243,13 +263,14 @@ func (s *Service) listAssociatedAttributeGroups(tx Transaction, in *api.ListAsso
 	if err != nil {
 		return nil, err
 	}
-	page, next, err := paginate(tx.Context(), "ListAssociatedAttributeGroups", application.ARN, in.NextToken, in.MaxResults, links, func(arn string) string { return arn })
+	observeAttributeLinks(tx, links)
+	page, next, err := paginate(tx.Context(), "ListAssociatedAttributeGroups", application.ARN, in.NextToken, in.MaxResults, links, func(link AttributeGroupAssociation) string { return link.AttributeGroupARN })
 	if err != nil {
 		return nil, err
 	}
 	out := &api.ListAssociatedAttributeGroupsResponse{AttributeGroups: make(api.AttributeGroupIds, 0, len(page)), NextToken: next}
-	for _, arn := range page {
-		group, ok, err := tx.AttributeGroup(application.Scope, arn)
+	for _, link := range page {
+		group, ok, err := tx.AttributeGroup(application.Scope, link.AttributeGroupARN)
 		if err != nil {
 			return nil, err
 		}
@@ -270,13 +291,14 @@ func (s *Service) listAttributeGroupsForApplication(tx Transaction, in *api.List
 	if err != nil {
 		return nil, err
 	}
-	page, next, err := paginate(tx.Context(), "ListAttributeGroupsForApplication", application.ARN, in.NextToken, in.MaxResults, links, func(arn string) string { return arn })
+	observeAttributeLinks(tx, links)
+	page, next, err := paginate(tx.Context(), "ListAttributeGroupsForApplication", application.ARN, in.NextToken, in.MaxResults, links, func(link AttributeGroupAssociation) string { return link.AttributeGroupARN })
 	if err != nil {
 		return nil, err
 	}
 	out := &api.ListAttributeGroupsForApplicationResponse{AttributeGroupsDetails: make(api.AttributeGroupDetailsList, 0, len(page)), NextToken: next}
-	for _, arn := range page {
-		group, ok, err := tx.AttributeGroup(application.Scope, arn)
+	for _, link := range page {
+		group, ok, err := tx.AttributeGroup(application.Scope, link.AttributeGroupARN)
 		if err != nil {
 			return nil, err
 		}
@@ -287,4 +309,11 @@ func (s *Service) listAttributeGroupsForApplication(tx Transaction, in *api.List
 		out.AttributeGroupsDetails = append(out.AttributeGroupsDetails, api.AttributeGroupDetails{Id: new(api.AttributeGroupId(group.ID)), Arn: new(api.AttributeGroupArn(group.ARN))})
 	}
 	return out, nil
+}
+
+// observeAttributeLinks reports claimed edges only to a trusted controller.
+func observeAttributeLinks(tx Transaction, links []AttributeGroupAssociation) {
+	for _, link := range links {
+		observeClaim(tx.Context(), link.AttributeGroupARN, link.CloudFormationClaim)
+	}
 }

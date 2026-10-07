@@ -289,7 +289,7 @@ func (q *Queries) DeleteObjectVersionACLGrants(ctx context.Context, arg DeleteOb
 }
 
 const getAccessPoint = `-- name: GetAccessPoint :one
-SELECT "partition", account_id, region, name, alias, bucket_partition, bucket_name, bucket_account_id, created, vpc_id, block_public_acls, ignore_public_acls, block_public_policy, restrict_public_buckets, policy_document, policy_trust FROM s3_access_points WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
+SELECT "partition", account_id, region, name, alias, bucket_partition, bucket_name, bucket_account_id, created, vpc_id, block_public_acls, ignore_public_acls, block_public_policy, restrict_public_buckets, policy_document, policy_trust, cloudformation_owner FROM s3_access_points WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
 `
 
 type GetAccessPointParams struct {
@@ -324,12 +324,13 @@ func (q *Queries) GetAccessPoint(ctx context.Context, arg GetAccessPointParams) 
 		&i.RestrictPublicBuckets,
 		&i.PolicyDocument,
 		&i.PolicyTrust,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
 
 const getAccessPointAlias = `-- name: GetAccessPointAlias :one
-SELECT "partition", account_id, region, name, alias, bucket_partition, bucket_name, bucket_account_id, created, vpc_id, block_public_acls, ignore_public_acls, block_public_policy, restrict_public_buckets, policy_document, policy_trust FROM s3_access_points WHERE partition = ? AND alias = ?
+SELECT "partition", account_id, region, name, alias, bucket_partition, bucket_name, bucket_account_id, created, vpc_id, block_public_acls, ignore_public_acls, block_public_policy, restrict_public_buckets, policy_document, policy_trust, cloudformation_owner FROM s3_access_points WHERE partition = ? AND alias = ?
 `
 
 type GetAccessPointAliasParams struct {
@@ -357,6 +358,7 @@ func (q *Queries) GetAccessPointAlias(ctx context.Context, arg GetAccessPointAli
 		&i.RestrictPublicBuckets,
 		&i.PolicyDocument,
 		&i.PolicyTrust,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
@@ -475,7 +477,7 @@ func (q *Queries) GetAccountPublicAccessBlock(ctx context.Context, arg GetAccoun
 }
 
 const getBucket = `-- name: GetBucket :one
-SELECT "partition", name, account_id, region, created, policy_document, policy_trust, ownership, versioning, encryption_algorithm, kms_key_id, owner_account_id, owner_id, acl_legacy, bucket_key_enabled, requester_pays, object_lock_enabled, default_retention_mode, default_retention_days, default_retention_years, default_event_hold_days, default_event_hold_years, sse_customer_blocked, abac_enabled, acceleration_status, incarnation FROM s3_buckets WHERE partition = ? AND name = ?
+SELECT "partition", name, account_id, region, created, policy_document, policy_trust, ownership, versioning, encryption_algorithm, kms_key_id, owner_account_id, owner_id, acl_legacy, bucket_key_enabled, requester_pays, object_lock_enabled, default_retention_mode, default_retention_days, default_retention_years, default_event_hold_days, default_event_hold_years, sse_customer_blocked, abac_enabled, acceleration_status, incarnation, cloudformation_owner, policy_owner FROM s3_buckets WHERE partition = ? AND name = ?
 `
 
 type GetBucketParams struct {
@@ -513,6 +515,8 @@ func (q *Queries) GetBucket(ctx context.Context, arg GetBucketParams) (S3Bucket,
 		&i.AbacEnabled,
 		&i.AccelerationStatus,
 		&i.Incarnation,
+		&i.CloudformationOwner,
+		&i.PolicyOwner,
 	)
 	return i, err
 }
@@ -1455,7 +1459,7 @@ func (q *Queries) GetObjectVersionMetadata(ctx context.Context, arg GetObjectVer
 }
 
 const listAccessPoints = `-- name: ListAccessPoints :many
-SELECT "partition", account_id, region, name, alias, bucket_partition, bucket_name, bucket_account_id, created, vpc_id, block_public_acls, ignore_public_acls, block_public_policy, restrict_public_buckets, policy_document, policy_trust FROM s3_access_points
+SELECT "partition", account_id, region, name, alias, bucket_partition, bucket_name, bucket_account_id, created, vpc_id, block_public_acls, ignore_public_acls, block_public_policy, restrict_public_buckets, policy_document, policy_trust, cloudformation_owner FROM s3_access_points
 WHERE partition = ?1 AND account_id = ?2 AND region = ?3
 AND name > ?4 COLLATE BINARY
 AND (CAST(?5 AS TEXT) = '' OR bucket_name = ?5)
@@ -1504,6 +1508,7 @@ func (q *Queries) ListAccessPoints(ctx context.Context, arg ListAccessPointsPara
 			&i.RestrictPublicBuckets,
 			&i.PolicyDocument,
 			&i.PolicyTrust,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -1519,7 +1524,7 @@ func (q *Queries) ListAccessPoints(ctx context.Context, arg ListAccessPointsPara
 }
 
 const listBuckets = `-- name: ListBuckets :many
-SELECT "partition", name, account_id, region, created, policy_document, policy_trust, ownership, versioning, encryption_algorithm, kms_key_id, owner_account_id, owner_id, acl_legacy, bucket_key_enabled, requester_pays, object_lock_enabled, default_retention_mode, default_retention_days, default_retention_years, default_event_hold_days, default_event_hold_years, sse_customer_blocked, abac_enabled, acceleration_status, incarnation FROM s3_buckets WHERE partition = ? AND account_id = ? ORDER BY name COLLATE BINARY
+SELECT "partition", name, account_id, region, created, policy_document, policy_trust, ownership, versioning, encryption_algorithm, kms_key_id, owner_account_id, owner_id, acl_legacy, bucket_key_enabled, requester_pays, object_lock_enabled, default_retention_mode, default_retention_days, default_retention_years, default_event_hold_days, default_event_hold_years, sse_customer_blocked, abac_enabled, acceleration_status, incarnation, cloudformation_owner, policy_owner FROM s3_buckets WHERE partition = ? AND account_id = ? ORDER BY name COLLATE BINARY
 `
 
 type ListBucketsParams struct {
@@ -1563,6 +1568,8 @@ func (q *Queries) ListBuckets(ctx context.Context, arg ListBucketsParams) ([]S3B
 			&i.AbacEnabled,
 			&i.AccelerationStatus,
 			&i.Incarnation,
+			&i.CloudformationOwner,
+			&i.PolicyOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -2195,15 +2202,16 @@ func (q *Queries) PublishMultipartUploadTags(ctx context.Context, arg PublishMul
 const putAccessPoint = `-- name: PutAccessPoint :exec
 INSERT INTO s3_access_points (
     partition, account_id, region, name, alias, bucket_partition, bucket_name, bucket_account_id, created, vpc_id,
-    block_public_acls, ignore_public_acls, block_public_policy, restrict_public_buckets, policy_document, policy_trust
+    block_public_acls, ignore_public_acls, block_public_policy, restrict_public_buckets, policy_document, policy_trust,
+    cloudformation_owner
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, name) DO UPDATE SET
 alias = excluded.alias, bucket_partition = excluded.bucket_partition, bucket_name = excluded.bucket_name,
 bucket_account_id = excluded.bucket_account_id, created = excluded.created, vpc_id = excluded.vpc_id,
 block_public_acls = excluded.block_public_acls, ignore_public_acls = excluded.ignore_public_acls,
 block_public_policy = excluded.block_public_policy, restrict_public_buckets = excluded.restrict_public_buckets,
-policy_document = excluded.policy_document, policy_trust = excluded.policy_trust
+policy_document = excluded.policy_document, policy_trust = excluded.policy_trust, cloudformation_owner = excluded.cloudformation_owner
 `
 
 type PutAccessPointParams struct {
@@ -2223,6 +2231,7 @@ type PutAccessPointParams struct {
 	RestrictPublicBuckets bool
 	PolicyDocument        string
 	PolicyTrust           bool
+	CloudformationOwner   string
 }
 
 func (q *Queries) PutAccessPoint(ctx context.Context, arg PutAccessPointParams) error {
@@ -2243,6 +2252,7 @@ func (q *Queries) PutAccessPoint(ctx context.Context, arg PutAccessPointParams) 
 		arg.RestrictPublicBuckets,
 		arg.PolicyDocument,
 		arg.PolicyTrust,
+		arg.CloudformationOwner,
 	)
 	return err
 }
@@ -2329,10 +2339,11 @@ func (q *Queries) PutAccountPublicAccessBlock(ctx context.Context, arg PutAccoun
 
 const putBucket = `-- name: PutBucket :exec
 INSERT INTO s3_buckets (partition, name, account_id, region, created, policy_document, policy_trust, ownership, versioning, encryption_algorithm, kms_key_id, owner_account_id, owner_id, acl_legacy, bucket_key_enabled, requester_pays,
-object_lock_enabled, default_retention_mode, default_retention_days, default_retention_years, default_event_hold_days, default_event_hold_years, sse_customer_blocked, abac_enabled, acceleration_status, incarnation)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, false, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+object_lock_enabled, default_retention_mode, default_retention_days, default_retention_years, default_event_hold_days, default_event_hold_years, sse_customer_blocked, abac_enabled, acceleration_status, incarnation,
+cloudformation_owner, policy_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, false, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, name) DO UPDATE SET account_id = excluded.account_id, region = excluded.region,
-created = excluded.created, policy_document = excluded.policy_document, policy_trust = excluded.policy_trust, ownership = excluded.ownership, versioning = excluded.versioning,
+created = excluded.created, policy_document = excluded.policy_document, policy_trust = excluded.policy_trust, policy_owner = excluded.policy_owner, ownership = excluded.ownership, versioning = excluded.versioning,
 encryption_algorithm = excluded.encryption_algorithm, kms_key_id = excluded.kms_key_id, sse_customer_blocked = excluded.sse_customer_blocked, abac_enabled = excluded.abac_enabled, acceleration_status = excluded.acceleration_status,
 owner_account_id = excluded.owner_account_id, owner_id = excluded.owner_id, acl_legacy = false, bucket_key_enabled = excluded.bucket_key_enabled, requester_pays = excluded.requester_pays,
 object_lock_enabled = excluded.object_lock_enabled, default_retention_mode = excluded.default_retention_mode,
@@ -2366,6 +2377,8 @@ type PutBucketParams struct {
 	AbacEnabled           bool
 	AccelerationStatus    string
 	Incarnation           string
+	CloudformationOwner   string
+	PolicyOwner           string
 }
 
 func (q *Queries) PutBucket(ctx context.Context, arg PutBucketParams) error {
@@ -2395,6 +2408,8 @@ func (q *Queries) PutBucket(ctx context.Context, arg PutBucketParams) error {
 		arg.AbacEnabled,
 		arg.AccelerationStatus,
 		arg.Incarnation,
+		arg.CloudformationOwner,
+		arg.PolicyOwner,
 	)
 	return err
 }

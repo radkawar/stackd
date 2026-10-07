@@ -112,5 +112,8 @@ func (w writer) PutClient(v domain.ClientRecord) error {
 }
 
 func (w writer) DeleteClient(k domain.ClientKey) error {
-	return w.q.DeleteClient(w.ctx, sqlcgen.DeleteClientParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, PoolID: k.PoolKey.ID, ClientID: k.ID})
+	if err := w.q.DeleteClient(w.ctx, sqlcgen.DeleteClientParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, PoolID: k.PoolKey.ID, ClientID: k.ID}); err != nil {
+		return err
+	}
+	return w.releaseOwners(k.PoolKey, k.ID, domain.OwnerKindClient, domain.OwnerKindClientToken)
 }

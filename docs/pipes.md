@@ -15,6 +15,16 @@ work, Kafka connection/auth references, ordered bootstrap addresses, logging
 configuration and encryption envelopes have dedicated tables. The SQLite
 representation does not store an opaque serialized Pipe resource.
 
+CloudFormation Pipe ownership is a private claim on the native Pipe incarnation,
+not tag metadata. Migration `398_pipes_cloudformation_ownership.sql` leaves
+existing rows unclaimed; trusted CFN/Cloud Control creation admits the claim in
+the same transaction as the real configuration. Authorized lost-reply recovery
+and mutations check that exact claim under current native IAM. Public tag edits
+and ordinary native/Cloud Control updates preserve a surviving claim but cannot
+adopt an unclaimed or recreated Pipe. Deletion/recreation starts a new lifetime
+for ownership, source checkpoints and accepted work. This is bounded local
+ownership coverage, not a claim of complete AWS/CloudFormation parity.
+
 The shared `internal/scheduler` driver owns polling deadlines, lifecycle
 transitions, batching windows, retries, and execution expiration. Target work
 executes outside repository transactions, then commits its outcome. There is no

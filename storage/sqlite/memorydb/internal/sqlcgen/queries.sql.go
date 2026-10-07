@@ -10,7 +10,7 @@ import (
 )
 
 const allCluster = `-- name: AllCluster :many
-SELECT arn, "partition", account_id, region, name, runtime_id, status, operation, description, node_type, engine, engine_version, acl_name, parameter_group, restore_snapshot, shards, replicas, tls_enabled, version, created, due FROM memorydb_clusters ORDER BY arn
+SELECT arn, "partition", account_id, region, name, runtime_id, status, operation, description, node_type, engine, engine_version, acl_name, parameter_group, restore_snapshot, shards, replicas, tls_enabled, version, created, due, cloudformation_owner FROM memorydb_clusters ORDER BY arn
 `
 
 func (q *Queries) AllCluster(ctx context.Context) ([]MemorydbCluster, error) {
@@ -44,6 +44,7 @@ func (q *Queries) AllCluster(ctx context.Context) ([]MemorydbCluster, error) {
 			&i.Version,
 			&i.Created,
 			&i.Due,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -59,7 +60,7 @@ func (q *Queries) AllCluster(ctx context.Context) ([]MemorydbCluster, error) {
 }
 
 const allSnapshot = `-- name: AllSnapshot :many
-SELECT arn, "partition", account_id, region, name, runtime_id, source_runtime_id, source, copy_source, status, operation, engine, engine_version, node_type, parameter_group, acl_name, shards, replicas, tls_enabled, version, created, due FROM memorydb_snapshots ORDER BY arn
+SELECT arn, "partition", account_id, region, name, runtime_id, source_runtime_id, source, copy_source, status, operation, engine, engine_version, node_type, parameter_group, acl_name, shards, replicas, tls_enabled, version, created, due, cloudformation_owner FROM memorydb_snapshots ORDER BY arn
 `
 
 func (q *Queries) AllSnapshot(ctx context.Context) ([]MemorydbSnapshot, error) {
@@ -94,6 +95,7 @@ func (q *Queries) AllSnapshot(ctx context.Context) ([]MemorydbSnapshot, error) {
 			&i.Version,
 			&i.Created,
 			&i.Due,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -217,7 +219,7 @@ func (q *Queries) DeleteUser(ctx context.Context, arn string) error {
 }
 
 const getACL = `-- name: GetACL :one
-SELECT arn, "partition", account_id, region, name, status FROM memorydb_acls WHERE arn = ?
+SELECT arn, "partition", account_id, region, name, status, cloudformation_owner FROM memorydb_acls WHERE arn = ?
 `
 
 func (q *Queries) GetACL(ctx context.Context, arn string) (MemorydbAcl, error) {
@@ -230,12 +232,13 @@ func (q *Queries) GetACL(ctx context.Context, arn string) (MemorydbAcl, error) {
 		&i.Region,
 		&i.Name,
 		&i.Status,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
 
 const getCluster = `-- name: GetCluster :one
-SELECT arn, "partition", account_id, region, name, runtime_id, status, operation, description, node_type, engine, engine_version, acl_name, parameter_group, restore_snapshot, shards, replicas, tls_enabled, version, created, due FROM memorydb_clusters WHERE arn = ?
+SELECT arn, "partition", account_id, region, name, runtime_id, status, operation, description, node_type, engine, engine_version, acl_name, parameter_group, restore_snapshot, shards, replicas, tls_enabled, version, created, due, cloudformation_owner FROM memorydb_clusters WHERE arn = ?
 `
 
 func (q *Queries) GetCluster(ctx context.Context, arn string) (MemorydbCluster, error) {
@@ -263,12 +266,13 @@ func (q *Queries) GetCluster(ctx context.Context, arn string) (MemorydbCluster, 
 		&i.Version,
 		&i.Created,
 		&i.Due,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
 
 const getParameterGroup = `-- name: GetParameterGroup :one
-SELECT arn, "partition", account_id, region, name, family, description FROM memorydb_parameter_groups WHERE arn = ?
+SELECT arn, "partition", account_id, region, name, family, description, cloudformation_owner FROM memorydb_parameter_groups WHERE arn = ?
 `
 
 func (q *Queries) GetParameterGroup(ctx context.Context, arn string) (MemorydbParameterGroup, error) {
@@ -282,12 +286,13 @@ func (q *Queries) GetParameterGroup(ctx context.Context, arn string) (MemorydbPa
 		&i.Name,
 		&i.Family,
 		&i.Description,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
 
 const getSnapshot = `-- name: GetSnapshot :one
-SELECT arn, "partition", account_id, region, name, runtime_id, source_runtime_id, source, copy_source, status, operation, engine, engine_version, node_type, parameter_group, acl_name, shards, replicas, tls_enabled, version, created, due FROM memorydb_snapshots WHERE arn = ?
+SELECT arn, "partition", account_id, region, name, runtime_id, source_runtime_id, source, copy_source, status, operation, engine, engine_version, node_type, parameter_group, acl_name, shards, replicas, tls_enabled, version, created, due, cloudformation_owner FROM memorydb_snapshots WHERE arn = ?
 `
 
 func (q *Queries) GetSnapshot(ctx context.Context, arn string) (MemorydbSnapshot, error) {
@@ -316,12 +321,13 @@ func (q *Queries) GetSnapshot(ctx context.Context, arn string) (MemorydbSnapshot
 		&i.Version,
 		&i.Created,
 		&i.Due,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
 
 const getSubnetGroup = `-- name: GetSubnetGroup :one
-SELECT arn, "partition", account_id, region, name, description, vpc_id FROM memorydb_subnet_groups WHERE arn = ?
+SELECT arn, "partition", account_id, region, name, description, vpc_id, cloudformation_owner FROM memorydb_subnet_groups WHERE arn = ?
 `
 
 func (q *Queries) GetSubnetGroup(ctx context.Context, arn string) (MemorydbSubnetGroup, error) {
@@ -335,12 +341,13 @@ func (q *Queries) GetSubnetGroup(ctx context.Context, arn string) (MemorydbSubne
 		&i.Name,
 		&i.Description,
 		&i.VpcID,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
 
 const getUser = `-- name: GetUser :one
-SELECT arn, "partition", account_id, region, name, access_string, authentication, status FROM memorydb_users WHERE arn = ?
+SELECT arn, "partition", account_id, region, name, access_string, authentication, status, cloudformation_owner FROM memorydb_users WHERE arn = ?
 `
 
 func (q *Queries) GetUser(ctx context.Context, arn string) (MemorydbUser, error) {
@@ -355,12 +362,13 @@ func (q *Queries) GetUser(ctx context.Context, arn string) (MemorydbUser, error)
 		&i.AccessString,
 		&i.Authentication,
 		&i.Status,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
 
 const listACL = `-- name: ListACL :many
-SELECT arn, "partition", account_id, region, name, status FROM memorydb_acls WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
+SELECT arn, "partition", account_id, region, name, status, cloudformation_owner FROM memorydb_acls WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
 `
 
 type ListACLParams struct {
@@ -385,6 +393,7 @@ func (q *Queries) ListACL(ctx context.Context, arg ListACLParams) ([]MemorydbAcl
 			&i.Region,
 			&i.Name,
 			&i.Status,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -427,7 +436,7 @@ func (q *Queries) ListACLUser(ctx context.Context, ownerArn string) ([]MemorydbA
 }
 
 const listCluster = `-- name: ListCluster :many
-SELECT arn, "partition", account_id, region, name, runtime_id, status, operation, description, node_type, engine, engine_version, acl_name, parameter_group, restore_snapshot, shards, replicas, tls_enabled, version, created, due FROM memorydb_clusters WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
+SELECT arn, "partition", account_id, region, name, runtime_id, status, operation, description, node_type, engine, engine_version, acl_name, parameter_group, restore_snapshot, shards, replicas, tls_enabled, version, created, due, cloudformation_owner FROM memorydb_clusters WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
 `
 
 type ListClusterParams struct {
@@ -467,6 +476,7 @@ func (q *Queries) ListCluster(ctx context.Context, arg ListClusterParams) ([]Mem
 			&i.Version,
 			&i.Created,
 			&i.Due,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -543,7 +553,7 @@ func (q *Queries) ListParameter(ctx context.Context, ownerArn string) ([]Memoryd
 }
 
 const listParameterGroup = `-- name: ListParameterGroup :many
-SELECT arn, "partition", account_id, region, name, family, description FROM memorydb_parameter_groups WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
+SELECT arn, "partition", account_id, region, name, family, description, cloudformation_owner FROM memorydb_parameter_groups WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
 `
 
 type ListParameterGroupParams struct {
@@ -569,6 +579,7 @@ func (q *Queries) ListParameterGroup(ctx context.Context, arg ListParameterGroup
 			&i.Name,
 			&i.Family,
 			&i.Description,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -611,7 +622,7 @@ func (q *Queries) ListPasswordHash(ctx context.Context, ownerArn string) ([]Memo
 }
 
 const listSnapshot = `-- name: ListSnapshot :many
-SELECT arn, "partition", account_id, region, name, runtime_id, source_runtime_id, source, copy_source, status, operation, engine, engine_version, node_type, parameter_group, acl_name, shards, replicas, tls_enabled, version, created, due FROM memorydb_snapshots WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
+SELECT arn, "partition", account_id, region, name, runtime_id, source_runtime_id, source, copy_source, status, operation, engine, engine_version, node_type, parameter_group, acl_name, shards, replicas, tls_enabled, version, created, due, cloudformation_owner FROM memorydb_snapshots WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
 `
 
 type ListSnapshotParams struct {
@@ -652,6 +663,7 @@ func (q *Queries) ListSnapshot(ctx context.Context, arg ListSnapshotParams) ([]M
 			&i.Version,
 			&i.Created,
 			&i.Due,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -699,7 +711,7 @@ func (q *Queries) ListSubnet(ctx context.Context, ownerArn string) ([]MemorydbSu
 }
 
 const listSubnetGroup = `-- name: ListSubnetGroup :many
-SELECT arn, "partition", account_id, region, name, description, vpc_id FROM memorydb_subnet_groups WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
+SELECT arn, "partition", account_id, region, name, description, vpc_id, cloudformation_owner FROM memorydb_subnet_groups WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
 `
 
 type ListSubnetGroupParams struct {
@@ -725,6 +737,7 @@ func (q *Queries) ListSubnetGroup(ctx context.Context, arg ListSubnetGroupParams
 			&i.Name,
 			&i.Description,
 			&i.VpcID,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -767,7 +780,7 @@ func (q *Queries) ListTag(ctx context.Context, ownerArn string) ([]MemorydbTag, 
 }
 
 const listUser = `-- name: ListUser :many
-SELECT arn, "partition", account_id, region, name, access_string, authentication, status FROM memorydb_users WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
+SELECT arn, "partition", account_id, region, name, access_string, authentication, status, cloudformation_owner FROM memorydb_users WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
 `
 
 type ListUserParams struct {
@@ -794,6 +807,7 @@ func (q *Queries) ListUser(ctx context.Context, arg ListUserParams) ([]MemorydbU
 			&i.AccessString,
 			&i.Authentication,
 			&i.Status,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -809,16 +823,17 @@ func (q *Queries) ListUser(ctx context.Context, arg ListUserParams) ([]MemorydbU
 }
 
 const putACL = `-- name: PutACL :exec
-INSERT INTO memorydb_acls (arn, partition, account_id, region, name, status) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (arn) DO UPDATE SET partition=excluded.partition, account_id=excluded.account_id, region=excluded.region, name=excluded.name, status=excluded.status
+INSERT INTO memorydb_acls (arn, partition, account_id, region, name, status, cloudformation_owner) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (arn) DO UPDATE SET partition=excluded.partition, account_id=excluded.account_id, region=excluded.region, name=excluded.name, status=excluded.status, cloudformation_owner=excluded.cloudformation_owner
 `
 
 type PutACLParams struct {
-	Arn       string
-	Partition string
-	AccountID string
-	Region    string
-	Name      string
-	Status    string
+	Arn                 string
+	Partition           string
+	AccountID           string
+	Region              string
+	Name                string
+	Status              string
+	CloudformationOwner string
 }
 
 func (q *Queries) PutACL(ctx context.Context, arg PutACLParams) error {
@@ -829,6 +844,7 @@ func (q *Queries) PutACL(ctx context.Context, arg PutACLParams) error {
 		arg.Region,
 		arg.Name,
 		arg.Status,
+		arg.CloudformationOwner,
 	)
 	return err
 }
@@ -848,31 +864,32 @@ func (q *Queries) PutACLUser(ctx context.Context, arg PutACLUserParams) error {
 }
 
 const putCluster = `-- name: PutCluster :exec
-INSERT INTO memorydb_clusters (arn, partition, account_id, region, name, runtime_id, status, operation, description, node_type, engine, engine_version, acl_name, parameter_group, restore_snapshot, shards, replicas, tls_enabled, version, created, due) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (arn) DO UPDATE SET partition=excluded.partition, account_id=excluded.account_id, region=excluded.region, name=excluded.name, runtime_id=excluded.runtime_id, status=excluded.status, operation=excluded.operation, description=excluded.description, node_type=excluded.node_type, engine=excluded.engine, engine_version=excluded.engine_version, acl_name=excluded.acl_name, parameter_group=excluded.parameter_group, restore_snapshot=excluded.restore_snapshot, shards=excluded.shards, replicas=excluded.replicas, tls_enabled=excluded.tls_enabled, version=excluded.version, created=excluded.created, due=excluded.due
+INSERT INTO memorydb_clusters (arn, partition, account_id, region, name, runtime_id, status, operation, description, node_type, engine, engine_version, acl_name, parameter_group, restore_snapshot, shards, replicas, tls_enabled, version, created, due, cloudformation_owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (arn) DO UPDATE SET partition=excluded.partition, account_id=excluded.account_id, region=excluded.region, name=excluded.name, runtime_id=excluded.runtime_id, status=excluded.status, operation=excluded.operation, description=excluded.description, node_type=excluded.node_type, engine=excluded.engine, engine_version=excluded.engine_version, acl_name=excluded.acl_name, parameter_group=excluded.parameter_group, restore_snapshot=excluded.restore_snapshot, shards=excluded.shards, replicas=excluded.replicas, tls_enabled=excluded.tls_enabled, version=excluded.version, created=excluded.created, due=excluded.due, cloudformation_owner=excluded.cloudformation_owner
 `
 
 type PutClusterParams struct {
-	Arn             string
-	Partition       string
-	AccountID       string
-	Region          string
-	Name            string
-	RuntimeID       string
-	Status          string
-	Operation       string
-	Description     string
-	NodeType        string
-	Engine          string
-	EngineVersion   string
-	AclName         string
-	ParameterGroup  string
-	RestoreSnapshot string
-	Shards          int64
-	Replicas        int64
-	TlsEnabled      int64
-	Version         int64
-	Created         int64
-	Due             int64
+	Arn                 string
+	Partition           string
+	AccountID           string
+	Region              string
+	Name                string
+	RuntimeID           string
+	Status              string
+	Operation           string
+	Description         string
+	NodeType            string
+	Engine              string
+	EngineVersion       string
+	AclName             string
+	ParameterGroup      string
+	RestoreSnapshot     string
+	Shards              int64
+	Replicas            int64
+	TlsEnabled          int64
+	Version             int64
+	Created             int64
+	Due                 int64
+	CloudformationOwner string
 }
 
 func (q *Queries) PutCluster(ctx context.Context, arg PutClusterParams) error {
@@ -898,6 +915,7 @@ func (q *Queries) PutCluster(ctx context.Context, arg PutClusterParams) error {
 		arg.Version,
 		arg.Created,
 		arg.Due,
+		arg.CloudformationOwner,
 	)
 	return err
 }
@@ -943,17 +961,18 @@ func (q *Queries) PutParameter(ctx context.Context, arg PutParameterParams) erro
 }
 
 const putParameterGroup = `-- name: PutParameterGroup :exec
-INSERT INTO memorydb_parameter_groups (arn, partition, account_id, region, name, family, description) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (arn) DO UPDATE SET partition=excluded.partition, account_id=excluded.account_id, region=excluded.region, name=excluded.name, family=excluded.family, description=excluded.description
+INSERT INTO memorydb_parameter_groups (arn, partition, account_id, region, name, family, description, cloudformation_owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (arn) DO UPDATE SET partition=excluded.partition, account_id=excluded.account_id, region=excluded.region, name=excluded.name, family=excluded.family, description=excluded.description, cloudformation_owner=excluded.cloudformation_owner
 `
 
 type PutParameterGroupParams struct {
-	Arn         string
-	Partition   string
-	AccountID   string
-	Region      string
-	Name        string
-	Family      string
-	Description string
+	Arn                 string
+	Partition           string
+	AccountID           string
+	Region              string
+	Name                string
+	Family              string
+	Description         string
+	CloudformationOwner string
 }
 
 func (q *Queries) PutParameterGroup(ctx context.Context, arg PutParameterGroupParams) error {
@@ -965,6 +984,7 @@ func (q *Queries) PutParameterGroup(ctx context.Context, arg PutParameterGroupPa
 		arg.Name,
 		arg.Family,
 		arg.Description,
+		arg.CloudformationOwner,
 	)
 	return err
 }
@@ -984,32 +1004,33 @@ func (q *Queries) PutPasswordHash(ctx context.Context, arg PutPasswordHashParams
 }
 
 const putSnapshot = `-- name: PutSnapshot :exec
-INSERT INTO memorydb_snapshots (arn, partition, account_id, region, name, runtime_id, source_runtime_id, source, copy_source, status, operation, engine, engine_version, node_type, parameter_group, acl_name, shards, replicas, tls_enabled, version, created, due) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (arn) DO UPDATE SET partition=excluded.partition, account_id=excluded.account_id, region=excluded.region, name=excluded.name, runtime_id=excluded.runtime_id, source_runtime_id=excluded.source_runtime_id, source=excluded.source, copy_source=excluded.copy_source, status=excluded.status, operation=excluded.operation, engine=excluded.engine, engine_version=excluded.engine_version, node_type=excluded.node_type, parameter_group=excluded.parameter_group, acl_name=excluded.acl_name, shards=excluded.shards, replicas=excluded.replicas, tls_enabled=excluded.tls_enabled, version=excluded.version, created=excluded.created, due=excluded.due
+INSERT INTO memorydb_snapshots (arn, partition, account_id, region, name, runtime_id, source_runtime_id, source, copy_source, status, operation, engine, engine_version, node_type, parameter_group, acl_name, shards, replicas, tls_enabled, version, created, due, cloudformation_owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (arn) DO UPDATE SET partition=excluded.partition, account_id=excluded.account_id, region=excluded.region, name=excluded.name, runtime_id=excluded.runtime_id, source_runtime_id=excluded.source_runtime_id, source=excluded.source, copy_source=excluded.copy_source, status=excluded.status, operation=excluded.operation, engine=excluded.engine, engine_version=excluded.engine_version, node_type=excluded.node_type, parameter_group=excluded.parameter_group, acl_name=excluded.acl_name, shards=excluded.shards, replicas=excluded.replicas, tls_enabled=excluded.tls_enabled, version=excluded.version, created=excluded.created, due=excluded.due, cloudformation_owner=excluded.cloudformation_owner
 `
 
 type PutSnapshotParams struct {
-	Arn             string
-	Partition       string
-	AccountID       string
-	Region          string
-	Name            string
-	RuntimeID       string
-	SourceRuntimeID string
-	Source          string
-	CopySource      string
-	Status          string
-	Operation       string
-	Engine          string
-	EngineVersion   string
-	NodeType        string
-	ParameterGroup  string
-	AclName         string
-	Shards          int64
-	Replicas        int64
-	TlsEnabled      int64
-	Version         int64
-	Created         int64
-	Due             int64
+	Arn                 string
+	Partition           string
+	AccountID           string
+	Region              string
+	Name                string
+	RuntimeID           string
+	SourceRuntimeID     string
+	Source              string
+	CopySource          string
+	Status              string
+	Operation           string
+	Engine              string
+	EngineVersion       string
+	NodeType            string
+	ParameterGroup      string
+	AclName             string
+	Shards              int64
+	Replicas            int64
+	TlsEnabled          int64
+	Version             int64
+	Created             int64
+	Due                 int64
+	CloudformationOwner string
 }
 
 func (q *Queries) PutSnapshot(ctx context.Context, arg PutSnapshotParams) error {
@@ -1036,6 +1057,7 @@ func (q *Queries) PutSnapshot(ctx context.Context, arg PutSnapshotParams) error 
 		arg.Version,
 		arg.Created,
 		arg.Due,
+		arg.CloudformationOwner,
 	)
 	return err
 }
@@ -1062,17 +1084,18 @@ func (q *Queries) PutSubnet(ctx context.Context, arg PutSubnetParams) error {
 }
 
 const putSubnetGroup = `-- name: PutSubnetGroup :exec
-INSERT INTO memorydb_subnet_groups (arn, partition, account_id, region, name, description, vpc_id) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (arn) DO UPDATE SET partition=excluded.partition, account_id=excluded.account_id, region=excluded.region, name=excluded.name, description=excluded.description, vpc_id=excluded.vpc_id
+INSERT INTO memorydb_subnet_groups (arn, partition, account_id, region, name, description, vpc_id, cloudformation_owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (arn) DO UPDATE SET partition=excluded.partition, account_id=excluded.account_id, region=excluded.region, name=excluded.name, description=excluded.description, vpc_id=excluded.vpc_id, cloudformation_owner=excluded.cloudformation_owner
 `
 
 type PutSubnetGroupParams struct {
-	Arn         string
-	Partition   string
-	AccountID   string
-	Region      string
-	Name        string
-	Description string
-	VpcID       string
+	Arn                 string
+	Partition           string
+	AccountID           string
+	Region              string
+	Name                string
+	Description         string
+	VpcID               string
+	CloudformationOwner string
 }
 
 func (q *Queries) PutSubnetGroup(ctx context.Context, arg PutSubnetGroupParams) error {
@@ -1084,6 +1107,7 @@ func (q *Queries) PutSubnetGroup(ctx context.Context, arg PutSubnetGroupParams) 
 		arg.Name,
 		arg.Description,
 		arg.VpcID,
+		arg.CloudformationOwner,
 	)
 	return err
 }
@@ -1104,18 +1128,19 @@ func (q *Queries) PutTag(ctx context.Context, arg PutTagParams) error {
 }
 
 const putUser = `-- name: PutUser :exec
-INSERT INTO memorydb_users (arn, partition, account_id, region, name, access_string, authentication, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (arn) DO UPDATE SET partition=excluded.partition, account_id=excluded.account_id, region=excluded.region, name=excluded.name, access_string=excluded.access_string, authentication=excluded.authentication, status=excluded.status
+INSERT INTO memorydb_users (arn, partition, account_id, region, name, access_string, authentication, status, cloudformation_owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (arn) DO UPDATE SET partition=excluded.partition, account_id=excluded.account_id, region=excluded.region, name=excluded.name, access_string=excluded.access_string, authentication=excluded.authentication, status=excluded.status, cloudformation_owner=excluded.cloudformation_owner
 `
 
 type PutUserParams struct {
-	Arn            string
-	Partition      string
-	AccountID      string
-	Region         string
-	Name           string
-	AccessString   string
-	Authentication string
-	Status         string
+	Arn                 string
+	Partition           string
+	AccountID           string
+	Region              string
+	Name                string
+	AccessString        string
+	Authentication      string
+	Status              string
+	CloudformationOwner string
 }
 
 func (q *Queries) PutUser(ctx context.Context, arg PutUserParams) error {
@@ -1128,6 +1153,7 @@ func (q *Queries) PutUser(ctx context.Context, arg PutUserParams) error {
 		arg.AccessString,
 		arg.Authentication,
 		arg.Status,
+		arg.CloudformationOwner,
 	)
 	return err
 }

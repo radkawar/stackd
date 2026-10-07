@@ -88,6 +88,10 @@ func scalarPolicyList(raw json.RawMessage) json.RawMessage {
 }
 
 func (s *Service) putResourcePolicy(ctx context.Context, tx Transaction, in *api.PutResourcePolicyInput) (*api.PutResourcePolicyOutput, error) {
+	claim, err := resourceOwnerFor(ctx)
+	if err != nil {
+		return nil, err
+	}
 	key, err := s.resourceTarget(ctx, tx, value(in.ResourceARN), "PutResourcePolicy", nil)
 	if err != nil {
 		return nil, err
@@ -113,6 +117,9 @@ func (s *Service) putResourcePolicy(ctx context.Context, tx Transaction, in *api
 	if err != nil && !errors.Is(err, ErrNotFound) {
 		return nil, err
 	}
+	if claim.Owner == (ResourceOwner{}) {
+		claim.Owner = current.Owner
+	}
 	if current.Policy.Document == bound.Document && maps.Equal(current.Policy.PrincipalIDs, bound.PrincipalIDs) {
 		return &api.PutResourcePolicyOutput{}, nil
 	}
@@ -121,7 +128,7 @@ func (s *Service) putResourcePolicy(ctx context.Context, tx Transaction, in *api
 	if now.Before(current.PublishAt) {
 		effective = current.Effective
 	}
-	if err = tx.PutPolicy(PolicyRecord{Key: key, Policy: bound, Effective: effective, PublishAt: now.Add(policyPropagationDelay)}); err != nil {
+	if err = tx.PutPolicy(PolicyRecord{Key: key, Owner: claim.Owner, Policy: bound, Effective: effective, PublishAt: now.Add(policyPropagationDelay)}); err != nil {
 		return nil, err
 	}
 	return &api.PutResourcePolicyOutput{}, nil

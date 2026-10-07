@@ -143,3 +143,25 @@ Primary references: [Secrets Manager API](https://docs.aws.amazon.com/secretsman
 [KMS encryption](https://docs.aws.amazon.com/secretsmanager/latest/userguide/security-encryption.html),
 [rotation function](https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets_lambda-functions.html),
 and [regional replication](https://docs.aws.amazon.com/secretsmanager/latest/userguide/replicate-secrets.html).
+
+## CloudFormation private ownership
+
+`AWS::SecretsManager::Secret` retains its private creation claim independently
+from the public tags. Resource policy, rotation schedule and target attachment
+retain separate private edge claims. Native mutations and state changes commit
+with those claims; recovery and stack mutations require the exact incarnation
+and current native IAM authority. Direct Cloud Control updates and deletes still
+use native authorization without converting public state into stack ownership.
+
+Secrets Manager tag keys and values do **not** allow `:`. Legal lookalike tags
+cannot forge or revoke a creation claim. The validation is unchanged from the
+[native tagging contract](https://docs.aws.amazon.com/secretsmanager/latest/userguide/managing-secrets_tagging.html).
+SQLite migration 375 adds typed claim columns; it does not promote legacy public
+marker tags into authority.
+
+Memory/SQLite fixtures cover exact recovery, foreign replacement, policy,
+rotation and attachment edges. A source-built controller smoke creates an
+encrypted secret in a mixed stack, reads its real plaintext through KMS, rejects
+an invalid colon tag, accepts a legal lookalike tag, reopens SQLite, updates the
+secret and deletes the actual owned resource. These checks do not claim complete
+rotation scheduling or Secrets Manager parity.

@@ -82,7 +82,7 @@ class Proof:
     def start(self):
         self.starts += 1
         self.log = (self.state / f'controller-{self.starts}.log').open('wb')
-        command = [str(Path(self.args.binary).resolve()), '-listen', f'0.0.0.0:{self.port}', '-public-endpoint', self.endpoint, '-database', str(self.database), '-docker-host', self.args.docker_host, '-lambda-telemetry-directory', self.args.telemetry_directory, '-compute-endpoint', f'http://host.docker.internal:{self.port}', *self.args.runtime_argument]
+        command = [str(Path(self.args.binary).resolve()), '-listen', f'0.0.0.0:{self.port}', '-public-endpoint', self.endpoint, '-database', str(self.database), '-docker-host', self.args.docker_host, '-lambda-runtime', '-docdb-runtime', '-lambda-telemetry-directory', self.args.telemetry_directory, '-compute-endpoint', f'http://host.docker.internal:{self.port}', *self.args.runtime_argument]
         self.process = subprocess.Popen(command, env=self.env, stdout=self.log, stderr=self.log)
         self.wait(self.health, 'controller readiness')
 
@@ -406,7 +406,7 @@ def main():
     parser.add_argument('--state-directory', required=True)
     parser.add_argument('--docker-host', default='unix:///var/run/docker.sock')
     parser.add_argument('--telemetry-directory', default='/home/r/dev/minor/stackd/bin')
-    parser.add_argument('--runtime-argument', action='append', default=[], help='Actual integrated CLI runtime argument, e.g. --runtime-argument=-docdb-runtime')
+    parser.add_argument('--runtime-argument', action='append', default=[], help='Additional integrated CLI runtime arguments; Lambda and DocumentDB are enabled by this workflow')
     Proof(parser.parse_args()).run()
 
 

@@ -131,11 +131,14 @@ func (h cfnS3Bucket) Read(ctx context.Context, r cloudformation.ResourceRequest)
 		return nil, err
 	}
 	if err == nil {
-		properties, err := cfnS3ReadLifecycle(lifecycle)
-		if err != nil {
-			return nil, err
-		}
-		p["LifecycleConfiguration"] = properties
+		p["LifecycleConfiguration"] = cfnS3ReadLifecycle(lifecycle)
+	}
+	cors, err := cfnMessagingCall[api.GetBucketCorsOutput](ctx, h.commands, "s3", "GetBucketCors", &api.GetBucketCorsInput{Bucket: bucket, ExpectedBucketOwner: owner})
+	if err != nil && !cfnMessagingMissing(err, "NoSuchCORSConfiguration") {
+		return nil, err
+	}
+	if err == nil {
+		p["CorsConfiguration"] = cfnS3ReadCors(cors)
 	}
 	return p, nil
 }
@@ -236,45 +239,4 @@ func cfnS3ReadNotifications(out *api.NotificationConfiguration) map[string]any {
 		appendRule("LambdaConfigurations", "Function", cfnComputeValue(rule.LambdaFunctionArn), rule.Events, rule.Filter)
 	}
 	return p
-}
-
-// TODO: Comeback extend lifecycle expiration, transitions and compound filters
-// through the service owner; never discard unrepresentable rules during update.
-func cfnS3ReadLifecycle(out *api.GetBucketLifecycleConfigurationOutput) (map[string]any, error) {
-	rules := make([]any, 0, len(out.Rules))
-	for _, rule := range out.Rules {
-		if rule.Expiration != nil || len(rule.Transitions) > 0 || len(rule.NoncurrentVersionTransitions) > 0 {
-			return nil, fmt.Errorf("bucket lifecycle contains unsupported CloudFormation expiration/transition properties")
-		}
-		p := map[string]any{"Status": cfnComputeValue(rule.Status)}
-		if rule.ID != nil {
-			p["Id"] = string(*rule.ID)
-		}
-		if rule.Prefix != nil {
-			p["Prefix"] = string(*rule.Prefix)
-		}
-		if filter := rule.Filter; filter != nil {
-			if filter.And != nil || filter.Tag != nil || filter.ObjectSizeGreaterThan != nil || filter.ObjectSizeLessThan != nil {
-				return nil, fmt.Errorf("bucket lifecycle contains unsupported CloudFormation filter properties")
-			}
-			if filter.Prefix != nil {
-				p["Prefix"] = string(*filter.Prefix)
-			}
-		}
-		if value := rule.NoncurrentVersionExpiration; value != nil {
-			expiration := map[string]any{}
-			if value.NoncurrentDays != nil {
-				expiration["NoncurrentDays"] = int32(*value.NoncurrentDays)
-			}
-			if value.NewerNoncurrentVersions != nil {
-				expiration["NewerNoncurrentVersions"] = int32(*value.NewerNoncurrentVersions)
-			}
-			p["NoncurrentVersionExpiration"] = expiration
-		}
-		if value := rule.AbortIncompleteMultipartUpload; value != nil && value.DaysAfterInitiation != nil {
-			p["AbortIncompleteMultipartUpload"] = map[string]any{"DaysAfterInitiation": int32(*value.DaysAfterInitiation)}
-		}
-		rules = append(rules, p)
-	}
-	return map[string]any{"Rules": rules}, nil
 }

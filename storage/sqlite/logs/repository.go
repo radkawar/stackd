@@ -40,7 +40,7 @@ func notFound(err error) error {
 	return err
 }
 func (r reader) group(v sqlcgen.LogsGroup) (domain.GroupRecord, error) {
-	g := domain.GroupRecord{Key: domain.GroupKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name}, ID: v.ID, Created: v.Created, Sequence: v.Sequence, RetentionDays: int32(v.RetentionDays)}
+	g := domain.GroupRecord{CFNOwner: v.CfnOwner, Key: domain.GroupKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name}, ID: v.ID, Created: v.Created, Sequence: v.Sequence, RetentionDays: int32(v.RetentionDays)}
 	tags, err := r.q.ListTags(r.ctx, v.ID)
 	if err != nil {
 		return g, err
@@ -74,7 +74,7 @@ func (r reader) Groups(q domain.GroupQuery) ([]domain.GroupRecord, error) {
 	return out, nil
 }
 func stream(v sqlcgen.LogsStream) domain.StreamRecord {
-	return domain.StreamRecord{Key: domain.StreamKey{GroupID: v.GroupID, Name: v.Name}, ID: v.ID, Created: v.Created, FirstEvent: v.FirstEvent, LastEvent: v.LastEvent, LastIngestion: v.LastIngestion, EventCount: v.EventCount}
+	return domain.StreamRecord{CFNOwner: v.CfnOwner, Key: domain.StreamKey{GroupID: v.GroupID, Name: v.Name}, ID: v.ID, Created: v.Created, FirstEvent: v.FirstEvent, LastEvent: v.LastEvent, LastIngestion: v.LastIngestion, EventCount: v.EventCount}
 }
 func (r reader) Stream(k domain.StreamKey) (domain.StreamRecord, error) {
 	v, err := r.q.GetStream(r.ctx, sqlcgen.GetStreamParams{GroupID: k.GroupID, Name: k.Name})
@@ -142,7 +142,7 @@ func (w writer) PutGroup(g domain.GroupRecord) error {
 	if err == nil && old.ID != g.ID {
 		return errors.New("log group identity is immutable")
 	}
-	if err := w.q.PutGroup(w.ctx, sqlcgen.PutGroupParams{Partition: g.Key.Partition, AccountID: g.Key.AccountID, Region: g.Key.Region, Name: g.Key.Name, ID: g.ID, Created: g.Created, Sequence: g.Sequence, RetentionDays: int64(g.RetentionDays)}); err != nil {
+	if err := w.q.PutGroup(w.ctx, sqlcgen.PutGroupParams{CfnOwner: g.CFNOwner, Partition: g.Key.Partition, AccountID: g.Key.AccountID, Region: g.Key.Region, Name: g.Key.Name, ID: g.ID, Created: g.Created, Sequence: g.Sequence, RetentionDays: int64(g.RetentionDays)}); err != nil {
 		return err
 	}
 	if err := w.q.DeleteTags(w.ctx, g.ID); err != nil {
@@ -166,7 +166,7 @@ func (w writer) PutStream(v domain.StreamRecord) error {
 	if err == nil && old.ID != v.ID {
 		return errors.New("log stream identity is immutable")
 	}
-	return w.q.PutStream(w.ctx, sqlcgen.PutStreamParams{GroupID: v.Key.GroupID, Name: v.Key.Name, ID: v.ID, Created: v.Created, FirstEvent: v.FirstEvent, LastEvent: v.LastEvent, LastIngestion: v.LastIngestion, EventCount: v.EventCount})
+	return w.q.PutStream(w.ctx, sqlcgen.PutStreamParams{CfnOwner: v.CFNOwner, GroupID: v.Key.GroupID, Name: v.Key.Name, ID: v.ID, Created: v.Created, FirstEvent: v.FirstEvent, LastEvent: v.LastEvent, LastIngestion: v.LastIngestion, EventCount: v.EventCount})
 }
 func (w writer) DeleteStream(k domain.StreamKey) error {
 	return w.q.DeleteStream(w.ctx, sqlcgen.DeleteStreamParams{GroupID: k.GroupID, Name: k.Name})
@@ -177,8 +177,9 @@ func (w writer) AppendEvent(v domain.EventRecord) error {
 
 func resourcePolicy(v sqlcgen.LogsResourcePolicy) domain.PolicyRecord {
 	return domain.PolicyRecord{
-		Key:     domain.PolicyKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, PolicyScope: domain.PolicyScope(v.PolicyScope), Name: v.Name},
-		GroupID: v.GroupID.String, Document: v.Document, Updated: v.Updated, Revision: v.Revision,
+		CFNOwner: v.CfnOwner,
+		Key:      domain.PolicyKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, PolicyScope: domain.PolicyScope(v.PolicyScope), Name: v.Name},
+		GroupID:  v.GroupID.String, Document: v.Document, Updated: v.Updated, Revision: v.Revision,
 	}
 }
 func (r reader) ResourcePolicy(k domain.PolicyKey) (domain.PolicyRecord, error) {
@@ -208,7 +209,7 @@ func (w writer) PutResourcePolicy(v domain.PolicyRecord) error {
 			return domain.ErrNotFound
 		}
 	}
-	return w.q.PutResourcePolicy(w.ctx, sqlcgen.PutResourcePolicyParams{Partition: v.Key.Partition, AccountID: v.Key.AccountID, Region: v.Key.Region, PolicyScope: string(v.Key.PolicyScope), Name: v.Key.Name, GroupID: sql.NullString{String: v.GroupID, Valid: v.GroupID != ""}, Document: v.Document, Updated: v.Updated, Revision: v.Revision})
+	return w.q.PutResourcePolicy(w.ctx, sqlcgen.PutResourcePolicyParams{CfnOwner: v.CFNOwner, Partition: v.Key.Partition, AccountID: v.Key.AccountID, Region: v.Key.Region, PolicyScope: string(v.Key.PolicyScope), Name: v.Key.Name, GroupID: sql.NullString{String: v.GroupID, Valid: v.GroupID != ""}, Document: v.Document, Updated: v.Updated, Revision: v.Revision})
 }
 func (w writer) DeleteResourcePolicy(k domain.PolicyKey) error {
 	return w.q.DeleteResourcePolicy(w.ctx, sqlcgen.DeleteResourcePolicyParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, PolicyScope: string(k.PolicyScope), Name: k.Name})

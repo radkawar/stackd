@@ -31,6 +31,10 @@ type Record struct {
 	Tags                                       map[string]string
 	// Shares binds recipient accounts (or "all") to a version selector.
 	Shares map[string]string
+	// CloudFormationOwner is the private claim of the AWS::SSM::Document
+	// incarnation that created this document. CloudFormation replacement keeps
+	// it; tags and wire input cannot set it, and it never reaches a response.
+	CloudFormationOwner string
 }
 
 // Version owns immutable content and the asynchronous admission status.

@@ -757,7 +757,7 @@ func (q *Queries) GetDhcpDefaults(ctx context.Context, arg GetDhcpDefaultsParams
 }
 
 const getDhcpOptions = `-- name: GetDhcpOptions :one
-SELECT "partition", account_id, region, resource_id, dhcp_options_id, owner_id, tags_present, configurations_present FROM ec2_dhcp_options WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
+SELECT "partition", account_id, region, resource_id, dhcp_options_id, owner_id, tags_present, configurations_present, cloudformation_resource_type, cloudformation_owner FROM ec2_dhcp_options WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
 `
 
 type GetDhcpOptionsParams struct {
@@ -784,12 +784,14 @@ func (q *Queries) GetDhcpOptions(ctx context.Context, arg GetDhcpOptionsParams) 
 		&i.OwnerID,
 		&i.TagsPresent,
 		&i.ConfigurationsPresent,
+		&i.CloudformationResourceType,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
 
 const getInternetGateway = `-- name: GetInternetGateway :one
-SELECT "partition", account_id, region, resource_id, internet_gateway_id, owner_id, attachments_present, tags_present FROM ec2_internet_gateways WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
+SELECT "partition", account_id, region, resource_id, internet_gateway_id, owner_id, attachments_present, tags_present, cloudformation_resource_type, cloudformation_owner FROM ec2_internet_gateways WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
 `
 
 type GetInternetGatewayParams struct {
@@ -816,12 +818,14 @@ func (q *Queries) GetInternetGateway(ctx context.Context, arg GetInternetGateway
 		&i.OwnerID,
 		&i.AttachmentsPresent,
 		&i.TagsPresent,
+		&i.CloudformationResourceType,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
 
 const getNetworkAcl = `-- name: GetNetworkAcl :one
-SELECT "partition", account_id, region, resource_id, is_default, network_acl_id, owner_id, vpc_id, tags_present, associations_present, entries_present FROM ec2_network_acls WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
+SELECT "partition", account_id, region, resource_id, is_default, network_acl_id, owner_id, vpc_id, tags_present, associations_present, entries_present, cloudformation_resource_type, cloudformation_owner FROM ec2_network_acls WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
 `
 
 type GetNetworkAclParams struct {
@@ -851,6 +855,8 @@ func (q *Queries) GetNetworkAcl(ctx context.Context, arg GetNetworkAclParams) (E
 		&i.TagsPresent,
 		&i.AssociationsPresent,
 		&i.EntriesPresent,
+		&i.CloudformationResourceType,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
@@ -890,7 +896,7 @@ func (q *Queries) GetNetworkCreation(ctx context.Context, arg GetNetworkCreation
 }
 
 const getNetworkInterface = `-- name: GetNetworkInterface :one
-SELECT "partition", account_id, region, resource_id, network_interface_id, owner_id, requester_id, requester_managed, availability_zone, availability_zone_id, subnet_id, vpc_id, mac_address, description, interface_type, source_dest_check, status, private_ip_address, private_dns_name, groups_present, private_ip_addresses_present, ipv6_addresses_present, tags_present, operator_present, operator_managed, operator_hidden_by_default, operator_principal, task_owner_arn, task_public_networking, attachment_present, attachment_id, attachment_time, attachment_delete_on_termination, attachment_device_index, attachment_network_card_index, attachment_status, attachment_instance_id, attachment_instance_owner_id, subnet_owner_account_id, lambda_mapping_owner_arn FROM ec2_network_interfaces WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
+SELECT "partition", account_id, region, resource_id, network_interface_id, owner_id, requester_id, requester_managed, availability_zone, availability_zone_id, subnet_id, vpc_id, mac_address, description, interface_type, source_dest_check, status, private_ip_address, private_dns_name, groups_present, private_ip_addresses_present, ipv6_addresses_present, tags_present, operator_present, operator_managed, operator_hidden_by_default, operator_principal, task_owner_arn, task_public_networking, attachment_present, attachment_id, attachment_time, attachment_delete_on_termination, attachment_device_index, attachment_network_card_index, attachment_status, attachment_instance_id, attachment_instance_owner_id, subnet_owner_account_id, lambda_mapping_owner_arn, lambda_function_owner_arn, lambda_function_owner_incarnation, network_control_owner_id, cloudformation_resource_type, cloudformation_owner FROM ec2_network_interfaces WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
 `
 
 type GetNetworkInterfaceParams struct {
@@ -949,6 +955,11 @@ func (q *Queries) GetNetworkInterface(ctx context.Context, arg GetNetworkInterfa
 		&i.AttachmentInstanceOwnerID,
 		&i.SubnetOwnerAccountID,
 		&i.LambdaMappingOwnerArn,
+		&i.LambdaFunctionOwnerArn,
+		&i.LambdaFunctionOwnerIncarnation,
+		&i.NetworkControlOwnerID,
+		&i.CloudformationResourceType,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
@@ -990,7 +1001,7 @@ func (q *Queries) GetNetworkInterfaceCreation(ctx context.Context, arg GetNetwor
 }
 
 const getRouteTable = `-- name: GetRouteTable :one
-SELECT "partition", account_id, region, resource_id, owner_id, route_table_id, vpc_id, tags_present, associations_present, propagating_vgws_present, routes_present FROM ec2_route_tables WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
+SELECT "partition", account_id, region, resource_id, owner_id, route_table_id, vpc_id, tags_present, associations_present, propagating_vgws_present, routes_present, cloudformation_resource_type, cloudformation_owner FROM ec2_route_tables WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
 `
 
 type GetRouteTableParams struct {
@@ -1020,12 +1031,14 @@ func (q *Queries) GetRouteTable(ctx context.Context, arg GetRouteTableParams) (E
 		&i.AssociationsPresent,
 		&i.PropagatingVgwsPresent,
 		&i.RoutesPresent,
+		&i.CloudformationResourceType,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
 
 const getSecurityGroup = `-- name: GetSecurityGroup :one
-SELECT "partition", account_id, region, resource_id, description, group_id, group_name, owner_id, security_group_arn, vpc_id, tags_present, ip_permissions_present, ip_permissions_egress_present, vpc_owner_account_id FROM ec2_security_groups WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
+SELECT "partition", account_id, region, resource_id, description, group_id, group_name, owner_id, security_group_arn, vpc_id, tags_present, ip_permissions_present, ip_permissions_egress_present, vpc_owner_account_id, cloudformation_resource_type, cloudformation_owner FROM ec2_security_groups WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
 `
 
 type GetSecurityGroupParams struct {
@@ -1058,12 +1071,14 @@ func (q *Queries) GetSecurityGroup(ctx context.Context, arg GetSecurityGroupPara
 		&i.IpPermissionsPresent,
 		&i.IpPermissionsEgressPresent,
 		&i.VpcOwnerAccountID,
+		&i.CloudformationResourceType,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
 
 const getSecurityGroupRule = `-- name: GetSecurityGroupRule :one
-SELECT "partition", account_id, region, resource_id, cidr_ipv4, cidr_ipv6, description, from_port, group_id, group_owner_id, ip_protocol, is_egress, prefix_list_id, referenced_group_info, security_group_rule_arn, security_group_rule_id, to_port, tags_present FROM ec2_security_group_rules WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
+SELECT "partition", account_id, region, resource_id, cidr_ipv4, cidr_ipv6, description, from_port, group_id, group_owner_id, ip_protocol, is_egress, prefix_list_id, referenced_group_info, security_group_rule_arn, security_group_rule_id, to_port, tags_present, cloudformation_resource_type, cloudformation_owner FROM ec2_security_group_rules WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
 `
 
 type GetSecurityGroupRuleParams struct {
@@ -1100,6 +1115,8 @@ func (q *Queries) GetSecurityGroupRule(ctx context.Context, arg GetSecurityGroup
 		&i.SecurityGroupRuleID,
 		&i.ToPort,
 		&i.TagsPresent,
+		&i.CloudformationResourceType,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
@@ -1128,7 +1145,7 @@ func (q *Queries) GetSequence(ctx context.Context, arg GetSequenceParams) (sqlit
 }
 
 const getSubnet = `-- name: GetSubnet :one
-SELECT "partition", account_id, region, resource_id, assign_ipv6_address_on_creation, availability_zone, availability_zone_id, available_ip_address_count, block_public_access_states, cidr_block, customer_owned_ipv4_pool, default_for_az, enable_dns64, enable_lni_at_device_index, ipv6_native, map_customer_owned_ip_on_launch, map_public_ip_on_launch, outpost_arn, owner_id, private_dns_name_options_on_launch, state, subnet_arn, subnet_id, type, vpc_id, tags_present, ipv6_cidr_block_association_set_present FROM ec2_subnets WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
+SELECT "partition", account_id, region, resource_id, assign_ipv6_address_on_creation, availability_zone, availability_zone_id, available_ip_address_count, block_public_access_states, cidr_block, customer_owned_ipv4_pool, default_for_az, enable_dns64, enable_lni_at_device_index, ipv6_native, map_customer_owned_ip_on_launch, map_public_ip_on_launch, outpost_arn, owner_id, private_dns_name_options_on_launch, state, subnet_arn, subnet_id, type, vpc_id, tags_present, ipv6_cidr_block_association_set_present, cloudformation_resource_type, cloudformation_owner FROM ec2_subnets WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
 `
 
 type GetSubnetParams struct {
@@ -1174,12 +1191,14 @@ func (q *Queries) GetSubnet(ctx context.Context, arg GetSubnetParams) (Ec2Subnet
 		&i.VpcID,
 		&i.TagsPresent,
 		&i.Ipv6CidrBlockAssociationSetPresent,
+		&i.CloudformationResourceType,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
 
 const getVpc = `-- name: GetVpc :one
-SELECT "partition", account_id, region, resource_id, block_public_access_states, cidr_block, dhcp_options_id, encryption_control, instance_tenancy, is_default, owner_id, state, vpc_id, dns_hostnames, dns_support, network_address_usage_metrics, tags_present, cidr_block_association_set_present, ipv6_cidr_block_association_set_present FROM ec2_vpcs WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
+SELECT "partition", account_id, region, resource_id, block_public_access_states, cidr_block, dhcp_options_id, encryption_control, instance_tenancy, is_default, owner_id, state, vpc_id, dns_hostnames, dns_support, network_address_usage_metrics, tags_present, cidr_block_association_set_present, ipv6_cidr_block_association_set_present, cloudformation_resource_type, cloudformation_owner FROM ec2_vpcs WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
 `
 
 type GetVpcParams struct {
@@ -1217,6 +1236,8 @@ func (q *Queries) GetVpc(ctx context.Context, arg GetVpcParams) (Ec2Vpc, error) 
 		&i.TagsPresent,
 		&i.CidrBlockAssociationSetPresent,
 		&i.Ipv6CidrBlockAssociationSetPresent,
+		&i.CloudformationResourceType,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
@@ -1318,7 +1339,7 @@ func (q *Queries) ListDhcpConfigurations(ctx context.Context, arg ListDhcpConfig
 }
 
 const listDhcpOptions = `-- name: ListDhcpOptions :many
-SELECT "partition", account_id, region, resource_id, dhcp_options_id, owner_id, tags_present, configurations_present FROM ec2_dhcp_options WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
+SELECT "partition", account_id, region, resource_id, dhcp_options_id, owner_id, tags_present, configurations_present, cloudformation_resource_type, cloudformation_owner FROM ec2_dhcp_options WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
 `
 
 type ListDhcpOptionsParams struct {
@@ -1345,6 +1366,8 @@ func (q *Queries) ListDhcpOptions(ctx context.Context, arg ListDhcpOptionsParams
 			&i.OwnerID,
 			&i.TagsPresent,
 			&i.ConfigurationsPresent,
+			&i.CloudformationResourceType,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -1501,7 +1524,7 @@ func (q *Queries) ListInternetGatewayTags(ctx context.Context, arg ListInternetG
 }
 
 const listInternetGateways = `-- name: ListInternetGateways :many
-SELECT "partition", account_id, region, resource_id, internet_gateway_id, owner_id, attachments_present, tags_present FROM ec2_internet_gateways WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
+SELECT "partition", account_id, region, resource_id, internet_gateway_id, owner_id, attachments_present, tags_present, cloudformation_resource_type, cloudformation_owner FROM ec2_internet_gateways WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
 `
 
 type ListInternetGatewaysParams struct {
@@ -1528,6 +1551,8 @@ func (q *Queries) ListInternetGateways(ctx context.Context, arg ListInternetGate
 			&i.OwnerID,
 			&i.AttachmentsPresent,
 			&i.TagsPresent,
+			&i.CloudformationResourceType,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -1691,7 +1716,7 @@ func (q *Queries) ListNetworkAclTags(ctx context.Context, arg ListNetworkAclTags
 }
 
 const listNetworkAcls = `-- name: ListNetworkAcls :many
-SELECT "partition", account_id, region, resource_id, is_default, network_acl_id, owner_id, vpc_id, tags_present, associations_present, entries_present FROM ec2_network_acls WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
+SELECT "partition", account_id, region, resource_id, is_default, network_acl_id, owner_id, vpc_id, tags_present, associations_present, entries_present, cloudformation_resource_type, cloudformation_owner FROM ec2_network_acls WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
 `
 
 type ListNetworkAclsParams struct {
@@ -1721,6 +1746,8 @@ func (q *Queries) ListNetworkAcls(ctx context.Context, arg ListNetworkAclsParams
 			&i.TagsPresent,
 			&i.AssociationsPresent,
 			&i.EntriesPresent,
+			&i.CloudformationResourceType,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -2021,7 +2048,7 @@ func (q *Queries) ListNetworkInterfaceTags(ctx context.Context, arg ListNetworkI
 }
 
 const listNetworkInterfaces = `-- name: ListNetworkInterfaces :many
-SELECT "partition", account_id, region, resource_id, network_interface_id, owner_id, requester_id, requester_managed, availability_zone, availability_zone_id, subnet_id, vpc_id, mac_address, description, interface_type, source_dest_check, status, private_ip_address, private_dns_name, groups_present, private_ip_addresses_present, ipv6_addresses_present, tags_present, operator_present, operator_managed, operator_hidden_by_default, operator_principal, task_owner_arn, task_public_networking, attachment_present, attachment_id, attachment_time, attachment_delete_on_termination, attachment_device_index, attachment_network_card_index, attachment_status, attachment_instance_id, attachment_instance_owner_id, subnet_owner_account_id, lambda_mapping_owner_arn FROM ec2_network_interfaces WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
+SELECT "partition", account_id, region, resource_id, network_interface_id, owner_id, requester_id, requester_managed, availability_zone, availability_zone_id, subnet_id, vpc_id, mac_address, description, interface_type, source_dest_check, status, private_ip_address, private_dns_name, groups_present, private_ip_addresses_present, ipv6_addresses_present, tags_present, operator_present, operator_managed, operator_hidden_by_default, operator_principal, task_owner_arn, task_public_networking, attachment_present, attachment_id, attachment_time, attachment_delete_on_termination, attachment_device_index, attachment_network_card_index, attachment_status, attachment_instance_id, attachment_instance_owner_id, subnet_owner_account_id, lambda_mapping_owner_arn, lambda_function_owner_arn, lambda_function_owner_incarnation, network_control_owner_id, cloudformation_resource_type, cloudformation_owner FROM ec2_network_interfaces WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
 `
 
 type ListNetworkInterfacesParams struct {
@@ -2080,6 +2107,11 @@ func (q *Queries) ListNetworkInterfaces(ctx context.Context, arg ListNetworkInte
 			&i.AttachmentInstanceOwnerID,
 			&i.SubnetOwnerAccountID,
 			&i.LambdaMappingOwnerArn,
+			&i.LambdaFunctionOwnerArn,
+			&i.LambdaFunctionOwnerIncarnation,
+			&i.NetworkControlOwnerID,
+			&i.CloudformationResourceType,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -2095,7 +2127,7 @@ func (q *Queries) ListNetworkInterfaces(ctx context.Context, arg ListNetworkInte
 }
 
 const listRegionalNetworkInterfaces = `-- name: ListRegionalNetworkInterfaces :many
-SELECT "partition", account_id, region, resource_id, network_interface_id, owner_id, requester_id, requester_managed, availability_zone, availability_zone_id, subnet_id, vpc_id, mac_address, description, interface_type, source_dest_check, status, private_ip_address, private_dns_name, groups_present, private_ip_addresses_present, ipv6_addresses_present, tags_present, operator_present, operator_managed, operator_hidden_by_default, operator_principal, task_owner_arn, task_public_networking, attachment_present, attachment_id, attachment_time, attachment_delete_on_termination, attachment_device_index, attachment_network_card_index, attachment_status, attachment_instance_id, attachment_instance_owner_id, subnet_owner_account_id, lambda_mapping_owner_arn FROM ec2_network_interfaces WHERE partition = ?1 AND region = ?2 ORDER BY resource_id
+SELECT "partition", account_id, region, resource_id, network_interface_id, owner_id, requester_id, requester_managed, availability_zone, availability_zone_id, subnet_id, vpc_id, mac_address, description, interface_type, source_dest_check, status, private_ip_address, private_dns_name, groups_present, private_ip_addresses_present, ipv6_addresses_present, tags_present, operator_present, operator_managed, operator_hidden_by_default, operator_principal, task_owner_arn, task_public_networking, attachment_present, attachment_id, attachment_time, attachment_delete_on_termination, attachment_device_index, attachment_network_card_index, attachment_status, attachment_instance_id, attachment_instance_owner_id, subnet_owner_account_id, lambda_mapping_owner_arn, lambda_function_owner_arn, lambda_function_owner_incarnation, network_control_owner_id, cloudformation_resource_type, cloudformation_owner FROM ec2_network_interfaces WHERE partition = ?1 AND region = ?2 ORDER BY resource_id
 `
 
 type ListRegionalNetworkInterfacesParams struct {
@@ -2153,6 +2185,11 @@ func (q *Queries) ListRegionalNetworkInterfaces(ctx context.Context, arg ListReg
 			&i.AttachmentInstanceOwnerID,
 			&i.SubnetOwnerAccountID,
 			&i.LambdaMappingOwnerArn,
+			&i.LambdaFunctionOwnerArn,
+			&i.LambdaFunctionOwnerIncarnation,
+			&i.NetworkControlOwnerID,
+			&i.CloudformationResourceType,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -2168,7 +2205,7 @@ func (q *Queries) ListRegionalNetworkInterfaces(ctx context.Context, arg ListReg
 }
 
 const listRegionalSecurityGroups = `-- name: ListRegionalSecurityGroups :many
-SELECT "partition", account_id, region, resource_id, description, group_id, group_name, owner_id, security_group_arn, vpc_id, tags_present, ip_permissions_present, ip_permissions_egress_present, vpc_owner_account_id FROM ec2_security_groups WHERE partition = ?1 AND region = ?2 ORDER BY resource_id
+SELECT "partition", account_id, region, resource_id, description, group_id, group_name, owner_id, security_group_arn, vpc_id, tags_present, ip_permissions_present, ip_permissions_egress_present, vpc_owner_account_id, cloudformation_resource_type, cloudformation_owner FROM ec2_security_groups WHERE partition = ?1 AND region = ?2 ORDER BY resource_id
 `
 
 type ListRegionalSecurityGroupsParams struct {
@@ -2200,6 +2237,8 @@ func (q *Queries) ListRegionalSecurityGroups(ctx context.Context, arg ListRegion
 			&i.IpPermissionsPresent,
 			&i.IpPermissionsEgressPresent,
 			&i.VpcOwnerAccountID,
+			&i.CloudformationResourceType,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -2423,7 +2462,7 @@ func (q *Queries) ListRouteTableTags(ctx context.Context, arg ListRouteTableTags
 }
 
 const listRouteTables = `-- name: ListRouteTables :many
-SELECT "partition", account_id, region, resource_id, owner_id, route_table_id, vpc_id, tags_present, associations_present, propagating_vgws_present, routes_present FROM ec2_route_tables WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
+SELECT "partition", account_id, region, resource_id, owner_id, route_table_id, vpc_id, tags_present, associations_present, propagating_vgws_present, routes_present, cloudformation_resource_type, cloudformation_owner FROM ec2_route_tables WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
 `
 
 type ListRouteTablesParams struct {
@@ -2453,6 +2492,8 @@ func (q *Queries) ListRouteTables(ctx context.Context, arg ListRouteTablesParams
 			&i.AssociationsPresent,
 			&i.PropagatingVgwsPresent,
 			&i.RoutesPresent,
+			&i.CloudformationResourceType,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -2570,7 +2611,7 @@ func (q *Queries) ListSecurityGroupRuleTags(ctx context.Context, arg ListSecurit
 }
 
 const listSecurityGroupRules = `-- name: ListSecurityGroupRules :many
-SELECT "partition", account_id, region, resource_id, cidr_ipv4, cidr_ipv6, description, from_port, group_id, group_owner_id, ip_protocol, is_egress, prefix_list_id, referenced_group_info, security_group_rule_arn, security_group_rule_id, to_port, tags_present FROM ec2_security_group_rules WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
+SELECT "partition", account_id, region, resource_id, cidr_ipv4, cidr_ipv6, description, from_port, group_id, group_owner_id, ip_protocol, is_egress, prefix_list_id, referenced_group_info, security_group_rule_arn, security_group_rule_id, to_port, tags_present, cloudformation_resource_type, cloudformation_owner FROM ec2_security_group_rules WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
 `
 
 type ListSecurityGroupRulesParams struct {
@@ -2607,6 +2648,8 @@ func (q *Queries) ListSecurityGroupRules(ctx context.Context, arg ListSecurityGr
 			&i.SecurityGroupRuleID,
 			&i.ToPort,
 			&i.TagsPresent,
+			&i.CloudformationResourceType,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -2669,7 +2712,7 @@ func (q *Queries) ListSecurityGroupTags(ctx context.Context, arg ListSecurityGro
 }
 
 const listSecurityGroups = `-- name: ListSecurityGroups :many
-SELECT "partition", account_id, region, resource_id, description, group_id, group_name, owner_id, security_group_arn, vpc_id, tags_present, ip_permissions_present, ip_permissions_egress_present, vpc_owner_account_id FROM ec2_security_groups WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
+SELECT "partition", account_id, region, resource_id, description, group_id, group_name, owner_id, security_group_arn, vpc_id, tags_present, ip_permissions_present, ip_permissions_egress_present, vpc_owner_account_id, cloudformation_resource_type, cloudformation_owner FROM ec2_security_groups WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
 `
 
 type ListSecurityGroupsParams struct {
@@ -2702,6 +2745,8 @@ func (q *Queries) ListSecurityGroups(ctx context.Context, arg ListSecurityGroups
 			&i.IpPermissionsPresent,
 			&i.IpPermissionsEgressPresent,
 			&i.VpcOwnerAccountID,
+			&i.CloudformationResourceType,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -2814,7 +2859,7 @@ func (q *Queries) ListSubnetTags(ctx context.Context, arg ListSubnetTagsParams) 
 }
 
 const listSubnets = `-- name: ListSubnets :many
-SELECT "partition", account_id, region, resource_id, assign_ipv6_address_on_creation, availability_zone, availability_zone_id, available_ip_address_count, block_public_access_states, cidr_block, customer_owned_ipv4_pool, default_for_az, enable_dns64, enable_lni_at_device_index, ipv6_native, map_customer_owned_ip_on_launch, map_public_ip_on_launch, outpost_arn, owner_id, private_dns_name_options_on_launch, state, subnet_arn, subnet_id, type, vpc_id, tags_present, ipv6_cidr_block_association_set_present FROM ec2_subnets WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
+SELECT "partition", account_id, region, resource_id, assign_ipv6_address_on_creation, availability_zone, availability_zone_id, available_ip_address_count, block_public_access_states, cidr_block, customer_owned_ipv4_pool, default_for_az, enable_dns64, enable_lni_at_device_index, ipv6_native, map_customer_owned_ip_on_launch, map_public_ip_on_launch, outpost_arn, owner_id, private_dns_name_options_on_launch, state, subnet_arn, subnet_id, type, vpc_id, tags_present, ipv6_cidr_block_association_set_present, cloudformation_resource_type, cloudformation_owner FROM ec2_subnets WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
 `
 
 type ListSubnetsParams struct {
@@ -2860,6 +2905,8 @@ func (q *Queries) ListSubnets(ctx context.Context, arg ListSubnetsParams) ([]Ec2
 			&i.VpcID,
 			&i.TagsPresent,
 			&i.Ipv6CidrBlockAssociationSetPresent,
+			&i.CloudformationResourceType,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -3022,7 +3069,7 @@ func (q *Queries) ListVpcTags(ctx context.Context, arg ListVpcTagsParams) ([]Ec2
 }
 
 const listVpcs = `-- name: ListVpcs :many
-SELECT "partition", account_id, region, resource_id, block_public_access_states, cidr_block, dhcp_options_id, encryption_control, instance_tenancy, is_default, owner_id, state, vpc_id, dns_hostnames, dns_support, network_address_usage_metrics, tags_present, cidr_block_association_set_present, ipv6_cidr_block_association_set_present FROM ec2_vpcs WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
+SELECT "partition", account_id, region, resource_id, block_public_access_states, cidr_block, dhcp_options_id, encryption_control, instance_tenancy, is_default, owner_id, state, vpc_id, dns_hostnames, dns_support, network_address_usage_metrics, tags_present, cidr_block_association_set_present, ipv6_cidr_block_association_set_present, cloudformation_resource_type, cloudformation_owner FROM ec2_vpcs WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
 `
 
 type ListVpcsParams struct {
@@ -3060,6 +3107,8 @@ func (q *Queries) ListVpcs(ctx context.Context, arg ListVpcsParams) ([]Ec2Vpc, e
 			&i.TagsPresent,
 			&i.CidrBlockAssociationSetPresent,
 			&i.Ipv6CidrBlockAssociationSetPresent,
+			&i.CloudformationResourceType,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -3501,6 +3550,8 @@ const putNetworkInterface = `-- name: PutNetworkInterface :exec
 INSERT INTO ec2_network_interfaces (
  subnet_owner_account_id,
  lambda_mapping_owner_arn,
+ lambda_function_owner_arn, lambda_function_owner_incarnation,
+ network_control_owner_id,
  partition, account_id, region, resource_id, network_interface_id, owner_id, requester_id, requester_managed,
  availability_zone, availability_zone_id, subnet_id, vpc_id, mac_address, description, interface_type,
  source_dest_check, status, private_ip_address, private_dns_name, groups_present, private_ip_addresses_present,
@@ -3511,18 +3562,23 @@ INSERT INTO ec2_network_interfaces (
 VALUES (
  ?1,
  ?2,
- ?3, ?4, ?5, ?6, ?7,
- ?8, ?9, ?10, ?11,
- ?12, ?13, ?14, ?15, ?16,
- ?17, ?18, ?19, ?20,
- ?21, ?22, ?23, ?24,
- ?25, ?26, ?27, ?28,
- ?29, ?30, ?31,
- ?32, ?33, ?34, ?35,
- ?36, ?37, ?38, ?39, ?40
+ ?3, ?4,
+ ?5,
+ ?6, ?7, ?8, ?9, ?10,
+ ?11, ?12, ?13, ?14,
+ ?15, ?16, ?17, ?18, ?19,
+ ?20, ?21, ?22, ?23,
+ ?24, ?25, ?26, ?27,
+ ?28, ?29, ?30, ?31,
+ ?32, ?33, ?34,
+ ?35, ?36, ?37, ?38,
+ ?39, ?40, ?41, ?42, ?43
 )
 ON CONFLICT (partition, account_id, region, resource_id) DO UPDATE SET
  subnet_owner_account_id = excluded.subnet_owner_account_id,
+ lambda_function_owner_arn = excluded.lambda_function_owner_arn,
+ lambda_function_owner_incarnation = excluded.lambda_function_owner_incarnation,
+ network_control_owner_id = excluded.network_control_owner_id,
  network_interface_id = excluded.network_interface_id, owner_id = excluded.owner_id, requester_id = excluded.requester_id,
  requester_managed = excluded.requester_managed, availability_zone = excluded.availability_zone, availability_zone_id = excluded.availability_zone_id,
  subnet_id = excluded.subnet_id, vpc_id = excluded.vpc_id, mac_address = excluded.mac_address, description = excluded.description,
@@ -3539,52 +3595,58 @@ ON CONFLICT (partition, account_id, region, resource_id) DO UPDATE SET
 `
 
 type PutNetworkInterfaceParams struct {
-	SubnetOwnerAccountID          string
-	LambdaMappingOwnerArn         string
-	Partition                     string
-	AccountID                     string
-	Region                        string
-	ResourceID                    string
-	NetworkInterfaceID            sql.NullString
-	OwnerID                       sql.NullString
-	RequesterID                   sql.NullString
-	RequesterManaged              sql.NullBool
-	AvailabilityZone              sql.NullString
-	AvailabilityZoneID            sql.NullString
-	SubnetID                      sql.NullString
-	VpcID                         sql.NullString
-	MacAddress                    sql.NullString
-	Description                   sql.NullString
-	InterfaceType                 sql.NullString
-	SourceDestCheck               sql.NullBool
-	Status                        sql.NullString
-	PrivateIpAddress              sql.NullString
-	PrivateDnsName                sql.NullString
-	GroupsPresent                 bool
-	PrivateIpAddressesPresent     bool
-	Ipv6AddressesPresent          bool
-	TagsPresent                   bool
-	OperatorPresent               bool
-	OperatorManaged               sql.NullBool
-	OperatorHiddenByDefault       sql.NullBool
-	OperatorPrincipal             sql.NullString
-	TaskOwnerArn                  string
-	TaskPublicNetworking          bool
-	AttachmentPresent             bool
-	AttachmentID                  sql.NullString
-	AttachmentTime                sql.NullTime
-	AttachmentDeleteOnTermination sql.NullBool
-	AttachmentDeviceIndex         sql.NullInt64
-	AttachmentNetworkCardIndex    sql.NullInt64
-	AttachmentStatus              sql.NullString
-	AttachmentInstanceID          sql.NullString
-	AttachmentInstanceOwnerID     sql.NullString
+	SubnetOwnerAccountID           string
+	LambdaMappingOwnerArn          string
+	LambdaFunctionOwnerArn         string
+	LambdaFunctionOwnerIncarnation string
+	NetworkControlOwnerID          string
+	Partition                      string
+	AccountID                      string
+	Region                         string
+	ResourceID                     string
+	NetworkInterfaceID             sql.NullString
+	OwnerID                        sql.NullString
+	RequesterID                    sql.NullString
+	RequesterManaged               sql.NullBool
+	AvailabilityZone               sql.NullString
+	AvailabilityZoneID             sql.NullString
+	SubnetID                       sql.NullString
+	VpcID                          sql.NullString
+	MacAddress                     sql.NullString
+	Description                    sql.NullString
+	InterfaceType                  sql.NullString
+	SourceDestCheck                sql.NullBool
+	Status                         sql.NullString
+	PrivateIpAddress               sql.NullString
+	PrivateDnsName                 sql.NullString
+	GroupsPresent                  bool
+	PrivateIpAddressesPresent      bool
+	Ipv6AddressesPresent           bool
+	TagsPresent                    bool
+	OperatorPresent                bool
+	OperatorManaged                sql.NullBool
+	OperatorHiddenByDefault        sql.NullBool
+	OperatorPrincipal              sql.NullString
+	TaskOwnerArn                   string
+	TaskPublicNetworking           bool
+	AttachmentPresent              bool
+	AttachmentID                   sql.NullString
+	AttachmentTime                 sql.NullTime
+	AttachmentDeleteOnTermination  sql.NullBool
+	AttachmentDeviceIndex          sql.NullInt64
+	AttachmentNetworkCardIndex     sql.NullInt64
+	AttachmentStatus               sql.NullString
+	AttachmentInstanceID           sql.NullString
+	AttachmentInstanceOwnerID      sql.NullString
 }
 
 func (q *Queries) PutNetworkInterface(ctx context.Context, arg PutNetworkInterfaceParams) error {
 	_, err := q.db.ExecContext(ctx, putNetworkInterface,
 		arg.SubnetOwnerAccountID,
 		arg.LambdaMappingOwnerArn,
+		arg.LambdaFunctionOwnerArn,
+		arg.LambdaFunctionOwnerIncarnation,
+		arg.NetworkControlOwnerID,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,

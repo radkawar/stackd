@@ -4,11 +4,11 @@ This guide deploys the **source-built host controller**, not a published stackd 
 
 ## Shared Docker host
 
-Use a dedicated, trusted **Linux host with rootful Docker Engine, systemd and cgroup v2**, without Docker user-namespace remapping. These requirements apply even to a database-only deployment: `-docker-host` constructs **both Lambda and ECS**, plus the shared CodeBuild, DynamoDB, Kinesis and ORC adapters. Docker Desktop, rootless Docker, an arbitrary remote daemon or a different container engine is not this host contract.
+`-docker-host` selects Docker Engine transport only. Enable each needed owner explicitly with `-lambda-runtime`, `-ecs-runtime`, `-codebuild-runtime`, `-dynamodb-runtime`, `-kinesis-runtime` or `-inventory-orc-runtime`; all six default to false. No runtime is implicitly constructed for another owner, and no image is implicitly pulled. Other service-specific opt-ins remain unchanged. Use a dedicated, trusted **Linux host with local rootful Docker Engine, systemd and cgroup v2**, without user-namespace remapping, for ECS and the original EC2/EKS/ALB host-security contracts. ECS admission/toolkit requirements apply only when ECS is requested, not to database-only or Lambda-only launches.
 
-Install Go **1.26.5 or newer** using the [official Go instructions](https://go.dev/doc/install). Install Docker Engine using the official instructions for [Ubuntu](https://docs.docker.com/engine/install/ubuntu/) or [Debian](https://docs.docker.com/engine/install/debian/); follow their repository/key setup before installing `docker-ce`, `docker-ce-cli`, `containerd.io` and `docker-buildx-plugin`. Use the distribution's systemd service, not rootless setup. Review Docker's [post-install privilege warning](https://docs.docker.com/engine/install/linux-postinstall/) and [cgroup-v2 requirements](https://docs.docker.com/engine/containers/runmetrics/). Docker-socket access is effectively host-root access.
+For that local Linux host setup, install Go **1.26.5 or newer** using the [official Go instructions](https://go.dev/doc/install). Install Docker Engine using the official instructions for [Ubuntu](https://docs.docker.com/engine/install/ubuntu/) or [Debian](https://docs.docker.com/engine/install/debian/); follow their repository/key setup before installing `docker-ce`, `docker-ce-cli`, `containerd.io` and `docker-buildx-plugin`. Use the distribution's systemd service, not rootless setup. Review Docker's [post-install privilege warning](https://docs.docker.com/engine/install/linux-postinstall/) and [cgroup-v2 requirements](https://docs.docker.com/engine/containers/runmetrics/). Docker-socket access is effectively host-root access. Native macOS controller builds are supported; see the [Docker Desktop recipe](#native-macos-controller-with-docker-desktop) for opt-in Lambda/DynamoDB/Kinesis, whose real Linux backends run inside the daemon VM rather than on macOS.
 
-After installation, these are useful host checks (they do not start customer workloads):
+For the full local Linux host contract, these are useful checks (they do not start customer workloads):
 
 ```sh
 uname -s
@@ -34,16 +34,16 @@ mkdir -p bin data
 make build
 ```
 
-`make build` builds `bin/stackd` and the static Linux `lambda-telemetry-amd64` and `lambda-telemetry-arm64` helpers. A bare `go build -o bin/stackd ./cmd/stackd` builds only the controller. Install the helpers beside the executable or pass `-lambda-telemetry-directory /absolute/helper/directory`. Initial Go builds can download modules; prepare the module cache and binaries before disconnecting.
+`make build` builds the native `bin/stackd` controller and static Linux `lambda-telemetry-amd64` and `lambda-telemetry-arm64` helpers. A bare `go build -o bin/stackd ./cmd/stackd` builds only the controller, which is sufficient for non-Lambda consumers. For `-lambda-runtime`, install the helpers beside the executable or pass `-lambda-telemetry-directory /absolute/helper/directory`. Initial Go builds can download modules; prepare the module cache and binaries before disconnecting.
 
-Install both shared helper images explicitly:
+Install the helper images needed by your selected owners explicitly (the toolkit is needed for ECS/native networking; the storage image is needed only for Lambda):
 
 ```sh
 docker pull nicolaka/netshoot@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed283572f47c970c780c03b61
 docker pull ubuntu@sha256:2edbbc5dc405e9612ba3584ce95480277e3eb374407b5505fe26f17df77c7dbc
 ```
 
-The first pin is [`compute/docker.ToolkitImage`](../compute/docker/helper.go), used for privileged host networking/systemd helpers. The second is [`compute/lambda.StorageImage`](../compute/lambda/docker_storage.go), which supplies util-linux/e2fsprogs for disk-backed Lambda `/tmp`. The daemon host must support privileged helpers, loop devices, ext4, `fallocate`, direct I/O and a daemon `/dev` bind. Function/task containers do not inherit those setup privileges. Allocate real disk space for images, volumes and Lambda ephemeral-storage quotas; this storage is not a memory-backed tmpfs. See [Lambda storage/recovery](lambda.md#temporary-storage-and-crash-recovery) and [ECS admission](ecs.md#setup-and-supported-execution). If you arrange your own containerized controller, it must share the daemon host's **existing `/run/lock` inode**; this guide does not supply such an image or deployment.
+The first pin is [`compute/docker.ToolkitImage`](../compute/docker/helper.go), used for native networking and, for ECS, privileged host/systemd helpers. The second is [`compute/lambda.StorageImage`](../compute/lambda/docker_storage.go), which supplies util-linux/e2fsprogs for disk-backed Lambda `/tmp`. Lambda storage requires a real Linux Docker daemon supporting privileged helpers, loop devices, ext4, `fallocate`, direct I/O and a daemon `/dev` bind; on Docker Desktop these facilities must exist **inside its Linux VM**, not on the macOS controller. Function/task containers do not inherit setup privileges. Allocate real disk space for images, volumes and Lambda ephemeral-storage quotas; this is not a memory-backed tmpfs. Lambda's owner guard uses a real kernel `flock` in a daemon-owned volume. Its VPC attachment uses real network namespaces, bridges and nftables through helpers in that same daemon/VM, with daemon identity and shared `flock` ownership, not a client-host lock pretending to protect another kernel. EC2/ECS/EKS/ALB retain their original local Linux host-security boundary; a containerized controller for those consumers must share the daemon host's **existing `/run/lock` inode**. See [Lambda storage/recovery](lambda.md#temporary-storage-and-crash-recovery) and [ECS admission](ecs.md#setup-and-supported-execution). This does not promise arbitrary remote engines, rootless/userns-remapped engines or unavailable VM capabilities.
 
 ### Explicit online preparation and offline import
 
@@ -65,25 +65,94 @@ Repeat save/load for the service images you selected and for `stackd/orc:2.2.2` 
 
 ### Endpoint routing and controller launch
 
-For a host-only API emulator without execution, use `-listen 127.0.0.1:4566`. Normal containers cannot reach that listener through their own loopback. The simplest shared-runtime launch deliberately binds all IPv4 interfaces:
+For a host-only API emulator without execution, use `-listen 127.0.0.1:4566` and omit runtime flags. Normal containers cannot reach that listener through their own loopback. This Lambda-only runtime launch deliberately binds all IPv4 interfaces:
 
 ```sh
 ./bin/stackd -listen 0.0.0.0:4566 -database "$PWD/data/stackd.sqlite" \
-  -docker-host unix:///var/run/docker.sock
+  -docker-host unix:///var/run/docker.sock -lambda-runtime
 ```
 
 The CLI derives `http://host.docker.internal:4566` as the execution-facing endpoint. Restrict inbound traffic with your host/network firewall **before** using this listener. For URLs that containers later consume (for example SQS queue URLs), use an origin reachable from both host clients and containers when creating resources. A hostname such as `stackd.local` must already resolve to the reachable host IPv4 address in both places; it is not installed by stackd. Then an explicit launch is:
 
 ```sh
 ./bin/stackd -listen 0.0.0.0:4566 -database "$PWD/data/stackd.sqlite" \
-  -docker-host unix:///var/run/docker.sock \
+  -docker-host unix:///var/run/docker.sock -lambda-runtime \
   -public-endpoint http://stackd.local:4566 \
   -compute-endpoint http://stackd.local:4566
 ```
 
-`-public-endpoint` advertises resource URLs; `-compute-endpoint` selects the execution AWS origin; neither changes the listener. A loopback listener without an explicit compute endpoint is rejected with Docker enabled. Explicitly overriding that check with a loopback origin does not make container connectivity work. Lambda Runtime API callbacks are separate: `-lambda-runtime-listen` defaults to `0.0.0.0:0`, and empty `-lambda-callback-host` uses Linux host-gateway. Permit only the intended Docker networks to reach callback ports. Athena also has its own callback listener described below.
+`-public-endpoint` advertises resource URLs; `-compute-endpoint` selects the execution AWS origin; neither changes the listener. When Lambda, ECS, CodeBuild, Glue or EC2 guest execution requests the default compute origin, a loopback listener without an explicit compute endpoint is rejected. Transport-only or DynamoDB/Kinesis-only selection does not impose that check. Explicitly using a loopback compute origin does not make it reachable from containers. Lambda Runtime API callbacks are separate: `-lambda-runtime-listen` defaults to `0.0.0.0:0`, and empty `-lambda-callback-host` uses Linux host-gateway. Explicit `host.docker.internal` uses Docker Desktop's container DNS; stackd does not resolve it on the controller or inject a shadow host mapping. Permit only intended Docker networks to reach callback ports. Athena also has its own callback listener described below.
 
 All later launch snippets are **alternatives**, not controllers to run concurrently against the same SQLite file. Combine desired flags into one controller. Boolean engine flags default to false; empty image overrides select the pinned defaults below. Use an absolute, stable SQLite path: native ownership is derived from it. Do not run two controllers with that same database/namespace or move the database independently of owned native state.
+
+### Native macOS controller with Docker Desktop
+
+The native macOS controller build is supported. Opt-in Lambda, DynamoDB and Kinesis are intended to use Docker Desktop's **real Linux daemon VM**, not synthetic execution on macOS. The Linux host used for this documentation work did not provide an actual macOS/Desktop run; this recipe describes the implementation contract, not observed platform evidence. ECS is intentionally omitted: its local Linux/rootful/systemd/cgroup-v2 admission is not a reason to disable these separate owners. EC2/EKS/ALB retain their original local Linux host-security contract.
+
+Cross-building the controller does not boot macOS, contact Docker Desktop or establish VM capability/readiness. The portable EC2 control plane remains usable without `-ec2-state-directory`; explicitly enabling the native EC2 backend on a non-Linux controller returns `QEMU capability unavailable: guest and native disk execution requires a local Linux controller`. It does not substitute a Docker container for an EC2 guest. Keep that flag out of the Desktop recipe.
+
+On Apple Silicon, build the controller for Darwin/arm64 and its Lambda helpers for Linux, not Darwin:
+
+```sh
+mkdir -p bin data
+GOOS=darwin GOARCH=arm64 go build -trimpath -o bin/stackd ./cmd/stackd
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath \
+  -o bin/lambda-telemetry-amd64 ./compute/lambda/cmd/telemetry-buffer
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath \
+  -o bin/lambda-telemetry-arm64 ./compute/lambda/cmd/telemetry-buffer
+# On Intel macOS, use GOARCH=amd64 for the controller instead.
+```
+
+Select the **actual Desktop socket**, not an assumed `/var/run/docker.sock`. Inspect the active Docker context and respect an explicit `DOCKER_HOST` override:
+
+```sh
+docker context show
+docker context inspect "$(docker context show)" --format '{{.Endpoints.docker.Host}}'
+DESKTOP_DOCKER_HOST="${DOCKER_HOST:-$(docker context inspect "$(docker context show)" --format '{{.Endpoints.docker.Host}}')}"
+export DOCKER_HOST="$DESKTOP_DOCKER_HOST"
+docker info --format 'OS={{.OSType}} Architecture={{.Architecture}} Security={{json .SecurityOptions}}'
+```
+
+For this recipe the selected endpoint must be `unix://<actualDesktopSocket>`, with `<actualDesktopSocket>` replaced by the absolute socket path reported above. Do not substitute an arbitrary remote daemon: host routing, daemon capabilities and privileged storage/network helpers must actually work inside the selected VM. Install the pinned Lambda storage image and the DynamoDB/Kinesis images from their sections below on this same Engine, plus the toolkit if using Lambda VPC networking. Pull the official Lambda runtime images only for the ZIP functions you intend to run.
+
+An image Lambda may instead use an explicitly built local image such as `local-unified:latest`. For an `x86_64` function on Apple Silicon, build it as **Linux/amd64** and include a real Lambda RIC or Runtime API bootstrap:
+
+```sh
+# Your Dockerfile/build context must contain the real application and RIC/bootstrap.
+docker build --platform linux/amd64 -t local-unified:latest /absolute/path/to/your/build-context
+docker image inspect local-unified:latest --format '{{.Os}}/{{.Architecture}} {{.Id}}'
+# Platform-specific images are separate prerequisites. A --platform argument does
+# not install CPU emulation; amd64 on Apple Silicon needs working Desktop emulation.
+# Use linux/arm64 only when both the function architecture and installed image agree.
+```
+
+Create the function with `PackageType=Image`, `Architectures=["x86_64"]` and `Code.ImageUri=local-unified:latest`, omitting ZIP-only `Runtime`/`Handler`. Admission resolves the installed tag to its real immutable image ID; it neither pulls an image nor invents an ECR upload. See [image-function packaging](lambda.md) for overrides and supported behavior.
+
+The host API and container Lambda recipe is:
+
+```sh
+./bin/stackd -listen 0.0.0.0:4567 -database "$PWD/data/stackd.sqlite" \
+  -public-endpoint http://127.0.0.1:4567 \
+  -compute-endpoint http://host.docker.internal:4567 \
+  -docker-host "$DESKTOP_DOCKER_HOST" \
+  -lambda-runtime -dynamodb-runtime -kinesis-runtime \
+  -lambda-callback-host host.docker.internal \
+  -lambda-runtime-listen 0.0.0.0:0 \
+  -lambda-telemetry-directory "$PWD/bin"
+```
+
+Here `"$DESKTOP_DOCKER_HOST"` is the discovered `unix://<actualDesktopSocket>`, and `"$PWD/bin"` is the absolute `<staticLinuxHelperDir>` containing the two Linux outputs. The listener binds the Mac host's IPv4 interfaces at port **4567**. Host AWS clients and the explicitly host-only advertised public URLs use `http://127.0.0.1:4567`; function SDK calls use `http://host.docker.internal:4567`. `-public-endpoint` and `-compute-endpoint` only select advertised/execution origins; neither binds or forwards a port. This is a native host process, so do not add a Docker `-p` mapping for the controller.
+
+The real RIC/bootstrap uses `AWS_LAMBDA_RUNTIME_API` for the separate [Lambda Runtime API](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-api.html) callback listener, **not** the AWS API at port 4567. `-lambda-runtime-listen 0.0.0.0:0` allocates a listener port per environment; `-lambda-callback-host host.docker.internal` advertises that port through [Desktop's built-in container-to-host DNS](https://docs.docker.com/desktop/features/networking/networking-how-tos/). No host-side resolution or shadow `/etc/hosts` mapping is installed for that name. Permit the Desktop backend to reach the host API and these allocated callback ports, while restricting all-interface listeners to trusted networks. Changing only the API port does not make the callbacks reachable.
+
+The host-only public origin above is **not** suitable for returned URLs later consumed inside containers. For that topology, configure a shared hostname (for example `stackd.local`) to resolve to a reachable Mac-host IPv4 address from both host clients and containers before provisioning resources. Desktop's special `host.docker.internal` DNS name alone does not configure host-client DNS. With that prerequisite satisfied, replace the launch's two origin flags with:
+
+```sh
+  -public-endpoint http://stackd.local:4567 \
+  -compute-endpoint http://stackd.local:4567
+```
+
+Keep `-listen 0.0.0.0:4567` and the Desktop callback flags unchanged, and use `http://stackd.local:4567` in all provisioning clients. The hostname is operator-owned; stackd installs no DNS records or firewall rules for it. Missing images, VM storage/network capabilities or CPU emulation produce real errors, not a synthetic fallback. An API health check establishes neither callback reachability nor a successful native Lambda invocation.
 
 ### Local API readiness and resource provisioning
 
@@ -100,7 +169,7 @@ The local account is `000000000000`. This checks API access, not engine readines
 
 ## Lambda
 
-Prepare the shared helpers and telemetry binaries first. These are the complete default ZIP-function runtime mappings in [`compute/lambda/docker.go`](../compute/lambda/docker.go), using [official AWS Lambda base images](https://docs.aws.amazon.com/lambda/latest/dg/images-create.html). Pull the mappings needed by your functions; installing all eight is not required. AWS calls the architectures `x86_64` and `arm64`; Docker calls them `amd64` and `arm64`.
+Prepare the Lambda storage helper, static Linux telemetry binaries and, for VPC networking, the toolkit image first; ECS's systemd/cgroup-v2 admission is not a Lambda prerequisite. These are the complete default ZIP-function runtime mappings in [`compute/lambda/docker.go`](../compute/lambda/docker.go), using [official AWS Lambda base images](https://docs.aws.amazon.com/lambda/latest/dg/images-create.html). Pull the mappings needed by your functions; installing all eight is not required. AWS calls the architectures `x86_64` and `arm64`; Docker calls them `amd64` and `arm64`.
 
 ```sh
 # python3.12 / x86_64
@@ -121,11 +190,11 @@ docker pull --platform linux/amd64 public.ecr.aws/lambda/provided@sha256:0439bff
 docker pull --platform linux/arm64 public.ecr.aws/lambda/provided@sha256:b501fd60cfbd920688576f5cfd6040bf3533a15ce160673758c77ca2dabd312e
 ```
 
-Use the shared controller launch; there is no separate `-lambda-runtime` boolean. Deploy an IAM execution role and ZIP code through `CreateFunction`, wait for function readiness via `GetFunctionConfiguration`, then `Invoke`; [Lambda's current application path](lambda.md#current-application-path) specifies supported packaging, roles and invocation behavior. `provided.al2023` needs your executable `bootstrap` implementing the Lambda Runtime API; the base image alone is not your handler. `-lambda-keep-alive` defaults to `10m`; `0` forces cold invocations. Optional `-lambda-storage-image` must be an installed immutable compatible storage helper. Hot-reload code/layer flags are development mounts, not durable deployment storage. Managed-instance Lambda uses guest-installed images and an agent instead: follow [VM deployment](runtime-vms.md), not these host-container commands.
+Use the shared Lambda-only controller launch with `-lambda-runtime`. Deploy an IAM execution role and ZIP code through `CreateFunction`, wait for function readiness via `GetFunctionConfiguration`, then `Invoke`; [Lambda's current application path](lambda.md#current-application-path) specifies supported packaging, roles and invocation behavior. Execution uses the actual container RIC/bootstrap and stackd Runtime API, not a synthetic handler or RIE invocation proxy. `provided.al2023` needs your executable `bootstrap` implementing that API; the base image alone is not your handler. `-lambda-keep-alive` defaults to `10m`; `0` forces cold invocations. Optional `-lambda-storage-image` must be an installed immutable compatible storage helper. Hot-reload code/layer flags are development mounts, not durable deployment storage. Managed-instance Lambda uses guest-installed images and an agent instead: follow [VM deployment](runtime-vms.md), not these host-container commands.
 
 ## ECS and CodeBuild
 
-Use the same shared launch and toolkit image. Install **your** task/build image explicitly from its publisher by digest, or build your Dockerfile and retain the resulting immutable local image ID. There is no universal stackd application image. For a repository containing your chosen Dockerfile, preparation is:
+Enable ECS with `-docker-host unix:///var/run/docker.sock -ecs-runtime`, or CodeBuild with `-docker-host unix:///var/run/docker.sock -codebuild-runtime`; do not inherit `-lambda-runtime` from the example above unless you also need Lambda. ECS requires the local Linux host contract and installed toolkit; CodeBuild does not enable ECS or require Lambda's telemetry/storage helpers. Install **your** task/build image explicitly from its publisher by digest, or build your Dockerfile and retain the resulting immutable local image ID. There is no universal stackd application image. For a repository containing your chosen Dockerfile, preparation is:
 
 ```sh
 docker build -t local/stackd-workload:prepared /absolute/path/to/your/build-context
@@ -141,23 +210,24 @@ CodeBuild uses real S3/native Git sources and real build commands. Create a serv
 ```sh
 FLEET_IMAGE=$(docker image inspect --format '{{.Id}}' local/stackd-workload:prepared)
 ./bin/stackd -listen 0.0.0.0:4566 -database "$PWD/data/stackd.sqlite" \
-  -docker-host unix:///var/run/docker.sock -codebuild-fleet-image "$FLEET_IMAGE"
+  -docker-host unix:///var/run/docker.sock -codebuild-runtime \
+  -codebuild-fleet-image "$FLEET_IMAGE"
 ```
 
 The flag supplies capacity's image; create the actual fleet through CodeBuild APIs. AMI names/mutable tags are not a substitute for a pinned local fleet image.
 
 ## DynamoDB and Kinesis
 
-Install the shared helpers plus these pinned native backends:
+Install these pinned native backends on the selected Engine; neither needs Lambda telemetry/storage helpers or ECS admission:
 
 ```sh
 docker pull amazon/dynamodb-local@sha256:ff89bd48ff32cd8d9be5fee8873b65b8854dc408f1afe881be6eb00247bc0dab
 docker pull apache/kafka@sha256:ed74d7d115968d5e8b00ba6822ac6a384cbaaf54ca38991828647000d7089b68
 ./bin/stackd -listen 0.0.0.0:4566 -database "$PWD/data/stackd.sqlite" \
-  -docker-host unix:///var/run/docker.sock
+  -docker-host unix:///var/run/docker.sock -dynamodb-runtime -kinesis-runtime
 ```
 
-There are no separate DynamoDB/Kinesis CLI opt-in booleans. The implementations use [DynamoDB Local](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html) and [Apache Kafka](https://kafka.apache.org/37/getting-started/quickstart/), respectively; Kafka storage is not a claim that AWS Kinesis uses Kafka. Pins are in [`engine/dynamodb`](../engine/dynamodb/docker.go) and [`engine/kinesis`](../engine/kinesis/docker.go).
+`-dynamodb-runtime` and `-kinesis-runtime` independently enable the real [DynamoDB Local](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html) and [Apache Kafka](https://kafka.apache.org/37/getting-started/quickstart/) backends. Omit the other flag and image if unused. These are native Engine images; Kafka storage is not a claim that AWS Kinesis uses Kafka. Pins are in [`engine/dynamodb`](../engine/dynamodb/docker.go) and [`engine/kinesis`](../engine/kinesis/docker.go).
 
 With the local credentials above, a small real table workflow is:
 
@@ -183,10 +253,10 @@ The encoder is a separately built helper image, not a controller image:
 ```sh
 docker build -t stackd/orc:2.2.2 engine/orc
 ./bin/stackd -listen 0.0.0.0:4566 -database "$PWD/data/stackd.sqlite" \
-  -docker-host unix:///var/run/docker.sock
+  -docker-host unix:///var/run/docker.sock -inventory-orc-runtime
 ```
 
-[`engine/orc/Dockerfile`](../engine/orc/Dockerfile) pins the Maven build base to `maven:3.9.12-eclipse-temurin-17@sha256:a0603aab698040d9c94259f379ec0487da1678560748d6c7508483034033c53d` and final JRE to `eclipse-temurin:17.0.18_8-jre-jammy@sha256:642d45bf22d3cb9face159181732ed9fa70873b2681e50445eff7d4785c176bb`. The explicit build downloads [Apache ORC](https://orc.apache.org/) tools `2.2.2` through Maven; build/export this image before going offline. There is no ORC CLI enable flag beyond Docker. Configure S3 inventory with ORC format and the appropriate destination bucket/policy through the local S3 APIs, then inspect the delivered manifest and real ORC object as described in [inventory delivery](cloudtrail.md). Merely building the image does not schedule inventory.
+[`engine/orc/Dockerfile`](../engine/orc/Dockerfile) pins the Maven build base to `maven:3.9.12-eclipse-temurin-17@sha256:a0603aab698040d9c94259f379ec0487da1678560748d6c7508483034033c53d` and final JRE to `eclipse-temurin:17.0.18_8-jre-jammy@sha256:642d45bf22d3cb9face159181732ed9fa70873b2681e50445eff7d4785c176bb`. The explicit build downloads [Apache ORC](https://orc.apache.org/) tools `2.2.2` through Maven; build/export this image before going offline. Enable that encoder with `-inventory-orc-runtime`, then configure S3 inventory with ORC format and the appropriate destination bucket/policy through the local S3 APIs. Inspect the delivered manifest and real ORC object as described in [inventory delivery](cloudtrail.md). Merely building the image does not enable or schedule inventory.
 
 ## Glue and Athena
 
@@ -287,7 +357,7 @@ Create ElastiCache/MemoryDB resources, users and ACLs through their APIs, poll D
 
 ## Amazon MQ
 
-Prepare the shared Docker helpers, the TLS files above and both broker images:
+Prepare the TLS files above and both broker images; an MQ-only launch does not need Lambda telemetry/storage helpers or ECS admission:
 
 ```sh
 docker pull rabbitmq@sha256:87178a0ee3e2f52980ba356d38646ed1056705ff2d5ff281f8965456eaa0c1e3

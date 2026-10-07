@@ -61,7 +61,7 @@ func (s *Service) createEmailIdentity(tx Transaction, in *api.CreateEmailIdentit
 			return nil, e
 		}
 	}
-	id := Identity{Key: k, ConfigurationSet: config, Tags: tags}
+	id := Identity{Key: k, ConfigurationSet: config, Tags: tags, Owner: cloudFormationOwner(tx.Context())}
 	if e = s.verifyEmailIdentity(tx, id); e != nil {
 		return nil, e
 	}
@@ -91,6 +91,9 @@ func (s *Service) getEmailIdentity(tx Transaction, in *api.GetEmailIdentityInput
 		return nil, e
 	}
 	if e = s.authorize(tx, "GetEmailIdentity", k.ARN("identity"), id.Tags, nil); e != nil {
+		return nil, e
+	}
+	if e = observeCloudFormationResource(tx.Context(), k.ARN("identity"), id.Owner); e != nil {
 		return nil, e
 	}
 	status := api.VerificationStatusPENDING
@@ -142,6 +145,9 @@ func (s *Service) deleteEmailIdentity(tx Transaction, in *api.DeleteEmailIdentit
 	if e = s.authorize(tx, "DeleteEmailIdentity", k.ARN("identity"), id.Tags, nil); e != nil {
 		return nil, e
 	}
+	if e = observeCloudFormationResource(tx.Context(), k.ARN("identity"), id.Owner); e != nil {
+		return nil, e
+	}
 	return &api.DeleteEmailIdentityOutput{}, tx.DeleteIdentity(k)
 }
 func (s *Service) putIdentityConfiguration(tx Transaction, in *api.PutEmailIdentityConfigurationSetAttributesInput) (*api.PutEmailIdentityConfigurationSetAttributesOutput, error) {
@@ -151,6 +157,9 @@ func (s *Service) putIdentityConfiguration(tx Transaction, in *api.PutEmailIdent
 		return nil, e
 	}
 	if e = s.authorize(tx, "PutEmailIdentityConfigurationSetAttributes", k.ARN("identity"), id.Tags, nil); e != nil {
+		return nil, e
+	}
+	if e = observeCloudFormationResource(tx.Context(), k.ARN("identity"), id.Owner); e != nil {
 		return nil, e
 	}
 	id.ConfigurationSet = value(in.ConfigurationSetName)

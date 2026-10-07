@@ -23,6 +23,9 @@ func (s *Service) publishRevision(tx Transaction, machine *MachineRecord, descri
 	}
 	for _, version := range versions {
 		if version.RevisionID == machine.RevisionID {
+			if err := cloudFormationCheck(tx.Context(), "StateMachineVersion", version.CFNOwner); err != nil {
+				return VersionRecord{}, err
+			}
 			return version, nil
 		}
 	}
@@ -34,6 +37,7 @@ func (s *Service) publishRevision(tx Transaction, machine *MachineRecord, descri
 		number = 1
 	}
 	version := VersionRecord{Key: VersionKey{Machine: machine.Key, MachineID: machine.ID, Number: number}, RevisionID: machine.RevisionID, Created: at, Description: description}
+	version.CFNOwner = cloudFormationClaim(tx.Context(), "StateMachineVersion")
 	if err := tx.PutVersion(version); err != nil {
 		return VersionRecord{}, err
 	}
@@ -51,6 +55,17 @@ func (s *Service) publishStateMachineVersion(tx Transaction, in *api.PublishStat
 	machine, _, err := s.controlMachine(tx, value(in.StateMachineArn), "PublishStateMachineVersion", true, true)
 	if err != nil {
 		return nil, err
+	}
+	if owner := cloudFormationClaim(tx.Context(), "StateMachineVersion"); owner != "" {
+		versions, err := tx.Versions(machine.Key, machine.ID)
+		if err != nil {
+			return nil, err
+		}
+		for _, version := range versions {
+			if version.CFNOwner == owner {
+				return &api.PublishStateMachineVersionOutput{CreationDate: controlTimestamp(version.Created), StateMachineVersionArn: new(api.Arn(version.Key.ARN()))}, nil
+			}
+		}
 	}
 	if err := validDescription(value(in.Description)); err != nil {
 		return nil, err
@@ -88,6 +103,15 @@ func (s *Service) deleteStateMachineVersion(tx Transaction, in *api.DeleteStateM
 			return &api.DeleteStateMachineVersionOutput{}, nil
 		}
 		return nil, lookupErr
+	}
+	version, err := tx.Version(VersionKey{Machine: key, MachineID: machine.ID, Number: number})
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
+	if err == nil {
+		if err := cloudFormationCheck(tx.Context(), "StateMachineVersion", version.CFNOwner); err != nil {
+			return nil, err
+		}
 	}
 	aliases, err := tx.Aliases(key, machine.ID)
 	if err != nil {

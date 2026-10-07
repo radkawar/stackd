@@ -52,6 +52,8 @@ func (r reader) queue(row sqlcgen.SqsQueue) (domain.QueueRecord, error) {
 	result := domain.QueueRecord{
 		Key: domain.QueueKey{Partition: row.Partition, Account: row.Account, Region: row.Region, Name: row.Name},
 		ID:  row.ID, Created: row.Created, Modified: row.Modified, Purged: row.Purged, Sequence: uint64(row.Sequence), ManagedEncryptionKey: row.EncryptionKey,
+		CreationOwner:     row.CreationOwner,
+		PolicyOwner:       row.PolicyOwner,
 		MetricActiveUntil: row.MetricActiveUntil.Time, NextMetricSample: row.NextMetricSample.Time,
 		Configuration: domain.QueueConfiguration{
 			DelaySeconds: int(row.DelaySeconds), MaximumMessageSize: int(row.MaximumMessageSize), RetentionSeconds: int(row.RetentionSeconds), VisibilitySeconds: int(row.VisibilitySeconds), WaitSeconds: int(row.WaitSeconds),
@@ -91,6 +93,8 @@ func (w writer) PutQueue(record domain.QueueRecord) error {
 	if err := w.q.PutQueue(w.ctx, sqlcgen.PutQueueParams{
 		Partition: record.Key.Partition, Account: record.Key.Account, Region: record.Key.Region, Name: record.Key.Name, ID: record.ID,
 		Created: record.Created, Modified: record.Modified, Purged: record.Purged, Sequence: sqlite.Uint64(record.Sequence), EncryptionKey: record.ManagedEncryptionKey,
+		CreationOwner:     record.CreationOwner,
+		PolicyOwner:       record.PolicyOwner,
 		MetricActiveUntil: sql.NullTime{Time: record.MetricActiveUntil, Valid: !record.MetricActiveUntil.IsZero()},
 		NextMetricSample:  sql.NullTime{Time: record.NextMetricSample, Valid: !record.NextMetricSample.IsZero()},
 		DelaySeconds:      int64(c.DelaySeconds), MaximumMessageSize: int64(c.MaximumMessageSize), RetentionSeconds: int64(c.RetentionSeconds), VisibilitySeconds: int64(c.VisibilitySeconds), WaitSeconds: int64(c.WaitSeconds),

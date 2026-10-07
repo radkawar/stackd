@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	api "stackd/internal/awsapi/cognitoidp"
-	"stackd/internal/awsctx"
 	"stackd/internal/awswire"
 )
 
@@ -45,8 +44,7 @@ func (s *Service) authClient(tx Transaction, action, poolID, clientID string) (P
 			return PoolRecord{}, ClientRecord{}, failure("ResourceNotFoundException", "User pool client "+clientID+" does not exist in user pool "+poolID+".")
 		}
 	} else {
-		scope := awsctx.FromContext(tx.Context())
-		client, err = tx.ClientByID(scope.Partition, scope.Region, clientID)
+		client, err = publicClient(tx, clientID)
 		if errors.Is(err, ErrNotFound) {
 			return PoolRecord{}, ClientRecord{}, failure("ResourceNotFoundException", "User pool client "+clientID+" does not exist.")
 		}

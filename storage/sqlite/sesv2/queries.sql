@@ -5,7 +5,7 @@ SELECT * FROM sesv2_identities WHERE verification_token=? AND verification_token
 -- name: ListIdentities :many
 SELECT * FROM sesv2_identities WHERE partition=? AND account_id=? AND region=? ORDER BY name;
 -- name: PutIdentity :exec
-INSERT INTO sesv2_identities(arn,partition,account_id,region,name,verified,verification_token,verification_expires,configuration_set) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(arn) DO UPDATE SET verified=excluded.verified,verification_token=excluded.verification_token,verification_expires=excluded.verification_expires,configuration_set=excluded.configuration_set;
+INSERT INTO sesv2_identities(arn,partition,account_id,region,name,verified,verification_token,verification_expires,configuration_set,cfn_owner) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(arn) DO UPDATE SET verified=excluded.verified,verification_token=excluded.verification_token,verification_expires=excluded.verification_expires,configuration_set=excluded.configuration_set;
 -- name: DeleteIdentity :exec
 DELETE FROM sesv2_identities WHERE arn=?;
 -- name: ListIdentityTags :many
@@ -29,7 +29,7 @@ SELECT * FROM sesv2_templates WHERE arn=?;
 -- name: ListTemplates :many
 SELECT * FROM sesv2_templates WHERE partition=? AND account_id=? AND region=? ORDER BY name;
 -- name: PutTemplate :exec
-INSERT INTO sesv2_templates(arn,partition,account_id,region,name,subject,text_body,html_body,created) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(arn) DO UPDATE SET subject=excluded.subject,text_body=excluded.text_body,html_body=excluded.html_body;
+INSERT INTO sesv2_templates(arn,partition,account_id,region,name,subject,text_body,html_body,created,cfn_owner) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(arn) DO UPDATE SET subject=excluded.subject,text_body=excluded.text_body,html_body=excluded.html_body,cfn_owner=excluded.cfn_owner;
 -- name: DeleteTemplate :exec
 DELETE FROM sesv2_templates WHERE arn=?;
 -- name: GetConfigurationSet :one
@@ -37,7 +37,7 @@ SELECT * FROM sesv2_configuration_sets WHERE arn=?;
 -- name: ListConfigurationSets :many
 SELECT * FROM sesv2_configuration_sets WHERE partition=? AND account_id=? AND region=? ORDER BY name;
 -- name: PutConfigurationSet :exec
-INSERT INTO sesv2_configuration_sets(arn,partition,account_id,region,name,sending_enabled) VALUES(?,?,?,?,?,?) ON CONFLICT(arn) DO UPDATE SET sending_enabled=excluded.sending_enabled;
+INSERT INTO sesv2_configuration_sets(arn,partition,account_id,region,name,sending_enabled,cfn_owner) VALUES(?,?,?,?,?,?,?) ON CONFLICT(arn) DO UPDATE SET sending_enabled=excluded.sending_enabled;
 -- name: DeleteConfigurationSet :exec
 DELETE FROM sesv2_configuration_sets WHERE arn=?;
 -- name: ListConfigurationTags :many

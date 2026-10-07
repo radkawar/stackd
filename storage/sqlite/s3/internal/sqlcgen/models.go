@@ -52,6 +52,7 @@ type S3AccessPoint struct {
 	RestrictPublicBuckets bool
 	PolicyDocument        string
 	PolicyTrust           bool
+	CloudformationOwner   string
 }
 
 type S3AccessPointPolicyPrincipal struct {
@@ -108,6 +109,8 @@ type S3Bucket struct {
 	AbacEnabled           bool
 	AccelerationStatus    string
 	Incarnation           string
+	CloudformationOwner   string
+	PolicyOwner           string
 }
 
 type S3BucketAclGrant struct {
@@ -816,14 +819,15 @@ type SsmParameterPolicyAttribute struct {
 }
 
 type SsmResourcePolicy struct {
-	ID                int64
-	ParentID          int64
-	Position          int64
-	PolicyID          string
-	Hash              string
-	Document          string
-	TrustPolicy       bool
-	PrincipalsPresent bool
+	ID                  int64
+	ParentID            int64
+	Position            int64
+	PolicyID            string
+	Hash                string
+	Document            string
+	TrustPolicy         bool
+	PrincipalsPresent   bool
+	CloudformationOwner string
 }
 
 type SsmResourcePolicyBinding struct {

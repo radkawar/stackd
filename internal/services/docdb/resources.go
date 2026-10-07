@@ -100,6 +100,12 @@ func (s *Service) loadCluster(ctx context.Context, r Reader, action, name string
 	if e != nil {
 		return v, e
 	}
+	if e = checkCloudFormationOwner(ctx, k, v.Owner); e != nil {
+		return v, e
+	}
+	if e = checkCloudFormationSnapshot(ctx, k, "cluster-"+v.RuntimeID); e != nil {
+		return v, e
+	}
 	return v, s.authorize(ctx, action, k, v.Tags, nil)
 }
 func (s *Service) loadInstance(ctx context.Context, r Reader, action, name string) (Instance, error) {
@@ -112,6 +118,9 @@ func (s *Service) loadInstance(ctx context.Context, r Reader, action, name strin
 		e = notFound(k.Kind)
 	}
 	if e != nil {
+		return v, e
+	}
+	if e = checkCloudFormationOwner(ctx, k, v.Owner); e != nil {
 		return v, e
 	}
 	return v, s.authorize(ctx, action, k, v.Tags, nil)
@@ -128,13 +137,16 @@ func (s *Service) loadSnapshot(ctx context.Context, r Reader, action, name strin
 	if e != nil {
 		return v, e
 	}
+	if e = checkCloudFormationOwner(ctx, k, v.Owner); e != nil {
+		return v, e
+	}
+	if e = checkCloudFormationSnapshot(ctx, k, "cluster-"+v.SourceRuntimeID); e != nil {
+		return v, e
+	}
 	return v, s.authorize(ctx, action, k, v.Tags, nil)
 }
 func tagsFrom(in api.TagList) (map[string]string, error) {
 	out := map[string]string{}
-	if len(in) > 50 {
-		return nil, failure("InvalidParameterValue", "At most 50 tags are supported.")
-	}
 	for _, t := range in {
 		k, v := value(t.Key), value(t.Value)
 		if k == "" || len(k) > 128 || len(v) > 256 || strings.HasPrefix(strings.ToLower(k), "aws:") || strings.HasPrefix(strings.ToLower(k), "rds:") {
@@ -144,6 +156,9 @@ func tagsFrom(in api.TagList) (map[string]string, error) {
 			return nil, failure("InvalidParameterValue", "Duplicate tag key.")
 		}
 		out[k] = v
+	}
+	if len(out) > 50 {
+		return nil, failure("InvalidParameterValue", "At most 50 customer tags are supported.")
 	}
 	return out, nil
 }

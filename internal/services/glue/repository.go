@@ -86,25 +86,29 @@ type PartitionColumnStatisticsKey struct {
 }
 
 type CatalogRecord struct {
-	Key     CatalogKey
-	Catalog api.Catalog
-	Tags    map[string]string
+	CFNOwner string
+	Key      CatalogKey
+	Catalog  api.Catalog
+	Tags     map[string]string
 }
 type DatabaseRecord struct {
+	CFNOwner string
 	Key      DatabaseKey
 	Database api.Database
 	Tags     map[string]string
 }
 type TableRecord struct {
-	Key     TableKey
-	Table   api.Table
-	Version int64
+	CFNOwner string
+	Key      TableKey
+	Table    api.Table
+	Version  int64
 }
 type TableVersionRecord struct {
 	Key   TableVersionKey
 	Table api.Table
 }
 type PartitionRecord struct {
+	CFNOwner  string
 	Key       PartitionKey
 	Partition api.Partition
 }

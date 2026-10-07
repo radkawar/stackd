@@ -30,6 +30,9 @@ func (s *Service) createActivity(tx Transaction, in *api.CreateActivityInput) (*
 		return nil, err
 	}
 	if lookupErr == nil {
+		if err := cloudFormationCheck(tx.Context(), "Activity", previous.CFNOwner); err != nil {
+			return nil, err
+		}
 		if previous.EncryptionConfig != config {
 			return nil, failure("ActivityAlreadyExists", "Activity Already Exists: '"+key.ARN()+"'", 400)
 		}
@@ -46,6 +49,7 @@ func (s *Service) createActivity(tx Transaction, in *api.CreateActivityInput) (*
 		return nil, failure("ActivityLimitExceeded", "The maximum number of registered activities has been reached.", 400)
 	}
 	activity := ActivityRecord{Key: key, ID: uuid.NewString(), Created: s.clock.Now().UTC(), Tags: tags, EncryptionConfig: config}
+	activity.CFNOwner = cloudFormationClaim(tx.Context(), "Activity")
 	if err := tx.PutActivity(activity); err != nil {
 		return nil, err
 	}
@@ -73,6 +77,9 @@ func (s *Service) controlActivity(r Reader, raw, action string) (ActivityRecord,
 	}
 	if errors.Is(lookupErr, ErrNotFound) {
 		return activity, failure("ActivityDoesNotExist", "Activity Does Not Exist: '"+raw+"'", 400)
+	}
+	if err := cloudFormationCheck(r.Context(), "Activity", activity.CFNOwner); err != nil {
+		return ActivityRecord{}, err
 	}
 	return activity, nil
 }

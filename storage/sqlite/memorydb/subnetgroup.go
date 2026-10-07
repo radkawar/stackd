@@ -6,7 +6,7 @@ import (
 )
 
 func (r reader) readSubnetGroup(row sqlcgen.MemorydbSubnetGroup) (domain.SubnetGroup, error) {
-	v := domain.SubnetGroup{Key: domain.Key{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Kind: "subnetgroup", Name: row.Name}, Description: row.Description, VPCID: row.VpcID}
+	v := domain.SubnetGroup{Key: domain.Key{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Kind: "subnetgroup", Name: row.Name}, Description: row.Description, VPCID: row.VpcID, CloudFormationOwner: row.CloudformationOwner}
 	var e error
 	v.Tags, e = r.tags(row.Arn)
 	if e != nil {
@@ -40,7 +40,7 @@ func (r reader) SubnetGroups(sc domain.Scope) ([]domain.SubnetGroup, error) {
 	return out, nil
 }
 func (w writer) PutSubnetGroup(v domain.SubnetGroup) error {
-	if e := w.q.PutSubnetGroup(w.ctx, sqlcgen.PutSubnetGroupParams{Arn: v.Key.ARN(), Partition: v.Key.Partition, AccountID: v.Key.AccountID, Region: v.Key.Region, Name: v.Key.Name, Description: v.Description, VpcID: v.VPCID}); e != nil {
+	if e := w.q.PutSubnetGroup(w.ctx, sqlcgen.PutSubnetGroupParams{Arn: v.Key.ARN(), Partition: v.Key.Partition, AccountID: v.Key.AccountID, Region: v.Key.Region, Name: v.Key.Name, Description: v.Description, VpcID: v.VPCID, CloudformationOwner: v.CloudFormationOwner}); e != nil {
 		return e
 	}
 	if e := w.putTags(v.Key.ARN(), v.Tags); e != nil {

@@ -164,14 +164,31 @@ func (s *Service) changeRoute(ctx context.Context, tx Transaction, req *api.Crea
 			return failure("InvalidParameterValue", "local-target only allowed with network local destination CIDRs")
 		}
 		gatewayID = "local"
+	} else if req.NatGatewayId != nil {
+		nat, err := tx.NatGateway(key(ctx, str(req.NatGatewayId)))
+		if errors.Is(err, ErrNotFound) {
+			return failure("NatGatewayNotFound", "The NAT gateway does not exist.")
+		}
+		if err != nil {
+			return err
+		}
+		if str(nat.Data.VpcId) != str(table.Data.VpcId) {
+			return failure("InvalidParameterValue", "Route table and NAT gateway belong to different networks.")
+		}
+		if str(nat.Data.State) != "available" {
+			return failure("InvalidParameterValue", "The NAT gateway is not available.")
+		}
+		if destination.DestinationIpv6CidrBlock != nil {
+			return unsupported("NAT64 route execution is not implemented.")
+		}
+		if insideLocal {
+			return failure("InvalidParameterValue", "A NAT gateway cannot target a VPC-local destination.")
+		}
 	} else {
 		if req.GatewayId == nil {
-			// TODO: Comeback implement ENI/instance, NAT, peering, egress-only,
-			// transit, local/carrier, endpoint, core and ODB network target lifecycles.
 			return unsupported("This route target resource family is not implemented.")
 		}
 		if strings.HasPrefix(gatewayID, "vgw-") {
-			// TODO: Comeback resolve virtual private gateways and their VPC attachments.
 			return unsupported("Virtual private gateway route targets are not implemented.")
 		}
 		gateway, err := tx.InternetGateway(key(ctx, gatewayID))
@@ -201,16 +218,24 @@ func (s *Service) changeRoute(ctx context.Context, tx Transaction, req *api.Crea
 		return failure("InvalidParameterValue", fmt.Sprintf("There is no route defined for '%s' in the route table. Use CreateRoute instead.", routeCIDR(destination)))
 	}
 	if !replace && index >= 0 {
-		if str(table.Data.Routes[index].GatewayId) == gatewayID {
+		if str(table.Data.Routes[index].GatewayId) == gatewayID && str(table.Data.Routes[index].NatGatewayId) == str(req.NatGatewayId) {
 			return nil
 		}
 		return failure("RouteAlreadyExists", fmt.Sprintf("The route identified by %s already exists.", routeCIDR(destination)))
 	}
-	destination.GatewayId = new(api.String(gatewayID))
+	if req.NatGatewayId != nil {
+		destination.NatGatewayId = new(api.String(str(req.NatGatewayId)))
+	} else {
+		destination.GatewayId = new(api.String(gatewayID))
+	}
 	destination.State = new(api.RouteStateActive)
 	destination.Origin = new(api.RouteOriginCreateRoute)
 	if localTarget {
 		destination.Origin = new(api.RouteOriginCreateRouteTable)
+	}
+	slot := table.Key.ID + "|" + routeCIDR(destination)
+	if err := relationAdmission(ctx, tx, "Route", slot, slot); err != nil {
+		return err
 	}
 	if index >= 0 {
 		table.Data.Routes[index] = destination
@@ -239,6 +264,10 @@ func (s *Service) deleteRoute(ctx context.Context, tx Transaction, req *api.Dele
 	}
 	if str(table.Data.Routes[index].Origin) == string(api.RouteOriginCreateRouteTable) {
 		return nil, failure("InvalidParameterValue", fmt.Sprintf("cannot remove local route %s in route table %s", routeCIDR(destination), table.Key.ID))
+	}
+	slot := table.Key.ID + "|" + routeCIDR(destination)
+	if err := relationAdmission(ctx, tx, "Route", slot, ""); err != nil {
+		return nil, err
 	}
 	table.Data.Routes = append(table.Data.Routes[:index], table.Data.Routes[index+1:]...)
 	if err := tx.PutRouteTable(table); err != nil {

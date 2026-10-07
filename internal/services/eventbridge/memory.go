@@ -75,6 +75,7 @@ func (r memoryReader) Bus(k BusKey) (BusRecord, error) {
 	v.Tags = maps.Clone(v.Tags)
 	v.ConfigurationDataKey = slices.Clone(v.ConfigurationDataKey)
 	v.Policy.PrincipalIDs = maps.Clone(v.Policy.PrincipalIDs)
+	v.PolicyStatementOwners = maps.Clone(v.PolicyStatementOwners)
 	return v, nil
 }
 func (r memoryReader) Buses(scope Scope) ([]BusRecord, error) {
@@ -87,6 +88,7 @@ func (r memoryReader) Buses(scope Scope) ([]BusRecord, error) {
 			v.Tags = maps.Clone(v.Tags)
 			v.ConfigurationDataKey = slices.Clone(v.ConfigurationDataKey)
 			v.Policy.PrincipalIDs = maps.Clone(v.Policy.PrincipalIDs)
+			v.PolicyStatementOwners = maps.Clone(v.PolicyStatementOwners)
 			out = append(out, v)
 		}
 	}
@@ -271,6 +273,7 @@ func (w memoryWriter) PutBus(v BusRecord) error {
 	v.Tags = maps.Clone(v.Tags)
 	v.ConfigurationDataKey = slices.Clone(v.ConfigurationDataKey)
 	v.Policy.PrincipalIDs = maps.Clone(v.Policy.PrincipalIDs)
+	v.PolicyStatementOwners = maps.Clone(v.PolicyStatementOwners)
 	w.s.buses[v.Key] = v
 	return nil
 }

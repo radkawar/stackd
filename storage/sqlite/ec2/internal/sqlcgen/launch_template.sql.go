@@ -465,7 +465,7 @@ func (q *Queries) DeleteLTVersion(ctx context.Context, arg DeleteLTVersionParams
 }
 
 const getLTTemplate = `-- name: GetLTTemplate :one
-SELECT "partition", account_id, region, resource_id, name, created_at, created_by, default_version, latest_version, last_version, tags_present FROM ec2_launch_template WHERE partition = ? AND account_id = ? AND region = ? AND resource_id = ?
+SELECT "partition", account_id, region, resource_id, name, created_at, created_by, default_version, latest_version, last_version, tags_present, cloudformation_resource_type, cloudformation_owner FROM ec2_launch_template WHERE partition = ? AND account_id = ? AND region = ? AND resource_id = ?
 `
 
 type GetLTTemplateParams struct {
@@ -495,6 +495,8 @@ func (q *Queries) GetLTTemplate(ctx context.Context, arg GetLTTemplateParams) (E
 		&i.LatestVersion,
 		&i.LastVersion,
 		&i.TagsPresent,
+		&i.CloudformationResourceType,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
@@ -602,7 +604,7 @@ func (q *Queries) GetLTVersion(ctx context.Context, arg GetLTVersionParams) (Ec2
 }
 
 const listLTTemplate = `-- name: ListLTTemplate :many
-SELECT "partition", account_id, region, resource_id, name, created_at, created_by, default_version, latest_version, last_version, tags_present FROM ec2_launch_template WHERE partition = ? AND account_id = ? AND region = ? ORDER BY resource_id
+SELECT "partition", account_id, region, resource_id, name, created_at, created_by, default_version, latest_version, last_version, tags_present, cloudformation_resource_type, cloudformation_owner FROM ec2_launch_template WHERE partition = ? AND account_id = ? AND region = ? ORDER BY resource_id
 `
 
 type ListLTTemplateParams struct {
@@ -632,6 +634,8 @@ func (q *Queries) ListLTTemplate(ctx context.Context, arg ListLTTemplateParams) 
 			&i.LatestVersion,
 			&i.LastVersion,
 			&i.TagsPresent,
+			&i.CloudformationResourceType,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}

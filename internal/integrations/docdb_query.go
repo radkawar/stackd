@@ -77,6 +77,14 @@ func (a DocumentDBQuery) Databases(ctx context.Context) ([]rds.Database, error) 
 func (a DocumentDBQuery) Snapshots(ctx context.Context) ([]rds.Snapshot, error) {
 	return a.Documents.RDSSnapshots(ctx)
 }
+func (a DocumentDBQuery) CloudFormationRequestedPort(ctx context.Context, kind, name string) (int32, bool, error) {
+	owned, err := a.Documents.Owns(ctx, kind, name)
+	if err != nil || !owned {
+		return 0, false, err
+	}
+	port, err := a.Documents.CloudFormationRequestedPort(ctx, kind, name)
+	return port, true, err
+}
 func documentRoute(input any) (engine, kind, reference, createKind, createName string) {
 	switch in := input.(type) {
 	case *api.DescribeDBEngineVersionsInput:

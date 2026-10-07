@@ -10,6 +10,7 @@ type ClientKey struct {
 }
 
 type ClientKeyRecord struct {
+	Ownership                     Ownership
 	Key                           ClientKey
 	Name, Description, CustomerID *string
 	Value                         string

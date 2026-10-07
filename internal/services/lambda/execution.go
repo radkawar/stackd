@@ -22,7 +22,10 @@ import (
 )
 
 type execution struct {
-	key                   FunctionVersionKey
+	key FunctionVersionKey
+	// image is a retention root from admission through slot collection, including
+	// cold preparation before any native container exists. Guarded by Service.mu.
+	image                 *runtime.Image
 	mu                    sync.Mutex
 	environment           runtime.Environment
 	retired               []runtime.Environment
@@ -72,10 +75,12 @@ func (e *execution) retire(environment runtime.Environment) {
 		slog.Error("Lambda environment cleanup failed; retained for shutdown retry", "error", err)
 	}
 }
-func (s *Service) execution(key FunctionVersionKey) *execution {
+func (s *Service) execution(v FunctionRecord) *execution {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.executionLocked(key)
+	slot := s.executionLocked(FunctionVersionKey{FunctionKey: v.Key, Version: v.Version})
+	slot.image = v.Image
+	return slot
 }
 
 // executionLocked reserves exclusive engine ownership during admission. It
@@ -111,6 +116,9 @@ func (s *Service) prepareMode(ctx context.Context, v FunctionRecord, provisioned
 	var archive CodeArchive
 	var layers [][]byte
 	if err := s.repository.View(ctx, func(r Reader) error {
+		if v.Image != nil {
+			return nil
+		}
 		var err error
 		archive, err = r.CodeArchive(CodeArchiveKey{Scope: v.Key.Scope, SHA256: v.CodeSHA256})
 		if err != nil {
@@ -126,16 +134,37 @@ func (s *Service) prepareMode(ctx context.Context, v FunctionRecord, provisioned
 		return nil, time.Time{}, wire
 	}
 	specification := runtime.Specification{FunctionARN: (FunctionVersionKey{FunctionKey: v.Key, Version: v.Version}).ARN(), FunctionName: v.Key.Name, Runtime: v.Runtime, Handler: v.Handler, Architecture: v.Architecture, Code: archive.Code, Layers: layers, Variables: v.Variables, Timeout: time.Duration(v.Timeout) * time.Second, MemoryMB: v.MemoryMB, EphemeralMB: v.EphemeralMB, Credentials: credentials, Endpoint: s.endpoint}
+	specification.Image = cloneDeploymentImage(v.Image)
+	specification.ImageConfig = runtimeImageConfig(v.ImageConfig)
 	specification.Provisioned = provisioned
 	specification.LogGroup = functionLogGroup(v)
 	specification.LogStream = functionLogStream(v, s.clock.Now())
 	specification.Logging = v.Logging
+	network, err := s.openFunctionNetwork(ctx, v)
+	if err != nil {
+		if network != nil {
+			if cleanupErr := network.Close(context.WithoutCancel(ctx)); cleanupErr != nil {
+				return wrapFunctionNetworkFailure(network, err), time.Time{}, errors.Join(err, cleanupErr)
+			}
+		}
+		return nil, time.Time{}, err
+	}
+	specification.FunctionNetwork = network
+	if network != nil {
+		network.BindExecutionCredential(credentials.AccessKeyID)
+	}
 	var output io.WriteCloser
 	if s.logs != nil {
 		output = s.logs.Open(ownerContext(ctx, v.Key), v.Key, credentials, specification.LogGroup, specification.LogStream)
 		specification.Logs = output
 	}
 	environment, err := s.executor.Prepare(ctx, specification)
+	if environment == nil && network != nil {
+		if cleanupErr := network.Close(context.WithoutCancel(ctx)); cleanupErr != nil {
+			err = errors.Join(err, cleanupErr)
+			environment = wrapFunctionNetworkFailure(network, err)
+		}
+	}
 	if output != nil {
 		if environment == nil {
 			_ = output.Close()
@@ -153,7 +182,7 @@ func (s *Service) activate(v FunctionRecord) {
 		s.activateManaged(v)
 		return
 	}
-	slot := s.execution(FunctionVersionKey{FunctionKey: v.Key, Version: v.Version})
+	slot := s.execution(v)
 	slot.mu.Lock()
 	released := false
 	defer func() {
@@ -226,6 +255,12 @@ func (s *Service) Start() error {
 	if s.executor == nil && s.capacityBackend == nil {
 		return nil
 	}
+	s.imageMu.Lock()
+	retentionErr := s.reconcileImages(s.lifetime)
+	s.imageMu.Unlock()
+	if retentionErr != nil {
+		return retentionErr
+	}
 	if err := s.recoverDurableExecutions(); err != nil {
 		return err
 	}
@@ -291,11 +326,20 @@ func (s *Service) Close() error {
 	for _, slot := range slots {
 		slot.mu.Lock()
 		err := slot.close(cleanup)
+		s.mu.Lock()
+		slot.leased, slot.retiring = false, true
+		s.collectExecutionLocked(slot)
+		s.mu.Unlock()
 		slot.mu.Unlock()
 		if err != nil {
 			errs = append(errs, err)
 		}
 	}
+	s.imageMu.Lock()
+	if err := s.reconcileImages(cleanup); err != nil {
+		errs = append(errs, err)
+	}
+	s.imageMu.Unlock()
 	return errors.Join(errs...)
 }
 
@@ -396,6 +440,7 @@ func (s *Service) submitInvocation(ctx context.Context, in *api.InvokeInput, str
 			}
 			admitted = true
 			slot = s.invocationExecutionLocked(FunctionVersionKey{FunctionKey: key, Version: v.Version}, ref)
+			slot.image = v.Image
 		}
 		return nil
 	})

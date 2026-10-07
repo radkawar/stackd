@@ -95,7 +95,7 @@ func (q *Queries) DeleteFunctionCodeSigningConfig(ctx context.Context, arg Delet
 }
 
 const getCodeSigningConfig = `-- name: GetCodeSigningConfig :one
-SELECT "partition", account, region, id, description, policy, modified FROM lambda_code_signing_configs WHERE partition=? AND account=? AND region=? AND id=?
+SELECT "partition", account, region, id, description, policy, modified, owner_stack_id, owner_logical_id, owner_token FROM lambda_code_signing_configs WHERE partition=? AND account=? AND region=? AND id=?
 `
 
 type GetCodeSigningConfigParams struct {
@@ -121,6 +121,9 @@ func (q *Queries) GetCodeSigningConfig(ctx context.Context, arg GetCodeSigningCo
 		&i.Description,
 		&i.Policy,
 		&i.Modified,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
@@ -232,7 +235,7 @@ func (q *Queries) GetFunctionCodeSigningConfig(ctx context.Context, arg GetFunct
 }
 
 const listCodeSigningConfigs = `-- name: ListCodeSigningConfigs :many
-SELECT "partition", account, region, id, description, policy, modified FROM lambda_code_signing_configs WHERE partition=? AND account=? AND region=? ORDER BY id
+SELECT "partition", account, region, id, description, policy, modified, owner_stack_id, owner_logical_id, owner_token FROM lambda_code_signing_configs WHERE partition=? AND account=? AND region=? ORDER BY id
 `
 
 type ListCodeSigningConfigsParams struct {
@@ -258,6 +261,9 @@ func (q *Queries) ListCodeSigningConfigs(ctx context.Context, arg ListCodeSignin
 			&i.Description,
 			&i.Policy,
 			&i.Modified,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -312,18 +318,21 @@ func (q *Queries) ListFunctionsByCodeSigningConfig(ctx context.Context, arg List
 }
 
 const putCodeSigningConfig = `-- name: PutCodeSigningConfig :exec
-INSERT INTO lambda_code_signing_configs(partition,account,region,id,description,policy,modified) VALUES(?,?,?,?,?,?,?)
-ON CONFLICT(partition,account,region,id) DO UPDATE SET description=excluded.description,policy=excluded.policy,modified=excluded.modified
+INSERT INTO lambda_code_signing_configs(partition,account,region,id,description,policy,modified,owner_stack_id,owner_logical_id,owner_token) VALUES(?,?,?,?,?,?,?,?,?,?)
+ON CONFLICT(partition,account,region,id) DO UPDATE SET description=excluded.description,policy=excluded.policy,modified=excluded.modified,owner_stack_id=excluded.owner_stack_id,owner_logical_id=excluded.owner_logical_id,owner_token=excluded.owner_token
 `
 
 type PutCodeSigningConfigParams struct {
-	Partition   string
-	Account     string
-	Region      string
-	ID          string
-	Description string
-	Policy      string
-	Modified    time.Time
+	Partition      string
+	Account        string
+	Region         string
+	ID             string
+	Description    string
+	Policy         string
+	Modified       time.Time
+	OwnerStackID   string
+	OwnerLogicalID string
+	OwnerToken     string
 }
 
 func (q *Queries) PutCodeSigningConfig(ctx context.Context, arg PutCodeSigningConfigParams) error {
@@ -335,6 +344,9 @@ func (q *Queries) PutCodeSigningConfig(ctx context.Context, arg PutCodeSigningCo
 		arg.Description,
 		arg.Policy,
 		arg.Modified,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
 	)
 	return err
 }

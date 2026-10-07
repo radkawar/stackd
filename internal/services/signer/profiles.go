@@ -37,7 +37,10 @@ func (s *Service) loadProfile(ctx context.Context, r Reader, name, version, owne
 	if e != nil {
 		return v, e
 	}
-	return v, s.authorize(ctx, action, v.ARN, v.Tags, nil)
+	if e := s.authorize(ctx, action, v.ARN, v.Tags, nil); e != nil {
+		return v, e
+	}
+	return v, observeCloudFormationOwner(ctx, v)
 }
 func (s *Service) putProfile(ctx context.Context, t Transaction, in *api.PutSigningProfileInput) (*api.PutSigningProfileOutput, error) {
 	name := value(in.ProfileName)
@@ -53,6 +56,7 @@ func (s *Service) putProfile(ctx context.Context, t Transaction, in *api.PutSign
 	sc := scopeFor(ctx)
 	v := Profile{Scope: sc, Name: name, ARN: profileARN(sc, name), Version: strings.ReplaceAll(uuid.NewString(), "-", "")[:10], Status: "Active", Current: true, Created: s.clock.Now().UTC().Truncate(time.Second), ValidityValue: 135, ValidityType: "MONTHS", Tags: map[string]string{}}
 	v.VersionARN = v.ARN + "/" + v.Version
+	v.Owner = cloudFormationOwner(ctx)
 	if in.SignatureValidityPeriod != nil {
 		p := in.SignatureValidityPeriod
 		if p.Value == nil || p.Type == nil {
@@ -220,6 +224,9 @@ func (s *Service) listTags(ctx context.Context, t Transaction, in *api.ListTagsF
 	if e = s.authorize(ctx, "ListTagsForResource", v.ARN, v.Tags, nil); e != nil {
 		return nil, e
 	}
+	if e = observeCloudFormationOwner(ctx, v); e != nil {
+		return nil, e
+	}
 	o := &api.ListTagsForResourceOutput{}
 	tags(&o.Tags, v.Tags)
 	return o, nil
@@ -235,6 +242,9 @@ func (s *Service) tagResource(ctx context.Context, t Transaction, in *api.TagRes
 		conditions["aws:TagKeys"] = append(conditions["aws:TagKeys"], string(k))
 	}
 	if e = s.authorize(ctx, "TagResource", v.ARN, v.Tags, conditions); e != nil {
+		return nil, e
+	}
+	if e = observeCloudFormationOwner(ctx, v); e != nil {
 		return nil, e
 	}
 	for k, x := range in.Tags {
@@ -255,6 +265,9 @@ func (s *Service) untagResource(ctx context.Context, t Transaction, in *api.Unta
 		conditions["aws:TagKeys"] = append(conditions["aws:TagKeys"], string(k))
 	}
 	if e = s.authorize(ctx, "UntagResource", v.ARN, v.Tags, conditions); e != nil {
+		return nil, e
+	}
+	if e = observeCloudFormationOwner(ctx, v); e != nil {
 		return nil, e
 	}
 	for _, k := range in.TagKeys {

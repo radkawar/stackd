@@ -147,6 +147,10 @@ func (s *Service) checkSubscription(r Reader, key GroupKey, v SubscriptionRecord
 	for _, old := range rows {
 		if old.Key == v.Key {
 			v.Created = old.Created
+			v.CFNOwner, w = cloudFormationClaim(r.Context(), old.CFNOwner, true)
+			if w != nil {
+				return g, v, w
+			}
 			return g, v, nil
 		}
 	}
@@ -154,6 +158,10 @@ func (s *Service) checkSubscription(r Reader, key GroupKey, v SubscriptionRecord
 		return g, v, failure("LimitExceededException", "Resource limit exceeded.")
 	}
 	v.Created = s.clock.Now().UnixMilli()
+	v.CFNOwner, w = cloudFormationClaim(r.Context(), "", false)
+	if w != nil {
+		return g, v, w
+	}
 	return g, v, nil
 }
 func (s *Service) putSubscriptionFilter(ctx context.Context, in *api.PutSubscriptionFilterRequest) (*api.PutSubscriptionFilterOutput, *awswire.Error) {
@@ -215,6 +223,15 @@ func (s *Service) putSubscriptionFilter(ctx context.Context, in *api.PutSubscrip
 		}
 		if v.TargetARN != prepared.TargetARN || v.RoleARN != prepared.RoleARN {
 			return nil, failure("OperationAbortedException", "The destination changed during validation.")
+		}
+		if owner, constrained := tx.Context().Value(cloudFormationOwnerKey{}).(cloudFormationOwner); constrained && owner.Create {
+			old, err := tx.Subscription(v.Key)
+			if err != nil && !errors.Is(err, ErrNotFound) {
+				return nil, wireError(err)
+			}
+			if err == nil && subscriptionConfigurationEqual(old, v) {
+				return out, nil
+			}
 		}
 		v.ID = uuid.NewString()
 		if err := tx.PutSubscription(v); err != nil {
@@ -278,11 +295,22 @@ func (s *Service) deleteSubscriptionFilter(tx Transaction, in *api.DeleteSubscri
 	if w := resourceName(key.Name, "subscription filter"); w != nil {
 		return nil, w
 	}
-	if _, err := tx.Subscription(key); err != nil {
+	old, err := tx.Subscription(key)
+	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return nil, failure("ResourceNotFoundException", "The specified subscription filter does not exist.")
 		}
 		return nil, wireError(err)
 	}
+	if w := cloudFormationDelete(tx.Context(), old.CFNOwner); w != nil {
+		return nil, w
+	}
 	return &api.DeleteSubscriptionFilterOutput{}, wireError(tx.DeleteSubscription(key))
+}
+
+func subscriptionConfigurationEqual(a, b SubscriptionRecord) bool {
+	return a.Key == b.Key && a.Pattern == b.Pattern && a.DestinationARN == b.DestinationARN &&
+		a.Distribution == b.Distribution && a.FieldSelection == b.FieldSelection && a.RoleARN == b.RoleARN &&
+		a.TargetARN == b.TargetARN && a.RoleSourceARN == b.RoleSourceARN && a.SenderRoleARN == b.SenderRoleARN &&
+		a.ApplyOnTransformedLogs == b.ApplyOnTransformedLogs && slices.Equal(a.EmitSystemFields, b.EmitSystemFields)
 }

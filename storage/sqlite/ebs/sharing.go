@@ -19,12 +19,12 @@ func (r reader) AvailableSnapshots(scope domain.Scope) ([]domain.SnapshotRecord,
 }
 
 func (r reader) SnapshotPublicAccess(scope domain.Scope) (domain.SnapshotPublicAccess, error) {
-	state, err := r.q.GetSnapshotPublicAccess(r.ctx, sqlcgen.GetSnapshotPublicAccessParams{Partition: scope.Partition, AccountID: scope.AccountID, Region: scope.Region})
-	return domain.SnapshotPublicAccess{Scope: scope, State: api.SnapshotBlockPublicAccessState(state)}, missing(err)
+	row, err := r.q.GetSnapshotPublicAccess(r.ctx, sqlcgen.GetSnapshotPublicAccessParams{Partition: scope.Partition, AccountID: scope.AccountID, Region: scope.Region})
+	return domain.SnapshotPublicAccess{Scope: scope, State: api.SnapshotBlockPublicAccessState(row.State), OwnerStackID: row.OwnerStackID, OwnerLogicalID: row.OwnerLogicalID, OwnerToken: row.OwnerToken}, missing(err)
 }
 
 func (w writer) PutSnapshotPublicAccess(v domain.SnapshotPublicAccess) error {
-	return w.q.PutSnapshotPublicAccess(w.ctx, sqlcgen.PutSnapshotPublicAccessParams{Partition: v.Scope.Partition, AccountID: v.Scope.AccountID, Region: v.Scope.Region, State: string(v.State)})
+	return w.q.PutSnapshotPublicAccess(w.ctx, sqlcgen.PutSnapshotPublicAccessParams{Partition: v.Scope.Partition, AccountID: v.Scope.AccountID, Region: v.Scope.Region, State: string(v.State), OwnerStackID: v.OwnerStackID, OwnerLogicalID: v.OwnerLogicalID, OwnerToken: v.OwnerToken})
 }
 
 func (r reader) SharedTags(k domain.SharedTagsKey) (map[string]string, error) {

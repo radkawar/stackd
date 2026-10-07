@@ -157,7 +157,7 @@ func (s *Service) admitProfile(r Reader, in *api.CreateConfigurationProfileInput
 	if err != nil {
 		return Profile{}, nil, false, err
 	}
-	p := Profile{Scope: sc, ApplicationID: app.ID, Name: value(in.Name), Description: value(in.Description), LocationURI: value(in.LocationUri), RetrievalRoleARN: value(in.RetrievalRoleArn), Type: kind, KMSKeyIdentifier: value(in.KmsKeyIdentifier), CreatedAt: s.clock.Now().UTC(), NextVersion: 1}
+	p := Profile{Scope: sc, ApplicationID: app.ID, Name: value(in.Name), Description: value(in.Description), LocationURI: value(in.LocationUri), RetrievalRoleARN: value(in.RetrievalRoleArn), Type: kind, KMSKeyIdentifier: value(in.KmsKeyIdentifier), CreatedAt: s.clock.Now().UTC(), NextVersion: 1, Ownership: cloudFormationClaim(r.Context(), "configurationprofile")}
 	if kind == profileFlags && p.LocationURI != hostedLocation {
 		return Profile{}, nil, false, failure("BadRequestException", "ConfigurationProfiles of type 'AWS.AppConfig.FeatureFlags' can only have a locationUri of 'hosted'")
 	}

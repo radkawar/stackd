@@ -193,7 +193,7 @@ func (q *Queries) GetSegment(ctx context.Context, arg GetSegmentParams) (XraySeg
 }
 
 const listResourcePolicies = `-- name: ListResourcePolicies :many
-SELECT "partition", account_id, region, name, document, revision, updated FROM xray_resource_policies
+SELECT "partition", account_id, region, name, document, revision, updated, cfn_owner FROM xray_resource_policies
 WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
 `
 
@@ -220,6 +220,7 @@ func (q *Queries) ListResourcePolicies(ctx context.Context, arg ListResourcePoli
 			&i.Document,
 			&i.Revision,
 			&i.Updated,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -318,10 +319,10 @@ func (q *Queries) PutPolicyPrincipal(ctx context.Context, arg PutPolicyPrincipal
 }
 
 const putResourcePolicy = `-- name: PutResourcePolicy :exec
-INSERT INTO xray_resource_policies (partition, account_id, region, name, document, revision, updated)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO xray_resource_policies (partition, account_id, region, name, document, revision, updated, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, name) DO UPDATE SET
- document = excluded.document, revision = excluded.revision, updated = excluded.updated
+ document = excluded.document, revision = excluded.revision, updated = excluded.updated, cfn_owner = excluded.cfn_owner
 `
 
 type PutResourcePolicyParams struct {
@@ -332,6 +333,7 @@ type PutResourcePolicyParams struct {
 	Document  string
 	Revision  int64
 	Updated   time.Time
+	CfnOwner  string
 }
 
 func (q *Queries) PutResourcePolicy(ctx context.Context, arg PutResourcePolicyParams) error {
@@ -343,6 +345,7 @@ func (q *Queries) PutResourcePolicy(ctx context.Context, arg PutResourcePolicyPa
 		arg.Document,
 		arg.Revision,
 		arg.Updated,
+		arg.CfnOwner,
 	)
 	return err
 }

@@ -3,10 +3,12 @@ package lambda
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/google/uuid"
 	api "stackd/internal/awsapi/lambda"
 	"stackd/internal/awswire"
+	"time"
 )
 
 func (s *Service) authorizeUpdate(ctx context.Context, ref FunctionReference, action string, extra map[string][]string) (FunctionRecord, *awswire.Error) {
@@ -29,8 +31,8 @@ func (s *Service) authorizeUpdate(ctx context.Context, ref FunctionReference, ac
 }
 
 func (s *Service) updateCode(ctx context.Context, in *api.UpdateFunctionCodeInput) (*api.UpdateFunctionCodeOutput, *awswire.Error) {
-	if in.ImageUri != nil || in.SourceKMSKeyArn != nil {
-		return nil, unsupported("ECR deployment and customer-key encryption are not implemented.")
+	if in.SourceKMSKeyArn != nil {
+		return nil, unsupported("Customer-key code encryption is not implemented.")
 	}
 	ref, wire := parseFunctionReference(ctx, value(in.FunctionName), "")
 	if wire != nil {
@@ -43,6 +45,12 @@ func (s *Service) updateCode(ctx context.Context, in *api.UpdateFunctionCodeInpu
 	current, wire := s.authorizeUpdate(ctx, ref, "UpdateFunctionCode", nil)
 	if wire != nil {
 		return nil, wire
+	}
+	if current.Image != nil {
+		return s.updateImageCode(ctx, in, ref, current)
+	}
+	if in.ImageUri != nil {
+		return nil, failure("InvalidParameterValueException", "Package type is immutable; ZIP functions cannot accept ImageUri.", 400)
 	}
 	archive, reference, wire := s.loadCode(ctx, key.Scope, key.ARN(), in.ZipFile, value(in.S3Bucket), value(in.S3Key), value(in.S3ObjectVersion), value(in.S3ObjectStorageMode))
 	if wire != nil {
@@ -78,7 +86,7 @@ func (s *Service) updateCode(ctx context.Context, in *api.UpdateFunctionCodeInpu
 	})
 }
 func (s *Service) updateConfiguration(ctx context.Context, in *api.UpdateFunctionConfigurationInput) (*api.UpdateFunctionConfigurationOutput, *awswire.Error) {
-	if in.VpcConfig != nil || in.KMSKeyArn != nil || in.FileSystemConfigs != nil || in.ImageConfig != nil || in.SnapStart != nil {
+	if in.KMSKeyArn != nil || in.FileSystemConfigs != nil || in.SnapStart != nil {
 		return nil, unsupported("The requested advanced Lambda deployment configuration is not implemented.")
 	}
 	if wire := validateTracingConfiguration(in.TracingConfig); wire != nil {
@@ -94,6 +102,20 @@ func (s *Service) updateConfiguration(ctx context.Context, in *api.UpdateFunctio
 	current, wire := s.authorizeUpdate(ctx, ref, "UpdateFunctionConfiguration", layerConditions(in.Layers))
 	if wire != nil {
 		return nil, wire
+	}
+	if current.Image != nil && (in.Runtime != nil || in.Handler != nil || in.Layers != nil) {
+		return nil, failure("InvalidParameterValueException", "Image functions cannot specify Runtime, Handler or Layers.", 400)
+	}
+	if current.Image == nil && in.ImageConfig != nil {
+		return nil, failure("InvalidParameterValueException", "ImageConfig is only valid for image functions.", 400)
+	}
+	if wire := validateImageConfig(in.ImageConfig); wire != nil {
+		return nil, wire
+	}
+	if in.VpcConfig != nil || in.Role != nil {
+		if err := s.recoverFunctionNetwork(ctx, current); err != nil {
+			return nil, wireError(err)
+		}
 	}
 	if current.State == "Inactive" && current.Reference != nil {
 		if s.codeSource == nil {
@@ -160,6 +182,9 @@ func (s *Service) updateConfiguration(ctx context.Context, in *api.UpdateFunctio
 			return wireError(err)
 		}
 		v.Capacity = capacity
+		if in.ImageConfig != nil {
+			v.ImageConfig = cloneImageConfig(in.ImageConfig)
+		}
 		if wire := configureLogging(v, in.LoggingConfig); wire != nil {
 			return wire
 		}
@@ -173,7 +198,7 @@ func (s *Service) updateConfiguration(ctx context.Context, in *api.UpdateFunctio
 		if in.Role != nil {
 			v.Role = value(in.Role)
 		}
-		if in.DeadLetterConfig != nil && in.DeadLetterConfig.TargetArn != nil {
+		if in.DeadLetterConfig != nil {
 			v.DeadLetterARN = value(in.DeadLetterConfig.TargetArn)
 		}
 		if in.Description != nil {
@@ -203,6 +228,11 @@ func (s *Service) updateConfiguration(ctx context.Context, in *api.UpdateFunctio
 				return wireError(err)
 			}
 			if wire := validateDeploymentCode(tx, archive.Code, v.Layers); wire != nil {
+				return wire
+			}
+		}
+		if in.VpcConfig != nil || in.Role != nil {
+			if wire := s.configureFunctionNetwork(tx.Context(), v, in.VpcConfig); wire != nil {
 				return wire
 			}
 		}
@@ -316,16 +346,37 @@ func (s *Service) deployUpdate(candidate FunctionRecord) {
 		return
 	}
 	ctx := ownerContext(s.lifetime, candidate.Key)
-	// Preparation and old-environment cleanup never hold the service lock or
-	// wait for an active customer invocation. Existing calls finish on their code.
-	environment, expiration, prepareErr := s.prepare(ctx, candidate)
-	// The prepared replacement owns its own slot. Publishing readiness must not
-	// wait for cleanup of an old idle environment or expose an unavailable pool.
-	slot := &execution{key: FunctionVersionKey{FunctionKey: candidate.Key}, environment: environment, expires: expiration, revision: candidate.DeploymentRevision, lastUse: s.clock.Now(), leased: true}
+	// Register the pending deployment's execution lease in the same snapshot
+	// that checks its repository root. Deletion can then retire preparation,
+	// but cannot collect its image before the native effect has finished.
+	slot := &execution{key: FunctionVersionKey{FunctionKey: candidate.Key}, image: candidate.Image, leased: true}
 	slot.mu.Lock()
 	s.mu.Lock()
-	s.environments[slot.key] = append(s.environments[slot.key], slot)
-	err := s.repository.Update(ctx, func(tx Transaction) error {
+	err := s.repository.View(ctx, func(r Reader) error {
+		pending, err := r.PendingFunction(candidate.Key)
+		if err != nil {
+			return err
+		}
+		if pending.DeploymentRevision != candidate.DeploymentRevision {
+			return errors.New("deployment was superseded")
+		}
+		return nil
+	})
+	if err == nil {
+		s.environments[slot.key] = append(s.environments[slot.key], slot)
+	}
+	s.mu.Unlock()
+	if err != nil {
+		slot.mu.Unlock()
+		return
+	}
+	// Native preparation and old-environment cleanup run outside service and
+	// repository locks. Publishing readiness never waits for an accepted call.
+	environment, expiration, prepareErr := s.prepare(ctx, candidate)
+	slot.environment, slot.expires, slot.revision, slot.lastUse = environment, expiration, candidate.DeploymentRevision, s.clock.Now()
+	s.imageMu.Lock()
+	s.mu.Lock()
+	err = s.repository.Update(ctx, func(tx Transaction) error {
 		pending, err := tx.PendingFunction(candidate.Key)
 		if err != nil {
 			return err
@@ -376,10 +427,18 @@ func (s *Service) deployUpdate(candidate FunctionRecord) {
 		slot.retiring = true
 	}
 	s.mu.Unlock()
+	s.imageMu.Unlock()
 	if !released {
 		s.releaseExecution(slot)
 	}
 	slot.mu.Unlock()
 	s.jobs.Wake()
 	s.closeIdleExecutions(idle)
+	s.imageMu.Lock()
+	cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+	if err := s.reconcileImages(cleanup); err != nil {
+		slog.Error("Lambda deployment image retention reconciliation failed", "function", candidate.Key.ARN(), "error", err)
+	}
+	cancel()
+	s.imageMu.Unlock()
 }

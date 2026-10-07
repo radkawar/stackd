@@ -35,7 +35,7 @@ func (q *Queries) WFNextRun(ctx context.Context) (GlueWorkflowRun, error) {
 }
 
 const wFNextTrigger = `-- name: WFNextTrigger :one
-SELECT "partition", account_id, region, name, trigger_type, state, description, schedule, workflow_name, predicate_logical, predicate_present, next_fire FROM glue_trigger WHERE next_fire IS NOT NULL ORDER BY next_fire, partition, account_id, region, name LIMIT 1
+SELECT "partition", account_id, region, name, trigger_type, state, description, schedule, workflow_name, predicate_logical, predicate_present, next_fire, cfn_owner FROM glue_trigger WHERE next_fire IS NOT NULL ORDER BY next_fire, partition, account_id, region, name LIMIT 1
 `
 
 func (q *Queries) WFNextTrigger(ctx context.Context) (GlueTrigger, error) {
@@ -54,6 +54,7 @@ func (q *Queries) WFNextTrigger(ctx context.Context) (GlueTrigger, error) {
 		&i.PredicateLogical,
 		&i.PredicatePresent,
 		&i.NextFire,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -80,7 +81,7 @@ func (q *Queries) WFSecurityConfigurationDelete(ctx context.Context, arg WFSecur
 }
 
 const wFSecurityConfigurationGet = `-- name: WFSecurityConfigurationGet :one
-SELECT "partition", account_id, region, name, created, s3_mode, s3_key, logs_mode, logs_key, bookmarks_mode, bookmarks_key FROM glue_security_configuration WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name = ?4
+SELECT "partition", account_id, region, name, created, s3_mode, s3_key, logs_mode, logs_key, bookmarks_mode, bookmarks_key, cfn_owner FROM glue_security_configuration WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name = ?4
 `
 
 type WFSecurityConfigurationGetParams struct {
@@ -110,12 +111,13 @@ func (q *Queries) WFSecurityConfigurationGet(ctx context.Context, arg WFSecurity
 		&i.LogsKey,
 		&i.BookmarksMode,
 		&i.BookmarksKey,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const wFSecurityConfigurationList = `-- name: WFSecurityConfigurationList :many
-SELECT "partition", account_id, region, name, created, s3_mode, s3_key, logs_mode, logs_key, bookmarks_mode, bookmarks_key FROM glue_security_configuration WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY partition, account_id, region, name
+SELECT "partition", account_id, region, name, created, s3_mode, s3_key, logs_mode, logs_key, bookmarks_mode, bookmarks_key, cfn_owner FROM glue_security_configuration WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY partition, account_id, region, name
 `
 
 type WFSecurityConfigurationListParams struct {
@@ -145,6 +147,7 @@ func (q *Queries) WFSecurityConfigurationList(ctx context.Context, arg WFSecurit
 			&i.LogsKey,
 			&i.BookmarksMode,
 			&i.BookmarksKey,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -160,11 +163,12 @@ func (q *Queries) WFSecurityConfigurationList(ctx context.Context, arg WFSecurit
 }
 
 const wFSecurityConfigurationPut = `-- name: WFSecurityConfigurationPut :exec
-INSERT INTO glue_security_configuration (partition, account_id, region, name, created, s3_mode, s3_key, logs_mode, logs_key, bookmarks_mode, bookmarks_key) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+INSERT INTO glue_security_configuration (cfn_owner, partition, account_id, region, name, created, s3_mode, s3_key, logs_mode, logs_key, bookmarks_mode, bookmarks_key) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
 ON CONFLICT (partition, account_id, region, name) DO UPDATE SET created = excluded.created, s3_mode = excluded.s3_mode, s3_key = excluded.s3_key, logs_mode = excluded.logs_mode, logs_key = excluded.logs_key, bookmarks_mode = excluded.bookmarks_mode, bookmarks_key = excluded.bookmarks_key
 `
 
 type WFSecurityConfigurationPutParams struct {
+	CfnOwner      string
 	Partition     string
 	AccountID     string
 	Region        string
@@ -180,6 +184,7 @@ type WFSecurityConfigurationPutParams struct {
 
 func (q *Queries) WFSecurityConfigurationPut(ctx context.Context, arg WFSecurityConfigurationPutParams) error {
 	_, err := q.db.ExecContext(ctx, wFSecurityConfigurationPut,
+		arg.CfnOwner,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -527,7 +532,7 @@ func (q *Queries) WFTriggerDelete(ctx context.Context, arg WFTriggerDeleteParams
 }
 
 const wFTriggerGet = `-- name: WFTriggerGet :one
-SELECT "partition", account_id, region, name, trigger_type, state, description, schedule, workflow_name, predicate_logical, predicate_present, next_fire FROM glue_trigger WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name = ?4
+SELECT "partition", account_id, region, name, trigger_type, state, description, schedule, workflow_name, predicate_logical, predicate_present, next_fire, cfn_owner FROM glue_trigger WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name = ?4
 `
 
 type WFTriggerGetParams struct {
@@ -558,12 +563,13 @@ func (q *Queries) WFTriggerGet(ctx context.Context, arg WFTriggerGetParams) (Glu
 		&i.PredicateLogical,
 		&i.PredicatePresent,
 		&i.NextFire,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const wFTriggerList = `-- name: WFTriggerList :many
-SELECT "partition", account_id, region, name, trigger_type, state, description, schedule, workflow_name, predicate_logical, predicate_present, next_fire FROM glue_trigger WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY partition, account_id, region, name
+SELECT "partition", account_id, region, name, trigger_type, state, description, schedule, workflow_name, predicate_logical, predicate_present, next_fire, cfn_owner FROM glue_trigger WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY partition, account_id, region, name
 `
 
 type WFTriggerListParams struct {
@@ -594,6 +600,7 @@ func (q *Queries) WFTriggerList(ctx context.Context, arg WFTriggerListParams) ([
 			&i.PredicateLogical,
 			&i.PredicatePresent,
 			&i.NextFire,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -609,11 +616,12 @@ func (q *Queries) WFTriggerList(ctx context.Context, arg WFTriggerListParams) ([
 }
 
 const wFTriggerPut = `-- name: WFTriggerPut :exec
-INSERT INTO glue_trigger (partition, account_id, region, name, trigger_type, state, description, schedule, workflow_name, predicate_logical, predicate_present, next_fire) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+INSERT INTO glue_trigger (cfn_owner, partition, account_id, region, name, trigger_type, state, description, schedule, workflow_name, predicate_logical, predicate_present, next_fire) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
 ON CONFLICT (partition, account_id, region, name) DO UPDATE SET trigger_type = excluded.trigger_type, state = excluded.state, description = excluded.description, schedule = excluded.schedule, workflow_name = excluded.workflow_name, predicate_logical = excluded.predicate_logical, predicate_present = excluded.predicate_present, next_fire = excluded.next_fire
 `
 
 type WFTriggerPutParams struct {
+	CfnOwner         string
 	Partition        string
 	AccountID        string
 	Region           string
@@ -630,6 +638,7 @@ type WFTriggerPutParams struct {
 
 func (q *Queries) WFTriggerPut(ctx context.Context, arg WFTriggerPutParams) error {
 	_, err := q.db.ExecContext(ctx, wFTriggerPut,
+		arg.CfnOwner,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -761,7 +770,7 @@ func (q *Queries) WFWorkflowDelete(ctx context.Context, arg WFWorkflowDeletePara
 }
 
 const wFWorkflowGet = `-- name: WFWorkflowGet :one
-SELECT "partition", account_id, region, name, description, created, modified, max_concurrent FROM glue_workflow WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name = ?4
+SELECT "partition", account_id, region, name, description, created, modified, max_concurrent, cfn_owner FROM glue_workflow WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name = ?4
 `
 
 type WFWorkflowGetParams struct {
@@ -788,12 +797,13 @@ func (q *Queries) WFWorkflowGet(ctx context.Context, arg WFWorkflowGetParams) (G
 		&i.Created,
 		&i.Modified,
 		&i.MaxConcurrent,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const wFWorkflowList = `-- name: WFWorkflowList :many
-SELECT "partition", account_id, region, name, description, created, modified, max_concurrent FROM glue_workflow WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY partition, account_id, region, name
+SELECT "partition", account_id, region, name, description, created, modified, max_concurrent, cfn_owner FROM glue_workflow WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY partition, account_id, region, name
 `
 
 type WFWorkflowListParams struct {
@@ -820,6 +830,7 @@ func (q *Queries) WFWorkflowList(ctx context.Context, arg WFWorkflowListParams) 
 			&i.Created,
 			&i.Modified,
 			&i.MaxConcurrent,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -1305,11 +1316,12 @@ func (q *Queries) WFWorkflowPropertyPut(ctx context.Context, arg WFWorkflowPrope
 }
 
 const wFWorkflowPut = `-- name: WFWorkflowPut :exec
-INSERT INTO glue_workflow (partition, account_id, region, name, description, created, modified, max_concurrent) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+INSERT INTO glue_workflow (cfn_owner, partition, account_id, region, name, description, created, modified, max_concurrent) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
 ON CONFLICT (partition, account_id, region, name) DO UPDATE SET description = excluded.description, created = excluded.created, modified = excluded.modified, max_concurrent = excluded.max_concurrent
 `
 
 type WFWorkflowPutParams struct {
+	CfnOwner      string
 	Partition     string
 	AccountID     string
 	Region        string
@@ -1322,6 +1334,7 @@ type WFWorkflowPutParams struct {
 
 func (q *Queries) WFWorkflowPut(ctx context.Context, arg WFWorkflowPutParams) error {
 	_, err := q.db.ExecContext(ctx, wFWorkflowPut,
+		arg.CfnOwner,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,

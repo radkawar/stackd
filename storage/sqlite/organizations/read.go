@@ -14,7 +14,7 @@ func (r reader) partition(partition string, sequence uint64) (domain.PartitionRe
 		return record, err
 	}
 	for _, row := range registry {
-		record.Accounts = append(record.Accounts, domain.AccountRecord{ID: row.ID, ARN: row.Arn, Name: row.Name, Email: row.Email, Status: row.Status, State: row.State, JoinedMethod: row.JoinedMethod, JoinedTimestamp: row.JoinedTimestamp})
+		record.Accounts = append(record.Accounts, domain.AccountRecord{ID: row.ID, ARN: row.Arn, Name: row.Name, Email: row.Email, Status: row.Status, State: row.State, JoinedMethod: row.JoinedMethod, JoinedTimestamp: row.JoinedTimestamp, CloudFormationOwner: row.CloudformationOwner, CloudFormationRegion: row.CloudformationRegion})
 	}
 	organizations, err := r.q.Organizations(r.ctx, partition)
 	if err != nil {
@@ -35,7 +35,7 @@ func (r reader) partition(partition string, sequence uint64) (domain.PartitionRe
 
 func (r reader) organization(row sqlcgen.OrgOrganization) (domain.OrganizationRecord, error) {
 	o := domain.OrganizationRecord{
-		Organization: domain.OrganizationDetails{ID: row.OrgID, ARN: row.Arn, FeatureSet: row.FeatureSet, MasterAccountID: row.MasterAccountID, MasterAccountARN: row.MasterAccountArn, MasterAccountEmail: row.MasterAccountEmail},
+		Organization: domain.OrganizationDetails{ID: row.OrgID, ARN: row.Arn, FeatureSet: row.FeatureSet, MasterAccountID: row.MasterAccountID, MasterAccountARN: row.MasterAccountArn, MasterAccountEmail: row.MasterAccountEmail, CloudFormationOwner: row.CloudformationOwner},
 		Root:         domain.RootRecord{ID: row.RootID, ARN: row.RootArn, Name: row.RootName},
 		RootAccess:   domain.RootAccessFeatures{CredentialsManagement: row.CredentialsManagement, Sessions: row.RootSessions},
 	}
@@ -43,7 +43,7 @@ func (r reader) organization(row sqlcgen.OrgOrganization) (domain.OrganizationRe
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return o, err
 	}
-	o.ResourcePolicy = domain.ResourcePolicyRecord{ID: resourcePolicy.ID, ARN: resourcePolicy.Arn, Content: resourcePolicy.Content}
+	o.ResourcePolicy = domain.ResourcePolicyRecord{ID: resourcePolicy.ID, ARN: resourcePolicy.Arn, Content: resourcePolicy.Content, CloudFormationOwner: resourcePolicy.CloudformationOwner}
 
 	{
 		rows, err := r.q.AvailablePolicyTypes(r.ctx, sqlcgen.AvailablePolicyTypesParams{Partition: row.Partition, OrgID: row.OrgID})
@@ -69,7 +69,7 @@ func (r reader) organization(row sqlcgen.OrgOrganization) (domain.OrganizationRe
 			return o, err
 		}
 		for _, row := range rows {
-			o.Accounts = append(o.Accounts, domain.AccountRecord{ID: row.ID, ARN: row.Arn, Name: row.Name, Email: row.Email, Status: row.Status, State: row.State, JoinedMethod: row.JoinedMethod, JoinedTimestamp: row.JoinedTimestamp})
+			o.Accounts = append(o.Accounts, domain.AccountRecord{ID: row.ID, ARN: row.Arn, Name: row.Name, Email: row.Email, Status: row.Status, State: row.State, JoinedMethod: row.JoinedMethod, JoinedTimestamp: row.JoinedTimestamp, CloudFormationOwner: row.CloudformationOwner, CloudFormationRegion: row.CloudformationRegion})
 		}
 	}
 	{
@@ -78,7 +78,7 @@ func (r reader) organization(row sqlcgen.OrgOrganization) (domain.OrganizationRe
 			return o, err
 		}
 		for _, row := range rows {
-			o.Units = append(o.Units, domain.UnitRecord{ID: row.ID, ARN: row.Arn, Name: row.Name})
+			o.Units = append(o.Units, domain.UnitRecord{ID: row.ID, ARN: row.Arn, Name: row.Name, CloudFormationOwner: row.CloudformationOwner})
 		}
 	}
 	{
@@ -150,7 +150,7 @@ func (r reader) organization(row sqlcgen.OrgOrganization) (domain.OrganizationRe
 		return o, err
 	}
 	for _, row := range policies {
-		o.Policies = append(o.Policies, domain.PolicyRecord{Content: row.Content, PolicySummary: domain.PolicySummaryRecord{ID: row.ID, ARN: row.Arn, Name: row.Name, Description: row.Description, Type: row.Type, AWSManaged: row.AwsManaged}})
+		o.Policies = append(o.Policies, domain.PolicyRecord{Content: row.Content, PolicySummary: domain.PolicySummaryRecord{ID: row.ID, ARN: row.Arn, Name: row.Name, Description: row.Description, Type: row.Type, AWSManaged: row.AwsManaged}, CloudFormationOwner: row.CloudformationOwner})
 	}
 	creations, err := r.q.Creations(r.ctx, sqlcgen.CreationsParams{Partition: row.Partition, OrgID: row.OrgID})
 	if err != nil {
@@ -161,7 +161,7 @@ func (r reader) organization(row sqlcgen.OrgOrganization) (domain.OrganizationRe
 		if err != nil {
 			return o, err
 		}
-		creation := domain.AccountCreationRecord{ID: row.ID, AccountID: row.AccountID, AccountName: row.AccountName, Email: row.Email, RoleName: row.RoleName, State: row.State, FailureReason: row.FailureReason, RequestedAt: row.RequestedAt, Due: row.Due, CompletedAt: row.CompletedAt, RequestID: row.RequestID, RequestRegion: row.RequestRegion, ActorARN: row.ActorArn, Tags: make(map[string]string, len(tags))}
+		creation := domain.AccountCreationRecord{ID: row.ID, AccountID: row.AccountID, AccountName: row.AccountName, Email: row.Email, RoleName: row.RoleName, State: row.State, FailureReason: row.FailureReason, RequestedAt: row.RequestedAt, Due: row.Due, CompletedAt: row.CompletedAt, RequestID: row.RequestID, RequestRegion: row.RequestRegion, ActorARN: row.ActorArn, CloudFormationOwner: row.CloudformationOwner, Tags: make(map[string]string, len(tags))}
 		for _, tag := range tags {
 			creation.Tags[tag.Key] = tag.Value
 		}

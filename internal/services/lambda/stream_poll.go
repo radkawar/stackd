@@ -252,7 +252,9 @@ func (s *Service) pollStreamMapping(ctx context.Context, mapping EventSourceMapp
 			if firstErr == nil {
 				firstErr = err
 			}
-			continue
+			// A failed source read cannot suspend records already captured in
+			// Lambda. Their retry/age limits and failure destinations still run
+			// while the source recovers; only the capture cursor stays unchanged.
 		}
 		pending := shard.ReadComplete
 		for _, lane := range shard.Lanes {

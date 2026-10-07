@@ -23,6 +23,7 @@ type GlueCatalog struct {
 	TablePermissionsJson    string
 	FullTableAccess         sql.NullString
 	TagsJson                string
+	CfnOwner                string
 }
 
 type GlueCatalogImport struct {
@@ -58,6 +59,7 @@ type GlueClassifier struct {
 	Version                  int64
 	CreatedAt                int64
 	UpdatedAt                int64
+	CfnOwner                 string
 }
 
 type GlueColumnStatistic struct {
@@ -92,6 +94,7 @@ type GlueConnection struct {
 	CreatedAt            int64
 	UpdatedAt            int64
 	LastUpdatedBy        string
+	CfnOwner             string
 }
 
 type GlueConnectionEncryption struct {
@@ -100,6 +103,7 @@ type GlueConnectionEncryption struct {
 	Region          string
 	KeyID           string
 	ReturnEncrypted int64
+	CfnOwner        string
 }
 
 type GlueCrawler struct {
@@ -129,6 +133,7 @@ type GlueCrawler struct {
 	ElapsedMs             int64
 	RunID                 string
 	NextScheduled         sql.NullInt64
+	CfnOwner              string
 }
 
 type GlueCrawlerRun struct {
@@ -164,6 +169,7 @@ type GlueDatabase struct {
 	DefaultPermissionsJson string
 	TargetDatabaseJson     string
 	TagsJson               string
+	CfnOwner               string
 }
 
 type GlueFunction struct {
@@ -205,6 +211,7 @@ type GlueJob struct {
 	Tags                    string
 	CreatedAt               int64
 	UpdatedAt               int64
+	CfnOwner                string
 }
 
 type GlueJobAttempt struct {
@@ -288,6 +295,7 @@ type GluePartition struct {
 	LastAnalyzedAt        sql.NullTime
 	ParametersJson        string
 	StorageDescriptorJson string
+	CfnOwner              string
 }
 
 type GluePartitionColumnStatistic struct {
@@ -327,6 +335,7 @@ type GlueRegistry struct {
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 	DueAt        time.Time
+	CfnOwner     string
 }
 
 type GlueRegistryTag struct {
@@ -365,6 +374,7 @@ type GlueSchema struct {
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 	DueAt         time.Time
+	CfnOwner      string
 }
 
 type GlueSchemaMetadatum struct {
@@ -373,6 +383,7 @@ type GlueSchemaMetadatum struct {
 	MetadataValue string
 	CreatedAt     time.Time
 	Ordinal       int64
+	CfnOwner      string
 }
 
 type GlueSchemaTag struct {
@@ -398,6 +409,7 @@ type GlueSchemaVersion struct {
 	Status        string
 	CreatedAt     time.Time
 	DueAt         time.Time
+	CfnOwner      string
 }
 
 type GlueSecurityConfiguration struct {
@@ -412,6 +424,7 @@ type GlueSecurityConfiguration struct {
 	LogsKey       sql.NullString
 	BookmarksMode sql.NullString
 	BookmarksKey  sql.NullString
+	CfnOwner      string
 }
 
 type GlueTable struct {
@@ -437,6 +450,7 @@ type GlueTable struct {
 	TargetTableJson       string
 	ViewOriginalText      sql.NullString
 	ViewExpandedText      sql.NullString
+	CfnOwner              string
 }
 
 type GlueTableVersion struct {
@@ -477,6 +491,7 @@ type GlueTrigger struct {
 	PredicateLogical sql.NullString
 	PredicatePresent bool
 	NextFire         sql.NullInt64
+	CfnOwner         string
 }
 
 type GlueTriggerAction struct {
@@ -533,6 +548,7 @@ type GlueWorkflow struct {
 	Created       int64
 	Modified      int64
 	MaxConcurrent sql.NullInt64
+	CfnOwner      string
 }
 
 type GlueWorkflowNode struct {

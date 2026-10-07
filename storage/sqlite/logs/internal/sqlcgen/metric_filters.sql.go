@@ -53,7 +53,7 @@ func (q *Queries) DeleteMetricFilterSystemFields(ctx context.Context, arg Delete
 }
 
 const getMetricFilter = `-- name: GetMetricFilter :one
-SELECT f.group_id, f.name, f.pattern, f.metric_namespace, f.metric_name, f.metric_value, f.unit, f.default_value, f.apply_on_transformed_logs, f.field_selection, f.created, g.name AS group_name FROM logs_metric_filters f
+SELECT f.group_id, f.name, f.pattern, f.metric_namespace, f.metric_name, f.metric_value, f.unit, f.default_value, f.apply_on_transformed_logs, f.field_selection, f.created, f.cfn_owner, g.name AS group_name FROM logs_metric_filters f
 JOIN logs_groups g ON g.id = f.group_id
 WHERE f.group_id = ? AND f.name = ?
 `
@@ -75,6 +75,7 @@ type GetMetricFilterRow struct {
 	ApplyOnTransformedLogs int64
 	FieldSelection         string
 	Created                int64
+	CfnOwner               string
 	GroupName              string
 }
 
@@ -93,13 +94,14 @@ func (q *Queries) GetMetricFilter(ctx context.Context, arg GetMetricFilterParams
 		&i.ApplyOnTransformedLogs,
 		&i.FieldSelection,
 		&i.Created,
+		&i.CfnOwner,
 		&i.GroupName,
 	)
 	return i, err
 }
 
 const listMetricFilters = `-- name: ListMetricFilters :many
-SELECT f.group_id, f.name, f.pattern, f.metric_namespace, f.metric_name, f.metric_value, f.unit, f.default_value, f.apply_on_transformed_logs, f.field_selection, f.created, g.name AS group_name FROM logs_metric_filters f
+SELECT f.group_id, f.name, f.pattern, f.metric_namespace, f.metric_name, f.metric_value, f.unit, f.default_value, f.apply_on_transformed_logs, f.field_selection, f.created, f.cfn_owner, g.name AS group_name FROM logs_metric_filters f
 JOIN logs_groups g ON g.id = f.group_id
 WHERE g.partition = ?1 AND g.account_id = ?2 AND g.region = ?3
  AND (?4 = '' OR f.group_id = ?4)
@@ -135,6 +137,7 @@ type ListMetricFiltersRow struct {
 	ApplyOnTransformedLogs int64
 	FieldSelection         string
 	Created                int64
+	CfnOwner               string
 	GroupName              string
 }
 
@@ -170,6 +173,7 @@ func (q *Queries) ListMetricFilters(ctx context.Context, arg ListMetricFiltersPa
 			&i.ApplyOnTransformedLogs,
 			&i.FieldSelection,
 			&i.Created,
+			&i.CfnOwner,
 			&i.GroupName,
 		); err != nil {
 			return nil, err
@@ -255,12 +259,12 @@ func (q *Queries) MetricFilterSystemFields(ctx context.Context, arg MetricFilter
 }
 
 const putMetricFilter = `-- name: PutMetricFilter :exec
-INSERT INTO logs_metric_filters (group_id, name, pattern, metric_namespace, metric_name, metric_value, unit, default_value, apply_on_transformed_logs, field_selection, created)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO logs_metric_filters (group_id, name, pattern, metric_namespace, metric_name, metric_value, unit, default_value, apply_on_transformed_logs, field_selection, created, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(group_id, name) DO UPDATE SET pattern=excluded.pattern,
  metric_namespace=excluded.metric_namespace, metric_name=excluded.metric_name, metric_value=excluded.metric_value,
  unit=excluded.unit, default_value=excluded.default_value,
- apply_on_transformed_logs=excluded.apply_on_transformed_logs, field_selection=excluded.field_selection, created=excluded.created
+ apply_on_transformed_logs=excluded.apply_on_transformed_logs, field_selection=excluded.field_selection, created=excluded.created, cfn_owner=excluded.cfn_owner
 `
 
 type PutMetricFilterParams struct {
@@ -275,6 +279,7 @@ type PutMetricFilterParams struct {
 	ApplyOnTransformedLogs int64
 	FieldSelection         string
 	Created                int64
+	CfnOwner               string
 }
 
 func (q *Queries) PutMetricFilter(ctx context.Context, arg PutMetricFilterParams) error {
@@ -290,6 +295,7 @@ func (q *Queries) PutMetricFilter(ctx context.Context, arg PutMetricFilterParams
 		arg.ApplyOnTransformedLogs,
 		arg.FieldSelection,
 		arg.Created,
+		arg.CfnOwner,
 	)
 	return err
 }

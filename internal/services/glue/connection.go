@@ -13,6 +13,15 @@ import (
 	"stackd/internal/awsctx"
 )
 
+type cloudFormationConnectionPasswordRemovalKey struct{}
+
+// WithCloudFormationConnectionPasswordRemoval marks an explicit credential
+// removal from a previous writable model, unlike omission in a redacted read.
+// Native authorization and authentication validation still run before mutation.
+func WithCloudFormationConnectionPasswordRemoval(ctx context.Context) context.Context {
+	return context.WithValue(ctx, cloudFormationConnectionPasswordRemovalKey{}, true)
+}
+
 func registerConnections(s *Service) {
 	registerControl(s, "CreateConnection", s.createConnection)
 	registerControl(s, "GetConnection", s.getConnection)
@@ -38,7 +47,7 @@ func (s *Service) loadConnection(ctx context.Context, tx Reader, key ResourceKey
 	}
 	return row, err
 }
-func connectionInput(in *api.ConnectionInput) (api.Connection, error) {
+func connectionInput(in *api.ConnectionInput, retainedPassword bool) (api.Connection, error) {
 	if in == nil || value(in.Name) == "" || value(in.ConnectionType) == "" {
 		return api.Connection{}, failure("InvalidInputException", "Connection name and type are required.")
 	}
@@ -62,7 +71,7 @@ func connectionInput(in *api.ConnectionInput) (api.Connection, error) {
 		if in.ConnectionProperties["JDBC_CONNECTION_URL"] == "" {
 			return api.Connection{}, failure("InvalidInputException", "JDBC_CONNECTION_URL is required.")
 		}
-		if in.ConnectionProperties["SECRET_ID"] == "" && (in.ConnectionProperties["USERNAME"] == "" || in.ConnectionProperties["PASSWORD"] == "") {
+		if in.ConnectionProperties["SECRET_ID"] == "" && (in.ConnectionProperties["USERNAME"] == "" || in.ConnectionProperties["PASSWORD"] == "" && !retainedPassword) {
 			return api.Connection{}, failure("InvalidInputException", "JDBC username and password or SECRET_ID are required.")
 		}
 	}
@@ -73,7 +82,7 @@ func (s *Service) createConnection(ctx context.Context, tx Transaction, in *api.
 	if err != nil {
 		return nil, err
 	}
-	v, err := connectionInput(in.ConnectionInput)
+	v, err := connectionInput(in.ConnectionInput, false)
 	if err != nil {
 		return nil, err
 	}
@@ -106,6 +115,8 @@ func (s *Service) createConnection(ctx context.Context, tx Transaction, in *api.
 func (s *Service) connectionProjection(ctx context.Context, r Reader, row ConnectionRecord, hide bool) (api.Connection, error) {
 	v := api.CloneConnection(row.Connection)
 	if hide {
+		delete(v.ConnectionProperties, "PASSWORD")
+		delete(v.ConnectionProperties, "ENCRYPTED_PASSWORD")
 		return v, nil
 	}
 	password := row.Password
@@ -242,7 +253,15 @@ func (s *Service) updateConnection(ctx context.Context, tx Transaction, in *api.
 	if err != nil {
 		return nil, err
 	}
-	v, err := connectionInput(in.ConnectionInput)
+	passwordSpecified, _ := ctx.Value(cloudFormationConnectionPasswordRemovalKey{}).(bool)
+	if in.ConnectionInput != nil {
+		_, supplied := in.ConnectionInput.ConnectionProperties["PASSWORD"]
+		passwordSpecified = passwordSpecified || supplied
+	}
+	// A HidePassword projection omits the credential. Keep its exact stored
+	// representation without decrypting or re-encrypting it for unrelated updates.
+	retainedPassword := !passwordSpecified && (row.Password != "" || len(row.PasswordCipher) != 0)
+	v, err := connectionInput(in.ConnectionInput, retainedPassword)
 	if err != nil {
 		return nil, err
 	}
@@ -251,10 +270,15 @@ func (s *Service) updateConnection(ctx context.Context, tx Transaction, in *api.
 	}
 	v.CreationTime, v.LastUpdatedTime = row.Connection.CreationTime, new(s.clock.Now().UTC())
 	v.LastUpdatedBy = connectionUpdatedBy(ctx)
-	row.Connection, row.Password, row.PasswordCipher = v, string(v.ConnectionProperties["PASSWORD"]), nil
+	row.Connection = v
+	if passwordSpecified {
+		row.Password, row.PasswordCipher = string(v.ConnectionProperties["PASSWORD"]), nil
+	}
 	delete(row.Connection.ConnectionProperties, "PASSWORD")
-	if err := s.protectConnectionPassword(ctx, tx, &row); err != nil {
-		return nil, err
+	if passwordSpecified {
+		if err := s.protectConnectionPassword(ctx, tx, &row); err != nil {
+			return nil, err
+		}
 	}
 	if err := tx.PutConnection(row); err != nil {
 		return nil, err

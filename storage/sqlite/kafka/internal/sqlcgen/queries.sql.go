@@ -10,7 +10,7 @@ import (
 )
 
 const allClusters = `-- name: AllClusters :many
-SELECT arn, "partition", account_id, region, name, incarnation, kafka_version, security_mode, state, failure, operation, operation_arn, configuration_arn, pending_configuration_arn, configuration_revision, pending_configuration_revision, server_properties, pending_server_properties, brokers, reboot_broker_id, version, created, due, capem, policy_document, policy_version FROM msk_clusters ORDER BY arn
+SELECT arn, "partition", account_id, region, name, incarnation, kafka_version, security_mode, state, failure, operation, operation_arn, configuration_arn, pending_configuration_arn, configuration_revision, pending_configuration_revision, server_properties, pending_server_properties, brokers, reboot_broker_id, version, created, due, capem, policy_document, policy_version, owner_stack_id, owner_logical_id, owner_token FROM msk_clusters ORDER BY arn
 `
 
 func (q *Queries) AllClusters(ctx context.Context) ([]MskCluster, error) {
@@ -49,6 +49,9 @@ func (q *Queries) AllClusters(ctx context.Context) ([]MskCluster, error) {
 			&i.Capem,
 			&i.PolicyDocument,
 			&i.PolicyVersion,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -136,7 +139,7 @@ func (q *Queries) DeleteRevision(ctx context.Context, arn string) error {
 }
 
 const getCluster = `-- name: GetCluster :one
-SELECT arn, "partition", account_id, region, name, incarnation, kafka_version, security_mode, state, failure, operation, operation_arn, configuration_arn, pending_configuration_arn, configuration_revision, pending_configuration_revision, server_properties, pending_server_properties, brokers, reboot_broker_id, version, created, due, capem, policy_document, policy_version FROM msk_clusters WHERE arn = ?
+SELECT arn, "partition", account_id, region, name, incarnation, kafka_version, security_mode, state, failure, operation, operation_arn, configuration_arn, pending_configuration_arn, configuration_revision, pending_configuration_revision, server_properties, pending_server_properties, brokers, reboot_broker_id, version, created, due, capem, policy_document, policy_version, owner_stack_id, owner_logical_id, owner_token FROM msk_clusters WHERE arn = ?
 `
 
 func (q *Queries) GetCluster(ctx context.Context, arn string) (MskCluster, error) {
@@ -169,12 +172,15 @@ func (q *Queries) GetCluster(ctx context.Context, arn string) (MskCluster, error
 		&i.Capem,
 		&i.PolicyDocument,
 		&i.PolicyVersion,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
 
 const getConfiguration = `-- name: GetConfiguration :one
-SELECT arn, "partition", account_id, region, name, description, created, latest_revision FROM msk_configurations WHERE arn = ?
+SELECT arn, "partition", account_id, region, name, description, created, latest_revision, owner_stack_id, owner_logical_id, owner_token FROM msk_configurations WHERE arn = ?
 `
 
 func (q *Queries) GetConfiguration(ctx context.Context, arn string) (MskConfiguration, error) {
@@ -189,6 +195,9 @@ func (q *Queries) GetConfiguration(ctx context.Context, arn string) (MskConfigur
 		&i.Description,
 		&i.Created,
 		&i.LatestRevision,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
@@ -323,7 +332,7 @@ func (q *Queries) ListClusterTags(ctx context.Context, arn string) ([]MskCluster
 }
 
 const listClusters = `-- name: ListClusters :many
-SELECT arn, "partition", account_id, region, name, incarnation, kafka_version, security_mode, state, failure, operation, operation_arn, configuration_arn, pending_configuration_arn, configuration_revision, pending_configuration_revision, server_properties, pending_server_properties, brokers, reboot_broker_id, version, created, due, capem, policy_document, policy_version FROM msk_clusters WHERE partition = ? AND account_id = ? AND region = ? ORDER BY arn
+SELECT arn, "partition", account_id, region, name, incarnation, kafka_version, security_mode, state, failure, operation, operation_arn, configuration_arn, pending_configuration_arn, configuration_revision, pending_configuration_revision, server_properties, pending_server_properties, brokers, reboot_broker_id, version, created, due, capem, policy_document, policy_version, owner_stack_id, owner_logical_id, owner_token FROM msk_clusters WHERE partition = ? AND account_id = ? AND region = ? ORDER BY arn
 `
 
 type ListClustersParams struct {
@@ -368,6 +377,9 @@ func (q *Queries) ListClusters(ctx context.Context, arg ListClustersParams) ([]M
 			&i.Capem,
 			&i.PolicyDocument,
 			&i.PolicyVersion,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -410,7 +422,7 @@ func (q *Queries) ListConfigurationVersions(ctx context.Context, arn string) ([]
 }
 
 const listConfigurations = `-- name: ListConfigurations :many
-SELECT arn, "partition", account_id, region, name, description, created, latest_revision FROM msk_configurations WHERE partition = ? AND account_id = ? AND region = ? ORDER BY arn
+SELECT arn, "partition", account_id, region, name, description, created, latest_revision, owner_stack_id, owner_logical_id, owner_token FROM msk_configurations WHERE partition = ? AND account_id = ? AND region = ? ORDER BY arn
 `
 
 type ListConfigurationsParams struct {
@@ -437,6 +449,9 @@ func (q *Queries) ListConfigurations(ctx context.Context, arg ListConfigurations
 			&i.Description,
 			&i.Created,
 			&i.LatestRevision,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -554,7 +569,7 @@ func (q *Queries) ListRevisions(ctx context.Context, arn string) ([]MskRevision,
 }
 
 const putCluster = `-- name: PutCluster :exec
-INSERT INTO msk_clusters (arn,partition,account_id,region,name,incarnation,kafka_version,security_mode,state,failure,operation,operation_arn,configuration_arn,pending_configuration_arn,configuration_revision,pending_configuration_revision,server_properties,pending_server_properties,brokers,version,created,due,capem,policy_document,policy_version,reboot_broker_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT (arn) DO UPDATE SET partition=excluded.partition,account_id=excluded.account_id,region=excluded.region,name=excluded.name,incarnation=excluded.incarnation,kafka_version=excluded.kafka_version,security_mode=excluded.security_mode,state=excluded.state,failure=excluded.failure,operation=excluded.operation,operation_arn=excluded.operation_arn,configuration_arn=excluded.configuration_arn,pending_configuration_arn=excluded.pending_configuration_arn,configuration_revision=excluded.configuration_revision,pending_configuration_revision=excluded.pending_configuration_revision,server_properties=excluded.server_properties,pending_server_properties=excluded.pending_server_properties,brokers=excluded.brokers,version=excluded.version,created=excluded.created,due=excluded.due,capem=excluded.capem,policy_document=excluded.policy_document,policy_version=excluded.policy_version,reboot_broker_id=excluded.reboot_broker_id
+INSERT INTO msk_clusters (arn,partition,account_id,region,name,incarnation,kafka_version,security_mode,state,failure,operation,operation_arn,configuration_arn,pending_configuration_arn,configuration_revision,pending_configuration_revision,server_properties,pending_server_properties,brokers,version,created,due,capem,policy_document,policy_version,reboot_broker_id,owner_stack_id,owner_logical_id,owner_token) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT (arn) DO UPDATE SET partition=excluded.partition,account_id=excluded.account_id,region=excluded.region,name=excluded.name,incarnation=excluded.incarnation,kafka_version=excluded.kafka_version,security_mode=excluded.security_mode,state=excluded.state,failure=excluded.failure,operation=excluded.operation,operation_arn=excluded.operation_arn,configuration_arn=excluded.configuration_arn,pending_configuration_arn=excluded.pending_configuration_arn,configuration_revision=excluded.configuration_revision,pending_configuration_revision=excluded.pending_configuration_revision,server_properties=excluded.server_properties,pending_server_properties=excluded.pending_server_properties,brokers=excluded.brokers,version=excluded.version,created=excluded.created,due=excluded.due,capem=excluded.capem,policy_document=excluded.policy_document,policy_version=excluded.policy_version,reboot_broker_id=excluded.reboot_broker_id
 `
 
 type PutClusterParams struct {
@@ -584,8 +599,12 @@ type PutClusterParams struct {
 	PolicyDocument               string
 	PolicyVersion                int64
 	RebootBrokerID               int64
+	OwnerStackID                 string
+	OwnerLogicalID               string
+	OwnerToken                   string
 }
 
+// Owner columns are written only by the inserting CreateCluster transaction.
 func (q *Queries) PutCluster(ctx context.Context, arg PutClusterParams) error {
 	_, err := q.db.ExecContext(ctx, putCluster,
 		arg.Arn,
@@ -614,6 +633,9 @@ func (q *Queries) PutCluster(ctx context.Context, arg PutClusterParams) error {
 		arg.PolicyDocument,
 		arg.PolicyVersion,
 		arg.RebootBrokerID,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
 	)
 	return err
 }
@@ -663,7 +685,7 @@ func (q *Queries) PutClusterTag(ctx context.Context, arg PutClusterTagParams) er
 }
 
 const putConfiguration = `-- name: PutConfiguration :exec
-INSERT INTO msk_configurations (arn,partition,account_id,region,name,description,created,latest_revision) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT (arn) DO UPDATE SET partition=excluded.partition,account_id=excluded.account_id,region=excluded.region,name=excluded.name,description=excluded.description,created=excluded.created,latest_revision=excluded.latest_revision
+INSERT INTO msk_configurations (arn,partition,account_id,region,name,description,created,latest_revision,owner_stack_id,owner_logical_id,owner_token) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT (arn) DO UPDATE SET partition=excluded.partition,account_id=excluded.account_id,region=excluded.region,name=excluded.name,description=excluded.description,created=excluded.created,latest_revision=excluded.latest_revision,owner_stack_id=excluded.owner_stack_id,owner_logical_id=excluded.owner_logical_id,owner_token=excluded.owner_token
 `
 
 type PutConfigurationParams struct {
@@ -675,6 +697,9 @@ type PutConfigurationParams struct {
 	Description    string
 	Created        int64
 	LatestRevision int64
+	OwnerStackID   string
+	OwnerLogicalID string
+	OwnerToken     string
 }
 
 func (q *Queries) PutConfiguration(ctx context.Context, arg PutConfigurationParams) error {
@@ -687,6 +712,9 @@ func (q *Queries) PutConfiguration(ctx context.Context, arg PutConfigurationPara
 		arg.Description,
 		arg.Created,
 		arg.LatestRevision,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
 	)
 	return err
 }

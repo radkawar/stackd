@@ -149,10 +149,24 @@ func (s *Service) createBucket(ctx context.Context, in *api.CreateBucketInput) (
 				return w
 			}
 		}
+		claim, claimed := cloudFormationOwner(tx.Context(), cloudFormationBucket)
 		if lookupErr == nil {
 			c.account, c.region = existing.AccountID, existing.Region
 			if existing.AccountID != m.AccountID {
 				return failure("BucketAlreadyExists", "The requested bucket name is not available.", 409)
+			}
+			if claimed {
+				// Only the exact incarnation that committed this bucket recovers
+				// it, unchanged. Names, tags and settings never prove ownership.
+				if existing.CloudFormationOwner != claim {
+					return failure("BucketAlreadyOwnedByYou", "Your previous request to create the named bucket succeeded and you already own it.", 409)
+				}
+				out.Location = new(api.Location("/" + c.bucket))
+				if m.Partition == "aws" && existing.Region != "us-east-1" {
+					out.Location = new(api.Location("http://" + c.bucket + ".s3.amazonaws.com/"))
+				}
+				out.BucketArn = new(api.S3RegionalOrS3ExpressBucketArnString(existing.Key.ARN()))
+				return nil
 			}
 			if region != "us-east-1" || existing.Region != region ||
 				(existing.Ownership != "" && existing.Ownership != ownership) ||
@@ -172,6 +186,7 @@ func (s *Service) createBucket(ctx context.Context, in *api.CreateBucketInput) (
 				return err
 			}
 			b.Incarnation = id.String()
+			b.CloudFormationOwner = claim
 			if err := tx.PutBucket(b); err != nil {
 				return err
 			}

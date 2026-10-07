@@ -26,16 +26,17 @@ type updateKey struct {
 	id string
 }
 type memoryState struct {
-	clusters         map[Key]Cluster
-	entries          map[accessKey]AccessEntry
-	policies         map[policyKey]AccessPolicy
-	updates          map[updateKey]Update
-	mutations        map[mutationKey]AccessMutation
-	nodegroups       map[NodegroupKey]Nodegroup
-	nodegroupUpdates map[nodegroupUpdateKey]NodegroupUpdate
-	addons           map[addonKey]Addon
-	fargateProfiles  map[fargateKey]FargateProfile
-	podIdentities    map[updateKey]PodIdentityAssociation
+	clusters                map[Key]Cluster
+	entries                 map[accessKey]AccessEntry
+	policies                map[policyKey]AccessPolicy
+	updates                 map[updateKey]Update
+	mutations               map[mutationKey]AccessMutation
+	nodegroups              map[NodegroupKey]Nodegroup
+	nodegroupUpdates        map[nodegroupUpdateKey]NodegroupUpdate
+	addons                  map[addonKey]Addon
+	fargateProfiles         map[fargateKey]FargateProfile
+	podIdentities           map[updateKey]PodIdentityAssociation
+	cloudFormationCreations map[CloudFormationCreationKey]CloudFormationCreation
 }
 
 // MemoryRepository retains detached typed records in the shared transaction domain.
@@ -49,12 +50,13 @@ func NewMemoryRepository(domain *memory.Domain) *MemoryRepository {
 	return &MemoryRepository{store: memory.New(domain, memoryState{
 		clusters: map[Key]Cluster{}, entries: map[accessKey]AccessEntry{},
 		policies: map[policyKey]AccessPolicy{}, updates: map[updateKey]Update{},
-		mutations:        map[mutationKey]AccessMutation{},
-		nodegroups:       map[NodegroupKey]Nodegroup{},
-		nodegroupUpdates: map[nodegroupUpdateKey]NodegroupUpdate{},
-		addons:           map[addonKey]Addon{},
-		fargateProfiles:  map[fargateKey]FargateProfile{},
-		podIdentities:    map[updateKey]PodIdentityAssociation{},
+		mutations:               map[mutationKey]AccessMutation{},
+		nodegroups:              map[NodegroupKey]Nodegroup{},
+		nodegroupUpdates:        map[nodegroupUpdateKey]NodegroupUpdate{},
+		addons:                  map[addonKey]Addon{},
+		fargateProfiles:         map[fargateKey]FargateProfile{},
+		podIdentities:           map[updateKey]PodIdentityAssociation{},
+		cloudFormationCreations: map[CloudFormationCreationKey]CloudFormationCreation{},
 	}, func(v memoryState) memoryState {
 		// Nested records are immutable; readers and writers detach mutable fields.
 		return memoryState{
@@ -63,6 +65,7 @@ func NewMemoryRepository(domain *memory.Domain) *MemoryRepository {
 			mutations: maps.Clone(v.mutations), nodegroups: maps.Clone(v.nodegroups),
 			nodegroupUpdates: maps.Clone(v.nodegroupUpdates), addons: maps.Clone(v.addons),
 			fargateProfiles: maps.Clone(v.fargateProfiles), podIdentities: maps.Clone(v.podIdentities),
+			cloudFormationCreations: maps.Clone(v.cloudFormationCreations),
 		}
 	})}
 }

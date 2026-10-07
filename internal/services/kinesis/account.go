@@ -108,8 +108,8 @@ func (s *Service) updateStreamWarmThroughput(ctx context.Context, tx Transaction
 	if err = requireActive(stream); err != nil {
 		return nil, err
 	}
-	if s.runtime == nil {
-		return nil, failure("InternalFailureException", "Kinesis log runtime is not configured", 500)
+	if err = s.requireRuntime(); err != nil {
+		return nil, err
 	}
 	// A native partition provides one MiB/s of write capacity. Warm throughput
 	// changes use the same pending topology path as explicit shard operations.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"reflect"
 	"strings"
 
@@ -28,6 +29,17 @@ func (h cfnLambdaPermission) Replacement(a, b cloudformation.Properties) (bool, 
 	}
 	return !reflect.DeepEqual(a, b), nil
 }
+func cfnLambdaPermissionFunctionARN(r cloudformation.ResourceRequest) string {
+	function := cfnComputeString(r.Properties, "FunctionName")
+	if strings.HasPrefix(function, "arn:") {
+		return function
+	}
+	if strings.Contains(function, ":function:") {
+		return "arn:" + r.Scope.Partition + ":lambda:" + r.Scope.Region + ":" + function
+	}
+	return "arn:" + r.Scope.Partition + ":lambda:" + r.Scope.Region + ":" + r.Scope.Account + ":function:" + function
+}
+
 func cfnLambdaPermissionStatement(r cloudformation.ResourceRequest, id string) map[string]any {
 	p := r.Properties
 	principal := cfnComputeString(p, "Principal")
@@ -42,14 +54,7 @@ func cfnLambdaPermissionStatement(r cloudformation.ResourceRequest, id string) m
 		}
 		who = map[string]any{"AWS": principal}
 	}
-	function := cfnComputeString(p, "FunctionName")
-	if !strings.HasPrefix(function, "arn:") {
-		if strings.Contains(function, ":function:") {
-			function = "arn:" + r.Scope.Partition + ":lambda:" + r.Scope.Region + ":" + function
-		} else {
-			function = "arn:" + r.Scope.Partition + ":lambda:" + r.Scope.Region + ":" + r.Scope.Account + ":function:" + function
-		}
-	}
+	function := cfnLambdaPermissionFunctionARN(r)
 	statement := map[string]any{"Sid": id, "Effect": "Allow", "Principal": who, "Action": p["Action"], "Resource": function}
 	condition := map[string]any{}
 	if value, found := p["SourceArn"]; found {
@@ -98,12 +103,22 @@ func (h cfnLambdaPermission) Create(ctx context.Context, r cloudformation.Resour
 	if err := h.Validate(r.Properties); err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
-	id := cfnComputeName(r, "", 100)
+	function, id, err := cfnLambdaPermissionIdentity(r)
+	if err != nil {
+		return cloudformation.ResourceResult{}, err
+	}
+	if function != cfnComputeString(r.Properties, "FunctionName") {
+		r.Properties = maps.Clone(r.Properties)
+		r.Properties["FunctionName"] = function
+	}
 	exists, revision, err := h.matching(ctx, r, id)
 	if err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
 	result := cloudformation.ResourceResult{PhysicalID: id, Ref: id, Attributes: map[string]any{"Id": id}}
+	if r.CloudControl {
+		result.PhysicalID = cfnLambdaPermissionFunctionARN(r) + "|" + id
+	}
 	if exists {
 		return result, nil
 	}
@@ -124,10 +139,13 @@ func (h cfnLambdaPermission) Update(ctx context.Context, r cloudformation.Resour
 	return h.Create(ctx, r)
 }
 func (h cfnLambdaPermission) Delete(ctx context.Context, r cloudformation.ResourceRequest) error {
-	id := cfnComputeName(r, "", 100)
-	current, err := cfnComputeCall[api.GetPolicyOutput](ctx, h.commands, "lambda", "GetPolicy", map[string]any{"FunctionName": r.Properties["FunctionName"]})
+	function, id, err := cfnLambdaPermissionIdentity(r)
+	if err != nil {
+		return err
+	}
+	current, err := cfnComputeCall[api.GetPolicyOutput](ctx, h.commands, "lambda", "GetPolicy", map[string]any{"FunctionName": function})
 	if err != nil {
 		return cfnComputeAbsent(err)
 	}
-	return cfnComputeAbsent(cfnComputeRun(ctx, h.commands, "lambda", "RemovePermission", map[string]any{"FunctionName": r.Properties["FunctionName"], "StatementId": id, "RevisionId": cfnComputeValue(current.RevisionId)}))
+	return cfnComputeAbsent(cfnComputeRun(ctx, h.commands, "lambda", "RemovePermission", map[string]any{"FunctionName": function, "StatementId": id, "RevisionId": cfnComputeValue(current.RevisionId)}))
 }

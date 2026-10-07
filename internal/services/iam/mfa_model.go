@@ -5,9 +5,10 @@ import "time"
 // MFADevice is a virtual TOTP device stored within the IAM transaction domain.
 // Binding contains secret material; public list/get adapters must never expose it.
 type MFADevice struct {
-	SerialNumber string
-	Binding      Propagated[MFABinding]
-	EnableDate   time.Time
+	CloudFormationOwner string
+	SerialNumber        string
+	Binding             Propagated[MFABinding]
+	EnableDate          time.Time
 	// RetiredAt hides a deleted device from IAM while its preceding binding
 	// finishes propagating to STS and its verification budget expires.
 	// Successful IAM requests reclaim expired rows.

@@ -46,6 +46,7 @@ type ProjectRecord struct {
 	Key         ProjectKey
 	Data        api.Project
 	BuildNumber int64
+	Ownership   string
 }
 type BuildRecord struct {
 	Key                           BuildKey
@@ -69,8 +70,9 @@ type BuildRecord struct {
 	CredentialToken                                string
 }
 type FleetRecord struct {
-	Key  FleetKey
-	Data api.Fleet
+	Key       FleetKey
+	Data      api.Fleet
+	Ownership string
 }
 
 // Imported source credentials retain KMS ciphertext, never plaintext tokens.
@@ -78,6 +80,7 @@ type CredentialRecord struct {
 	Key        CredentialKey
 	ARN        string
 	Ciphertext []byte
+	Ownership  string
 }
 type Repository interface {
 	View(context.Context, func(Reader) error) error

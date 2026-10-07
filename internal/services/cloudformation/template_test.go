@@ -214,7 +214,6 @@ func TestTemplateRejectsUnsupportedOrAmbiguousEffects(t *testing.T) {
 		"macro":                        "Transform: CustomMacro\nResources: {Queue: {Type: AWS::SQS::Queue}}",
 		"creation-policy":              "Resources: {Queue: {Type: AWS::SQS::Queue, CreationPolicy: {ResourceSignal: {Count: 1}}}}",
 		"update-policy":                "Resources: {Queue: {Type: AWS::SQS::Queue, UpdatePolicy: {Anything: true}}}",
-		"snapshot":                     "Resources: {Queue: {Type: AWS::SQS::Queue, DeletionPolicy: Snapshot}}",
 		"retain-except-replacement":    "Resources: {Queue: {Type: AWS::SQS::Queue, UpdateReplacePolicy: RetainExceptOnCreate}}",
 		"custom-resource":              "Resources: {Queue: {Type: 'Custom::Queue'}}",
 		"nested-stack":                 "Resources: {Queue: {Type: AWS::CloudFormation::Stack}}",

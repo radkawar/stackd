@@ -31,7 +31,12 @@ func validRecordSize(size int32) error {
 	return nil
 }
 
-func beginStreamUpdate(tx Transaction, stream StreamRecord, update StreamUpdate) error {
+// beginStreamUpdate records a pending native transition. Only the engine
+// controller completes it, so it is never admitted without a record runtime.
+func (s *Service) beginStreamUpdate(tx Transaction, stream StreamRecord, update StreamUpdate) error {
+	if err := s.requireRuntime(); err != nil {
+		return err
+	}
 	stream.Pending = &update
 	stream.Data.StreamStatus = new(api.StreamStatusUPDATING)
 	return tx.PutStream(stream)
@@ -63,7 +68,7 @@ func (s *Service) retention(ctx context.Context, tx Transaction, name, arn strin
 		return nil, failure("InvalidArgumentException", fmt.Sprintf("Requested retention period (%d hours) for stream %s can not be longer than existing retention period (%d hours). Use IncreaseRetentionPeriod API.", hours, stream.Key.Name, current))
 	}
 	if hours != current {
-		if err = beginStreamUpdate(tx, stream, StreamUpdate{AcceptedAt: s.clock.Now(), RetentionHours: hours}); err != nil {
+		if err = s.beginStreamUpdate(tx, stream, StreamUpdate{AcceptedAt: s.clock.Now(), RetentionHours: hours}); err != nil {
 			return nil, err
 		}
 	}
@@ -129,7 +134,7 @@ func (s *Service) updateStreamMode(ctx context.Context, tx Transaction, in *api.
 			return nil, err
 		}
 	} else if changed {
-		if err = beginStreamUpdate(tx, stream, update); err != nil {
+		if err = s.beginStreamUpdate(tx, stream, update); err != nil {
 			return nil, err
 		}
 	}
@@ -149,7 +154,7 @@ func (s *Service) updateMaxRecordSize(ctx context.Context, tx Transaction, in *a
 		return nil, err
 	}
 	if stream.Data.MaxRecordSizeInKiB == nil || int32(*stream.Data.MaxRecordSizeInKiB) != size {
-		if err = beginStreamUpdate(tx, stream, StreamUpdate{AcceptedAt: s.clock.Now(), MaxRecordSizeKiB: size}); err != nil {
+		if err = s.beginStreamUpdate(tx, stream, StreamUpdate{AcceptedAt: s.clock.Now(), MaxRecordSizeKiB: size}); err != nil {
 			return nil, err
 		}
 	}
@@ -197,7 +202,7 @@ func (s *Service) monitoring(ctx context.Context, tx Transaction, name, arn stri
 		}
 	}
 	if !slices.Equal(current, desired) {
-		if err = beginStreamUpdate(tx, stream, StreamUpdate{AcceptedAt: s.clock.Now(), Monitoring: desired}); err != nil {
+		if err = s.beginStreamUpdate(tx, stream, StreamUpdate{AcceptedAt: s.clock.Now(), Monitoring: desired}); err != nil {
 			return nil, err
 		}
 	}

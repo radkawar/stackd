@@ -11,8 +11,8 @@ SELECT * FROM signer_profiles WHERE partition=? AND account_id=? AND region=? AN
 -- name: ListProfiles :many
 SELECT * FROM signer_profiles WHERE partition=? AND account_id=? AND region=? ORDER BY version_arn;
 -- name: PutProfile :exec
-INSERT INTO signer_profiles(partition,account_id,region,name,arn,version,version_arn,status,is_current,validity_value,validity_type,created,revoked_at,effective_time,revocation_reason,revoked_by,certificate,private_key)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+INSERT INTO signer_profiles(partition,account_id,region,name,arn,version,version_arn,status,is_current,validity_value,validity_type,created,revoked_at,effective_time,revocation_reason,revoked_by,certificate,private_key,cfn_owner)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(partition,account_id,region,name,version) DO UPDATE SET status=excluded.status,is_current=excluded.is_current,revoked_at=excluded.revoked_at,effective_time=excluded.effective_time,revocation_reason=excluded.revocation_reason,revoked_by=excluded.revoked_by;
 -- name: ListProfileTags :many
 SELECT tag_key,tag_value FROM signer_profile_tags WHERE version_arn=? ORDER BY tag_key;

@@ -60,7 +60,7 @@ func (r reader) IdentityByToken(token string) (domain.Identity, error) {
 	return r.identity(v)
 }
 func (r reader) identity(v sqlcgen.Sesv2Identity) (domain.Identity, error) {
-	out := domain.Identity{Key: domain.ResourceKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name}, Verified: v.Verified != 0, VerificationToken: v.VerificationToken, VerificationExpires: instant(v.VerificationExpires), ConfigurationSet: v.ConfigurationSet, Tags: map[string]string{}}
+	out := domain.Identity{Key: domain.ResourceKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name}, Verified: v.Verified != 0, VerificationToken: v.VerificationToken, VerificationExpires: instant(v.VerificationExpires), ConfigurationSet: v.ConfigurationSet, Tags: map[string]string{}, Owner: v.CfnOwner}
 	tags, e := r.q.ListIdentityTags(r.ctx, v.Arn)
 	for _, t := range tags {
 		out.Tags[t.Key] = t.Value
@@ -103,7 +103,7 @@ func (r reader) Identities(k domain.Scope) ([]domain.Identity, error) {
 func (w writer) PutIdentity(v domain.Identity) error {
 	k := v.Key
 	arn := k.ARN("identity")
-	if e := w.q.PutIdentity(w.ctx, sqlcgen.PutIdentityParams{Arn: arn, Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, Verified: boolean(v.Verified), VerificationToken: v.VerificationToken, VerificationExpires: v.VerificationExpires.UnixMilli(), ConfigurationSet: v.ConfigurationSet}); e != nil {
+	if e := w.q.PutIdentity(w.ctx, sqlcgen.PutIdentityParams{Arn: arn, Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, Verified: boolean(v.Verified), VerificationToken: v.VerificationToken, VerificationExpires: v.VerificationExpires.UnixMilli(), ConfigurationSet: v.ConfigurationSet, CfnOwner: v.Owner}); e != nil {
 		return e
 	}
 	if e := w.q.DeleteIdentityTags(w.ctx, arn); e != nil {
@@ -133,7 +133,7 @@ func (w writer) DeleteIdentity(k domain.ResourceKey) error {
 	return w.q.DeleteIdentity(w.ctx, k.ARN("identity"))
 }
 func template(v sqlcgen.Sesv2Template) domain.Template {
-	return domain.Template{Key: domain.ResourceKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name}, Subject: v.Subject, Text: v.TextBody, HTML: v.HtmlBody, Created: instant(v.Created)}
+	return domain.Template{Key: domain.ResourceKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name}, Subject: v.Subject, Text: v.TextBody, HTML: v.HtmlBody, Created: instant(v.Created), Owner: v.CfnOwner}
 }
 func (r reader) Template(k domain.ResourceKey) (domain.Template, error) {
 	v, e := r.q.GetTemplate(r.ctx, k.ARN("template"))
@@ -152,7 +152,7 @@ func (r reader) Templates(k domain.Scope) ([]domain.Template, error) {
 }
 func (w writer) PutTemplate(v domain.Template) error {
 	k := v.Key
-	return w.q.PutTemplate(w.ctx, sqlcgen.PutTemplateParams{Arn: k.ARN("template"), Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, Subject: v.Subject, TextBody: v.Text, HtmlBody: v.HTML, Created: v.Created.UnixMilli()})
+	return w.q.PutTemplate(w.ctx, sqlcgen.PutTemplateParams{Arn: k.ARN("template"), Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, Subject: v.Subject, TextBody: v.Text, HtmlBody: v.HTML, Created: v.Created.UnixMilli(), CfnOwner: v.Owner})
 }
 func (w writer) DeleteTemplate(k domain.ResourceKey) error {
 	return w.q.DeleteTemplate(w.ctx, k.ARN("template"))
@@ -165,7 +165,7 @@ func (r reader) ConfigurationSet(k domain.ResourceKey) (domain.ConfigurationSet,
 	return r.configuration(v)
 }
 func (r reader) configuration(v sqlcgen.Sesv2ConfigurationSet) (domain.ConfigurationSet, error) {
-	out := domain.ConfigurationSet{Key: domain.ResourceKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name}, SendingEnabled: v.SendingEnabled != 0, Tags: map[string]string{}}
+	out := domain.ConfigurationSet{Key: domain.ResourceKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name}, SendingEnabled: v.SendingEnabled != 0, Tags: map[string]string{}, Owner: v.CfnOwner}
 	tags, e := r.q.ListConfigurationTags(r.ctx, v.Arn)
 	for _, t := range tags {
 		out.Tags[t.Key] = t.Value
@@ -190,7 +190,7 @@ func (r reader) ConfigurationSets(k domain.Scope) ([]domain.ConfigurationSet, er
 func (w writer) PutConfigurationSet(v domain.ConfigurationSet) error {
 	k := v.Key
 	arn := k.ARN("configuration-set")
-	if e := w.q.PutConfigurationSet(w.ctx, sqlcgen.PutConfigurationSetParams{Arn: arn, Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, SendingEnabled: boolean(v.SendingEnabled)}); e != nil {
+	if e := w.q.PutConfigurationSet(w.ctx, sqlcgen.PutConfigurationSetParams{Arn: arn, Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, SendingEnabled: boolean(v.SendingEnabled), CfnOwner: v.Owner}); e != nil {
 		return e
 	}
 	if e := w.q.DeleteConfigurationTags(w.ctx, arn); e != nil {

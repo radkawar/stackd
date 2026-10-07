@@ -354,6 +354,7 @@ func (s *Service) runDurable(v DurableExecutionRecord) {
 			return wire
 		}
 		slot = s.invocationExecutionLocked(v.Function, ref)
+		slot.image = function.Image
 		return nil
 	})
 	s.mu.Unlock()

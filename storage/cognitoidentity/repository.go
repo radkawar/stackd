@@ -15,6 +15,7 @@ type (
 	PoolRecord     = domain.PoolRecord
 	IdentityRecord = domain.IdentityRecord
 	Login          = domain.Login
+	ResourceOwner  = domain.ResourceOwner
 )
 
 var ErrNotFound = domain.ErrNotFound

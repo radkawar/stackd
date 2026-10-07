@@ -154,6 +154,7 @@ func removeUserFromGroup(ctx context.Context, a *account, _ awsctx.Metadata) (an
 	}
 	key := strings.ToLower(u.UserName)
 	delete(g.Members, key)
+	delete(g.MemberOwners, key)
 	return &iamapi.RemoveUserFromGroupOutput{}, nil
 }
 

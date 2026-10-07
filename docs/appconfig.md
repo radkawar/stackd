@@ -253,3 +253,26 @@ References: [AppConfig API](https://docs.aws.amazon.com/appconfig/2019-10-09/API
 [IAM operations/resources](https://docs.aws.amazon.com/service-authorization/latest/reference/list_appconfig.html),
 [feature flag schema](https://docs.aws.amazon.com/appconfig/latest/userguide/appconfig-type-reference-feature-flags.html),
 [experiment treatment traffic](https://docs.aws.amazon.com/appconfig/latest/userguide/appconfig-experimentation-observing-treatment-traffic.html).
+
+## CloudFormation ownership and optional extension parameters
+
+Applications, environments, configuration profiles, hosted versions, deployment
+strategies, deployments, extensions, extension associations, experiments and
+experiment runs retain private creation claims on their typed native rows.
+Recovery requires the exact claim and current native IAM authority. Public tags
+cannot establish, replace or revoke that claim; Cloud Control updates and deletes
+retain ordinary native authorization rather than adopting a stack claim.
+
+An extension with no parameters omits the optional `Parameters` map in
+`CreateExtension` and parameterless updates. An explicitly empty map is not a
+valid substitute: the native map has a minimum of one entry. Updates attempting
+to clear an existing map continue to receive the native validation error.
+See [CreateExtension](https://docs.aws.amazon.com/appconfig/2019-10-09/APIReference/API_CreateExtension.html)
+and [UpdateExtension](https://docs.aws.amazon.com/appconfig/2019-10-09/APIReference/API_UpdateExtension.html).
+
+The private-owner fixture exercises memory and SQLite, lost admission replies,
+reopen recovery, foreign same-name rows and current-authority rejection. A
+source-built controller smoke creates a six-resource stack with a parameterless
+extension, restarts SQLite, updates its description and deletes the stack while
+checking the actual AppConfig rows. This is scoped evidence, not full AppConfig
+CloudFormation parity.

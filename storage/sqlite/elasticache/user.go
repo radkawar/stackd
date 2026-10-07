@@ -28,7 +28,7 @@ func (r reader) Users(sc domain.Scope) ([]domain.User, error) {
 	return out, nil
 }
 func (r reader) user(row sqlcgen.ElasticacheUser) (domain.User, error) {
-	v := domain.User{Key: domain.Key{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Kind: row.Kind, Name: row.Name}, Name: row.UserName, Engine: row.Engine, AccessString: row.AccessString, Status: row.Status, NoPassword: row.NoPassword != 0}
+	v := domain.User{Key: domain.Key{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Kind: row.Kind, Name: row.Name}, Name: row.UserName, Engine: row.Engine, AccessString: row.AccessString, Status: row.Status, NoPassword: row.NoPassword != 0, CloudFormationOwner: row.CloudformationOwner}
 	var e error
 	v.Tags, e = r.tags(v.Key)
 	if e != nil {
@@ -42,7 +42,7 @@ func (r reader) user(row sqlcgen.ElasticacheUser) (domain.User, error) {
 }
 func (w writer) PutUser(v domain.User) error {
 	k := v.Key
-	if e := w.q.PutUser(w.ctx, sqlcgen.PutUserParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Kind: k.Kind, Name: k.Name, UserName: v.Name, Engine: v.Engine, AccessString: v.AccessString, Status: v.Status, NoPassword: bit(v.NoPassword)}); e != nil {
+	if e := w.q.PutUser(w.ctx, sqlcgen.PutUserParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Kind: k.Kind, Name: k.Name, UserName: v.Name, Engine: v.Engine, AccessString: v.AccessString, Status: v.Status, NoPassword: bit(v.NoPassword), CloudformationOwner: v.CloudFormationOwner}); e != nil {
 		return e
 	}
 	if e := w.putTags(k, v.Tags); e != nil {

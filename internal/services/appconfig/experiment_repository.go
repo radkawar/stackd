@@ -24,6 +24,7 @@ type ExperimentDefinition struct {
 	CreatedAt, UpdatedAt                                                                    time.Time
 	Control                                                                                 ExperimentTreatment
 	Treatments                                                                              []ExperimentTreatment
+	Ownership                                                                               CloudFormationOwnership
 }
 type ExperimentResult struct{ ExecutiveSummary, ReasonsToLaunch, ReasonsNotToLaunch string }
 type ExperimentRun struct {
@@ -37,6 +38,7 @@ type ExperimentRun struct {
 	Result                        *ExperimentResult
 	StartedAt, UpdatedAt, EndedAt time.Time
 	Events                        []ExperimentEvent
+	Ownership                     CloudFormationOwnership
 }
 type ExperimentEvent struct {
 	Type, Description, TriggeredBy, DeploymentARN string

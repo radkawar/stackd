@@ -1677,8 +1677,8 @@ func (q *Queries) PutResource(ctx context.Context, arg PutResourceParams) error 
 }
 
 const putStack = `-- name: PutStack :exec
-INSERT INTO cloudformation_stacks (id, partition, account, region, name, status, status_reason, description, template, role_arn, operation_id, created, updated, deleted, parameters_present, tags_present, capabilities_present, outputs_present, imports_present, disable_rollback, termination_protection, event_sequence)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO cloudformation_stacks (id, partition, account, region, name, status, status_reason, description, template, role_arn, operation_id, created, updated, deleted, parameters_present, tags_present, capabilities_present, outputs_present, imports_present, disable_rollback, termination_protection, event_sequence, nested_owner, parent_id, root_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (id) DO UPDATE SET
     partition = excluded.partition,
     account = excluded.account,
@@ -1700,7 +1700,10 @@ ON CONFLICT (id) DO UPDATE SET
     imports_present = excluded.imports_present,
     disable_rollback = excluded.disable_rollback,
     termination_protection = excluded.termination_protection,
-    event_sequence = excluded.event_sequence
+    event_sequence = excluded.event_sequence,
+    nested_owner = excluded.nested_owner,
+    parent_id = excluded.parent_id,
+    root_id = excluded.root_id
 `
 
 type PutStackParams struct {
@@ -1726,6 +1729,9 @@ type PutStackParams struct {
 	DisableRollback       bool
 	TerminationProtection bool
 	EventSequence         int64
+	NestedOwner           string
+	ParentID              string
+	RootID                string
 }
 
 func (q *Queries) PutStack(ctx context.Context, arg PutStackParams) error {
@@ -1752,6 +1758,9 @@ func (q *Queries) PutStack(ctx context.Context, arg PutStackParams) error {
 		arg.DisableRollback,
 		arg.TerminationProtection,
 		arg.EventSequence,
+		arg.NestedOwner,
+		arg.ParentID,
+		arg.RootID,
 	)
 	return err
 }
@@ -2040,7 +2049,7 @@ func (q *Queries) Resources(ctx context.Context, stackID string) ([]Cloudformati
 }
 
 const stack = `-- name: Stack :one
-SELECT id, "partition", account, region, name, status, status_reason, description, template, role_arn, operation_id, created, updated, deleted, parameters_present, tags_present, capabilities_present, outputs_present, imports_present, disable_rollback, termination_protection, event_sequence FROM cloudformation_stacks WHERE id = ?
+SELECT id, "partition", account, region, name, status, status_reason, description, template, role_arn, operation_id, created, updated, deleted, parameters_present, tags_present, capabilities_present, outputs_present, imports_present, disable_rollback, termination_protection, event_sequence, nested_owner, parent_id, root_id FROM cloudformation_stacks WHERE id = ?
 `
 
 func (q *Queries) Stack(ctx context.Context, id string) (CloudformationStack, error) {
@@ -2069,6 +2078,9 @@ func (q *Queries) Stack(ctx context.Context, id string) (CloudformationStack, er
 		&i.DisableRollback,
 		&i.TerminationProtection,
 		&i.EventSequence,
+		&i.NestedOwner,
+		&i.ParentID,
+		&i.RootID,
 	)
 	return i, err
 }
@@ -2220,7 +2232,7 @@ func (q *Queries) StackTags(ctx context.Context, parentID string) ([]Cloudformat
 }
 
 const stacks = `-- name: Stacks :many
-SELECT id, "partition", account, region, name, status, status_reason, description, template, role_arn, operation_id, created, updated, deleted, parameters_present, tags_present, capabilities_present, outputs_present, imports_present, disable_rollback, termination_protection, event_sequence FROM cloudformation_stacks WHERE partition = ? AND account = ? AND region = ? ORDER BY id
+SELECT id, "partition", account, region, name, status, status_reason, description, template, role_arn, operation_id, created, updated, deleted, parameters_present, tags_present, capabilities_present, outputs_present, imports_present, disable_rollback, termination_protection, event_sequence, nested_owner, parent_id, root_id FROM cloudformation_stacks WHERE partition = ? AND account = ? AND region = ? ORDER BY id
 `
 
 type StacksParams struct {
@@ -2261,6 +2273,9 @@ func (q *Queries) Stacks(ctx context.Context, arg StacksParams) ([]Cloudformatio
 			&i.DisableRollback,
 			&i.TerminationProtection,
 			&i.EventSequence,
+			&i.NestedOwner,
+			&i.ParentID,
+			&i.RootID,
 		); err != nil {
 			return nil, err
 		}

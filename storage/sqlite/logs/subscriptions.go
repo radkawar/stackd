@@ -12,7 +12,7 @@ import (
 
 func (r reader) subscription(v sqlcgen.LogsSubscription) (domain.SubscriptionRecord, error) {
 	fields, err := r.q.SubscriptionSystemFields(r.ctx, v.ID)
-	return domain.SubscriptionRecord{Key: domain.SubscriptionKey{GroupID: v.GroupID, Name: v.Name}, ID: v.ID, Pattern: v.Pattern, DestinationARN: v.DestinationArn, RoleARN: v.RoleArn, TargetARN: v.TargetArn, RoleSourceARN: v.RoleSourceArn, SenderRoleARN: v.SenderRoleArn, ApplyOnTransformedLogs: v.ApplyOnTransformedLogs != 0, Distribution: v.Distribution, FieldSelection: v.FieldSelection, Created: v.Created, DisabledUntil: time.UnixMilli(v.DisabledUntil).UTC(), EmitSystemFields: fields}, err
+	return domain.SubscriptionRecord{CFNOwner: v.CfnOwner, Key: domain.SubscriptionKey{GroupID: v.GroupID, Name: v.Name}, ID: v.ID, Pattern: v.Pattern, DestinationARN: v.DestinationArn, RoleARN: v.RoleArn, TargetARN: v.TargetArn, RoleSourceARN: v.RoleSourceArn, SenderRoleARN: v.SenderRoleArn, ApplyOnTransformedLogs: v.ApplyOnTransformedLogs != 0, Distribution: v.Distribution, FieldSelection: v.FieldSelection, Created: v.Created, DisabledUntil: time.UnixMilli(v.DisabledUntil).UTC(), EmitSystemFields: fields}, err
 }
 func (r reader) Subscription(k domain.SubscriptionKey) (domain.SubscriptionRecord, error) {
 	v, err := r.q.GetSubscription(r.ctx, sqlcgen.GetSubscriptionParams{GroupID: k.GroupID, Name: k.Name})
@@ -50,7 +50,7 @@ func (w writer) PutSubscription(v domain.SubscriptionRecord) error {
 	if v.ApplyOnTransformedLogs {
 		transformed = 1
 	}
-	if err := w.q.PutSubscription(w.ctx, sqlcgen.PutSubscriptionParams{GroupID: v.Key.GroupID, Name: v.Key.Name, ID: v.ID, Pattern: v.Pattern, DestinationArn: v.DestinationARN, RoleArn: v.RoleARN, TargetArn: v.TargetARN, RoleSourceArn: v.RoleSourceARN, SenderRoleArn: v.SenderRoleARN, ApplyOnTransformedLogs: transformed, Distribution: v.Distribution, FieldSelection: v.FieldSelection, Created: v.Created, DisabledUntil: v.DisabledUntil.UnixMilli()}); err != nil {
+	if err := w.q.PutSubscription(w.ctx, sqlcgen.PutSubscriptionParams{CfnOwner: v.CFNOwner, GroupID: v.Key.GroupID, Name: v.Key.Name, ID: v.ID, Pattern: v.Pattern, DestinationArn: v.DestinationARN, RoleArn: v.RoleARN, TargetArn: v.TargetARN, RoleSourceArn: v.RoleSourceARN, SenderRoleArn: v.SenderRoleARN, ApplyOnTransformedLogs: transformed, Distribution: v.Distribution, FieldSelection: v.FieldSelection, Created: v.Created, DisabledUntil: v.DisabledUntil.UnixMilli()}); err != nil {
 		return err
 	}
 	if err := w.q.DeleteSubscriptionSystemFields(w.ctx, v.ID); err != nil {

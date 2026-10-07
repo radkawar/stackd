@@ -1,0 +1,1 @@
+ALTER TABLE appsync_apis ADD COLUMN ownership TEXT NOT NULL DEFAULT '';

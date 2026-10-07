@@ -206,6 +206,20 @@ func failure(code, message string, status ...int) *awswire.Error {
 func unsupported(message string) *awswire.Error {
 	return failure("NotImplementedException", message, 501)
 }
+
+// engineUnavailable is the AWS common ServiceUnavailable error. Without a
+// configured DynamoDB Local runtime no native table can become ACTIVE, so
+// lifecycle intents are rejected instead of being retained as perpetual work.
+func engineUnavailable() *awswire.Error {
+	return failure("ServiceUnavailable", "DynamoDB Local runtime is not configured for this stackd instance.", 503)
+}
+
+func (s *Service) requireEngine() error {
+	if s.runtime == nil {
+		return engineUnavailable()
+	}
+	return nil
+}
 func wireError(err error) *awswire.Error {
 	if err == nil {
 		return nil

@@ -333,7 +333,7 @@ func (q *Queries) DeleteGlueTableVersion(ctx context.Context, arg DeleteGlueTabl
 }
 
 const getGlueCatalog = `-- name: GetGlueCatalog :one
-SELECT "partition", account_id, region, catalog_id, name, description, created_at, updated_at, parameters_json, database_permissions_json, table_permissions_json, full_table_access, tags_json FROM glue_catalogs WHERE partition = ? AND account_id = ? AND region = ? AND catalog_id = ?
+SELECT "partition", account_id, region, catalog_id, name, description, created_at, updated_at, parameters_json, database_permissions_json, table_permissions_json, full_table_access, tags_json, cfn_owner FROM glue_catalogs WHERE partition = ? AND account_id = ? AND region = ? AND catalog_id = ?
 `
 
 type GetGlueCatalogParams struct {
@@ -365,6 +365,7 @@ func (q *Queries) GetGlueCatalog(ctx context.Context, arg GetGlueCatalogParams) 
 		&i.TablePermissionsJson,
 		&i.FullTableAccess,
 		&i.TagsJson,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -441,7 +442,7 @@ func (q *Queries) GetGlueColumnStatistics(ctx context.Context, arg GetGlueColumn
 }
 
 const getGlueDatabase = `-- name: GetGlueDatabase :one
-SELECT "partition", account_id, region, catalog_id, database_name, description, location_uri, created_at, parameters_json, default_permissions_json, target_database_json, tags_json FROM glue_databases WHERE partition = ? AND account_id = ? AND region = ? AND catalog_id = ? AND database_name = ?
+SELECT "partition", account_id, region, catalog_id, database_name, description, location_uri, created_at, parameters_json, default_permissions_json, target_database_json, tags_json, cfn_owner FROM glue_databases WHERE partition = ? AND account_id = ? AND region = ? AND catalog_id = ? AND database_name = ?
 `
 
 type GetGlueDatabaseParams struct {
@@ -474,6 +475,7 @@ func (q *Queries) GetGlueDatabase(ctx context.Context, arg GetGlueDatabaseParams
 		&i.DefaultPermissionsJson,
 		&i.TargetDatabaseJson,
 		&i.TagsJson,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -519,7 +521,7 @@ func (q *Queries) GetGlueFunction(ctx context.Context, arg GetGlueFunctionParams
 }
 
 const getGluePartition = `-- name: GetGluePartition :one
-SELECT "partition", account_id, region, catalog_id, database_name, table_name, values_json, created_at, last_access_at, last_analyzed_at, parameters_json, storage_descriptor_json FROM glue_partitions WHERE partition = ? AND account_id = ? AND region = ? AND catalog_id = ? AND database_name = ? AND table_name = ? AND values_json = ?
+SELECT "partition", account_id, region, catalog_id, database_name, table_name, values_json, created_at, last_access_at, last_analyzed_at, parameters_json, storage_descriptor_json, cfn_owner FROM glue_partitions WHERE partition = ? AND account_id = ? AND region = ? AND catalog_id = ? AND database_name = ? AND table_name = ? AND values_json = ?
 `
 
 type GetGluePartitionParams struct {
@@ -556,6 +558,7 @@ func (q *Queries) GetGluePartition(ctx context.Context, arg GetGluePartitionPara
 		&i.LastAnalyzedAt,
 		&i.ParametersJson,
 		&i.StorageDescriptorJson,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -670,7 +673,7 @@ func (q *Queries) GetGlueResourcePolicy(ctx context.Context, arg GetGlueResource
 }
 
 const getGlueTable = `-- name: GetGlueTable :one
-SELECT "partition", account_id, region, catalog_id, database_name, table_name, version, description, owner, created_by, created_at, updated_at, last_access_at, last_analyzed_at, retention, storage_descriptor_json, partition_keys_json, parameters_json, table_type, target_table_json, view_original_text, view_expanded_text FROM glue_tables WHERE partition = ? AND account_id = ? AND region = ? AND catalog_id = ? AND database_name = ? AND table_name = ?
+SELECT "partition", account_id, region, catalog_id, database_name, table_name, version, description, owner, created_by, created_at, updated_at, last_access_at, last_analyzed_at, retention, storage_descriptor_json, partition_keys_json, parameters_json, table_type, target_table_json, view_original_text, view_expanded_text, cfn_owner FROM glue_tables WHERE partition = ? AND account_id = ? AND region = ? AND catalog_id = ? AND database_name = ? AND table_name = ?
 `
 
 type GetGlueTableParams struct {
@@ -715,6 +718,7 @@ func (q *Queries) GetGlueTable(ctx context.Context, arg GetGlueTableParams) (Glu
 		&i.TargetTableJson,
 		&i.ViewOriginalText,
 		&i.ViewExpandedText,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -772,7 +776,7 @@ func (q *Queries) GetGlueTableVersion(ctx context.Context, arg GetGlueTableVersi
 }
 
 const listGlueCatalogs = `-- name: ListGlueCatalogs :many
-SELECT "partition", account_id, region, catalog_id, name, description, created_at, updated_at, parameters_json, database_permissions_json, table_permissions_json, full_table_access, tags_json FROM glue_catalogs WHERE partition = ? AND account_id = ? AND region = ? ORDER BY catalog_id
+SELECT "partition", account_id, region, catalog_id, name, description, created_at, updated_at, parameters_json, database_permissions_json, table_permissions_json, full_table_access, tags_json, cfn_owner FROM glue_catalogs WHERE partition = ? AND account_id = ? AND region = ? ORDER BY catalog_id
 `
 
 type ListGlueCatalogsParams struct {
@@ -804,6 +808,7 @@ func (q *Queries) ListGlueCatalogs(ctx context.Context, arg ListGlueCatalogsPara
 			&i.TablePermissionsJson,
 			&i.FullTableAccess,
 			&i.TagsJson,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -819,7 +824,7 @@ func (q *Queries) ListGlueCatalogs(ctx context.Context, arg ListGlueCatalogsPara
 }
 
 const listGlueDatabases = `-- name: ListGlueDatabases :many
-SELECT "partition", account_id, region, catalog_id, database_name, description, location_uri, created_at, parameters_json, default_permissions_json, target_database_json, tags_json FROM glue_databases WHERE partition = ? AND account_id = ? AND region = ? AND catalog_id = ? ORDER BY database_name
+SELECT "partition", account_id, region, catalog_id, database_name, description, location_uri, created_at, parameters_json, default_permissions_json, target_database_json, tags_json, cfn_owner FROM glue_databases WHERE partition = ? AND account_id = ? AND region = ? AND catalog_id = ? ORDER BY database_name
 `
 
 type ListGlueDatabasesParams struct {
@@ -856,6 +861,7 @@ func (q *Queries) ListGlueDatabases(ctx context.Context, arg ListGlueDatabasesPa
 			&i.DefaultPermissionsJson,
 			&i.TargetDatabaseJson,
 			&i.TagsJson,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -871,7 +877,7 @@ func (q *Queries) ListGlueDatabases(ctx context.Context, arg ListGlueDatabasesPa
 }
 
 const listGlueForeignDatabases = `-- name: ListGlueForeignDatabases :many
-SELECT "partition", account_id, region, catalog_id, database_name, description, location_uri, created_at, parameters_json, default_permissions_json, target_database_json, tags_json FROM glue_databases
+SELECT "partition", account_id, region, catalog_id, database_name, description, location_uri, created_at, parameters_json, default_permissions_json, target_database_json, tags_json, cfn_owner FROM glue_databases
 WHERE partition = ? AND account_id <> ? AND region = ?
 ORDER BY database_name, catalog_id
 `
@@ -904,6 +910,7 @@ func (q *Queries) ListGlueForeignDatabases(ctx context.Context, arg ListGlueFore
 			&i.DefaultPermissionsJson,
 			&i.TargetDatabaseJson,
 			&i.TagsJson,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -1084,7 +1091,7 @@ func (q *Queries) ListGluePartitionStatistics(ctx context.Context, arg ListGlueP
 }
 
 const listGluePartitions = `-- name: ListGluePartitions :many
-SELECT "partition", account_id, region, catalog_id, database_name, table_name, values_json, created_at, last_access_at, last_analyzed_at, parameters_json, storage_descriptor_json FROM glue_partitions WHERE partition = ? AND account_id = ? AND region = ? AND catalog_id = ? AND database_name = ? AND table_name = ? ORDER BY values_json
+SELECT "partition", account_id, region, catalog_id, database_name, table_name, values_json, created_at, last_access_at, last_analyzed_at, parameters_json, storage_descriptor_json, cfn_owner FROM glue_partitions WHERE partition = ? AND account_id = ? AND region = ? AND catalog_id = ? AND database_name = ? AND table_name = ? ORDER BY values_json
 `
 
 type ListGluePartitionsParams struct {
@@ -1125,6 +1132,7 @@ func (q *Queries) ListGluePartitions(ctx context.Context, arg ListGluePartitions
 			&i.LastAnalyzedAt,
 			&i.ParametersJson,
 			&i.StorageDescriptorJson,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -1206,7 +1214,7 @@ func (q *Queries) ListGlueTableVersions(ctx context.Context, arg ListGlueTableVe
 }
 
 const listGlueTables = `-- name: ListGlueTables :many
-SELECT "partition", account_id, region, catalog_id, database_name, table_name, version, description, owner, created_by, created_at, updated_at, last_access_at, last_analyzed_at, retention, storage_descriptor_json, partition_keys_json, parameters_json, table_type, target_table_json, view_original_text, view_expanded_text FROM glue_tables WHERE partition = ? AND account_id = ? AND region = ? AND catalog_id = ? AND database_name = ? ORDER BY table_name
+SELECT "partition", account_id, region, catalog_id, database_name, table_name, version, description, owner, created_by, created_at, updated_at, last_access_at, last_analyzed_at, retention, storage_descriptor_json, partition_keys_json, parameters_json, table_type, target_table_json, view_original_text, view_expanded_text, cfn_owner FROM glue_tables WHERE partition = ? AND account_id = ? AND region = ? AND catalog_id = ? AND database_name = ? ORDER BY table_name
 `
 
 type ListGlueTablesParams struct {
@@ -1255,6 +1263,7 @@ func (q *Queries) ListGlueTables(ctx context.Context, arg ListGlueTablesParams) 
 			&i.TargetTableJson,
 			&i.ViewOriginalText,
 			&i.ViewExpandedText,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -1270,12 +1279,13 @@ func (q *Queries) ListGlueTables(ctx context.Context, arg ListGlueTablesParams) 
 }
 
 const putGlueCatalog = `-- name: PutGlueCatalog :exec
-INSERT INTO glue_catalogs (partition, account_id, region, catalog_id, name, description, created_at, updated_at, parameters_json, database_permissions_json, table_permissions_json, full_table_access, tags_json)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO glue_catalogs (cfn_owner, partition, account_id, region, catalog_id, name, description, created_at, updated_at, parameters_json, database_permissions_json, table_permissions_json, full_table_access, tags_json)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, catalog_id) DO UPDATE SET name = excluded.name, description = excluded.description, created_at = excluded.created_at, updated_at = excluded.updated_at, parameters_json = excluded.parameters_json, database_permissions_json = excluded.database_permissions_json, table_permissions_json = excluded.table_permissions_json, full_table_access = excluded.full_table_access, tags_json = excluded.tags_json
 `
 
 type PutGlueCatalogParams struct {
+	CfnOwner                string
 	Partition               string
 	AccountID               string
 	Region                  string
@@ -1293,6 +1303,7 @@ type PutGlueCatalogParams struct {
 
 func (q *Queries) PutGlueCatalog(ctx context.Context, arg PutGlueCatalogParams) error {
 	_, err := q.db.ExecContext(ctx, putGlueCatalog,
+		arg.CfnOwner,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -1375,12 +1386,13 @@ func (q *Queries) PutGlueColumnStatistics(ctx context.Context, arg PutGlueColumn
 }
 
 const putGlueDatabase = `-- name: PutGlueDatabase :exec
-INSERT INTO glue_databases (partition, account_id, region, catalog_id, database_name, description, location_uri, created_at, parameters_json, default_permissions_json, target_database_json, tags_json)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO glue_databases (cfn_owner, partition, account_id, region, catalog_id, database_name, description, location_uri, created_at, parameters_json, default_permissions_json, target_database_json, tags_json)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, catalog_id, database_name) DO UPDATE SET description = excluded.description, location_uri = excluded.location_uri, created_at = excluded.created_at, parameters_json = excluded.parameters_json, default_permissions_json = excluded.default_permissions_json, target_database_json = excluded.target_database_json, tags_json = excluded.tags_json
 `
 
 type PutGlueDatabaseParams struct {
+	CfnOwner               string
 	Partition              string
 	AccountID              string
 	Region                 string
@@ -1397,6 +1409,7 @@ type PutGlueDatabaseParams struct {
 
 func (q *Queries) PutGlueDatabase(ctx context.Context, arg PutGlueDatabaseParams) error {
 	_, err := q.db.ExecContext(ctx, putGlueDatabase,
+		arg.CfnOwner,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -1453,12 +1466,13 @@ func (q *Queries) PutGlueFunction(ctx context.Context, arg PutGlueFunctionParams
 }
 
 const putGluePartition = `-- name: PutGluePartition :exec
-INSERT INTO glue_partitions (partition, account_id, region, catalog_id, database_name, table_name, values_json, created_at, last_access_at, last_analyzed_at, parameters_json, storage_descriptor_json)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO glue_partitions (cfn_owner, partition, account_id, region, catalog_id, database_name, table_name, values_json, created_at, last_access_at, last_analyzed_at, parameters_json, storage_descriptor_json)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, catalog_id, database_name, table_name, values_json) DO UPDATE SET created_at = excluded.created_at, last_access_at = excluded.last_access_at, last_analyzed_at = excluded.last_analyzed_at, parameters_json = excluded.parameters_json, storage_descriptor_json = excluded.storage_descriptor_json
 `
 
 type PutGluePartitionParams struct {
+	CfnOwner              string
 	Partition             string
 	AccountID             string
 	Region                string
@@ -1475,6 +1489,7 @@ type PutGluePartitionParams struct {
 
 func (q *Queries) PutGluePartition(ctx context.Context, arg PutGluePartitionParams) error {
 	_, err := q.db.ExecContext(ctx, putGluePartition,
+		arg.CfnOwner,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -1595,12 +1610,13 @@ func (q *Queries) PutGlueResourcePolicy(ctx context.Context, arg PutGlueResource
 }
 
 const putGlueTable = `-- name: PutGlueTable :exec
-INSERT INTO glue_tables (partition, account_id, region, catalog_id, database_name, table_name, version, description, owner, created_by, created_at, updated_at, last_access_at, last_analyzed_at, retention, storage_descriptor_json, partition_keys_json, parameters_json, table_type, target_table_json, view_original_text, view_expanded_text)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO glue_tables (cfn_owner, partition, account_id, region, catalog_id, database_name, table_name, version, description, owner, created_by, created_at, updated_at, last_access_at, last_analyzed_at, retention, storage_descriptor_json, partition_keys_json, parameters_json, table_type, target_table_json, view_original_text, view_expanded_text)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, catalog_id, database_name, table_name) DO UPDATE SET version = excluded.version, description = excluded.description, owner = excluded.owner, created_by = excluded.created_by, created_at = excluded.created_at, updated_at = excluded.updated_at, last_access_at = excluded.last_access_at, last_analyzed_at = excluded.last_analyzed_at, retention = excluded.retention, storage_descriptor_json = excluded.storage_descriptor_json, partition_keys_json = excluded.partition_keys_json, parameters_json = excluded.parameters_json, table_type = excluded.table_type, target_table_json = excluded.target_table_json, view_original_text = excluded.view_original_text, view_expanded_text = excluded.view_expanded_text
 `
 
 type PutGlueTableParams struct {
+	CfnOwner              string
 	Partition             string
 	AccountID             string
 	Region                string
@@ -1627,6 +1643,7 @@ type PutGlueTableParams struct {
 
 func (q *Queries) PutGlueTable(ctx context.Context, arg PutGlueTableParams) error {
 	_, err := q.db.ExecContext(ctx, putGlueTable,
+		arg.CfnOwner,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,

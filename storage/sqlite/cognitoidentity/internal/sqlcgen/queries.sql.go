@@ -87,7 +87,7 @@ func (q *Queries) GetIdentity(ctx context.Context, arg GetIdentityParams) (Cogni
 }
 
 const getPool = `-- name: GetPool :one
-SELECT "partition", account_id, region, pool_id, name, allow_unauthenticated, allow_classic, providers, tags, roles, mappings, principal_tag_maps FROM cognitoidentity_pools WHERE partition=? AND account_id=? AND region=? AND pool_id=?
+SELECT "partition", account_id, region, pool_id, name, allow_unauthenticated, allow_classic, providers, tags, roles, mappings, principal_tag_maps, owner_stack_id, owner_logical_id, owner_token FROM cognitoidentity_pools WHERE partition=? AND account_id=? AND region=? AND pool_id=?
 `
 
 type GetPoolParams struct {
@@ -118,6 +118,9 @@ func (q *Queries) GetPool(ctx context.Context, arg GetPoolParams) (Cognitoidenti
 		&i.Roles,
 		&i.Mappings,
 		&i.PrincipalTagMaps,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
@@ -241,7 +244,7 @@ func (q *Queries) ListLogins(ctx context.Context, arg ListLoginsParams) ([]ListL
 }
 
 const listPools = `-- name: ListPools :many
-SELECT "partition", account_id, region, pool_id, name, allow_unauthenticated, allow_classic, providers, tags, roles, mappings, principal_tag_maps FROM cognitoidentity_pools WHERE partition=? AND account_id=? AND region=? ORDER BY pool_id
+SELECT "partition", account_id, region, pool_id, name, allow_unauthenticated, allow_classic, providers, tags, roles, mappings, principal_tag_maps, owner_stack_id, owner_logical_id, owner_token FROM cognitoidentity_pools WHERE partition=? AND account_id=? AND region=? ORDER BY pool_id
 `
 
 type ListPoolsParams struct {
@@ -272,6 +275,9 @@ func (q *Queries) ListPools(ctx context.Context, arg ListPoolsParams) ([]Cognito
 			&i.Roles,
 			&i.Mappings,
 			&i.PrincipalTagMaps,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -287,7 +293,7 @@ func (q *Queries) ListPools(ctx context.Context, arg ListPoolsParams) ([]Cognito
 }
 
 const poolByID = `-- name: PoolByID :one
-SELECT "partition", account_id, region, pool_id, name, allow_unauthenticated, allow_classic, providers, tags, roles, mappings, principal_tag_maps FROM cognitoidentity_pools WHERE partition=? AND region=? AND pool_id=?
+SELECT "partition", account_id, region, pool_id, name, allow_unauthenticated, allow_classic, providers, tags, roles, mappings, principal_tag_maps, owner_stack_id, owner_logical_id, owner_token FROM cognitoidentity_pools WHERE partition=? AND region=? AND pool_id=?
 `
 
 type PoolByIDParams struct {
@@ -312,6 +318,52 @@ func (q *Queries) PoolByID(ctx context.Context, arg PoolByIDParams) (Cognitoiden
 		&i.Roles,
 		&i.Mappings,
 		&i.PrincipalTagMaps,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
+	)
+	return i, err
+}
+
+const poolByOwner = `-- name: PoolByOwner :one
+SELECT "partition", account_id, region, pool_id, name, allow_unauthenticated, allow_classic, providers, tags, roles, mappings, principal_tag_maps, owner_stack_id, owner_logical_id, owner_token FROM cognitoidentity_pools WHERE partition=? AND account_id=? AND region=? AND owner_stack_id=? AND owner_logical_id=? AND owner_token=? AND owner_token<>''
+`
+
+type PoolByOwnerParams struct {
+	Partition      string
+	AccountID      string
+	Region         string
+	OwnerStackID   string
+	OwnerLogicalID string
+	OwnerToken     string
+}
+
+func (q *Queries) PoolByOwner(ctx context.Context, arg PoolByOwnerParams) (CognitoidentityPool, error) {
+	row := q.db.QueryRowContext(ctx, poolByOwner,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
+	)
+	var i CognitoidentityPool
+	err := row.Scan(
+		&i.Partition,
+		&i.AccountID,
+		&i.Region,
+		&i.PoolID,
+		&i.Name,
+		&i.AllowUnauthenticated,
+		&i.AllowClassic,
+		&i.Providers,
+		&i.Tags,
+		&i.Roles,
+		&i.Mappings,
+		&i.PrincipalTagMaps,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
@@ -369,7 +421,7 @@ func (q *Queries) PutLogin(ctx context.Context, arg PutLoginParams) error {
 }
 
 const putPool = `-- name: PutPool :exec
-INSERT INTO cognitoidentity_pools(partition,account_id,region,pool_id,name,allow_unauthenticated,allow_classic,providers,tags,roles,mappings,principal_tag_maps) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+INSERT INTO cognitoidentity_pools(partition,account_id,region,pool_id,name,allow_unauthenticated,allow_classic,providers,tags,roles,mappings,principal_tag_maps,owner_stack_id,owner_logical_id,owner_token) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(partition,account_id,region,pool_id) DO UPDATE SET name=excluded.name,allow_unauthenticated=excluded.allow_unauthenticated,allow_classic=excluded.allow_classic,providers=excluded.providers,tags=excluded.tags,roles=excluded.roles,mappings=excluded.mappings,principal_tag_maps=excluded.principal_tag_maps
 `
 
@@ -386,6 +438,9 @@ type PutPoolParams struct {
 	Roles                []byte
 	Mappings             []byte
 	PrincipalTagMaps     []byte
+	OwnerStackID         string
+	OwnerLogicalID       string
+	OwnerToken           string
 }
 
 func (q *Queries) PutPool(ctx context.Context, arg PutPoolParams) error {
@@ -402,6 +457,9 @@ func (q *Queries) PutPool(ctx context.Context, arg PutPoolParams) error {
 		arg.Roles,
 		arg.Mappings,
 		arg.PrincipalTagMaps,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
 	)
 	return err
 }

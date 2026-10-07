@@ -33,7 +33,7 @@ func requestARN(scope Scope, token string) string {
 func resourceRequest(op RequestRecord) cloudformation.ResourceRequest {
 	properties, _ := document(op.Desired)
 	previous, _ := document(op.Before)
-	return cloudformation.ResourceRequest{StackID: requestARN(op.Scope, op.Token), StackName: "cloudcontrol", LogicalID: "Resource", Type: op.TypeName, PhysicalID: op.Identifier, Token: op.Token, Scope: op.Scope, Properties: properties, Previous: previous, CloudControl: true}
+	return cloudformation.ResourceRequest{StackID: requestARN(op.Scope, op.Token), StackName: "cloudcontrol", LogicalID: "Resource", Type: op.TypeName, PhysicalID: op.Identifier, Token: op.Token, OperationToken: op.Token, Scope: op.Scope, Properties: properties, Previous: previous, CloudControl: true}
 }
 func (s *Service) replay(ctx context.Context, op RequestRecord) (RequestRecord, bool, error) {
 	var out RequestRecord
@@ -190,17 +190,36 @@ func (s *Service) update(ctx context.Context, in *api.UpdateResourceInput) (*api
 	if err != nil {
 		return nil, err
 	}
-	before := cloudformation.WritableResourceProperties(op.TypeName, current)
-	desired = cloudformation.WritableResourceProperties(op.TypeName, desired)
+	before, err := cloudformation.WritableResourceProperties(op.TypeName, current)
+	if err != nil {
+		return nil, failure("GeneralServiceException", err.Error())
+	}
+	desired, err = cloudformation.WritableResourceProperties(op.TypeName, desired)
+	if err != nil {
+		return nil, err
+	}
 	if err = cloudformation.ValidateResourceUpdate(op.TypeName, before, desired); err != nil {
 		return nil, err
 	}
-	if err = h.Validate(desired); err != nil {
+	if validator, ok := h.(cloudformation.ResourceUpdateValidator); ok {
+		err = validator.ValidateUpdate(before, desired)
+	} else {
+		err = h.Validate(desired)
+	}
+	if err != nil {
 		return nil, err
 	}
 	replacement, err := cloudformation.RequiresReplacement(h, op.Scope, before, desired)
 	if err != nil {
 		return nil, err
+	}
+	if planner, ok := h.(cloudformation.ResourceContextualReplacementPlanner); ok {
+		request := resourceRequest(op)
+		request.Properties, request.Previous = desired, before
+		replacement, err = planner.ReplacementForResource(commandCtx, request)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if replacement {
 		return nil, failure("NotUpdatableException", "The update requires resource replacement.")

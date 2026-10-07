@@ -786,7 +786,7 @@ func (q *Queries) ListImports(ctx context.Context, arg ListImportsParams) ([]Kms
 }
 
 const listKeys = `-- name: ListKeys :many
-SELECT "partition", account, region, key_id, arn, description, manager, state, created, deletion, available_at, pending_deletion_days, policy FROM kms_keys WHERE partition = ? AND account = ? AND region = ? ORDER BY key_id
+SELECT "partition", account, region, key_id, arn, description, manager, state, created, deletion, available_at, pending_deletion_days, policy, owner_stack_id, owner_logical_id, owner_token FROM kms_keys WHERE partition = ? AND account = ? AND region = ? ORDER BY key_id
 `
 
 type ListKeysParams struct {
@@ -818,6 +818,9 @@ func (q *Queries) ListKeys(ctx context.Context, arg ListKeysParams) ([]KmsKey, e
 			&i.AvailableAt,
 			&i.PendingDeletionDays,
 			&i.Policy,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -1113,8 +1116,8 @@ func (q *Queries) PutAlias(ctx context.Context, arg PutAliasParams) error {
 }
 
 const putKey = `-- name: PutKey :exec
-INSERT INTO kms_keys (partition, account, region, key_id, arn, description, manager, state, created, deletion, available_at, pending_deletion_days, policy)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO kms_keys (partition, account, region, key_id, arn, description, manager, state, created, deletion, available_at, pending_deletion_days, policy, owner_stack_id, owner_logical_id, owner_token)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account, region, key_id) DO UPDATE SET
     arn = excluded.arn,
     description = excluded.description,
@@ -1124,7 +1127,10 @@ ON CONFLICT (partition, account, region, key_id) DO UPDATE SET
     deletion = excluded.deletion,
     available_at = excluded.available_at,
     pending_deletion_days = excluded.pending_deletion_days,
-    policy = excluded.policy
+    policy = excluded.policy,
+    owner_stack_id = excluded.owner_stack_id,
+    owner_logical_id = excluded.owner_logical_id,
+    owner_token = excluded.owner_token
 `
 
 type PutKeyParams struct {
@@ -1141,6 +1147,9 @@ type PutKeyParams struct {
 	AvailableAt         time.Time
 	PendingDeletionDays int64
 	Policy              string
+	OwnerStackID        string
+	OwnerLogicalID      string
+	OwnerToken          string
 }
 
 func (q *Queries) PutKey(ctx context.Context, arg PutKeyParams) error {
@@ -1158,6 +1167,9 @@ func (q *Queries) PutKey(ctx context.Context, arg PutKeyParams) error {
 		arg.AvailableAt,
 		arg.PendingDeletionDays,
 		arg.Policy,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
 	)
 	return err
 }

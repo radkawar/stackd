@@ -119,6 +119,7 @@ func (s *Service) loadScope(sc scope) *keyStore {
 			s.keySets[ref] = set
 		}
 		k := &key{KeySetRecord: set, arn: record.ARN, description: record.Description, manager: record.Manager, state: record.State, created: record.Created, deletion: record.Deletion, availableAt: record.AvailableAt, pendingDeletionWindowInDays: record.PendingDeletionWindowInDays, policy: record.Policy, importParameters: record.ImportParameters, imports: make(map[string]ImportedMaterialRecord), principalIDs: make(map[string]string), tags: make(map[string]string)}
+		k.owner = record.Owner
 		for _, imported := range record.Imports {
 			k.imports[imported.ID] = imported
 		}
@@ -164,6 +165,7 @@ func (s *Service) saveScope(tx Transaction, sc scope, st, baseline *keyStore) er
 	for _, id := range slices.Sorted(maps.Keys(st.keys)) {
 		k := st.keys[id]
 		record := KeyRecord{ID: k.ID, ARN: k.arn, Description: k.description, Manager: k.manager, State: k.state, Created: k.created, Deletion: k.deletion, AvailableAt: k.availableAt, PendingDeletionWindowInDays: k.pendingDeletionWindowInDays, Policy: k.policy, ImportParameters: k.importParameters}
+		record.Owner = k.owner
 		for _, id := range slices.Sorted(maps.Keys(k.imports)) {
 			record.Imports = append(record.Imports, k.imports[id])
 		}

@@ -33,6 +33,13 @@ func (s *Service) putScalingPolicy(ctx context.Context, tx Transaction, in *api.
 		return nil, err
 	}
 	existing := err == nil
+	if expected, _ := ctx.Value(scalingPolicyARNKey{}).(string); expected != "" {
+		// loadGroup has already checked current IAM. Compare the complete native
+		// identity before an absent-row upsert or any alarm/configuration effect.
+		if !existing || record.GroupID != g.ID || value(record.Data.PolicyARN) != expected {
+			return nil, invalid("Policy not found")
+		}
+	}
 	if errors.Is(err, ErrNotFound) {
 		rows, err := tx.Policies(g.Key)
 		if err != nil {

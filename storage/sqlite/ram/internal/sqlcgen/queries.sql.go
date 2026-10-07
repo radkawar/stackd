@@ -106,7 +106,7 @@ func (q *Queries) GetInvitation(ctx context.Context, arn string) (RamInvitation,
 }
 
 const getPermission = `-- name: GetPermission :one
-SELECT arn, "partition", account_id, region, name, resource_type, type, feature_set, status, resource_type_default, default_version, created, updated FROM ram_permissions WHERE arn=?
+SELECT arn, "partition", account_id, region, name, resource_type, type, feature_set, status, resource_type_default, default_version, created, updated, cloudformation_owner, object_id FROM ram_permissions WHERE arn=?
 `
 
 func (q *Queries) GetPermission(ctx context.Context, arn string) (RamPermission, error) {
@@ -126,12 +126,14 @@ func (q *Queries) GetPermission(ctx context.Context, arn string) (RamPermission,
 		&i.DefaultVersion,
 		&i.Created,
 		&i.Updated,
+		&i.CloudformationOwner,
+		&i.ObjectID,
 	)
 	return i, err
 }
 
 const getReceipt = `-- name: GetReceipt :one
-SELECT "partition", account_id, region, operation, token, hash, arn, version FROM ram_receipts WHERE partition=? AND account_id=? AND region=? AND operation=? AND token=?
+SELECT "partition", account_id, region, operation, token, hash, arn, version, cloudformation_owner, object_id FROM ram_receipts WHERE partition=? AND account_id=? AND region=? AND operation=? AND token=?
 `
 
 type GetReceiptParams struct {
@@ -160,12 +162,14 @@ func (q *Queries) GetReceipt(ctx context.Context, arg GetReceiptParams) (RamRece
 		&i.Hash,
 		&i.Arn,
 		&i.Version,
+		&i.CloudformationOwner,
+		&i.ObjectID,
 	)
 	return i, err
 }
 
 const getShare = `-- name: GetShare :one
-SELECT arn, "partition", account_id, region, name, status, feature_set, policy_id, allow_external, retain_on_leave, created, updated FROM ram_shares WHERE arn=?
+SELECT arn, "partition", account_id, region, name, status, feature_set, policy_id, allow_external, retain_on_leave, created, updated, cloudformation_owner FROM ram_shares WHERE arn=?
 `
 
 func (q *Queries) GetShare(ctx context.Context, arn string) (RamShare, error) {
@@ -184,6 +188,7 @@ func (q *Queries) GetShare(ctx context.Context, arn string) (RamShare, error) {
 		&i.RetainOnLeave,
 		&i.Created,
 		&i.Updated,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
@@ -321,7 +326,7 @@ func (q *Queries) ListPermissionVersions(ctx context.Context, permissionArn stri
 }
 
 const listPermissions = `-- name: ListPermissions :many
-SELECT arn, "partition", account_id, region, name, resource_type, type, feature_set, status, resource_type_default, default_version, created, updated FROM ram_permissions ORDER BY arn
+SELECT arn, "partition", account_id, region, name, resource_type, type, feature_set, status, resource_type_default, default_version, created, updated, cloudformation_owner, object_id FROM ram_permissions ORDER BY arn
 `
 
 func (q *Queries) ListPermissions(ctx context.Context) ([]RamPermission, error) {
@@ -347,6 +352,8 @@ func (q *Queries) ListPermissions(ctx context.Context) ([]RamPermission, error) 
 			&i.DefaultVersion,
 			&i.Created,
 			&i.Updated,
+			&i.CloudformationOwner,
+			&i.ObjectID,
 		); err != nil {
 			return nil, err
 		}
@@ -362,7 +369,7 @@ func (q *Queries) ListPermissions(ctx context.Context) ([]RamPermission, error) 
 }
 
 const listPrincipals = `-- name: ListPrincipals :many
-SELECT share_arn, position, principal, principal_id, status, invitation_arn, organization, created, updated FROM ram_principals WHERE share_arn=? ORDER BY position
+SELECT share_arn, position, principal, principal_id, status, invitation_arn, organization, created, updated, cloudformation_owner FROM ram_principals WHERE share_arn=? ORDER BY position
 `
 
 func (q *Queries) ListPrincipals(ctx context.Context, shareArn string) ([]RamPrincipal, error) {
@@ -384,6 +391,7 @@ func (q *Queries) ListPrincipals(ctx context.Context, shareArn string) ([]RamPri
 			&i.Organization,
 			&i.Created,
 			&i.Updated,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -438,7 +446,7 @@ func (q *Queries) ListReplacements(ctx context.Context) ([]RamReplacement, error
 }
 
 const listResources = `-- name: ListResources :many
-SELECT share_arn, position, arn, resource_type, "partition", account_id, region, organization_only, supports_iam_principals, status, status_message, created, updated FROM ram_resources WHERE share_arn=? ORDER BY position
+SELECT share_arn, position, arn, resource_type, "partition", account_id, region, organization_only, supports_iam_principals, status, status_message, created, updated, cloudformation_owner FROM ram_resources WHERE share_arn=? ORDER BY position
 `
 
 func (q *Queries) ListResources(ctx context.Context, shareArn string) ([]RamResource, error) {
@@ -464,6 +472,7 @@ func (q *Queries) ListResources(ctx context.Context, shareArn string) ([]RamReso
 			&i.StatusMessage,
 			&i.Created,
 			&i.Updated,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -479,7 +488,7 @@ func (q *Queries) ListResources(ctx context.Context, shareArn string) ([]RamReso
 }
 
 const listSharePermissions = `-- name: ListSharePermissions :many
-SELECT share_arn, position, arn, resource_type, version FROM ram_share_permissions WHERE share_arn=? ORDER BY position
+SELECT share_arn, position, arn, resource_type, version, cloudformation_owner FROM ram_share_permissions WHERE share_arn=? ORDER BY position
 `
 
 func (q *Queries) ListSharePermissions(ctx context.Context, shareArn string) ([]RamSharePermission, error) {
@@ -497,6 +506,7 @@ func (q *Queries) ListSharePermissions(ctx context.Context, shareArn string) ([]
 			&i.Arn,
 			&i.ResourceType,
 			&i.Version,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -539,7 +549,7 @@ func (q *Queries) ListShareTags(ctx context.Context, shareArn string) ([]RamShar
 }
 
 const listShares = `-- name: ListShares :many
-SELECT arn, "partition", account_id, region, name, status, feature_set, policy_id, allow_external, retain_on_leave, created, updated FROM ram_shares ORDER BY arn
+SELECT arn, "partition", account_id, region, name, status, feature_set, policy_id, allow_external, retain_on_leave, created, updated, cloudformation_owner FROM ram_shares ORDER BY arn
 `
 
 func (q *Queries) ListShares(ctx context.Context) ([]RamShare, error) {
@@ -564,6 +574,7 @@ func (q *Queries) ListShares(ctx context.Context) ([]RamShare, error) {
 			&i.RetainOnLeave,
 			&i.Created,
 			&i.Updated,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -615,8 +626,8 @@ func (q *Queries) PutInvitation(ctx context.Context, arg PutInvitationParams) er
 }
 
 const putPermission = `-- name: PutPermission :exec
-INSERT INTO ram_permissions (arn,partition,account_id,region,name,resource_type,type,feature_set,status,resource_type_default,default_version,created,updated) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
-ON CONFLICT(arn) DO UPDATE SET partition=excluded.partition,account_id=excluded.account_id,region=excluded.region,name=excluded.name,resource_type=excluded.resource_type,type=excluded.type,feature_set=excluded.feature_set,status=excluded.status,resource_type_default=excluded.resource_type_default,default_version=excluded.default_version,created=excluded.created,updated=excluded.updated
+INSERT INTO ram_permissions (arn,partition,account_id,region,name,resource_type,type,feature_set,status,resource_type_default,default_version,created,updated,cloudformation_owner,object_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+ON CONFLICT(arn) DO UPDATE SET partition=excluded.partition,account_id=excluded.account_id,region=excluded.region,name=excluded.name,resource_type=excluded.resource_type,type=excluded.type,feature_set=excluded.feature_set,status=excluded.status,resource_type_default=excluded.resource_type_default,default_version=excluded.default_version,created=excluded.created,updated=excluded.updated,cloudformation_owner=CASE WHEN ram_permissions.object_id<>excluded.object_id THEN excluded.cloudformation_owner ELSE ram_permissions.cloudformation_owner END,object_id=excluded.object_id
 `
 
 type PutPermissionParams struct {
@@ -633,6 +644,8 @@ type PutPermissionParams struct {
 	DefaultVersion      int64
 	Created             time.Time
 	Updated             time.Time
+	CloudformationOwner string
+	ObjectID            string
 }
 
 func (q *Queries) PutPermission(ctx context.Context, arg PutPermissionParams) error {
@@ -650,6 +663,8 @@ func (q *Queries) PutPermission(ctx context.Context, arg PutPermissionParams) er
 		arg.DefaultVersion,
 		arg.Created,
 		arg.Updated,
+		arg.CloudformationOwner,
+		arg.ObjectID,
 	)
 	return err
 }
@@ -719,20 +734,21 @@ func (q *Queries) PutPermissionVersion(ctx context.Context, arg PutPermissionVer
 }
 
 const putPrincipal = `-- name: PutPrincipal :exec
-INSERT INTO ram_principals (share_arn,position,principal,principal_id,status,invitation_arn,organization,created,updated) VALUES (?,?,?,?,?,?,?,?,?)
-ON CONFLICT(share_arn,position) DO UPDATE SET principal=excluded.principal,principal_id=excluded.principal_id,status=excluded.status,invitation_arn=excluded.invitation_arn,organization=excluded.organization,created=excluded.created,updated=excluded.updated
+INSERT INTO ram_principals (share_arn,position,principal,principal_id,status,invitation_arn,organization,created,updated,cloudformation_owner) VALUES (?,?,?,?,?,?,?,?,?,?)
+ON CONFLICT(share_arn,position) DO UPDATE SET principal=excluded.principal,principal_id=excluded.principal_id,status=excluded.status,invitation_arn=excluded.invitation_arn,organization=excluded.organization,created=excluded.created,updated=excluded.updated,cloudformation_owner=excluded.cloudformation_owner
 `
 
 type PutPrincipalParams struct {
-	ShareArn      string
-	Position      int64
-	Principal     string
-	PrincipalID   string
-	Status        string
-	InvitationArn string
-	Organization  bool
-	Created       time.Time
-	Updated       time.Time
+	ShareArn            string
+	Position            int64
+	Principal           string
+	PrincipalID         string
+	Status              string
+	InvitationArn       string
+	Organization        bool
+	Created             time.Time
+	Updated             time.Time
+	CloudformationOwner string
 }
 
 func (q *Queries) PutPrincipal(ctx context.Context, arg PutPrincipalParams) error {
@@ -746,24 +762,27 @@ func (q *Queries) PutPrincipal(ctx context.Context, arg PutPrincipalParams) erro
 		arg.Organization,
 		arg.Created,
 		arg.Updated,
+		arg.CloudformationOwner,
 	)
 	return err
 }
 
 const putReceipt = `-- name: PutReceipt :exec
-INSERT INTO ram_receipts (partition,account_id,region,operation,token,hash,arn,version) VALUES (?,?,?,?,?,?,?,?)
+INSERT INTO ram_receipts (partition,account_id,region,operation,token,hash,arn,version,cloudformation_owner,object_id) VALUES (?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(partition,account_id,region,operation,token) DO UPDATE SET hash=excluded.hash,arn=excluded.arn,version=excluded.version
 `
 
 type PutReceiptParams struct {
-	Partition string
-	AccountID string
-	Region    string
-	Operation string
-	Token     string
-	Hash      string
-	Arn       string
-	Version   int64
+	Partition           string
+	AccountID           string
+	Region              string
+	Operation           string
+	Token               string
+	Hash                string
+	Arn                 string
+	Version             int64
+	CloudformationOwner string
+	ObjectID            string
 }
 
 func (q *Queries) PutReceipt(ctx context.Context, arg PutReceiptParams) error {
@@ -776,6 +795,8 @@ func (q *Queries) PutReceipt(ctx context.Context, arg PutReceiptParams) error {
 		arg.Hash,
 		arg.Arn,
 		arg.Version,
+		arg.CloudformationOwner,
+		arg.ObjectID,
 	)
 	return err
 }
@@ -817,8 +838,8 @@ func (q *Queries) PutReplacement(ctx context.Context, arg PutReplacementParams) 
 }
 
 const putResource = `-- name: PutResource :exec
-INSERT INTO ram_resources (share_arn,position,arn,resource_type,partition,account_id,region,organization_only,supports_iam_principals,status,status_message,created,updated) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
-ON CONFLICT(share_arn,position) DO UPDATE SET arn=excluded.arn,resource_type=excluded.resource_type,partition=excluded.partition,account_id=excluded.account_id,region=excluded.region,organization_only=excluded.organization_only,supports_iam_principals=excluded.supports_iam_principals,status=excluded.status,status_message=excluded.status_message,created=excluded.created,updated=excluded.updated
+INSERT INTO ram_resources (share_arn,position,arn,resource_type,partition,account_id,region,organization_only,supports_iam_principals,status,status_message,created,updated,cloudformation_owner) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+ON CONFLICT(share_arn,position) DO UPDATE SET arn=excluded.arn,resource_type=excluded.resource_type,partition=excluded.partition,account_id=excluded.account_id,region=excluded.region,organization_only=excluded.organization_only,supports_iam_principals=excluded.supports_iam_principals,status=excluded.status,status_message=excluded.status_message,created=excluded.created,updated=excluded.updated,cloudformation_owner=excluded.cloudformation_owner
 `
 
 type PutResourceParams struct {
@@ -835,6 +856,7 @@ type PutResourceParams struct {
 	StatusMessage         string
 	Created               time.Time
 	Updated               time.Time
+	CloudformationOwner   string
 }
 
 func (q *Queries) PutResource(ctx context.Context, arg PutResourceParams) error {
@@ -852,30 +874,33 @@ func (q *Queries) PutResource(ctx context.Context, arg PutResourceParams) error 
 		arg.StatusMessage,
 		arg.Created,
 		arg.Updated,
+		arg.CloudformationOwner,
 	)
 	return err
 }
 
 const putShare = `-- name: PutShare :exec
-INSERT INTO ram_shares (arn,partition,account_id,region,name,status,feature_set,policy_id,allow_external,retain_on_leave,created,updated) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+INSERT INTO ram_shares (arn,partition,account_id,region,name,status,feature_set,policy_id,allow_external,retain_on_leave,created,updated,cloudformation_owner) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(arn) DO UPDATE SET partition=excluded.partition,account_id=excluded.account_id,region=excluded.region,name=excluded.name,status=excluded.status,feature_set=excluded.feature_set,policy_id=excluded.policy_id,allow_external=excluded.allow_external,retain_on_leave=excluded.retain_on_leave,created=excluded.created,updated=excluded.updated
 `
 
 type PutShareParams struct {
-	Arn           string
-	Partition     string
-	AccountID     string
-	Region        string
-	Name          string
-	Status        string
-	FeatureSet    string
-	PolicyID      string
-	AllowExternal bool
-	RetainOnLeave bool
-	Created       time.Time
-	Updated       time.Time
+	Arn                 string
+	Partition           string
+	AccountID           string
+	Region              string
+	Name                string
+	Status              string
+	FeatureSet          string
+	PolicyID            string
+	AllowExternal       bool
+	RetainOnLeave       bool
+	Created             time.Time
+	Updated             time.Time
+	CloudformationOwner string
 }
 
+// cloudformation_owner is fixed at creation and never changed by an upsert.
 func (q *Queries) PutShare(ctx context.Context, arg PutShareParams) error {
 	_, err := q.db.ExecContext(ctx, putShare,
 		arg.Arn,
@@ -890,21 +915,23 @@ func (q *Queries) PutShare(ctx context.Context, arg PutShareParams) error {
 		arg.RetainOnLeave,
 		arg.Created,
 		arg.Updated,
+		arg.CloudformationOwner,
 	)
 	return err
 }
 
 const putSharePermission = `-- name: PutSharePermission :exec
-INSERT INTO ram_share_permissions (share_arn,position,arn,resource_type,version) VALUES (?,?,?,?,?)
-ON CONFLICT(share_arn,position) DO UPDATE SET arn=excluded.arn,resource_type=excluded.resource_type,version=excluded.version
+INSERT INTO ram_share_permissions (share_arn,position,arn,resource_type,version,cloudformation_owner) VALUES (?,?,?,?,?,?)
+ON CONFLICT(share_arn,position) DO UPDATE SET arn=excluded.arn,resource_type=excluded.resource_type,version=excluded.version,cloudformation_owner=excluded.cloudformation_owner
 `
 
 type PutSharePermissionParams struct {
-	ShareArn     string
-	Position     int64
-	Arn          string
-	ResourceType string
-	Version      int64
+	ShareArn            string
+	Position            int64
+	Arn                 string
+	ResourceType        string
+	Version             int64
+	CloudformationOwner string
 }
 
 func (q *Queries) PutSharePermission(ctx context.Context, arg PutSharePermissionParams) error {
@@ -914,6 +941,7 @@ func (q *Queries) PutSharePermission(ctx context.Context, arg PutSharePermission
 		arg.Arn,
 		arg.ResourceType,
 		arg.Version,
+		arg.CloudformationOwner,
 	)
 	return err
 }

@@ -35,8 +35,10 @@ type RuntimePlatform struct {
 // runtime consumers have closed their environments.
 // ListenAddress defaults to 0.0.0.0:0; each environment gets its own listener.
 // CallbackHost is an IP or hostname reachable from the Docker host's containers.
-// Empty CallbackHost uses Docker's Linux host-gateway mapping. Remote engines
-// require an explicit CallbackHost and an appropriately reachable listener.
+// Empty CallbackHost uses Docker's Linux host-gateway mapping. The explicit name
+// host.docker.internal uses Docker Desktop's container DNS without a host override.
+// Other explicit hosts are resolved by the controller and mapped in the container.
+// Remote engines require an explicit CallbackHost and a reachable listener.
 // Images maps runtime/architecture pairs to immutable image digests; nil enables
 // Python 3.12/3.13, Node.js 22 and provided.al2023 on x86_64 and arm64 using the pinned
 // images above. Explicit maps are exact overrides. Additional runtimes must
@@ -63,18 +65,20 @@ type DockerConfig struct {
 }
 
 type DockerExecutor struct {
-	engine      *docker.Client
-	config      DockerConfig
-	mu          sync.RWMutex
-	closed      bool
-	recoveryErr error
-	reaperStop  context.CancelFunc
-	reaperDone  chan struct{}
-	owner       string
-	ownerVolume string
-	guard       io.ReadWriteCloser
-	lifetime    context.Context
-	stop        context.CancelFunc
+	engine         *docker.Client
+	config         DockerConfig
+	mu             sync.RWMutex
+	closed         bool
+	recoveryErr    error
+	reaperStop     context.CancelFunc
+	reaperDone     chan struct{}
+	owner          string
+	ownerVolume    string
+	guard          io.ReadWriteCloser
+	lifetime       context.Context
+	stop           context.CancelFunc
+	imagePins      map[string]Image
+	imagePinsReady bool
 }
 
 // NewDockerExecutor validates Lambda runtime configuration using a caller-owned

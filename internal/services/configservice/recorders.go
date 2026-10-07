@@ -111,7 +111,13 @@ func (s *Service) putRecorder(ctx context.Context, in *api.PutConfigurationRecor
 			return failure("MaxNumberOfConfigurationRecordersExceededException", "Only one customer-managed recorder is allowed per account and Region.")
 		}
 		if found {
+			if err := checkCloudFormationClaim(tx.Context(), old.CFNOwnership); err != nil {
+				return err
+			}
 			row.ARN = old.ARN
+			row.CFNOwnership = old.CFNOwnership
+			row.StartOnCreate = old.StartOnCreate
+			row.StartedOnCreate, row.StartedOnCreateKnown = old.StartedOnCreate, old.StartedOnCreateKnown
 		}
 		if row.ARN == "" {
 			row.ARN = fmt.Sprintf("arn:%s:config:%s:%s:configuration-recorder/%s/%s", row.Partition, row.Region, row.AccountID, row.Name, strings.ReplaceAll(uuid(), "-", "")[:16])
@@ -120,6 +126,9 @@ func (s *Service) putRecorder(ctx context.Context, in *api.PutConfigurationRecor
 			return err
 		}
 		if !found {
+			row.CFNOwnership = creationOwnership(tx.Context())
+			row.StartOnCreate, row.StartedOnCreateKnown = tx.Context().Value(recorderStartKey{}).(bool)
+			row.StartedOnCreate = row.StartOnCreate
 			if err := s.putCreationTags(tx, row.ARN, in.Tags); err != nil {
 				return err
 			}
@@ -128,6 +137,15 @@ func (s *Service) putRecorder(ctx context.Context, in *api.PutConfigurationRecor
 		row.LastStatus, row.LastErrorCode, row.LastErrorMessage = old.LastStatus, old.LastErrorCode, old.LastErrorMessage
 		if err := tx.PutRecorder(row); err != nil {
 			return err
+		}
+		_, present, err := tx.Channel(row.Scope)
+		if err != nil {
+			return err
+		}
+		if present {
+			if err := s.startAdmittedRecorder(tx, row); err != nil {
+				return err
+			}
 		}
 		return s.recordCall(tx.Context(), "PutConfigurationRecorder", in, out, nil)
 	})
@@ -219,6 +237,9 @@ func (s *Service) requireRecorder(reader Reader, name string) (Recorder, error) 
 	if !found || r.Name != name {
 		return r, failure("NoSuchConfigurationRecorderException", "The specified configuration recorder does not exist.")
 	}
+	if err := checkCloudFormationClaim(reader.Context(), r.CFNOwnership); err != nil {
+		return r, err
+	}
 	return r, nil
 }
 func (s *Service) startRecorder(ctx context.Context, in *api.StartConfigurationRecorderInput) (*api.StartConfigurationRecorderOutput, error) {
@@ -297,9 +318,16 @@ func (s *Service) stopRecorder(tx Transaction, in *api.StopConfigurationRecorder
 	}
 	if r.Recording {
 		r.Recording = false
+		r.StartOnCreate = false
 		r.LastStop = s.clock.Now().UTC()
 		r.LastStatusChange = r.LastStop
 		r.LastStatus = "Success"
+		if err := tx.PutRecorder(r); err != nil {
+			return nil, err
+		}
+	}
+	if r.StartOnCreate {
+		r.StartOnCreate = false
 		if err := tx.PutRecorder(r); err != nil {
 			return nil, err
 		}

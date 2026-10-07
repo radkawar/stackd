@@ -1855,12 +1855,24 @@ Lambda control plane. The Docker implementation uses pinned official runtime
 images and the Runtime API, not imported handlers or an RIE invocation proxy.
 It checks actual engine capabilities and installed images; it does not pull them.
 IAM and control-plane-only embedding remain independent of Docker.
-The executable owns one `compute/docker.Client` constructed with `docker.New` and
-injects it through both Lambda and ECS `DockerConfig.Client`. CLI `-docker-host`
-constructs both executors; ECS's local rootful Linux/systemd/cgroup-v2 and pinned
-toolkit prerequisites therefore apply. `Config.ComputeEndpoint` and
-`-compute-endpoint` select their shared reachable AWS origin. Consumers own their
-environments; the caller closes Engine transport after those consumers stop.
+The executable owns one `compute/docker.Client` constructed with `docker.New`.
+CLI `-docker-host` selects transport only; `-lambda-runtime`, `-ecs-runtime`,
+`-codebuild-runtime`, `-dynamodb-runtime`, `-kinesis-runtime` and
+`-inventory-orc-runtime` independently opt in their actual owners and default to
+false. Only requested ECS invokes its local rootful Linux/systemd/cgroup-v2 and
+pinned toolkit admission. `Config.ComputeEndpoint` and `-compute-endpoint` select
+the reachable execution AWS origin. Consumers own their environments; the caller
+closes Engine transport after those consumers stop.
+Native macOS controller builds are supported; opt-in Desktop Lambda/DynamoDB/
+Kinesis use real Linux VM engines, not synthetic execution or implicit pulls.
+Lambda storage helpers and static Linux telemetry execute inside the actual
+daemon VM. Lambda VPC namespaces, bridges and nftables use daemon identity and
+real shared `flock` ownership through daemon helpers; EC2/ECS/EKS/ALB retain the
+original local Linux host-security contract. Explicit callback host
+`host.docker.internal` uses Desktop container DNS without controller resolution
+or a shadow host mapping. This intended Desktop contract is not an observed
+macOS run or a promise of arbitrary remote-engine capabilities; see the
+[deployment recipe](runtime-containers.md#native-macos-controller-with-docker-desktop).
 Lambda shutdown removes its environments; ECS controller shutdown detaches for
 reattachment, while task stop owns provider-native removal. The shared client does
 not own AWS state or merge service lifecycle models; see [ECS ownership](ecs.md).

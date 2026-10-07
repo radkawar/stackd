@@ -186,7 +186,7 @@ func (q *Queries) DeleteTargetTags(ctx context.Context, targetPk int64) error {
 }
 
 const getPolicy = `-- name: GetPolicy :one
-SELECT policy_pk, "partition", account_id, region, namespace, resource_id, dimension, name, managed_action_id, last_scale_at, last_scale_from, last_scale_to, creation_time, policy_arn, policy_name, policy_type, data_resource_id, data_dimension, data_namespace, has_alarms, has_step, step_adjustment_type, step_cooldown, step_aggregation_type, step_min_adjustment, has_steps, has_tracking, disable_scale_in, scale_in_cooldown, scale_out_cooldown, target_value, has_predefined, predefined_metric_type, resource_label, has_custom, custom_metric_name, custom_namespace, custom_statistic, custom_unit, has_custom_dimensions, has_metric_queries, pending_activity_id FROM aas_policies WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND namespace = ?4 AND resource_id = ?5 AND dimension = ?6 AND name = ?7
+SELECT policy_pk, "partition", account_id, region, namespace, resource_id, dimension, name, managed_action_id, last_scale_at, last_scale_from, last_scale_to, creation_time, policy_arn, policy_name, policy_type, data_resource_id, data_dimension, data_namespace, has_alarms, has_step, step_adjustment_type, step_cooldown, step_aggregation_type, step_min_adjustment, has_steps, has_tracking, disable_scale_in, scale_in_cooldown, scale_out_cooldown, target_value, has_predefined, predefined_metric_type, resource_label, has_custom, custom_metric_name, custom_namespace, custom_statistic, custom_unit, has_custom_dimensions, has_metric_queries, pending_activity_id, ownership FROM aas_policies WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND namespace = ?4 AND resource_id = ?5 AND dimension = ?6 AND name = ?7
 `
 
 type GetPolicyParams struct {
@@ -253,6 +253,7 @@ func (q *Queries) GetPolicy(ctx context.Context, arg GetPolicyParams) (AasPolicy
 		&i.HasCustomDimensions,
 		&i.HasMetricQueries,
 		&i.PendingActivityID,
+		&i.Ownership,
 	)
 	return i, err
 }
@@ -310,7 +311,7 @@ func (q *Queries) GetSchedule(ctx context.Context, arg GetScheduleParams) (AasSc
 }
 
 const getTarget = `-- name: GetTarget :one
-SELECT target_pk, "partition", account_id, region, namespace, resource_id, dimension, native_id, origin_event_id, reconcile_at, creation_time, max_capacity, min_capacity, predicted_capacity, data_resource_id, role_arn, data_dimension, target_arn, data_namespace, has_suspended_state, suspended_in, suspended_out, suspended_scheduled, has_tags FROM aas_targets WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND namespace = ?4 AND resource_id = ?5 AND dimension = ?6
+SELECT target_pk, "partition", account_id, region, namespace, resource_id, dimension, native_id, origin_event_id, reconcile_at, creation_time, max_capacity, min_capacity, predicted_capacity, data_resource_id, role_arn, data_dimension, target_arn, data_namespace, has_suspended_state, suspended_in, suspended_out, suspended_scheduled, has_tags, ownership FROM aas_targets WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND namespace = ?4 AND resource_id = ?5 AND dimension = ?6
 `
 
 type GetTargetParams struct {
@@ -357,12 +358,13 @@ func (q *Queries) GetTarget(ctx context.Context, arg GetTargetParams) (AasTarget
 		&i.SuspendedOut,
 		&i.SuspendedScheduled,
 		&i.HasTags,
+		&i.Ownership,
 	)
 	return i, err
 }
 
 const getTargetByARN = `-- name: GetTargetByARN :one
-SELECT target_pk, "partition", account_id, region, namespace, resource_id, dimension, native_id, origin_event_id, reconcile_at, creation_time, max_capacity, min_capacity, predicted_capacity, data_resource_id, role_arn, data_dimension, target_arn, data_namespace, has_suspended_state, suspended_in, suspended_out, suspended_scheduled, has_tags FROM aas_targets WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND target_arn = ?4
+SELECT target_pk, "partition", account_id, region, namespace, resource_id, dimension, native_id, origin_event_id, reconcile_at, creation_time, max_capacity, min_capacity, predicted_capacity, data_resource_id, role_arn, data_dimension, target_arn, data_namespace, has_suspended_state, suspended_in, suspended_out, suspended_scheduled, has_tags, ownership FROM aas_targets WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND target_arn = ?4
 `
 
 type GetTargetByARNParams struct {
@@ -405,6 +407,7 @@ func (q *Queries) GetTargetByARN(ctx context.Context, arg GetTargetByARNParams) 
 		&i.SuspendedOut,
 		&i.SuspendedScheduled,
 		&i.HasTags,
+		&i.Ownership,
 	)
 	return i, err
 }
@@ -535,7 +538,7 @@ WITH selected_names AS (
  SELECT CAST(value AS TEXT) AS selected_name, MIN(CAST(key AS INTEGER)) AS position
  FROM json_each(?12) GROUP BY selected_name
 )
-SELECT policy_pk, "partition", account_id, region, namespace, resource_id, dimension, name, managed_action_id, last_scale_at, last_scale_from, last_scale_to, creation_time, policy_arn, policy_name, policy_type, data_resource_id, data_dimension, data_namespace, has_alarms, has_step, step_adjustment_type, step_cooldown, step_aggregation_type, step_min_adjustment, has_steps, has_tracking, disable_scale_in, scale_in_cooldown, scale_out_cooldown, target_value, has_predefined, predefined_metric_type, resource_label, has_custom, custom_metric_name, custom_namespace, custom_statistic, custom_unit, has_custom_dimensions, has_metric_queries, pending_activity_id FROM aas_policies WHERE partition = ?1 AND account_id = ?2 AND region = ?3
+SELECT policy_pk, "partition", account_id, region, namespace, resource_id, dimension, name, managed_action_id, last_scale_at, last_scale_from, last_scale_to, creation_time, policy_arn, policy_name, policy_type, data_resource_id, data_dimension, data_namespace, has_alarms, has_step, step_adjustment_type, step_cooldown, step_aggregation_type, step_min_adjustment, has_steps, has_tracking, disable_scale_in, scale_in_cooldown, scale_out_cooldown, target_value, has_predefined, predefined_metric_type, resource_label, has_custom, custom_metric_name, custom_namespace, custom_statistic, custom_unit, has_custom_dimensions, has_metric_queries, pending_activity_id, ownership FROM aas_policies WHERE partition = ?1 AND account_id = ?2 AND region = ?3
  AND namespace = ?4
  AND (CAST(?5 AS TEXT) = '' OR dimension = ?5)
  AND (CAST(?6 AS TEXT) = '' OR resource_id = ?6)
@@ -631,6 +634,7 @@ func (q *Queries) ListPolicies(ctx context.Context, arg ListPoliciesParams) ([]A
 			&i.HasCustomDimensions,
 			&i.HasMetricQueries,
 			&i.PendingActivityID,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -945,7 +949,7 @@ func (q *Queries) ListTargetTags(ctx context.Context, targetPk int64) ([]AasTarg
 }
 
 const listTargets = `-- name: ListTargets :many
-SELECT target_pk, "partition", account_id, region, namespace, resource_id, dimension, native_id, origin_event_id, reconcile_at, creation_time, max_capacity, min_capacity, predicted_capacity, data_resource_id, role_arn, data_dimension, target_arn, data_namespace, has_suspended_state, suspended_in, suspended_out, suspended_scheduled, has_tags FROM aas_targets WHERE partition = ?1 AND account_id = ?2 AND region = ?3
+SELECT target_pk, "partition", account_id, region, namespace, resource_id, dimension, native_id, origin_event_id, reconcile_at, creation_time, max_capacity, min_capacity, predicted_capacity, data_resource_id, role_arn, data_dimension, target_arn, data_namespace, has_suspended_state, suspended_in, suspended_out, suspended_scheduled, has_tags, ownership FROM aas_targets WHERE partition = ?1 AND account_id = ?2 AND region = ?3
  AND namespace = ?4
  AND (CAST(?5 AS TEXT) = '' OR dimension = ?5)
  AND (?6 = 0 OR resource_id IN (SELECT value FROM json_each(?7)))
@@ -1011,6 +1015,7 @@ func (q *Queries) ListTargets(ctx context.Context, arg ListTargetsParams) ([]Aas
 			&i.SuspendedOut,
 			&i.SuspendedScheduled,
 			&i.HasTags,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -1089,13 +1094,16 @@ func (q *Queries) NextTargetReconcile(ctx context.Context) (NextTargetReconcileR
 
 const putPolicy = `-- name: PutPolicy :one
 INSERT INTO aas_policies (
+ ownership,
  partition, account_id, region, namespace, resource_id, dimension, name, managed_action_id, last_scale_at, last_scale_from, last_scale_to, creation_time, policy_arn, policy_name, policy_type, data_resource_id, data_dimension, data_namespace, has_alarms, has_step, step_adjustment_type, step_cooldown, step_aggregation_type, step_min_adjustment, has_steps, has_tracking, disable_scale_in, scale_in_cooldown, scale_out_cooldown, target_value, has_predefined, predefined_metric_type, resource_label, has_custom, custom_metric_name, custom_namespace, custom_statistic, custom_unit, has_custom_dimensions, has_metric_queries
  , pending_activity_id
 ) VALUES (
- ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39, ?40
- , ?41
+ ?1,
+ ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39, ?40, ?41
+ , ?42
 )
 ON CONFLICT(partition, account_id, region, namespace, resource_id, dimension, name) DO UPDATE SET
+ ownership = excluded.ownership,
  managed_action_id = excluded.managed_action_id,
  last_scale_at = excluded.last_scale_at,
  last_scale_from = excluded.last_scale_from,
@@ -1130,10 +1138,11 @@ ON CONFLICT(partition, account_id, region, namespace, resource_id, dimension, na
  custom_unit = excluded.custom_unit,
  has_custom_dimensions = excluded.has_custom_dimensions,
  has_metric_queries = excluded.has_metric_queries
-RETURNING policy_pk, "partition", account_id, region, namespace, resource_id, dimension, name, managed_action_id, last_scale_at, last_scale_from, last_scale_to, creation_time, policy_arn, policy_name, policy_type, data_resource_id, data_dimension, data_namespace, has_alarms, has_step, step_adjustment_type, step_cooldown, step_aggregation_type, step_min_adjustment, has_steps, has_tracking, disable_scale_in, scale_in_cooldown, scale_out_cooldown, target_value, has_predefined, predefined_metric_type, resource_label, has_custom, custom_metric_name, custom_namespace, custom_statistic, custom_unit, has_custom_dimensions, has_metric_queries, pending_activity_id
+RETURNING policy_pk, "partition", account_id, region, namespace, resource_id, dimension, name, managed_action_id, last_scale_at, last_scale_from, last_scale_to, creation_time, policy_arn, policy_name, policy_type, data_resource_id, data_dimension, data_namespace, has_alarms, has_step, step_adjustment_type, step_cooldown, step_aggregation_type, step_min_adjustment, has_steps, has_tracking, disable_scale_in, scale_in_cooldown, scale_out_cooldown, target_value, has_predefined, predefined_metric_type, resource_label, has_custom, custom_metric_name, custom_namespace, custom_statistic, custom_unit, has_custom_dimensions, has_metric_queries, pending_activity_id, ownership
 `
 
 type PutPolicyParams struct {
+	Ownership            string
 	Partition            string
 	AccountID            string
 	Region               string
@@ -1179,6 +1188,7 @@ type PutPolicyParams struct {
 
 func (q *Queries) PutPolicy(ctx context.Context, arg PutPolicyParams) (AasPolicy, error) {
 	row := q.db.QueryRowContext(ctx, putPolicy,
+		arg.Ownership,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -1265,6 +1275,7 @@ func (q *Queries) PutPolicy(ctx context.Context, arg PutPolicyParams) (AasPolicy
 		&i.HasCustomDimensions,
 		&i.HasMetricQueries,
 		&i.PendingActivityID,
+		&i.Ownership,
 	)
 	return i, err
 }
@@ -1348,11 +1359,14 @@ func (q *Queries) PutSchedule(ctx context.Context, arg PutScheduleParams) error 
 
 const putTarget = `-- name: PutTarget :one
 INSERT INTO aas_targets (
+ ownership,
  partition, account_id, region, namespace, resource_id, dimension, native_id, origin_event_id, reconcile_at, creation_time, max_capacity, min_capacity, predicted_capacity, data_resource_id, role_arn, data_dimension, target_arn, data_namespace, has_suspended_state, suspended_in, suspended_out, suspended_scheduled, has_tags
 ) VALUES (
- ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23
+ ?1,
+ ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24
 )
 ON CONFLICT(partition, account_id, region, namespace, resource_id, dimension) DO UPDATE SET
+ ownership = excluded.ownership,
  native_id = excluded.native_id,
  origin_event_id = excluded.origin_event_id,
  reconcile_at = excluded.reconcile_at,
@@ -1370,10 +1384,11 @@ ON CONFLICT(partition, account_id, region, namespace, resource_id, dimension) DO
  suspended_out = excluded.suspended_out,
  suspended_scheduled = excluded.suspended_scheduled,
  has_tags = excluded.has_tags
-RETURNING target_pk, "partition", account_id, region, namespace, resource_id, dimension, native_id, origin_event_id, reconcile_at, creation_time, max_capacity, min_capacity, predicted_capacity, data_resource_id, role_arn, data_dimension, target_arn, data_namespace, has_suspended_state, suspended_in, suspended_out, suspended_scheduled, has_tags
+RETURNING target_pk, "partition", account_id, region, namespace, resource_id, dimension, native_id, origin_event_id, reconcile_at, creation_time, max_capacity, min_capacity, predicted_capacity, data_resource_id, role_arn, data_dimension, target_arn, data_namespace, has_suspended_state, suspended_in, suspended_out, suspended_scheduled, has_tags, ownership
 `
 
 type PutTargetParams struct {
+	Ownership          string
 	Partition          string
 	AccountID          string
 	Region             string
@@ -1401,6 +1416,7 @@ type PutTargetParams struct {
 
 func (q *Queries) PutTarget(ctx context.Context, arg PutTargetParams) (AasTarget, error) {
 	row := q.db.QueryRowContext(ctx, putTarget,
+		arg.Ownership,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -1451,6 +1467,7 @@ func (q *Queries) PutTarget(ctx context.Context, arg PutTargetParams) (AasTarget
 		&i.SuspendedOut,
 		&i.SuspendedScheduled,
 		&i.HasTags,
+		&i.Ownership,
 	)
 	return i, err
 }

@@ -2,6 +2,7 @@ package ec2
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 
 	api "stackd/internal/awsapi/ec2"
@@ -52,6 +53,11 @@ func volumeAttachment(instance api.Instance, mapping api.InstanceBlockDeviceMapp
 	return &api.VolumeAttachment{InstanceId: instance.InstanceId, VolumeId: mapping.Ebs.VolumeId, Device: mapping.DeviceName, State: new(api.VolumeAttachmentState(str(mapping.Ebs.Status))), AttachTime: mapping.Ebs.AttachTime, DeleteOnTermination: mapping.Ebs.DeleteOnTermination, EbsCardIndex: mapping.Ebs.EbsCardIndex}
 }
 
+func volumeAttachmentID(volume, instance string) string {
+	data, _ := json.Marshal(map[string]string{"VolumeId": volume, "InstanceId": instance})
+	return string(data)
+}
+
 func (s *Service) attachVolume(ctx context.Context, tx Transaction, in *api.AttachVolumeRequest) (*api.VolumeAttachment, error) {
 	records, err := s.instanceCommandTargets(ctx, tx, "AttachVolume", api.InstanceIdStringList{api.InstanceId(str(in.InstanceId))}, nil)
 	if err != nil {
@@ -89,6 +95,9 @@ func (s *Service) attachVolume(ctx context.Context, tx Transaction, in *api.Atta
 	}
 	mapping := api.InstanceBlockDeviceMapping{DeviceName: in.Device, Ebs: &api.EbsInstanceBlockDevice{VolumeId: new(api.String(str(in.VolumeId))), Status: new(api.AttachmentStatus("attaching")), DeleteOnTermination: new(api.Boolean(false)), AttachTime: new(api.DateTime(s.clock.Now())), EbsCardIndex: new(api.Integer(0))}}
 	if err := s.instanceVolumes.AdmitInstanceVolumeAttachment(ctx, record.Data, mapping); err != nil {
+		return nil, err
+	}
+	if err := relationAdmission(ctx, tx, "VolumeAttachment", str(in.VolumeId)+"|"+record.Key.ID, volumeAttachmentID(str(in.VolumeId), record.Key.ID)); err != nil {
 		return nil, err
 	}
 	record.Data.BlockDeviceMappings = append(record.Data.BlockDeviceMappings, mapping)
@@ -162,6 +171,9 @@ func (s *Service) detachVolume(ctx context.Context, tx Transaction, in *api.Deta
 	if boolValue(in.Force) && state != "stopped" {
 		// A guest-unacknowledged device_del is not completed detachment.
 		return nil, unsupported("Forced live detachment is not supported by the native backend.")
+	}
+	if err := relationAdmission(ctx, tx, "VolumeAttachment", str(in.VolumeId)+"|"+record.Key.ID, ""); err != nil {
+		return nil, err
 	}
 	if str(mapping.Ebs.Status) != "detaching" {
 		mapping.Ebs.Status = new(api.AttachmentStatus("detaching"))

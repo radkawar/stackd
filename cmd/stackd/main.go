@@ -66,6 +66,7 @@ func main() {
 
 func run() (result error) {
 	listen := flag.String("listen", "127.0.0.1:4566", "AWS endpoint listen address")
+	https := flag.Bool("tls", false, "serve HTTPS using live ACM custom-domain certificates; optional tls-cert/tls-key fallback for the ordinary API endpoint")
 	tlsCert := flag.String("tls-cert", "", "PEM certificate chain for HTTPS; requires -tls-key")
 	tlsKey := flag.String("tls-key", "", "PEM private key for HTTPS; requires -tls-cert")
 	account := flag.String("account-id", "000000000000", "account selected by the test access key")
@@ -76,9 +77,10 @@ func run() (result error) {
 	smtpFrom := flag.String("smtp-from", "no-reply@stackd.local", "sender mailbox for verification mail")
 	sesEmailDirectory := flag.String("ses-email-directory", "", "capture SES and Cognito email as local MIME files; defaults to <database>.ses with SQLite")
 	ssoUserPoolClientID := flag.String("sso-user-pool-client-id", "", "explicit Cognito password-auth client for local Identity Center browser sign-in")
-	dockerHost := flag.String("docker-host", "", "explicit Docker Engine URL for compute and database engines; empty disables container execution")
+	dockerHost := flag.String("docker-host", "", "explicit Docker Engine URL; selects transport only, enable each engine with its runtime flag")
+	containerRuntimes := registerContainerRuntimeFlags(flag.CommandLine)
 	computeEndpoint := flag.String("compute-endpoint", "", "AWS endpoint reachable from containers; defaults to host.docker.internal for a non-loopback listener")
-	lambdaCallbackHost := flag.String("lambda-callback-host", "", "Runtime API callback address reachable from the Docker host; empty uses Linux host-gateway")
+	lambdaCallbackHost := flag.String("lambda-callback-host", "", "Runtime API address reachable from containers; host.docker.internal uses Docker Desktop DNS, empty uses Linux host-gateway")
 	lambdaRuntimeListen := flag.String("lambda-runtime-listen", "0.0.0.0:0", "Runtime API callback listen address")
 	lambdaTelemetryDirectory := flag.String("lambda-telemetry-directory", "", "directory containing prebuilt lambda-telemetry-amd64 and lambda-telemetry-arm64 binaries; empty uses the executable directory")
 	lambdaKeepAlive := flag.Duration("lambda-keep-alive", 10*time.Minute, "warm Lambda idle lifetime in service time; zero forces cold invocations")
@@ -192,6 +194,15 @@ func run() (result error) {
 	if flag.NArg() != 0 {
 		return fmt.Errorf("unexpected positional arguments")
 	}
+	if err := containerRuntimes.requireDocker(*dockerHost); err != nil {
+		return err
+	}
+	if !containerRuntimes.Lambda && (len(hotReload) != 0 || *lambdaStorageImage != "" || *lambdaTelemetryDirectory != "" || *lambdaCallbackHost != "") {
+		return fmt.Errorf("lambda helper, storage, callback and hot reload settings require lambda-runtime")
+	}
+	if !containerRuntimes.CodeBuild && *codebuildFleetImage != "" {
+		return fmt.Errorf("codebuild-fleet-image requires codebuild-runtime")
+	}
 	var eksNodeImages map[string]eksruntime.NodeImage
 	if *eksImagesFile != "" {
 		body, err := os.ReadFile(*eksImagesFile)
@@ -210,6 +221,10 @@ func run() (result error) {
 	}
 	var tlsConfig *tls.Config
 	scheme := "http"
+	if *https {
+		tlsConfig = &tls.Config{MinVersion: tls.VersionTLS12}
+		scheme = "https"
+	}
 	if *tlsCert != "" {
 		certificatePEM, err := os.ReadFile(*tlsCert)
 		if err != nil {
@@ -355,6 +370,7 @@ func run() (result error) {
 	var mskRuntime kafka.Runtime
 	var mqRuntime mq.Runtime
 	var lambdaSourceNetworks *lambdaruntime.SourceNetworkRuntime
+	var lambdaFunctionNetworkRuntime *lambdaruntime.FunctionNetworkRuntime
 	var valkeyRuntime valkeyruntime.Runtime
 	var elbv2Runtime elbv2runtime.Runtime
 	var inventoryORC stackd.InventoryORCEncoder
@@ -368,27 +384,11 @@ func run() (result error) {
 		buildNamespace = fmt.Sprintf("stackd-codebuild-%x", sum[:12])
 	}
 	if *dockerHost != "" {
-		if *computeEndpoint == "" {
-			address := listener.Addr().(*net.TCPAddr)
-			if address.IP.IsLoopback() {
-				return fmt.Errorf("containers cannot reach the loopback listener; use -listen 0.0.0.0:4566 or an explicit reachable -compute-endpoint")
-			}
-			*computeEndpoint = scheme + "://" + net.JoinHostPort("host.docker.internal", fmt.Sprint(address.Port))
-		}
-		if *lambdaTelemetryDirectory == "" {
-			executable, err := os.Executable()
+		if containerRuntimes.Lambda || containerRuntimes.ECS || containerRuntimes.CodeBuild || *glueEnabled || guestConfig.StateDirectory != "" {
+			*computeEndpoint, err = containerEndpoint(scheme, *computeEndpoint, listener.Addr().(*net.TCPAddr))
 			if err != nil {
 				return err
 			}
-			*lambdaTelemetryDirectory = filepath.Dir(executable)
-		}
-		telemetryDirectory, err := filepath.Abs(*lambdaTelemetryDirectory)
-		if err != nil {
-			return err
-		}
-		telemetryHelpers := map[string]string{
-			"x86_64": filepath.Join(telemetryDirectory, "lambda-telemetry-amd64"),
-			"arm64":  filepath.Join(telemetryDirectory, "lambda-telemetry-arm64"),
 		}
 		runtimeContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		engine, err := docker.New(runtimeContext, docker.Config{Host: *dockerHost})
@@ -402,32 +402,61 @@ func run() (result error) {
 			cancel()
 			return err
 		}
-		lambdaSourceNetworks, err = lambdaruntime.NewSourceNetworkRuntime(engine, networks, strings.Replace(buildNamespace, "stackd-codebuild-", "stackd-lambda-sources-", 1))
-		if err != nil {
-			cancel()
-			return err
-		}
 		eksConfig.WorkerNetworks = networks
-		dockerExecutor, err := lambdaruntime.NewDockerExecutor(runtimeContext, lambdaruntime.DockerConfig{Client: engine, Namespace: strings.Replace(buildNamespace, "stackd-codebuild-", "stackd-lambda-", 1), StorageImage: *lambdaStorageImage, ListenAddress: *lambdaRuntimeListen, CallbackHost: *lambdaCallbackHost, HotReload: hotReload, TelemetryHelpers: telemetryHelpers})
-		if err == nil {
-			executor = dockerExecutor
-			defer func() {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-				defer cancel()
-				result = errors.Join(result, dockerExecutor.Close(ctx))
-			}()
+		if containerRuntimes.Lambda {
+			var lambdaNetworks *network.Bridges
+			lambdaNetworks, err = network.NewDaemonBridges(engine)
+			if err == nil {
+				lambdaFunctionNetworkRuntime, err = lambdaruntime.NewFunctionNetworkRuntime(engine, lambdaNetworks, strings.Replace(buildNamespace, "stackd-codebuild-", "stackd-lambda-functions-", 1))
+			}
+			if err == nil {
+				err = lambdaFunctionNetworkRuntime.SetControllerAddress(*lambdaRuntimeListen, *lambdaCallbackHost)
+			}
+			if err == nil {
+				lambdaSourceNetworks, err = lambdaruntime.NewSourceNetworkRuntime(engine, lambdaNetworks, strings.Replace(buildNamespace, "stackd-codebuild-", "stackd-lambda-sources-", 1))
+			}
+			if err == nil {
+				if *lambdaTelemetryDirectory == "" {
+					executable, executableErr := os.Executable()
+					if executableErr != nil {
+						cancel()
+						return executableErr
+					}
+					*lambdaTelemetryDirectory = filepath.Dir(executable)
+				}
+				var telemetryDirectory string
+				telemetryDirectory, err = filepath.Abs(*lambdaTelemetryDirectory)
+				if err == nil {
+					telemetryHelpers := map[string]string{
+						"x86_64": filepath.Join(telemetryDirectory, "lambda-telemetry-amd64"),
+						"arm64":  filepath.Join(telemetryDirectory, "lambda-telemetry-arm64"),
+					}
+					var dockerExecutor *lambdaruntime.DockerExecutor
+					dockerExecutor, err = lambdaruntime.NewDockerExecutor(runtimeContext, lambdaruntime.DockerConfig{Client: engine, Namespace: strings.Replace(buildNamespace, "stackd-codebuild-", "stackd-lambda-", 1), StorageImage: *lambdaStorageImage, ListenAddress: *lambdaRuntimeListen, CallbackHost: *lambdaCallbackHost, HotReload: hotReload, TelemetryHelpers: telemetryHelpers})
+					if err == nil {
+						executor = dockerExecutor
+						defer func() {
+							ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+							defer cancel()
+							result = errors.Join(result, dockerExecutor.Close(ctx))
+						}()
+					}
+				}
+			}
+		}
+		if err == nil && containerRuntimes.ECS {
 			taskExecutor, err = ecsruntime.NewDockerExecutor(runtimeContext, ecsruntime.DockerConfig{Client: engine, Networks: networks})
 		}
-		if err == nil {
+		if err == nil && containerRuntimes.CodeBuild {
 			buildExecutor, err = codebuildruntime.NewDockerExecutor(engine, codebuildruntime.DockerConfig{Namespace: buildNamespace, FleetImage: *codebuildFleetImage})
 		}
-		if err == nil {
+		if err == nil && containerRuntimes.DynamoDB {
 			dynamoRuntime, err = dynamoruntime.NewDocker(runtimeContext, dynamoruntime.DockerConfig{Client: engine})
 		}
-		if err == nil {
+		if err == nil && containerRuntimes.Kinesis {
 			kinesisRuntime, err = kinesisruntime.NewDocker(runtimeContext, kinesisruntime.DockerConfig{Client: engine})
 		}
-		if err == nil {
+		if err == nil && containerRuntimes.InventoryORC {
 			inventoryORC, err = orcruntime.NewDocker(runtimeContext, orcruntime.DockerConfig{Client: engine})
 		}
 		if err == nil && guestConfig.StateDirectory != "" {
@@ -602,6 +631,7 @@ func run() (result error) {
 	}
 	config.MSKRuntime = mskRuntime
 	config.MQRuntime, config.LambdaSourceNetworks = mqRuntime, lambdaSourceNetworks
+	config.LambdaFunctionNetworkRuntime = lambdaFunctionNetworkRuntime
 	config.LambdaManagedCapacity = lambdaManagedCapacity
 	config.ValkeyRuntime = valkeyRuntime
 	config.ELBV2Runtime = elbv2Runtime
@@ -625,6 +655,9 @@ func run() (result error) {
 		return err
 	}
 	defer handler.Close()
+	if tlsConfig != nil {
+		tlsConfig = handler.TLSConfig(tlsConfig)
+	}
 	server := &http.Server{Handler: handler, TLSConfig: tlsConfig, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second, IdleTimeout: 2 * time.Minute}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()

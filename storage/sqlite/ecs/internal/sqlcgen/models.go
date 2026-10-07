@@ -31,6 +31,7 @@ type EcsCluster struct {
 	CapacityProvidersPresent          bool
 	Created                           time.Time
 	Updated                           time.Time
+	Ownership                         string
 }
 
 type EcsClusterCapacityProvider struct {
@@ -138,6 +139,7 @@ type EcsService struct {
 	DrainAfter                           time.Time
 	DeploymentsPresent                   bool
 	NextMetricCollection                 time.Time
+	Ownership                            string
 }
 
 type EcsServiceDeployment struct {
@@ -420,6 +422,7 @@ type EcsTaskDefinition struct {
 	Volumes                        []byte
 	CompatibilitiesPresent         bool
 	RequiresCompatibilitiesPresent bool
+	Ownership                      string
 }
 
 type EcsTaskDefinitionCompatibility struct {

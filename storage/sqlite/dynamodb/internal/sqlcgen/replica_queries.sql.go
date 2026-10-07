@@ -315,7 +315,7 @@ func (q *Queries) ListReplicaChanges(ctx context.Context, arg ListReplicaChanges
 }
 
 const listReplicaTables = `-- name: ListReplicaTables :many
-SELECT "partition", account_id, region, name, database_id, physical_name, archival_summary, attribute_definitions, billing_mode_summary, creation_date_time, deletion_protection_enabled, global_secondary_indexes, global_table_settings_replication_mode, global_table_version, global_table_witnesses, item_count, key_schema, latest_stream_arn, latest_stream_label, local_secondary_indexes, multi_region_consistency, on_demand_throughput, provisioned_throughput, replicas, restore_summary, sse_description, stream_specification, table_arn, table_class_summary, table_id, table_name, table_size_bytes, table_status, vector_indexes, warm_throughput, ttl_attribute_name, ttl_status, ttl_changed_at, ttl_next_scan, metrics_next_at, recovery_id, restore_recovery_id, restore_recovery_sequence, replica_group_id, replica_cursor, replica_last_source_at, replica_unauthorized_at, replica_settings_pending FROM dynamodb_tables
+SELECT "partition", account_id, region, name, database_id, physical_name, archival_summary, attribute_definitions, billing_mode_summary, creation_date_time, deletion_protection_enabled, global_secondary_indexes, global_table_settings_replication_mode, global_table_version, global_table_witnesses, item_count, key_schema, latest_stream_arn, latest_stream_label, local_secondary_indexes, multi_region_consistency, on_demand_throughput, provisioned_throughput, replicas, restore_summary, sse_description, stream_specification, table_arn, table_class_summary, table_id, table_name, table_size_bytes, table_status, vector_indexes, warm_throughput, ttl_attribute_name, ttl_status, ttl_changed_at, ttl_next_scan, metrics_next_at, recovery_id, restore_recovery_id, restore_recovery_sequence, replica_group_id, replica_cursor, replica_last_source_at, replica_unauthorized_at, replica_settings_pending, owner_stack_id, owner_logical_id, owner_token FROM dynamodb_tables
 WHERE replica_group_id <> '' AND (replica_group_id = ?1 OR ?1 = '')
 ORDER BY partition, account_id, region, name
 `
@@ -378,6 +378,9 @@ func (q *Queries) ListReplicaTables(ctx context.Context, groupID string) ([]Dyna
 			&i.ReplicaLastSourceAt,
 			&i.ReplicaUnauthorizedAt,
 			&i.ReplicaSettingsPending,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}

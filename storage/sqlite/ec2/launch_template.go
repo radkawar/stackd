@@ -31,6 +31,7 @@ func (r reader) LaunchTemplates(scope domain.Scope) ([]domain.LaunchTemplateReco
 func (r reader) launchTemplate(row sqlcgen.Ec2LaunchTemplate) (domain.LaunchTemplateRecord, error) {
 	k := domain.ResourceKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.ResourceID}
 	out := domain.LaunchTemplateRecord{Key: k, LastVersion: row.LastVersion, Data: api.LaunchTemplate{LaunchTemplateId: new(api.String(k.ID)), LaunchTemplateName: new(api.LaunchTemplateName(row.Name)), CreateTime: new(api.DateTime(row.CreatedAt)), CreatedBy: new(api.String(row.CreatedBy)), DefaultVersionNumber: new(api.Long(row.DefaultVersion)), LatestVersionNumber: new(api.Long(row.LatestVersion)), Operator: &api.OperatorResponse{Managed: new(api.Boolean(false))}}}
+	out.CloudFormationOwner = cloudFormationOwner(row.CloudformationResourceType, row.CloudformationOwner)
 	if row.TagsPresent {
 		tags, err := r.q.ListLTTemplateTag(r.ctx, sqlcgen.ListLTTemplateTagParams{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region, ResourceID: row.ResourceID})
 		if err != nil {

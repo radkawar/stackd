@@ -351,7 +351,7 @@ func (q *Queries) GetRotationRules(ctx context.Context, arg GetRotationRulesPara
 }
 
 const getSecret = `-- name: GetSecret :one
-SELECT "partition", account_id, region, name, arn, type, description, kms_key_id, owning_service, created, changed, last_accessed, deleted, delete_after, tags_present, policy_document, policy_principals_present, policy_trust, rotation_enabled, rotation_lambda_arn, last_rotated, next_rotation, rotation_due, primary_region FROM secretsmanager_secrets
+SELECT "partition", account_id, region, name, arn, type, description, kms_key_id, owning_service, created, changed, last_accessed, deleted, delete_after, tags_present, policy_document, policy_principals_present, policy_trust, rotation_enabled, rotation_lambda_arn, last_rotated, next_rotation, rotation_due, primary_region, cfn_owner, cfn_token, policy_owner, policy_token, rotation_owner, rotation_token, attachment_owner, attachment_token, attachment_engine, attachment_host, attachment_port, attachment_db_instance, attachment_db_cluster FROM secretsmanager_secrets
 WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
 `
 
@@ -395,6 +395,19 @@ func (q *Queries) GetSecret(ctx context.Context, arg GetSecretParams) (Secretsma
 		&i.NextRotation,
 		&i.RotationDue,
 		&i.PrimaryRegion,
+		&i.CfnOwner,
+		&i.CfnToken,
+		&i.PolicyOwner,
+		&i.PolicyToken,
+		&i.RotationOwner,
+		&i.RotationToken,
+		&i.AttachmentOwner,
+		&i.AttachmentToken,
+		&i.AttachmentEngine,
+		&i.AttachmentHost,
+		&i.AttachmentPort,
+		&i.AttachmentDbInstance,
+		&i.AttachmentDbCluster,
 	)
 	return i, err
 }
@@ -581,7 +594,7 @@ func (q *Queries) ListSealedValues(ctx context.Context, arg ListSealedValuesPara
 }
 
 const listSecrets = `-- name: ListSecrets :many
-SELECT "partition", account_id, region, name, arn, type, description, kms_key_id, owning_service, created, changed, last_accessed, deleted, delete_after, tags_present, policy_document, policy_principals_present, policy_trust, rotation_enabled, rotation_lambda_arn, last_rotated, next_rotation, rotation_due, primary_region FROM secretsmanager_secrets
+SELECT "partition", account_id, region, name, arn, type, description, kms_key_id, owning_service, created, changed, last_accessed, deleted, delete_after, tags_present, policy_document, policy_principals_present, policy_trust, rotation_enabled, rotation_lambda_arn, last_rotated, next_rotation, rotation_due, primary_region, cfn_owner, cfn_token, policy_owner, policy_token, rotation_owner, rotation_token, attachment_owner, attachment_token, attachment_engine, attachment_host, attachment_port, attachment_db_instance, attachment_db_cluster FROM secretsmanager_secrets
 WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
 `
 
@@ -625,6 +638,19 @@ func (q *Queries) ListSecrets(ctx context.Context, arg ListSecretsParams) ([]Sec
 			&i.NextRotation,
 			&i.RotationDue,
 			&i.PrimaryRegion,
+			&i.CfnOwner,
+			&i.CfnToken,
+			&i.PolicyOwner,
+			&i.PolicyToken,
+			&i.RotationOwner,
+			&i.RotationToken,
+			&i.AttachmentOwner,
+			&i.AttachmentToken,
+			&i.AttachmentEngine,
+			&i.AttachmentHost,
+			&i.AttachmentPort,
+			&i.AttachmentDbInstance,
+			&i.AttachmentDbCluster,
 		); err != nil {
 			return nil, err
 		}
@@ -821,7 +847,7 @@ func (q *Queries) ListVersions(ctx context.Context, arg ListVersionsParams) ([]S
 }
 
 const nextDeletion = `-- name: NextDeletion :one
-SELECT "partition", account_id, region, name, arn, type, description, kms_key_id, owning_service, created, changed, last_accessed, deleted, delete_after, tags_present, policy_document, policy_principals_present, policy_trust, rotation_enabled, rotation_lambda_arn, last_rotated, next_rotation, rotation_due, primary_region FROM secretsmanager_secrets WHERE delete_after IS NOT NULL
+SELECT "partition", account_id, region, name, arn, type, description, kms_key_id, owning_service, created, changed, last_accessed, deleted, delete_after, tags_present, policy_document, policy_principals_present, policy_trust, rotation_enabled, rotation_lambda_arn, last_rotated, next_rotation, rotation_due, primary_region, cfn_owner, cfn_token, policy_owner, policy_token, rotation_owner, rotation_token, attachment_owner, attachment_token, attachment_engine, attachment_host, attachment_port, attachment_db_instance, attachment_db_cluster FROM secretsmanager_secrets WHERE delete_after IS NOT NULL
 ORDER BY delete_after, arn LIMIT 1
 `
 
@@ -853,6 +879,19 @@ func (q *Queries) NextDeletion(ctx context.Context) (SecretsmanagerSecret, error
 		&i.NextRotation,
 		&i.RotationDue,
 		&i.PrimaryRegion,
+		&i.CfnOwner,
+		&i.CfnToken,
+		&i.PolicyOwner,
+		&i.PolicyToken,
+		&i.RotationOwner,
+		&i.RotationToken,
+		&i.AttachmentOwner,
+		&i.AttachmentToken,
+		&i.AttachmentEngine,
+		&i.AttachmentHost,
+		&i.AttachmentPort,
+		&i.AttachmentDbInstance,
+		&i.AttachmentDbCluster,
 	)
 	return i, err
 }
@@ -906,7 +945,7 @@ func (q *Queries) NextRotationWork(ctx context.Context) (SecretsmanagerRotation,
 }
 
 const nextScheduledRotation = `-- name: NextScheduledRotation :one
-SELECT "partition", account_id, region, name, arn, type, description, kms_key_id, owning_service, created, changed, last_accessed, deleted, delete_after, tags_present, policy_document, policy_principals_present, policy_trust, rotation_enabled, rotation_lambda_arn, last_rotated, next_rotation, rotation_due, primary_region FROM secretsmanager_secrets WHERE rotation_due IS NOT NULL AND deleted IS NULL
+SELECT "partition", account_id, region, name, arn, type, description, kms_key_id, owning_service, created, changed, last_accessed, deleted, delete_after, tags_present, policy_document, policy_principals_present, policy_trust, rotation_enabled, rotation_lambda_arn, last_rotated, next_rotation, rotation_due, primary_region, cfn_owner, cfn_token, policy_owner, policy_token, rotation_owner, rotation_token, attachment_owner, attachment_token, attachment_engine, attachment_host, attachment_port, attachment_db_instance, attachment_db_cluster FROM secretsmanager_secrets WHERE rotation_due IS NOT NULL AND deleted IS NULL
 ORDER BY rotation_due, arn LIMIT 1
 `
 
@@ -938,6 +977,19 @@ func (q *Queries) NextScheduledRotation(ctx context.Context) (SecretsmanagerSecr
 		&i.NextRotation,
 		&i.RotationDue,
 		&i.PrimaryRegion,
+		&i.CfnOwner,
+		&i.CfnToken,
+		&i.PolicyOwner,
+		&i.PolicyToken,
+		&i.RotationOwner,
+		&i.RotationToken,
+		&i.AttachmentOwner,
+		&i.AttachmentToken,
+		&i.AttachmentEngine,
+		&i.AttachmentHost,
+		&i.AttachmentPort,
+		&i.AttachmentDbInstance,
+		&i.AttachmentDbCluster,
 	)
 	return i, err
 }
@@ -1153,8 +1205,12 @@ INSERT INTO secretsmanager_secrets (
  partition, account_id, region, name, arn, type, description, kms_key_id, owning_service,
  created, changed, last_accessed, deleted, delete_after, tags_present, policy_document,
  policy_principals_present, policy_trust, rotation_enabled, rotation_lambda_arn,
- last_rotated, next_rotation, rotation_due, primary_region
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ last_rotated, next_rotation, rotation_due, primary_region,
+ cfn_owner, cfn_token, policy_owner, policy_token, rotation_owner, rotation_token,
+ attachment_owner, attachment_token, attachment_engine, attachment_host, attachment_port,
+ attachment_db_instance, attachment_db_cluster
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+ ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, name) DO UPDATE SET
  arn = excluded.arn, type = excluded.type, description = excluded.description,
  kms_key_id = excluded.kms_key_id, owning_service = excluded.owning_service,
@@ -1164,7 +1220,14 @@ ON CONFLICT(partition, account_id, region, name) DO UPDATE SET
  policy_principals_present = excluded.policy_principals_present, policy_trust = excluded.policy_trust,
  rotation_enabled = excluded.rotation_enabled, rotation_lambda_arn = excluded.rotation_lambda_arn,
  last_rotated = excluded.last_rotated, next_rotation = excluded.next_rotation,
- rotation_due = excluded.rotation_due, primary_region = excluded.primary_region
+ rotation_due = excluded.rotation_due, primary_region = excluded.primary_region,
+ cfn_owner = excluded.cfn_owner, cfn_token = excluded.cfn_token,
+ policy_owner = excluded.policy_owner, policy_token = excluded.policy_token,
+ rotation_owner = excluded.rotation_owner, rotation_token = excluded.rotation_token,
+ attachment_owner = excluded.attachment_owner, attachment_token = excluded.attachment_token,
+ attachment_engine = excluded.attachment_engine, attachment_host = excluded.attachment_host,
+ attachment_port = excluded.attachment_port, attachment_db_instance = excluded.attachment_db_instance,
+ attachment_db_cluster = excluded.attachment_db_cluster
 `
 
 type PutSecretParams struct {
@@ -1192,6 +1255,19 @@ type PutSecretParams struct {
 	NextRotation            sql.NullTime
 	RotationDue             sql.NullTime
 	PrimaryRegion           string
+	CfnOwner                string
+	CfnToken                string
+	PolicyOwner             string
+	PolicyToken             string
+	RotationOwner           string
+	RotationToken           string
+	AttachmentOwner         string
+	AttachmentToken         string
+	AttachmentEngine        string
+	AttachmentHost          string
+	AttachmentPort          float64
+	AttachmentDbInstance    string
+	AttachmentDbCluster     string
 }
 
 func (q *Queries) PutSecret(ctx context.Context, arg PutSecretParams) error {
@@ -1220,6 +1296,19 @@ func (q *Queries) PutSecret(ctx context.Context, arg PutSecretParams) error {
 		arg.NextRotation,
 		arg.RotationDue,
 		arg.PrimaryRegion,
+		arg.CfnOwner,
+		arg.CfnToken,
+		arg.PolicyOwner,
+		arg.PolicyToken,
+		arg.RotationOwner,
+		arg.RotationToken,
+		arg.AttachmentOwner,
+		arg.AttachmentToken,
+		arg.AttachmentEngine,
+		arg.AttachmentHost,
+		arg.AttachmentPort,
+		arg.AttachmentDbInstance,
+		arg.AttachmentDbCluster,
 	)
 	return err
 }

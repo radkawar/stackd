@@ -4,6 +4,7 @@ import "time"
 
 // RegistryRecord owns a regional registry and its current authorization tags.
 type RegistryRecord struct {
+	CFNOwner              string
 	Key                   ResourceKey
 	Description           *string
 	Status                string
@@ -22,6 +23,7 @@ func (k SchemaKey) ARN() string {
 
 // SchemaRecord keeps monotonic version allocation independently of deletions.
 type SchemaRecord struct {
+	CFNOwner                               string
 	Key                                    SchemaKey
 	Description                            *string
 	DataFormat, Compatibility, Status      string
@@ -36,12 +38,14 @@ type SchemaVersionKey struct {
 }
 
 type SchemaVersionRecord struct {
+	CFNOwner                          string
 	Key                               SchemaVersionKey
 	ID, Definition, Canonical, Status string
 	Created, Due                      time.Time
 }
 
 type SchemaMetadataRecord struct {
+	CFNOwner              string
 	VersionID, Key, Value string
 	Created               time.Time
 	// Ordinal preserves newest-value ordering when the shared clock is frozen.

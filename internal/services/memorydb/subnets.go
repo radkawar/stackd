@@ -24,6 +24,9 @@ func (s *Service) loadSubnetGroup(ctx context.Context, r Reader, action, name st
 }
 func subnetGroupDTO(v SubnetGroup) *api.SubnetGroup {
 	out := &api.SubnetGroup{Name: new(api.String(v.Key.Name)), ARN: new(api.String(v.Key.ARN())), Description: new(api.String(v.Description)), VpcId: new(api.String(v.VPCID))}
+	// Native MemoryDB admission implements IPv4 only, independently of the EC2
+	// subnet owner's broader networking capabilities.
+	out.SupportedNetworkTypes = api.NetworkTypeList{api.NetworkTypeIPV4}
 	for _, subnet := range v.Subnets {
 		out.Subnets = append(out.Subnets, api.Subnet{Identifier: new(api.String(subnet.ID)), AvailabilityZone: &api.AvailabilityZone{Name: new(api.String(subnet.AvailabilityZone))}})
 	}

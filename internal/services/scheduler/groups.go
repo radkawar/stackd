@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/google/uuid"
 	api "stackd/internal/awsapi/scheduler"
 )
 
@@ -23,6 +24,7 @@ func (s *Service) group(tx Transaction, k GroupKey) (GroupRecord, error) {
 	if errors.Is(err, ErrNotFound) && k.Name == "default" {
 		now := s.clock.Now()
 		v = GroupRecord{
+			ID:       uuid.NewString(),
 			Key:      k,
 			Created:  now,
 			Modified: now,
@@ -71,6 +73,9 @@ func (s *Service) createGroup(tx Transaction, in *api.CreateScheduleGroupInput) 
 	}
 	old, err := s.group(tx, k)
 	if err == nil {
+		if err := cloudFormationGroupCheck(tx.Context(), old.CFNOwner); err != nil {
+			return nil, err
+		}
 		if value(in.ClientToken) != "" && value(in.ClientToken) == old.ClientToken {
 			return &api.CreateScheduleGroupOutput{ScheduleGroupArn: new(api.ScheduleGroupArn(k.ARN()))}, nil
 		}
@@ -81,6 +86,8 @@ func (s *Service) createGroup(tx Transaction, in *api.CreateScheduleGroupInput) 
 	}
 	now := s.clock.Now()
 	if err = tx.PutGroup(GroupRecord{
+		ID:          uuid.NewString(),
+		CFNOwner:    cloudFormationGroupClaim(tx.Context()),
 		Key:         k,
 		Created:     now,
 		Modified:    now,
@@ -98,10 +105,16 @@ func (s *Service) getGroup(tx Transaction, in *api.GetScheduleGroupInput) (*api.
 		value(in.Name),
 	}
 	v, err := s.group(tx, k)
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
+	if rejected := s.authorize(tx, "GetScheduleGroup", k.ARN(), v.Tags, nil); rejected != nil {
+		return nil, rejected
+	}
 	if err != nil {
 		return nil, err
 	}
-	if err = s.authorize(tx, "GetScheduleGroup", k.ARN(), v.Tags, nil); err != nil {
+	if err := cloudFormationGroupCheck(tx.Context(), v.CFNOwner); err != nil {
 		return nil, err
 	}
 	return &api.GetScheduleGroupOutput{
@@ -119,10 +132,16 @@ func (s *Service) deleteGroup(tx Transaction, in *api.DeleteScheduleGroupInput) 
 		value(in.Name),
 	}
 	v, err := s.group(tx, k)
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
+	if rejected := s.authorize(tx, "DeleteScheduleGroup", k.ARN(), v.Tags, nil); rejected != nil {
+		return nil, rejected
+	}
 	if err != nil {
 		return nil, err
 	}
-	if err = s.authorize(tx, "DeleteScheduleGroup", k.ARN(), v.Tags, nil); err != nil {
+	if err := cloudFormationGroupCheck(tx.Context(), v.CFNOwner); err != nil {
 		return nil, err
 	}
 	if k.Name == "default" {
@@ -236,10 +255,16 @@ func (s *Service) taggedGroup(tx Transaction, resource, action string, c map[str
 		scope,
 		strings.TrimPrefix(resource, prefix),
 	})
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return v, err
+	}
+	if rejected := s.authorize(tx, action, resource, v.Tags, c); rejected != nil {
+		return v, rejected
+	}
 	if err != nil {
 		return v, err
 	}
-	return v, s.authorize(tx, action, resource, v.Tags, c)
+	return v, cloudFormationGroupCheck(tx.Context(), v.CFNOwner)
 }
 
 func (s *Service) tag(tx Transaction, in *api.TagResourceInput) (*api.TagResourceOutput, error) {

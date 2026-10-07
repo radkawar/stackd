@@ -12,13 +12,13 @@ func (r reader) Assignments(instance string) ([]domain.Assignment, error) {
 	}
 	out := make([]domain.Assignment, len(rows))
 	for i, row := range rows {
-		out[i] = domain.Assignment{InstanceARN: row.InstanceArn, PermissionSetARN: row.PermissionSetArn, AccountID: row.AccountID, PrincipalType: row.PrincipalType, PrincipalID: row.PrincipalID}
+		out[i] = domain.Assignment{InstanceARN: row.InstanceArn, PermissionSetARN: row.PermissionSetArn, AccountID: row.AccountID, PrincipalType: row.PrincipalType, PrincipalID: row.PrincipalID, CloudFormationOwner: row.CloudformationOwner}
 	}
 	return out, nil
 }
 
 func (w writer) PutAssignment(v domain.Assignment) error {
-	return w.q.PutAssignment(w.ctx, sqlcgen.PutAssignmentParams{InstanceArn: v.InstanceARN, PermissionSetArn: v.PermissionSetARN, AccountID: v.AccountID, PrincipalType: v.PrincipalType, PrincipalID: v.PrincipalID})
+	return w.q.PutAssignment(w.ctx, sqlcgen.PutAssignmentParams{InstanceArn: v.InstanceARN, PermissionSetArn: v.PermissionSetARN, AccountID: v.AccountID, PrincipalType: v.PrincipalType, PrincipalID: v.PrincipalID, CloudformationOwner: v.CloudFormationOwner})
 }
 
 func (w writer) DeleteAssignment(v domain.Assignment) error {

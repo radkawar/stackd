@@ -5,8 +5,8 @@ SELECT * FROM xray_sampling_rules WHERE partition = ? AND account_id = ? AND reg
 SELECT * FROM xray_sampling_rules WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name;
 
 -- name: PutSamplingRule :exec
-INSERT INTO xray_sampling_rules (partition, account_id, region, name, priority, fixed_rate, reservoir_size, host, http_method, resource_arn, service_name, service_type, url_path, boost_max_rate, boost_cooldown_minutes, created, modified)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO xray_sampling_rules (partition, account_id, region, name, priority, fixed_rate, reservoir_size, host, http_method, resource_arn, service_name, service_type, url_path, boost_max_rate, boost_cooldown_minutes, created, modified, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, name) DO UPDATE SET
  priority = excluded.priority,
  fixed_rate = excluded.fixed_rate,
@@ -20,7 +20,8 @@ ON CONFLICT (partition, account_id, region, name) DO UPDATE SET
  boost_max_rate = excluded.boost_max_rate,
  boost_cooldown_minutes = excluded.boost_cooldown_minutes,
  created = excluded.created,
- modified = excluded.modified;
+ modified = excluded.modified,
+ cfn_owner = excluded.cfn_owner;
 
 -- name: DeleteSamplingRule :exec
 DELETE FROM xray_sampling_rules WHERE partition = ? AND account_id = ? AND region = ? AND name = ?;

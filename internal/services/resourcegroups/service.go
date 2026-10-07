@@ -185,6 +185,9 @@ func (s *Service) loadGroup(r Reader, id, action string) (Group, error) {
 	if !ok {
 		return Group{}, failure("NotFoundException", "The specified group does not exist.")
 	}
+	if err := observeCloudFormationGroup(r.Context(), g); err != nil {
+		return Group{}, err
+	}
 	return g, nil
 }
 func scopeFor(ctx context.Context) Scope {

@@ -14,8 +14,11 @@ type Boundary struct {
 }
 
 type IdentityPolicies struct {
-	Inline   map[string]string
-	Attached map[string]struct{}
+	Inline              map[string]string
+	Attached            map[string]struct{}
+	InlineOwners        map[string]string
+	AttachedOwners      map[string]string
+	CloudFormationOwner string
 }
 
 func newIdentityPolicies() identityPolicies {
@@ -41,7 +44,9 @@ type Group struct {
 	Arn        string
 	CreateDate time.Time
 	IdentityPolicies
-	Members map[string]struct{}
+	Members          map[string]struct{}
+	MemberOwners     map[string]string
+	MembershipClaims map[string]struct{}
 }
 
 type Role struct {
@@ -89,6 +94,7 @@ func (use RoleLastUse) recorded() bool {
 }
 
 type ManagedPolicy struct {
+	CloudFormationOwner           string
 	PolicyName                    string
 	PolicyId                      string
 	Arn                           string

@@ -184,6 +184,20 @@ func (s *Service) deleteRouteTable(ctx context.Context, tx Transaction, req *api
 	if err := s.authorize(ctx, "DeleteRouteTable", "route-table", record.Key.ID, record.Data.Tags); err != nil {
 		return nil, err
 	}
+	endpoints, err := tx.VPCEndpoints(scopeFor(ctx))
+	if err != nil {
+		return nil, err
+	}
+	for _, endpoint := range endpoints {
+		if str(endpoint.Data.State) == "deleted" {
+			continue
+		}
+		for _, tableID := range endpoint.Data.RouteTableIds {
+			if string(tableID) == record.Key.ID {
+				return nil, failure("DependencyViolation", "The route table is associated with a VPC endpoint.")
+			}
+		}
+	}
 	if len(record.Data.Associations) != 0 {
 		return nil, failure("DependencyViolation", fmt.Sprintf("The routeTable '%s' has dependencies and cannot be deleted.", record.Key.ID))
 	}
@@ -238,6 +252,9 @@ func (s *Service) associateRouteTable(ctx context.Context, tx Transaction, req *
 	if err != nil {
 		return nil, err
 	}
+	if err := relationAdmission(ctx, tx, "SubnetRouteTableAssociation", subnet.Key.ID, id); err != nil {
+		return nil, err
+	}
 	record.Data.Associations = append(record.Data.Associations, api.RouteTableAssociation{Main: new(api.Boolean(false)), RouteTableAssociationId: new(api.String(id)), RouteTableId: new(api.String(record.Key.ID)), SubnetId: new(api.String(subnet.Key.ID)), AssociationState: associatedRouteState()})
 	if err := tx.PutRouteTable(record); err != nil {
 		return nil, err
@@ -274,6 +291,9 @@ func (s *Service) disassociateRouteTable(ctx context.Context, tx Transaction, re
 	if err := dryRun(req.DryRun); err != nil {
 		return nil, err
 	}
+	if err := relationAdmission(ctx, tx, "SubnetRouteTableAssociation", str(record.Data.Associations[index].SubnetId), ""); err != nil {
+		return nil, err
+	}
 	record.Data.Associations = append(record.Data.Associations[:index], record.Data.Associations[index+1:]...)
 	if err := tx.PutRouteTable(record); err != nil {
 		return nil, err
@@ -308,6 +328,11 @@ func (s *Service) replaceRouteTableAssociation(ctx context.Context, tx Transacti
 	association := source.Data.Associations[index]
 	association.RouteTableAssociationId = new(api.String(id))
 	association.RouteTableId = new(api.String(target.Key.ID))
+	if subnet := str(association.SubnetId); subnet != "" {
+		if err := relationAdmission(ctx, tx, "SubnetRouteTableAssociation", subnet, id); err != nil {
+			return nil, err
+		}
+	}
 	association.AssociationState = associatedRouteState()
 	if source.Key == target.Key {
 		source.Data.Associations[index] = association

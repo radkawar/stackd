@@ -10,6 +10,7 @@ import (
 	"slices"
 	"stackd/iam/policy"
 	api "stackd/internal/awsapi/ram"
+	"stackd/internal/services/identitystore"
 	"strconv"
 	"strings"
 	"time"
@@ -122,11 +123,14 @@ func permissionDetail(p Permission, v int32, operation string) (*api.ResourceSha
 	return &api.ResourceSharePermissionDetail{Arn: a.Arn, Name: a.Name, ResourceType: a.ResourceType, Version: a.Version, DefaultVersion: a.DefaultVersion, IsResourceTypeDefault: a.IsResourceTypeDefault, PermissionType: a.PermissionType, FeatureSet: a.FeatureSet, Status: new(api.PermissionStatus(value(a.Status))), CreationTime: a.CreationTime, LastUpdatedTime: a.LastUpdatedTime, Tags: a.Tags, Permission: new(api.String(pv.Document))}, nil
 }
 func (s *Service) getPermission(tx Transaction, in *api.GetPermissionRequest) (*api.GetPermissionResponse, error) {
-	if e := s.authorize(tx, "GetPermission", value(in.PermissionArn), nil); e != nil {
-		return nil, e
-	}
 	p, e := s.permission(tx, value(in.PermissionArn))
 	if e != nil {
+		return nil, e
+	}
+	if e = s.authorize(tx, "GetPermission", p.ARN, p.Tags); e != nil {
+		return nil, e
+	}
+	if e = checkPermissionOwner(tx.Context(), p); e != nil {
 		return nil, e
 	}
 	var v int32
@@ -241,6 +245,21 @@ func (s *Service) createPermission(tx Transaction, in *api.CreatePermissionReque
 		if e != nil {
 			return nil, e
 		}
+		if p.Scope != scopeFor(tx.Context()) {
+			return nil, ErrNotFound
+		}
+		if e = checkPermissionOwner(tx.Context(), p); e != nil {
+			return nil, e
+		}
+		if e = s.authorize(tx, "CreatePermission", p.ARN, p.Tags); e != nil {
+			return nil, e
+		}
+		if identitystore.CloudFormationOwner(tx.Context()) != "" && p.Status == "DELETED" {
+			return nil, ErrNotFound
+		}
+		if rec.ObjectID != p.ObjectID {
+			return nil, ErrNotFound
+		}
 		return &api.CreatePermissionResponse{ClientToken: in.ClientToken, Permission: permissionSummary(p, rec.Version, "CreatePermission")}, nil
 	}
 	name := value(in.Name)
@@ -265,12 +284,13 @@ func (s *Service) createPermission(tx Transaction, in *api.CreatePermissionReque
 		return nil, e
 	}
 	now := s.clock.Now()
-	p := Permission{Scope: sc, ARN: arn, Name: name, ResourceType: value(in.ResourceType), Type: "CUSTOMER_MANAGED", FeatureSet: "STANDARD", Status: "ATTACHABLE", DefaultVersion: 1, Created: now, Updated: now, Tags: tags, Versions: []PermissionVersion{{Version: 1, Document: doc, Actions: actions, Created: now, Updated: now}}}
+	p := Permission{Scope: sc, ARN: arn, Name: name, ResourceType: value(in.ResourceType), Type: "CUSTOMER_MANAGED", FeatureSet: "STANDARD", Status: "ATTACHABLE", DefaultVersion: 1, Created: now, Updated: now, Tags: tags, CloudFormationOwner: identitystore.CloudFormationOwner(tx.Context()), ObjectID: identifier(), Versions: []PermissionVersion{{Version: 1, Document: doc, Actions: actions, Created: now, Updated: now}}}
 	if e = tx.PutPermission(p); e != nil {
 		return nil, e
 	}
 	rec.ARN = arn
 	rec.Version = 1
+	rec.ObjectID = p.ObjectID
 	if e = saveReceipt(tx, rec); e != nil {
 		return nil, e
 	}
@@ -282,6 +302,9 @@ func (s *Service) mutablePermission(tx Transaction, arn, op string) (Permission,
 		return p, e
 	}
 	if e = s.authorize(tx, op, arn, p.Tags); e != nil {
+		return p, e
+	}
+	if e = checkPermissionOwner(tx.Context(), p); e != nil {
 		return p, e
 	}
 	if p.Type != "CUSTOMER_MANAGED" || p.FeatureSet != "STANDARD" || p.Status == "DELETED" {
@@ -298,6 +321,10 @@ func (s *Service) createPermissionVersion(tx Transaction, in *api.CreatePermissi
 	if e != nil {
 		return nil, e
 	}
+	if replay && rec.ObjectID != p.ObjectID {
+		return nil, ErrNotFound
+	}
+	rec.ObjectID = p.ObjectID
 	if replay {
 		out, e := permissionDetail(p, rec.Version, "CreatePermissionVersion")
 		if e == nil {
@@ -374,6 +401,10 @@ func (s *Service) setDefaultPermissionVersion(tx Transaction, in *api.SetDefault
 	if e != nil {
 		return nil, e
 	}
+	if replay && rec.ObjectID != p.ObjectID {
+		return nil, ErrNotFound
+	}
+	rec.ObjectID = p.ObjectID
 	if !replay {
 		now := s.clock.Now()
 		for i := range p.Versions {
@@ -421,6 +452,13 @@ func (s *Service) deletePermission(tx Transaction, in *api.DeletePermissionReque
 	if e = s.authorize(tx, "DeletePermission", p.ARN, p.Tags); e != nil {
 		return nil, e
 	}
+	if e = checkPermissionOwner(tx.Context(), p); e != nil {
+		return nil, e
+	}
+	if replay && rec.ObjectID != p.ObjectID {
+		return nil, ErrNotFound
+	}
+	rec.ObjectID = p.ObjectID
 	if !replay {
 		if p.Type != "CUSTOMER_MANAGED" || p.FeatureSet != "STANDARD" {
 			return nil, failure("OperationNotPermittedException", "AWS managed or policy-created permissions cannot be deleted.")
@@ -452,6 +490,10 @@ func (s *Service) deletePermissionVersion(tx Transaction, in *api.DeletePermissi
 	if e != nil {
 		return nil, e
 	}
+	if replay && rec.ObjectID != p.ObjectID {
+		return nil, ErrNotFound
+	}
+	rec.ObjectID = p.ObjectID
 	if !replay {
 		if in.PermissionVersion == nil || *in.PermissionVersion <= 0 {
 			return nil, failure("InvalidParameterException", "A positive PermissionVersion is required.")
@@ -492,6 +534,13 @@ func (s *Service) associateResourceSharePermission(tx Transaction, in *api.Assoc
 	if e != nil {
 		return nil, e
 	}
+	if e = s.claimEdge(tx, v, "PERMISSION", value(in.PermissionArn)); e != nil {
+		return nil, e
+	}
+	owner, exact, e := edgeAuthority(tx.Context(), v)
+	if e != nil {
+		return nil, e
+	}
 	p, e := s.permission(tx, value(in.PermissionArn))
 	if e != nil {
 		return nil, e
@@ -511,6 +560,11 @@ func (s *Service) associateResourceSharePermission(tx Transaction, in *api.Assoc
 		if idx >= 0 && (in.Replace == nil || !bool(*in.Replace)) {
 			return nil, failure("OperationNotPermittedException", "A permission already exists for this resource type; specify replace.")
 		}
+		if idx >= 0 && v.Permissions[idx].ARN != p.ARN {
+			if e = s.claimEdge(tx, v, "PERMISSION", v.Permissions[idx].ARN); e != nil {
+				return nil, e
+			}
+		}
 		for _, r := range v.Resources {
 			if r.Status == "ASSOCIATED" && r.ResourceType == p.ResourceType {
 				if e = s.authorizeResource(tx, r.ARN); e != nil {
@@ -518,8 +572,13 @@ func (s *Service) associateResourceSharePermission(tx Transaction, in *api.Assoc
 				}
 			}
 		}
-		a := PermissionAssociation{p.ARN, p.ResourceType, p.DefaultVersion}
+		a := PermissionAssociation{ARN: p.ARN, ResourceType: p.ResourceType, Version: p.DefaultVersion, CloudFormationOwner: owner}
 		if idx >= 0 {
+			// A direct version upgrade of the same edge keeps its claim; replacing
+			// a different permission clears the old claim with its edge.
+			if !exact && v.Permissions[idx].ARN == p.ARN {
+				a.CloudFormationOwner = v.Permissions[idx].CloudFormationOwner
+			}
 			v.Permissions[idx] = a
 		} else {
 			v.Permissions = append(v.Permissions, a)
@@ -537,6 +596,9 @@ func (s *Service) associateResourceSharePermission(tx Transaction, in *api.Assoc
 func (s *Service) disassociateResourceSharePermission(tx Transaction, in *api.DisassociateResourceSharePermissionRequest) (*api.DisassociateResourceSharePermissionResponse, error) {
 	v, e := s.ownedShare(tx, value(in.ResourceShareArn), "DisassociateResourceSharePermission", true)
 	if e != nil {
+		return nil, e
+	}
+	if e = s.claimEdge(tx, v, "PERMISSION", value(in.PermissionArn)); e != nil {
 		return nil, e
 	}
 	rec, replay, e := receipt(tx, "DisassociateResourceSharePermission", in.ClientToken, in)

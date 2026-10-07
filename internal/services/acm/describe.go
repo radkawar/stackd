@@ -125,7 +125,21 @@ func extendedUsages(c *x509.Certificate) api.ExtendedKeyUsageList {
 	return out
 }
 func (s *Service) describeCertificate(tx Transaction, in *api.DescribeCertificateRequest) (*api.DescribeCertificateResponse, error) {
-	c, e := s.owned(tx, "DescribeCertificate", value(in.CertificateArn))
+	var c CertificateRecord
+	var e error
+	arn := value(in.CertificateArn)
+	if arn == "" && cloudFormationOwner(tx.Context()) != "" {
+		// Trusted exact-incarnation recovery resolves only private native authority.
+		c, e = tx.CertificateByOwner(scopeFor(tx.Context()), cloudFormationOwner(tx.Context()))
+		if e == nil {
+			e = s.authorize(tx, "DescribeCertificate", c.ARN, c.Tags, nil)
+		}
+		if e == nil {
+			e = observeCloudFormationOwner(tx.Context(), c)
+		}
+	} else {
+		c, e = s.owned(tx, "DescribeCertificate", arn)
+	}
 	if e != nil {
 		return nil, e
 	}

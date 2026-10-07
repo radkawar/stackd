@@ -67,7 +67,13 @@ func (s *Service) tagDocument(tx Transaction, kind, name, action string, conditi
 	if errors.Is(err, ErrNotFound) || (err == nil && key.AccountID == "" && action != "ListTagsForResource") {
 		return Record{}, failure("InvalidResourceId", "The document resource does not exist or cannot be tagged.")
 	}
-	return record, err
+	if err != nil {
+		return record, err
+	}
+	if err := checkDocumentOwner(tx.Context(), record); err != nil {
+		return Record{}, err
+	}
+	return record, nil
 }
 
 func (s *Service) addTagsToResource(tx Transaction, in *api.AddTagsToResourceRequest) (*api.AddTagsToResourceResult, error) {

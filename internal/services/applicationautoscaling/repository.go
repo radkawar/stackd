@@ -24,6 +24,7 @@ type TargetKey struct {
 type TargetRecord struct {
 	// ID owns the target identity also present in native child policy/action ARNs.
 	ID            string
+	Ownership     string
 	Key           TargetKey
 	Data          api.ScalableTarget
 	Tags          api.TagMap
@@ -41,6 +42,7 @@ type PolicyKey struct {
 // that owns its capacity baseline. ManagedActionID is the native action suffix.
 type PolicyRecord struct {
 	Key                        PolicyKey
+	Ownership                  string
 	Data                       api.ScalingPolicy
 	ManagedActionID            string
 	LastScaleAt                time.Time

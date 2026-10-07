@@ -316,7 +316,7 @@ func (s *Service) dispatch(ctx context.Context, action string, prepareResponse f
 			if err := s.prepareAccountIdentity(ctx, a, m); err != nil {
 				return err
 			}
-			result, apiErr := h(ctx, a, m)
+			result, apiErr := s.cloudFormationCommand(ctx, a, m, action, h)
 			if apiErr != nil {
 				return apiErr
 			}

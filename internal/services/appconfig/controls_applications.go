@@ -53,7 +53,7 @@ func (s *Service) createApplication(tx Transaction, in *api.CreateApplicationInp
 	if len(rows) >= 100 {
 		return nil, failure("ServiceQuotaExceededException", "The maximum number of applications is 100.")
 	}
-	app := Application{Scope: sc, Name: name, Description: value(in.Description)}
+	app := Application{Scope: sc, Name: name, Description: value(in.Description), Ownership: cloudFormationClaim(tx.Context(), "application")}
 	app.ID = uniqueID(func(id string) bool {
 		for _, a := range rows {
 			if a.ID == id {

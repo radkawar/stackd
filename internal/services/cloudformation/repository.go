@@ -17,15 +17,18 @@ type StackRecord struct {
 	Scope                                       Scope
 	ID, Name, Status, StatusReason, Description string
 	Template, RoleARN, OperationID              string
-	Created, Updated                            time.Time
-	Deleted                                     *time.Time
-	Parameters, Tags                            map[string]string
-	ResolvedParameters                          map[string]string
-	Capabilities                                []string
-	Outputs                                     map[string]OutputValue
-	Imports                                     []string
-	DisableRollback, TerminationProtection      bool
-	EventSequence                               uint64
+	// NestedOwner binds an actual child stack to one parent resource incarnation.
+	// Native and direct Cloud Control roots have no parent ownership metadata.
+	NestedOwner, ParentID, RootID          string
+	Created, Updated                       time.Time
+	Deleted                                *time.Time
+	Parameters, Tags                       map[string]string
+	ResolvedParameters                     map[string]string
+	Capabilities                           []string
+	Outputs                                map[string]OutputValue
+	Imports                                []string
+	DisableRollback, TerminationProtection bool
+	EventSequence                          uint64
 }
 
 type ResourceRecord struct {
@@ -56,7 +59,19 @@ type StepRecord struct {
 	Position                        int
 	LogicalID, Action, State, Error string
 	DeleteFailures                  int
-	Before, After                   ResourceRecord
+	// BeforeDeleteStarted retains an intent whose owner effect may have happened
+	// before a controller crash; rollback must observe the exact old identity.
+	BeforeDeleteStarted bool
+	// BeforeDeleted records irreversible delete-before-create progress so
+	// rollback restores the previous owner instead of only deleting the new one.
+	BeforeDeleted bool
+	// AdmissionPending distinguishes a command explicitly not admitted by its
+	// owner from a crash whose admitted result has not yet been retained.
+	AdmissionPending bool
+	Before, After    ResourceRecord
+	// Restore is a fresh physical incarnation of Before, never an adopted or
+	// resurrected repository row. Its token is durable before owner creation.
+	Restore ResourceRecord
 }
 
 type OperationRecord struct {

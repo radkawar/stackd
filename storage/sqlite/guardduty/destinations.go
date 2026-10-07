@@ -30,7 +30,7 @@ func (r reader) PublishingDestinations(sc domain.Scope, detector string) ([]doma
 	return out, nil
 }
 func (r reader) publishingDestination(row sqlcgen.GuarddutyPublishingDestination) (domain.PublishingDestination, error) {
-	v := domain.PublishingDestination{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, DetectorID: row.DetectorID, ID: row.ID, ARN: row.Arn, Type: row.Type, ClientToken: row.ClientToken, DestinationARN: row.DestinationArn, KMSKeyARN: row.KmsKeyArn, Status: row.Status, Version: row.Version, Created: row.Created, Updated: row.Updated, FailureStarted: row.FailureStarted}
+	v := domain.PublishingDestination{CFNOwnership: domain.CloudFormationOwnership{Owner: row.CfnOwner, Token: row.CfnToken}, Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, DetectorID: row.DetectorID, ID: row.ID, ARN: row.Arn, Type: row.Type, ClientToken: row.ClientToken, DestinationARN: row.DestinationArn, KMSKeyARN: row.KmsKeyArn, Status: row.Status, Version: row.Version, Created: row.Created, Updated: row.Updated, FailureStarted: row.FailureStarted}
 	if row.TagsPresent {
 		v.Tags = map[string]string{}
 	}
@@ -47,7 +47,7 @@ func (w writer) PutPublishingDestination(v domain.PublishingDestination) error {
 	if _, err := w.Detector(v.Scope, v.DetectorID); err != nil {
 		return err
 	}
-	if err := w.q.PutPublishingDestination(w.ctx, sqlcgen.PutPublishingDestinationParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, DetectorID: v.DetectorID, ID: v.ID, Arn: v.ARN, Type: v.Type, ClientToken: v.ClientToken, DestinationArn: v.DestinationARN, KmsKeyArn: v.KMSKeyARN, Status: v.Status, Version: v.Version, Created: v.Created, Updated: v.Updated, FailureStarted: v.FailureStarted, TagsPresent: v.Tags != nil}); err != nil {
+	if err := w.q.PutPublishingDestination(w.ctx, sqlcgen.PutPublishingDestinationParams{CfnOwner: v.CFNOwnership.Owner, CfnToken: v.CFNOwnership.Token, Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, DetectorID: v.DetectorID, ID: v.ID, Arn: v.ARN, Type: v.Type, ClientToken: v.ClientToken, DestinationArn: v.DestinationARN, KmsKeyArn: v.KMSKeyARN, Status: v.Status, Version: v.Version, Created: v.Created, Updated: v.Updated, FailureStarted: v.FailureStarted, TagsPresent: v.Tags != nil}); err != nil {
 		return err
 	}
 	if err := w.q.DeletePublishingDestinationTags(w.ctx, v.ARN); err != nil {

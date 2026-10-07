@@ -87,7 +87,7 @@ func (s *Service) createEnvironment(tx Transaction, in *api.CreateEnvironmentInp
 	if err != nil {
 		return nil, err
 	}
-	env := Environment{Scope: sc, ApplicationID: app.ID, Name: name, Description: value(in.Description), State: environmentReady, Monitors: monitors, CreatedAt: s.clock.Now().UTC()}
+	env := Environment{Scope: sc, ApplicationID: app.ID, Name: name, Description: value(in.Description), State: environmentReady, Monitors: monitors, CreatedAt: s.clock.Now().UTC(), Ownership: cloudFormationClaim(tx.Context(), "environment")}
 	env.ID = uniqueID(func(id string) bool {
 		return slices.ContainsFunc(rows, func(e Environment) bool { return e.ID == id })
 	})

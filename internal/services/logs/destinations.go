@@ -101,6 +101,11 @@ func (s *Service) prepareDestination(r Reader, input DestinationRecord, tags map
 	if err != nil && !errors.Is(err, ErrNotFound) {
 		return input, wireError(err)
 	}
+	var claimWire *awswire.Error
+	input.CFNOwner, claimWire = cloudFormationClaim(r.Context(), old.CFNOwner, err == nil)
+	if claimWire != nil {
+		return input, claimWire
+	}
 	old.Key = input.Key
 	if w := s.authorizeDestination(r, "PutDestination", old, tags, nil); w != nil {
 		return input, w
@@ -112,6 +117,12 @@ func (s *Service) prepareDestination(r Reader, input DestinationRecord, tags map
 		input.Created, input.AccessPolicy, input.Tags = old.Created, old.AccessPolicy, old.Tags
 	} else {
 		input.Created, input.Tags = s.clock.Now().UnixMilli(), map[string]string{}
+	}
+	if remove, _ := r.Context().Value(cloudFormationDestinationPolicyRemovalKey{}).(bool); remove {
+		if w := s.authorizeDestination(r, "PutDestinationPolicy", old, nil, nil); w != nil {
+			return input, w
+		}
+		input.AccessPolicy = ""
 	}
 	if len(tags) > 0 {
 		if w := s.authorizeDestination(r, "TagResource", old, tags, nil); w != nil {
@@ -190,6 +201,11 @@ func (s *Service) putDestination(ctx context.Context, in *api.PutDestinationRequ
 		out.Destination = destinationOutput(current)
 		return out, nil
 	})
+	if err == nil {
+		if owner, ok := ctx.Value(cloudFormationOwnerKey{}).(cloudFormationOwner); ok && owner.Create {
+			observeCloudFormation(ctx, "Destination", d.Key.Name, owner.Marker)
+		}
+	}
 	return out, wireError(err)
 }
 func (s *Service) loadDestination(r Reader, name, action string) (DestinationRecord, *awswire.Error) {
@@ -199,6 +215,11 @@ func (s *Service) loadDestination(r Reader, name, action string) (DestinationRec
 	}
 	d, err := r.Destination(k)
 	d.Key = k
+	if err == nil {
+		if w := cloudFormationDelete(r.Context(), d.CFNOwner); w != nil {
+			return d, w
+		}
+	}
 	if w := s.authorizeDestination(r, action, d, nil, nil); w != nil {
 		return d, w
 	}

@@ -361,7 +361,7 @@ func (q *Queries) GetEcsTags(ctx context.Context, ownerID string) ([]SchedulerEc
 }
 
 const getGroup = `-- name: GetGroup :one
-SELECT "partition", account, region, name, arn, created, modified, client_token FROM scheduler_groups WHERE arn=?
+SELECT "partition", account, region, name, arn, created, modified, client_token, id, cfn_owner FROM scheduler_groups WHERE arn=?
 `
 
 func (q *Queries) GetGroup(ctx context.Context, arn string) (SchedulerGroup, error) {
@@ -376,6 +376,8 @@ func (q *Queries) GetGroup(ctx context.Context, arn string) (SchedulerGroup, err
 		&i.Created,
 		&i.Modified,
 		&i.ClientToken,
+		&i.ID,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -408,7 +410,7 @@ func (q *Queries) GetGroupTags(ctx context.Context, groupArn string) ([]Schedule
 }
 
 const getSchedule = `-- name: GetSchedule :one
-SELECT "partition", account, region, group_name, name, arn, created, modified, expression, timezone, state, description, has_description, action_after_completion, start, "end", next, window_mode, window_minutes, has_window_minutes, kms_key_arn, ciphertext, data_key, revision, create_token, update_token, create_hash, update_hash FROM scheduler_schedules WHERE arn=?
+SELECT "partition", account, region, group_name, name, arn, created, modified, expression, timezone, state, description, has_description, action_after_completion, start, "end", next, window_mode, window_minutes, has_window_minutes, kms_key_arn, ciphertext, data_key, revision, create_token, update_token, create_hash, update_hash, cfn_owner, parent_id FROM scheduler_schedules WHERE arn=?
 `
 
 func (q *Queries) GetSchedule(ctx context.Context, arn string) (SchedulerSchedule, error) {
@@ -443,6 +445,8 @@ func (q *Queries) GetSchedule(ctx context.Context, arn string) (SchedulerSchedul
 		&i.UpdateToken,
 		&i.CreateHash,
 		&i.UpdateHash,
+		&i.CfnOwner,
+		&i.ParentID,
 	)
 	return i, err
 }
@@ -514,7 +518,7 @@ func (q *Queries) GroupDeliveries(ctx context.Context, arg GroupDeliveriesParams
 }
 
 const listGroups = `-- name: ListGroups :many
-SELECT "partition", account, region, name, arn, created, modified, client_token FROM scheduler_groups WHERE partition=? AND account=? AND region=? ORDER BY name
+SELECT "partition", account, region, name, arn, created, modified, client_token, id, cfn_owner FROM scheduler_groups WHERE partition=? AND account=? AND region=? ORDER BY name
 `
 
 type ListGroupsParams struct {
@@ -541,6 +545,8 @@ func (q *Queries) ListGroups(ctx context.Context, arg ListGroupsParams) ([]Sched
 			&i.Created,
 			&i.Modified,
 			&i.ClientToken,
+			&i.ID,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -556,7 +562,7 @@ func (q *Queries) ListGroups(ctx context.Context, arg ListGroupsParams) ([]Sched
 }
 
 const listSchedules = `-- name: ListSchedules :many
-SELECT "partition", account, region, group_name, name, arn, created, modified, expression, timezone, state, description, has_description, action_after_completion, start, "end", next, window_mode, window_minutes, has_window_minutes, kms_key_arn, ciphertext, data_key, revision, create_token, update_token, create_hash, update_hash FROM scheduler_schedules WHERE partition=? AND account=? AND region=? ORDER BY group_name,name
+SELECT "partition", account, region, group_name, name, arn, created, modified, expression, timezone, state, description, has_description, action_after_completion, start, "end", next, window_mode, window_minutes, has_window_minutes, kms_key_arn, ciphertext, data_key, revision, create_token, update_token, create_hash, update_hash, cfn_owner, parent_id FROM scheduler_schedules WHERE partition=? AND account=? AND region=? ORDER BY group_name,name
 `
 
 type ListSchedulesParams struct {
@@ -603,6 +609,8 @@ func (q *Queries) ListSchedules(ctx context.Context, arg ListSchedulesParams) ([
 			&i.UpdateToken,
 			&i.CreateHash,
 			&i.UpdateHash,
+			&i.CfnOwner,
+			&i.ParentID,
 		); err != nil {
 			return nil, err
 		}
@@ -648,7 +656,7 @@ func (q *Queries) NextDelivery(ctx context.Context) (SchedulerDelivery, error) {
 }
 
 const nextSchedule = `-- name: NextSchedule :one
-SELECT "partition", account, region, group_name, name, arn, created, modified, expression, timezone, state, description, has_description, action_after_completion, start, "end", next, window_mode, window_minutes, has_window_minutes, kms_key_arn, ciphertext, data_key, revision, create_token, update_token, create_hash, update_hash FROM scheduler_schedules WHERE next IS NOT NULL ORDER BY next,arn LIMIT 1
+SELECT "partition", account, region, group_name, name, arn, created, modified, expression, timezone, state, description, has_description, action_after_completion, start, "end", next, window_mode, window_minutes, has_window_minutes, kms_key_arn, ciphertext, data_key, revision, create_token, update_token, create_hash, update_hash, cfn_owner, parent_id FROM scheduler_schedules WHERE next IS NOT NULL ORDER BY next,arn LIMIT 1
 `
 
 func (q *Queries) NextSchedule(ctx context.Context) (SchedulerSchedule, error) {
@@ -683,6 +691,8 @@ func (q *Queries) NextSchedule(ctx context.Context) (SchedulerSchedule, error) {
 		&i.UpdateToken,
 		&i.CreateHash,
 		&i.UpdateHash,
+		&i.CfnOwner,
+		&i.ParentID,
 	)
 	return i, err
 }
@@ -900,7 +910,7 @@ func (q *Queries) PutEcsTags(ctx context.Context, arg PutEcsTagsParams) error {
 }
 
 const putGroup = `-- name: PutGroup :exec
-INSERT INTO scheduler_groups (partition,account,region,name,arn,created,modified,client_token) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(arn) DO UPDATE SET partition=excluded.partition,account=excluded.account,region=excluded.region,name=excluded.name,created=excluded.created,modified=excluded.modified,client_token=excluded.client_token
+INSERT INTO scheduler_groups (partition,account,region,name,arn,created,modified,client_token,id,cfn_owner) VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(arn) DO UPDATE SET partition=excluded.partition,account=excluded.account,region=excluded.region,name=excluded.name,created=excluded.created,modified=excluded.modified,client_token=excluded.client_token
 `
 
 type PutGroupParams struct {
@@ -912,6 +922,8 @@ type PutGroupParams struct {
 	Created     int64
 	Modified    int64
 	ClientToken string
+	ID          string
+	CfnOwner    string
 }
 
 func (q *Queries) PutGroup(ctx context.Context, arg PutGroupParams) error {
@@ -924,6 +936,8 @@ func (q *Queries) PutGroup(ctx context.Context, arg PutGroupParams) error {
 		arg.Created,
 		arg.Modified,
 		arg.ClientToken,
+		arg.ID,
+		arg.CfnOwner,
 	)
 	return err
 }
@@ -944,7 +958,7 @@ func (q *Queries) PutGroupTags(ctx context.Context, arg PutGroupTagsParams) erro
 }
 
 const putSchedule = `-- name: PutSchedule :exec
-INSERT INTO scheduler_schedules (partition,account,region,group_name,name,arn,created,modified,expression,timezone,state,description,has_description,action_after_completion,start,end,next,window_mode,window_minutes,has_window_minutes,kms_key_arn,ciphertext,data_key,revision,create_token,update_token,create_hash,update_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(arn) DO UPDATE SET partition=excluded.partition,account=excluded.account,region=excluded.region,group_name=excluded.group_name,name=excluded.name,created=excluded.created,modified=excluded.modified,expression=excluded.expression,timezone=excluded.timezone,state=excluded.state,description=excluded.description,has_description=excluded.has_description,action_after_completion=excluded.action_after_completion,start=excluded.start,end=excluded.end,next=excluded.next,window_mode=excluded.window_mode,window_minutes=excluded.window_minutes,has_window_minutes=excluded.has_window_minutes,kms_key_arn=excluded.kms_key_arn,ciphertext=excluded.ciphertext,data_key=excluded.data_key,revision=excluded.revision,create_token=excluded.create_token,update_token=excluded.update_token,create_hash=excluded.create_hash,update_hash=excluded.update_hash
+INSERT INTO scheduler_schedules (partition,account,region,group_name,name,arn,created,modified,expression,timezone,state,description,has_description,action_after_completion,start,end,next,window_mode,window_minutes,has_window_minutes,kms_key_arn,ciphertext,data_key,revision,create_token,update_token,create_hash,update_hash,cfn_owner,parent_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(arn) DO UPDATE SET partition=excluded.partition,account=excluded.account,region=excluded.region,group_name=excluded.group_name,name=excluded.name,created=excluded.created,modified=excluded.modified,expression=excluded.expression,timezone=excluded.timezone,state=excluded.state,description=excluded.description,has_description=excluded.has_description,action_after_completion=excluded.action_after_completion,start=excluded.start,end=excluded.end,next=excluded.next,window_mode=excluded.window_mode,window_minutes=excluded.window_minutes,has_window_minutes=excluded.has_window_minutes,kms_key_arn=excluded.kms_key_arn,ciphertext=excluded.ciphertext,data_key=excluded.data_key,revision=excluded.revision,create_token=excluded.create_token,update_token=excluded.update_token,create_hash=excluded.create_hash,update_hash=excluded.update_hash
 `
 
 type PutScheduleParams struct {
@@ -976,6 +990,8 @@ type PutScheduleParams struct {
 	UpdateToken           string
 	CreateHash            string
 	UpdateHash            string
+	CfnOwner              string
+	ParentID              string
 }
 
 func (q *Queries) PutSchedule(ctx context.Context, arg PutScheduleParams) error {
@@ -1008,6 +1024,8 @@ func (q *Queries) PutSchedule(ctx context.Context, arg PutScheduleParams) error 
 		arg.UpdateToken,
 		arg.CreateHash,
 		arg.UpdateHash,
+		arg.CfnOwner,
+		arg.ParentID,
 	)
 	return err
 }

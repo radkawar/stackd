@@ -165,9 +165,21 @@ func register[I, O any](s *Service, action string, f func(context.Context, Trans
 		var out *O
 		err = s.repository.Attempt(ctx, func(tx Transaction) error {
 			var e error
-			out, e = f(tx.Context(), tx, in)
+			commandCtx := tx.Context()
+			var admission *cloudFormationTransaction
+			if intent, ok := commandCtx.Value(cloudFormationIntentKey{}).(cloudFormationIntent); ok {
+				admission = &cloudFormationTransaction{Transaction: tx, intent: intent}
+				tx = admission
+				commandCtx = context.WithValue(commandCtx, cloudFormationTransactionKey{}, tx)
+			}
+			out, e = f(commandCtx, tx, in)
 			if e != nil {
 				return e
+			}
+			if admission != nil {
+				if err := admission.finish(); err != nil {
+					return err
+				}
 			}
 			return s.recordCall(tx.Context(), action, in, out, nil)
 		})
@@ -246,7 +258,7 @@ func (s *Service) authorizeResource(ctx context.Context, resource string, tags m
 	if e := s.authorizer.Authorize(ctx, authorization.Request{Action: "eks:" + action, ResourceARN: resource, Context: conditions, ContextTypes: map[string]string{"aws:TagKeys": "stringList"}, EvaluationTime: &now}); e != nil {
 		return e
 	}
-	return nil
+	return cloudFormationAuthorized(ctx, resource, action)
 }
 func (s *Service) load(ctx context.Context, r Reader, name, action string) (Cluster, error) {
 	k := Key{scopeFor(ctx), name}

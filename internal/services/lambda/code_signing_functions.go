@@ -38,6 +38,9 @@ func (s *Service) putFunctionCodeSigningConfig(ctx context.Context, in *api.PutF
 		if wire := s.authorizeFunction(tx, "PutFunctionCodeSigningConfig", ref, function, map[string][]string{"lambda:CodeSigningConfigArn": {key.ARN()}}); wire != nil {
 			return wire
 		}
+		if function.Image != nil {
+			return failure("InvalidParameterValueException", "Code signing is supported only for Zip functions.", 400)
+		}
 		if function.State == "Pending" || function.UpdateStatus == "InProgress" {
 			return failure("ResourceConflictException", "An operation is in progress for this function.", 409)
 		}

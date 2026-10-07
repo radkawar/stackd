@@ -12,6 +12,7 @@ type (
 	Transaction                      = domain.Transaction
 	Scope                            = domain.Scope
 	ResourceKey                      = domain.ResourceKey
+	CloudFormationOwner              = domain.CloudFormationOwner
 	LaunchTemplateRecord             = domain.LaunchTemplateRecord
 	LaunchTemplateVersionKey         = domain.LaunchTemplateVersionKey
 	LaunchTemplateVersionRecord      = domain.LaunchTemplateVersionRecord
@@ -51,6 +52,9 @@ type (
 	DHCPDefaultsRecord               = domain.DHCPDefaultsRecord
 	NetworkCreationKey               = domain.NetworkCreationKey
 	NetworkCreationRecord            = domain.NetworkCreationRecord
+	NatGatewayRecord                 = domain.NatGatewayRecord
+	VPCEndpointRecord                = domain.VPCEndpointRecord
+	NetworkOwnerCreationRecord       = domain.NetworkOwnerCreationRecord
 )
 
 var ErrNotFound = domain.ErrNotFound

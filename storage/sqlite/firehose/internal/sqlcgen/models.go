@@ -129,6 +129,7 @@ type FirehoseStream struct {
 	LifecycleDue time.Time
 	BufferID     string
 	TagsPresent  bool
+	CfnOwner     string
 }
 
 type FirehoseTag struct {

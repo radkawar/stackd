@@ -208,6 +208,9 @@ func (w memoryWriter) PutGroup(v GroupRecord) error {
 	if e := w.tx.Check(true); e != nil {
 		return e
 	}
+	if old, ok := w.s.groups[v.Key]; ok {
+		v.ID, v.CFNOwner = old.ID, old.CFNOwner
+	}
 	v.Tags = maps.Clone(v.Tags)
 	w.s.groups[v.Key] = v
 	return nil
@@ -224,6 +227,9 @@ func (w memoryWriter) DeleteGroup(k GroupKey) error {
 func (w memoryWriter) PutSchedule(v ScheduleRecord) error {
 	if e := w.tx.Check(true); e != nil {
 		return e
+	}
+	if old, ok := w.s.schedules[v.Key]; ok {
+		v.CFNOwner, v.ParentID = old.CFNOwner, old.ParentID
 	}
 	w.s.schedules[v.Key] = cloneSchedule(v)
 	return nil

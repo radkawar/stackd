@@ -84,7 +84,7 @@ func (q *Queries) DeleteTagSyncTask(ctx context.Context, arn string) error {
 }
 
 const getGroup = `-- name: GetGroup :one
-SELECT arn, "partition", account_id, region, name, description, query_present, query_type, query_string, created, managed_type, application_arn, source_arn, source_name, parent_arn, incarnation, display_name, owner, criticality FROM resourcegroups_groups
+SELECT arn, "partition", account_id, region, name, description, query_present, query_type, query_string, created, managed_type, application_arn, source_arn, source_name, parent_arn, incarnation, display_name, owner, criticality, cloudformation_claim FROM resourcegroups_groups
 WHERE partition = ? AND account_id = ? AND region = ?
   AND (arn = ?4 OR name = ?4)
 `
@@ -124,6 +124,7 @@ func (q *Queries) GetGroup(ctx context.Context, arg GetGroupParams) (Resourcegro
 		&i.DisplayName,
 		&i.Owner,
 		&i.Criticality,
+		&i.CloudformationClaim,
 	)
 	return i, err
 }
@@ -227,7 +228,7 @@ func (q *Queries) ListGroupings(ctx context.Context, groupArn string) ([]Resourc
 }
 
 const listGroups = `-- name: ListGroups :many
-SELECT arn, "partition", account_id, region, name, description, query_present, query_type, query_string, created, managed_type, application_arn, source_arn, source_name, parent_arn, incarnation, display_name, owner, criticality FROM resourcegroups_groups
+SELECT arn, "partition", account_id, region, name, description, query_present, query_type, query_string, created, managed_type, application_arn, source_arn, source_name, parent_arn, incarnation, display_name, owner, criticality, cloudformation_claim FROM resourcegroups_groups
 WHERE partition = ? AND account_id = ? AND region = ? ORDER BY arn
 `
 
@@ -266,6 +267,7 @@ func (q *Queries) ListGroups(ctx context.Context, arg ListGroupsParams) ([]Resou
 			&i.DisplayName,
 			&i.Owner,
 			&i.Criticality,
+			&i.CloudformationClaim,
 		); err != nil {
 			return nil, err
 		}
@@ -472,8 +474,8 @@ func (q *Queries) PutAppliedMembership(ctx context.Context, arg PutAppliedMember
 }
 
 const putGroup = `-- name: PutGroup :execrows
-INSERT INTO resourcegroups_groups (arn, partition, account_id, region, name, description, query_present, query_type, query_string, created, managed_type, application_arn, source_arn, source_name, parent_arn, incarnation, display_name, owner, criticality)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO resourcegroups_groups (arn, partition, account_id, region, name, description, query_present, query_type, query_string, created, managed_type, application_arn, source_arn, source_name, parent_arn, incarnation, display_name, owner, criticality, cloudformation_claim)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(arn) DO UPDATE SET
     name = excluded.name, description = excluded.description,
     query_present = excluded.query_present,
@@ -488,25 +490,26 @@ WHERE resourcegroups_groups.partition = excluded.partition
 `
 
 type PutGroupParams struct {
-	Arn            string
-	Partition      string
-	AccountID      string
-	Region         string
-	Name           string
-	Description    string
-	QueryPresent   int64
-	QueryType      sql.NullString
-	QueryString    sql.NullString
-	Created        sql.NullInt64
-	ManagedType    string
-	ApplicationArn string
-	SourceArn      string
-	SourceName     string
-	ParentArn      string
-	Incarnation    string
-	DisplayName    string
-	Owner          string
-	Criticality    sql.NullInt64
+	Arn                 string
+	Partition           string
+	AccountID           string
+	Region              string
+	Name                string
+	Description         string
+	QueryPresent        int64
+	QueryType           sql.NullString
+	QueryString         sql.NullString
+	Created             sql.NullInt64
+	ManagedType         string
+	ApplicationArn      string
+	SourceArn           string
+	SourceName          string
+	ParentArn           string
+	Incarnation         string
+	DisplayName         string
+	Owner               string
+	Criticality         sql.NullInt64
+	CloudformationClaim string
 }
 
 func (q *Queries) PutGroup(ctx context.Context, arg PutGroupParams) (int64, error) {
@@ -530,6 +533,7 @@ func (q *Queries) PutGroup(ctx context.Context, arg PutGroupParams) (int64, erro
 		arg.DisplayName,
 		arg.Owner,
 		arg.Criticality,
+		arg.CloudformationClaim,
 	)
 	if err != nil {
 		return 0, err

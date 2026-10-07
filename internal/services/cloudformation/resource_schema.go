@@ -5,28 +5,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
-	"slices"
 	"strings"
 )
 
-// resourceSchema contains registry admission facts, never provisioning strategy.
-// Property paths use the registry's /properties root and * array components.
+// resourceSchema contains authoritative registry contracts, not owner behavior.
+// Identifier paths use the registry's /properties root and * array components.
 type resourceSchema struct {
-	Version                                                       string
-	Properties, Required, CreateOnly, ReadOnly, PrimaryIdentifier []string
-	AdditionalIdentifiers                                         [][]string
-	Objects                                                       map[string]resourceObjectSchema
-	StringLengths                                                 map[string]resourceStringLength
-	Tagging                                                       resourceTaggingSchema
-	HandlerPermissions                                            map[string][]string
-}
-type resourceObjectSchema struct {
-	Properties, Required []string
-	AdditionalProperties bool
-}
-type resourceStringLength struct {
-	Min, Max int // Max is -1 when the registry has no upper bound.
+	Version, ReplacementStrategy                                                string
+	Properties, Required, CreateOnly, ReadOnly, PrimaryIdentifier               []string
+	AdditionalIdentifiers                                                       [][]string
+	StructureJSON, StringLimitsJSON, TemplateStructureJSON, UpdateStructureJSON string
+	Tagging                                                                     resourceTaggingSchema
+	HandlerPermissions                                                          map[string][]string
 }
 type resourceTaggingSchema struct {
 	Taggable, TagOnCreate, TagUpdatable, CloudFormationSystemTags bool
@@ -38,13 +28,17 @@ type resourceTaggingSchema struct {
 var ErrCreateOnly = errors.New("create-only property cannot be updated")
 
 func validateResourceStructure(resource TemplateResource) error {
-	return ValidateResourceProperties(resource.Type, resource.Properties)
+	return validateResourceProperties(resource.Type, resource.Properties, resourceTemplateSchema)
 }
 
 // ValidateResourceProperties checks the captured registry's property, required
 // and read-only contracts. Handlers still validate supported values and effects.
 // Unknown types belong to explicitly injected handlers and have no registry facts.
 func ValidateResourceProperties(typeName string, properties Properties) error {
+	return validateResourceProperties(typeName, properties, resourceCreateSchema)
+}
+
+func validateResourceProperties(typeName string, properties Properties, mode resourceSchemaMode) error {
 	schema, known := resourceSchemas[typeName]
 	if !known {
 		return nil
@@ -54,47 +48,13 @@ func ValidateResourceProperties(typeName string, properties Properties) error {
 			return fmt.Errorf("resource property %s%s is read-only", typeName, path)
 		}
 	}
-	for _, path := range slices.Sorted(maps.Keys(schema.Objects)) {
-		object := schema.Objects[path]
-		for _, value := range resourcePathValues(properties, resourcePathParts(path)) {
-			var fields map[string]any
-			switch value := value.(type) {
-			case Properties:
-				fields = value
-			case map[string]any:
-				fields = value
-			default:
-				continue // Value types/coercion remain at the handler boundary.
-			}
-			// Template structure is checked before intrinsic evaluation as well.
-			if len(fields) == 1 {
-				intrinsic := false
-				for key := range fields {
-					intrinsic = key == "Ref" || strings.HasPrefix(key, "Fn::")
-				}
-				if intrinsic {
-					continue
-				}
-			}
-			for _, name := range slices.Sorted(maps.Keys(fields)) {
-				if !object.AdditionalProperties && !slices.Contains(object.Properties, name) {
-					return fmt.Errorf("resource type %s has no property %s/%s", typeName, path, name)
-				}
-			}
-			for _, name := range object.Required {
-				if _, exists := fields[name]; !exists {
-					return fmt.Errorf("resource type %s requires property %s/%s", typeName, path, name)
-				}
-			}
-		}
-	}
-	return nil
+	return validateCompiledResourceSchemaMode(typeName, properties, mode)
 }
 
 // ValidateResourceUpdate rejects immutable changes rather than interpreting a
 // registry create-only annotation as permission to replace an owner resource.
 func ValidateResourceUpdate(typeName string, previous, desired Properties) error {
-	if err := ValidateResourceProperties(typeName, desired); err != nil {
+	if err := validateResourceProperties(typeName, desired, resourceUpdateSchema); err != nil {
 		return err
 	}
 	for _, path := range resourceSchemas[typeName].CreateOnly {
@@ -150,12 +110,15 @@ func ResourceIdentifier(typeName string, properties Properties) (string, error) 
 
 // WritableResourceProperties returns an independent desired-state model with
 // read-only observations removed. Validate user input before stripping it.
-func WritableResourceProperties(typeName string, properties Properties) Properties {
-	out := cloneResourceValue(properties).(Properties)
+func WritableResourceProperties(typeName string, properties Properties) (Properties, error) {
+	out, err := cloneOwnerProperties(properties)
+	if err != nil {
+		return nil, err
+	}
 	for _, path := range resourceSchemas[typeName].ReadOnly {
 		removeResourcePath(out, resourcePathParts(path))
 	}
-	return out
+	return out, nil
 }
 func resourcePathParts(path string) []string {
 	path = strings.TrimPrefix(path, "/properties")
@@ -225,29 +188,4 @@ func cloneResourceValue(value any) any {
 	default:
 		return value
 	}
-}
-func removeResourcePath(value any, parts []string) {
-	if len(parts) == 0 {
-		return
-	}
-	if parts[0] == "*" {
-		if list, ok := value.([]any); ok {
-			for _, item := range list {
-				removeResourcePath(item, parts[1:])
-			}
-		}
-		return
-	}
-	var fields map[string]any
-	switch value := value.(type) {
-	case Properties:
-		fields = value
-	case map[string]any:
-		fields = value
-	}
-	if len(parts) == 1 {
-		delete(fields, parts[0])
-		return
-	}
-	removeResourcePath(fields[parts[0]], parts[1:])
 }

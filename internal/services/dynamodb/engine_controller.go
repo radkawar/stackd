@@ -76,7 +76,7 @@ func (c *engineController) database(ctx context.Context, spec engine.Specificati
 	}
 	c.mu.Unlock()
 	if c.service.runtime == nil {
-		return nil, errors.New("DynamoDB Local runtime is not configured")
+		return nil, engineUnavailable()
 	}
 	db, err := c.service.runtime.Open(ctx, spec)
 	if err != nil {

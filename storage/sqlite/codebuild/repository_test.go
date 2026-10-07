@@ -98,6 +98,7 @@ func TestRetainedRecoveryPreservesAcceptedBuildAfterProjectDeletion(t *testing.T
 			Status:               &api.FleetStatus{StatusCode: new(api.FleetStatusCode("ACTIVE"))}, Tags: retainedProject.Data.Tags},
 	}
 	credential := domain.CredentialRecord{Key: domain.CredentialKey{Scope: scope(), ServerType: "GITHUB", AuthType: "PERSONAL_ACCESS_TOKEN"}, ARN: "imported-credential", Ciphertext: []byte{0, 1, 2, 255}}
+	credential.Ownership = "stack/project/source-credential-incarnation"
 	if err := repo.Update(t.Context(), func(tx domain.Transaction) error {
 		if err := tx.PutProject(project); err != nil {
 			return err

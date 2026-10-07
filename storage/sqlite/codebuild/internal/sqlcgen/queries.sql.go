@@ -407,7 +407,7 @@ func (q *Queries) GetBuild(ctx context.Context, arg GetBuildParams) (CodebuildBu
 }
 
 const getCredential = `-- name: GetCredential :one
-SELECT "partition", account_id, region, server_type, auth_type, arn, ciphertext FROM codebuild_credentials WHERE partition = ? AND account_id = ? AND region = ? AND server_type = ? AND auth_type = ?
+SELECT "partition", account_id, region, server_type, auth_type, arn, ciphertext, ownership FROM codebuild_credentials WHERE partition = ? AND account_id = ? AND region = ? AND server_type = ? AND auth_type = ?
 `
 
 type GetCredentialParams struct {
@@ -435,12 +435,13 @@ func (q *Queries) GetCredential(ctx context.Context, arg GetCredentialParams) (C
 		&i.AuthType,
 		&i.Arn,
 		&i.Ciphertext,
+		&i.Ownership,
 	)
 	return i, err
 }
 
 const getFleet = `-- name: GetFleet :one
-SELECT "partition", account_id, region, fleet_name, arn, name, fleet_id, base_capacity, compute_type, created, environment_type, fleet_service_role, image_id, last_modified, overflow_behavior, compute_configuration, proxy_configuration, scaling_configuration, status, vpc_config, tags_present FROM codebuild_fleets WHERE partition = ? AND account_id = ? AND region = ? AND fleet_name = ?
+SELECT "partition", account_id, region, fleet_name, arn, name, fleet_id, base_capacity, compute_type, created, environment_type, fleet_service_role, image_id, last_modified, overflow_behavior, compute_configuration, proxy_configuration, scaling_configuration, status, vpc_config, tags_present, ownership FROM codebuild_fleets WHERE partition = ? AND account_id = ? AND region = ? AND fleet_name = ?
 `
 
 type GetFleetParams struct {
@@ -480,12 +481,13 @@ func (q *Queries) GetFleet(ctx context.Context, arg GetFleetParams) (CodebuildFl
 		&i.Status,
 		&i.VpcConfig,
 		&i.TagsPresent,
+		&i.Ownership,
 	)
 	return i, err
 }
 
 const getProject = `-- name: GetProject :one
-SELECT "partition", account_id, region, project_name, build_number, arn, name, auto_retry_limit, concurrent_build_limit, created, description, encryption_key, last_modified, project_visibility, public_project_alias, queued_timeout_in_minutes, resource_access_role, service_role, source_version, timeout_in_minutes, artifacts, badge, build_batch_config, cache, environment, file_system_locations, logs_config, secondary_artifacts, secondary_sources, source, vpc_config, webhook, environment_variables_present, secondary_source_versions_present, tags_present FROM codebuild_projects WHERE partition = ? AND account_id = ? AND region = ? AND project_name = ?
+SELECT "partition", account_id, region, project_name, build_number, arn, name, auto_retry_limit, concurrent_build_limit, created, description, encryption_key, last_modified, project_visibility, public_project_alias, queued_timeout_in_minutes, resource_access_role, service_role, source_version, timeout_in_minutes, artifacts, badge, build_batch_config, cache, environment, file_system_locations, logs_config, secondary_artifacts, secondary_sources, source, vpc_config, webhook, environment_variables_present, secondary_source_versions_present, tags_present, ownership FROM codebuild_projects WHERE partition = ? AND account_id = ? AND region = ? AND project_name = ?
 `
 
 type GetProjectParams struct {
@@ -539,6 +541,7 @@ func (q *Queries) GetProject(ctx context.Context, arg GetProjectParams) (Codebui
 		&i.EnvironmentVariablesPresent,
 		&i.SecondarySourceVersionsPresent,
 		&i.TagsPresent,
+		&i.Ownership,
 	)
 	return i, err
 }
@@ -627,7 +630,7 @@ func (q *Queries) ListActiveBuilds(ctx context.Context) ([]CodebuildBuild, error
 }
 
 const listAllFleets = `-- name: ListAllFleets :many
-SELECT "partition", account_id, region, fleet_name, arn, name, fleet_id, base_capacity, compute_type, created, environment_type, fleet_service_role, image_id, last_modified, overflow_behavior, compute_configuration, proxy_configuration, scaling_configuration, status, vpc_config, tags_present FROM codebuild_fleets ORDER BY partition, account_id, region, fleet_name
+SELECT "partition", account_id, region, fleet_name, arn, name, fleet_id, base_capacity, compute_type, created, environment_type, fleet_service_role, image_id, last_modified, overflow_behavior, compute_configuration, proxy_configuration, scaling_configuration, status, vpc_config, tags_present, ownership FROM codebuild_fleets ORDER BY partition, account_id, region, fleet_name
 `
 
 func (q *Queries) ListAllFleets(ctx context.Context) ([]CodebuildFleet, error) {
@@ -661,6 +664,7 @@ func (q *Queries) ListAllFleets(ctx context.Context) ([]CodebuildFleet, error) {
 			&i.Status,
 			&i.VpcConfig,
 			&i.TagsPresent,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -1054,7 +1058,7 @@ func (q *Queries) ListBuilds(ctx context.Context, arg ListBuildsParams) ([]Codeb
 }
 
 const listCredentials = `-- name: ListCredentials :many
-SELECT "partition", account_id, region, server_type, auth_type, arn, ciphertext FROM codebuild_credentials WHERE partition = ? AND account_id = ? AND region = ? ORDER BY server_type, auth_type
+SELECT "partition", account_id, region, server_type, auth_type, arn, ciphertext, ownership FROM codebuild_credentials WHERE partition = ? AND account_id = ? AND region = ? ORDER BY server_type, auth_type
 `
 
 type ListCredentialsParams struct {
@@ -1080,6 +1084,7 @@ func (q *Queries) ListCredentials(ctx context.Context, arg ListCredentialsParams
 			&i.AuthType,
 			&i.Arn,
 			&i.Ciphertext,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -1142,7 +1147,7 @@ func (q *Queries) ListFleetTags(ctx context.Context, arg ListFleetTagsParams) ([
 }
 
 const listFleets = `-- name: ListFleets :many
-SELECT "partition", account_id, region, fleet_name, arn, name, fleet_id, base_capacity, compute_type, created, environment_type, fleet_service_role, image_id, last_modified, overflow_behavior, compute_configuration, proxy_configuration, scaling_configuration, status, vpc_config, tags_present FROM codebuild_fleets WHERE partition = ? AND account_id = ? AND region = ? ORDER BY fleet_name
+SELECT "partition", account_id, region, fleet_name, arn, name, fleet_id, base_capacity, compute_type, created, environment_type, fleet_service_role, image_id, last_modified, overflow_behavior, compute_configuration, proxy_configuration, scaling_configuration, status, vpc_config, tags_present, ownership FROM codebuild_fleets WHERE partition = ? AND account_id = ? AND region = ? ORDER BY fleet_name
 `
 
 type ListFleetsParams struct {
@@ -1182,6 +1187,7 @@ func (q *Queries) ListFleets(ctx context.Context, arg ListFleetsParams) ([]Codeb
 			&i.Status,
 			&i.VpcConfig,
 			&i.TagsPresent,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -1436,7 +1442,7 @@ func (q *Queries) ListProjectVariables(ctx context.Context, arg ListProjectVaria
 }
 
 const listProjects = `-- name: ListProjects :many
-SELECT "partition", account_id, region, project_name, build_number, arn, name, auto_retry_limit, concurrent_build_limit, created, description, encryption_key, last_modified, project_visibility, public_project_alias, queued_timeout_in_minutes, resource_access_role, service_role, source_version, timeout_in_minutes, artifacts, badge, build_batch_config, cache, environment, file_system_locations, logs_config, secondary_artifacts, secondary_sources, source, vpc_config, webhook, environment_variables_present, secondary_source_versions_present, tags_present FROM codebuild_projects WHERE partition = ? AND account_id = ? AND region = ? ORDER BY project_name
+SELECT "partition", account_id, region, project_name, build_number, arn, name, auto_retry_limit, concurrent_build_limit, created, description, encryption_key, last_modified, project_visibility, public_project_alias, queued_timeout_in_minutes, resource_access_role, service_role, source_version, timeout_in_minutes, artifacts, badge, build_batch_config, cache, environment, file_system_locations, logs_config, secondary_artifacts, secondary_sources, source, vpc_config, webhook, environment_variables_present, secondary_source_versions_present, tags_present, ownership FROM codebuild_projects WHERE partition = ? AND account_id = ? AND region = ? ORDER BY project_name
 `
 
 type ListProjectsParams struct {
@@ -1490,6 +1496,7 @@ func (q *Queries) ListProjects(ctx context.Context, arg ListProjectsParams) ([]C
 			&i.EnvironmentVariablesPresent,
 			&i.SecondarySourceVersionsPresent,
 			&i.TagsPresent,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -1828,8 +1835,8 @@ func (q *Queries) PutBuildVariable(ctx context.Context, arg PutBuildVariablePara
 }
 
 const putCredential = `-- name: PutCredential :exec
-INSERT INTO codebuild_credentials (partition, account_id, region, server_type, auth_type, arn, ciphertext) VALUES (?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, server_type, auth_type) DO UPDATE SET arn = excluded.arn, ciphertext = excluded.ciphertext
+INSERT INTO codebuild_credentials (partition, account_id, region, server_type, auth_type, arn, ciphertext, ownership) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, server_type, auth_type) DO UPDATE SET arn = excluded.arn, ciphertext = excluded.ciphertext, ownership = excluded.ownership
 `
 
 type PutCredentialParams struct {
@@ -1840,6 +1847,7 @@ type PutCredentialParams struct {
 	AuthType   string
 	Arn        string
 	Ciphertext []byte
+	Ownership  string
 }
 
 func (q *Queries) PutCredential(ctx context.Context, arg PutCredentialParams) error {
@@ -1851,6 +1859,7 @@ func (q *Queries) PutCredential(ctx context.Context, arg PutCredentialParams) er
 		arg.AuthType,
 		arg.Arn,
 		arg.Ciphertext,
+		arg.Ownership,
 	)
 	return err
 }
@@ -1859,15 +1868,15 @@ const putFleet = `-- name: PutFleet :exec
 INSERT INTO codebuild_fleets (
  partition, account_id, region, fleet_name, arn, name, fleet_id, base_capacity, compute_type, created, environment_type,
  fleet_service_role, image_id, last_modified, overflow_behavior, compute_configuration, proxy_configuration,
- scaling_configuration, status, vpc_config, tags_present
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ scaling_configuration, status, vpc_config, tags_present, ownership
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?22)
 ON CONFLICT (partition, account_id, region, fleet_name) DO UPDATE SET
  arn = excluded.arn, name = excluded.name, fleet_id = excluded.fleet_id, base_capacity = excluded.base_capacity,
  compute_type = excluded.compute_type, created = excluded.created, environment_type = excluded.environment_type,
  fleet_service_role = excluded.fleet_service_role, image_id = excluded.image_id, last_modified = excluded.last_modified,
  overflow_behavior = excluded.overflow_behavior, compute_configuration = excluded.compute_configuration,
  proxy_configuration = excluded.proxy_configuration, scaling_configuration = excluded.scaling_configuration,
- status = excluded.status, vpc_config = excluded.vpc_config, tags_present = excluded.tags_present
+ status = excluded.status, vpc_config = excluded.vpc_config, tags_present = excluded.tags_present, ownership = excluded.ownership
 `
 
 type PutFleetParams struct {
@@ -1892,6 +1901,7 @@ type PutFleetParams struct {
 	Status               []byte
 	VpcConfig            []byte
 	TagsPresent          bool
+	Ownership            string
 }
 
 func (q *Queries) PutFleet(ctx context.Context, arg PutFleetParams) error {
@@ -1917,6 +1927,7 @@ func (q *Queries) PutFleet(ctx context.Context, arg PutFleetParams) error {
 		arg.Status,
 		arg.VpcConfig,
 		arg.TagsPresent,
+		arg.Ownership,
 	)
 	return err
 }
@@ -2014,8 +2025,8 @@ INSERT INTO codebuild_projects (
  description, encryption_key, last_modified, project_visibility, public_project_alias, queued_timeout_in_minutes,
  resource_access_role, service_role, source_version, timeout_in_minutes, artifacts, badge, build_batch_config, cache,
  environment, file_system_locations, logs_config, secondary_artifacts, secondary_sources, source, vpc_config, webhook,
- environment_variables_present, secondary_source_versions_present, tags_present
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ environment_variables_present, secondary_source_versions_present, tags_present, ownership
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?36)
 ON CONFLICT (partition, account_id, region, project_name) DO UPDATE SET
  build_number = excluded.build_number, arn = excluded.arn, name = excluded.name, auto_retry_limit = excluded.auto_retry_limit,
  concurrent_build_limit = excluded.concurrent_build_limit, created = excluded.created, description = excluded.description,
@@ -2027,7 +2038,7 @@ ON CONFLICT (partition, account_id, region, project_name) DO UPDATE SET
  file_system_locations = excluded.file_system_locations, logs_config = excluded.logs_config, secondary_artifacts = excluded.secondary_artifacts,
  secondary_sources = excluded.secondary_sources, source = excluded.source, vpc_config = excluded.vpc_config, webhook = excluded.webhook,
  environment_variables_present = excluded.environment_variables_present, secondary_source_versions_present = excluded.secondary_source_versions_present,
- tags_present = excluded.tags_present
+ tags_present = excluded.tags_present, ownership = excluded.ownership
 `
 
 type PutProjectParams struct {
@@ -2066,6 +2077,7 @@ type PutProjectParams struct {
 	EnvironmentVariablesPresent    bool
 	SecondarySourceVersionsPresent bool
 	TagsPresent                    bool
+	Ownership                      string
 }
 
 func (q *Queries) PutProject(ctx context.Context, arg PutProjectParams) error {
@@ -2105,6 +2117,7 @@ func (q *Queries) PutProject(ctx context.Context, arg PutProjectParams) error {
 		arg.EnvironmentVariablesPresent,
 		arg.SecondarySourceVersionsPresent,
 		arg.TagsPresent,
+		arg.Ownership,
 	)
 	return err
 }

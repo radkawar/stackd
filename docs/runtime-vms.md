@@ -23,11 +23,11 @@ and subsequent AWS-shaped API calls really create host resources.
 ### Install the host dependencies
 
 Use a systemd host with cgroup v2 and local **rootful Docker Engine without
-user-namespace remapping**. The CLI constructs its shared ECS/Lambda adapters when
-`-docker-host` is supplied, even if your intended workload is EC2 or EKS. Their
-[host admission requirements](ecs.md#setup-and-supported-execution) therefore
-still apply. Docker socket access is effectively host-root authority; granting
-access is not an isolation boundary.
+user-namespace remapping** for these original EC2/EKS host-security contracts.
+`-docker-host` selects transport only: it does not construct Lambda or ECS for
+an EC2/EKS-only launch. Their independent opt-ins and Lambda telemetry/storage
+helpers are not prerequisites here. Docker socket access is effectively host-root
+authority; granting access is not an isolation boundary.
 
 For a fresh Ubuntu host, configure Docker's signed apt repository using the
 [official Ubuntu instructions](https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository).
@@ -83,7 +83,6 @@ uname -m                                      # x86_64 for this guide
 systemctl is-active docker
 test -d /run/systemd/system
 stat -fc %T /sys/fs/cgroup                     # cgroup2fs
-test -e /dev/loop-control
 docker --host unix:///var/run/docker.sock info \
   --format 'OS={{.OSType}} cgroups={{.CgroupVersion}} driver={{.CgroupDriver}} security={{json .SecurityOptions}}'
 ```
@@ -98,27 +97,24 @@ From the repository root:
 
 ```sh
 mkdir -p bin
-make build
+go build -trimpath -o bin/stackd ./cmd/stackd
 # Only if you also enable real ALB sockets:
 CGO_ENABLED=0 go build -o bin/stackd-elbv2-node ./cmd/stackd-elbv2-node
 ```
 
-`make build` builds stackd and both static Linux Lambda telemetry helpers; keep
-those helpers beside the controller binary. There is no special EC2 guest kernel
-or k3d helper compiled by this target. The optional ALB relay is selected with
-`-elbv2-node-executable`; it is not required just to launch a guest or cluster.
+The native controller build is sufficient for EC2/EKS-only use: no Lambda
+telemetry binaries or storage image are required. There is no special EC2 guest
+kernel or k3d helper compiled by this command. The optional ALB relay is selected
+with `-elbv2-node-executable`; it is not required just to launch a guest or cluster.
 
-Provision both shared pinned helpers on the **selected daemon**, during your
-explicit connected preparation phase:
+Provision the native-networking toolkit on the **selected daemon**, during
+your explicit connected preparation phase:
 
 ```sh
 export DOCKER_ENGINE=unix:///var/run/docker.sock
 export TOOLKIT=nicolaka/netshoot@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed283572f47c970c780c03b61
-export STORAGE=ubuntu@sha256:2edbbc5dc405e9612ba3584ce95480277e3eb374407b5505fe26f17df77c7dbc
 docker --host "$DOCKER_ENGINE" pull "$TOOLKIT"
 docker --host "$DOCKER_ENGINE" image inspect "$TOOLKIT"
-docker --host "$DOCKER_ENGINE" pull "$STORAGE"
-docker --host "$DOCKER_ENGINE" image inspect "$STORAGE"
 ```
 
 For an offline deployment, transfer prepared images with `docker image save` /
@@ -129,10 +125,10 @@ runtime's digest-qualified reference resolves. Likewise stage Go dependencies,
 OS packages, firmware, k3d and guest inputs before disconnecting. Runtime flags
 are not download/install commands.
 
-The storage image is a startup prerequisite even for an EC2/EKS-only invocation:
-the shared Lambda adapter acquires its native owner lock with that installed
-helper. Loop-device/ext4 support and telemetry binaries still matter; see the
-[complete shared Docker host contract](runtime-containers.md#shared-docker-host).
+Only if you separately request `-lambda-runtime`, prepare its storage image and
+static Linux telemetry binaries as described in the
+[container guide](runtime-containers.md#shared-docker-host). Lambda's daemon/VM
+storage and networking ownership does not change EC2/EKS's local-host security.
 
 ### Reserve state, capacity and local credentials
 

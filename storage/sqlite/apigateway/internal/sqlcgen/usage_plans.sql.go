@@ -98,7 +98,7 @@ func (q *Queries) DeleteUsagePlanTags(ctx context.Context, arg DeleteUsagePlanTa
 }
 
 const getUsagePlan = `-- name: GetUsagePlan :one
-SELECT "partition", account_id, region, plan_id, name, description, throttle_burst, throttle_rate, quota_limit, quota_offset, quota_period FROM apigateway_usage_plans WHERE partition = ? AND account_id = ? AND region = ? AND plan_id = ?
+SELECT "partition", account_id, region, plan_id, name, description, throttle_burst, throttle_rate, quota_limit, quota_offset, quota_period, cfn_stack_id, cfn_logical_id, cfn_incarnation FROM apigateway_usage_plans WHERE partition = ? AND account_id = ? AND region = ? AND plan_id = ?
 `
 
 type GetUsagePlanParams struct {
@@ -128,12 +128,15 @@ func (q *Queries) GetUsagePlan(ctx context.Context, arg GetUsagePlanParams) (Api
 		&i.QuotaLimit,
 		&i.QuotaOffset,
 		&i.QuotaPeriod,
+		&i.CfnStackID,
+		&i.CfnLogicalID,
+		&i.CfnIncarnation,
 	)
 	return i, err
 }
 
 const getUsagePlanMembership = `-- name: GetUsagePlanMembership :one
-SELECT created FROM apigateway_usage_plan_memberships WHERE partition = ? AND account_id = ? AND region = ? AND plan_id = ? AND client_key_id = ?
+SELECT "partition", account_id, region, plan_id, client_key_id, created, cfn_stack_id, cfn_logical_id, cfn_incarnation FROM apigateway_usage_plan_memberships WHERE partition = ? AND account_id = ? AND region = ? AND plan_id = ? AND client_key_id = ?
 `
 
 type GetUsagePlanMembershipParams struct {
@@ -144,7 +147,7 @@ type GetUsagePlanMembershipParams struct {
 	ClientKeyID string
 }
 
-func (q *Queries) GetUsagePlanMembership(ctx context.Context, arg GetUsagePlanMembershipParams) (time.Time, error) {
+func (q *Queries) GetUsagePlanMembership(ctx context.Context, arg GetUsagePlanMembershipParams) (ApigatewayUsagePlanMembership, error) {
 	row := q.db.QueryRowContext(ctx, getUsagePlanMembership,
 		arg.Partition,
 		arg.AccountID,
@@ -152,9 +155,19 @@ func (q *Queries) GetUsagePlanMembership(ctx context.Context, arg GetUsagePlanMe
 		arg.PlanID,
 		arg.ClientKeyID,
 	)
-	var created time.Time
-	err := row.Scan(&created)
-	return created, err
+	var i ApigatewayUsagePlanMembership
+	err := row.Scan(
+		&i.Partition,
+		&i.AccountID,
+		&i.Region,
+		&i.PlanID,
+		&i.ClientKeyID,
+		&i.Created,
+		&i.CfnStackID,
+		&i.CfnLogicalID,
+		&i.CfnIncarnation,
+	)
+	return i, err
 }
 
 const incrementUsage = `-- name: IncrementUsage :exec
@@ -184,7 +197,7 @@ func (q *Queries) IncrementUsage(ctx context.Context, arg IncrementUsageParams) 
 }
 
 const listUsagePlanKeys = `-- name: ListUsagePlanKeys :many
-SELECT k."partition", k.account_id, k.region, k.client_key_id, k.name, k.description, k.customer_id, k.value, k.enabled, k.created, k.updated FROM apigateway_client_keys k JOIN apigateway_usage_plan_memberships m ON k.partition = m.partition AND k.account_id = m.account_id AND k.region = m.region AND k.client_key_id = m.client_key_id
+SELECT k."partition", k.account_id, k.region, k.client_key_id, k.name, k.description, k.customer_id, k.value, k.enabled, k.created, k.updated, k.cfn_stack_id, k.cfn_logical_id, k.cfn_incarnation FROM apigateway_client_keys k JOIN apigateway_usage_plan_memberships m ON k.partition = m.partition AND k.account_id = m.account_id AND k.region = m.region AND k.client_key_id = m.client_key_id
 WHERE m.partition = ? AND m.account_id = ? AND m.region = ? AND m.plan_id = ? ORDER BY k.client_key_id
 `
 
@@ -221,6 +234,9 @@ func (q *Queries) ListUsagePlanKeys(ctx context.Context, arg ListUsagePlanKeysPa
 			&i.Enabled,
 			&i.Created,
 			&i.Updated,
+			&i.CfnStackID,
+			&i.CfnLogicalID,
+			&i.CfnIncarnation,
 		); err != nil {
 			return nil, err
 		}
@@ -377,7 +393,7 @@ func (q *Queries) ListUsagePlanTags(ctx context.Context, arg ListUsagePlanTagsPa
 }
 
 const listUsagePlans = `-- name: ListUsagePlans :many
-SELECT "partition", account_id, region, plan_id, name, description, throttle_burst, throttle_rate, quota_limit, quota_offset, quota_period FROM apigateway_usage_plans WHERE partition = ? AND account_id = ? AND region = ? ORDER BY plan_id
+SELECT "partition", account_id, region, plan_id, name, description, throttle_burst, throttle_rate, quota_limit, quota_offset, quota_period, cfn_stack_id, cfn_logical_id, cfn_incarnation FROM apigateway_usage_plans WHERE partition = ? AND account_id = ? AND region = ? ORDER BY plan_id
 `
 
 type ListUsagePlansParams struct {
@@ -407,6 +423,9 @@ func (q *Queries) ListUsagePlans(ctx context.Context, arg ListUsagePlansParams) 
 			&i.QuotaLimit,
 			&i.QuotaOffset,
 			&i.QuotaPeriod,
+			&i.CfnStackID,
+			&i.CfnLogicalID,
+			&i.CfnIncarnation,
 		); err != nil {
 			return nil, err
 		}
@@ -422,7 +441,7 @@ func (q *Queries) ListUsagePlans(ctx context.Context, arg ListUsagePlansParams) 
 }
 
 const listUsagePlansForKey = `-- name: ListUsagePlansForKey :many
-SELECT p."partition", p.account_id, p.region, p.plan_id, p.name, p.description, p.throttle_burst, p.throttle_rate, p.quota_limit, p.quota_offset, p.quota_period FROM apigateway_usage_plans p JOIN apigateway_usage_plan_memberships m ON p.partition = m.partition AND p.account_id = m.account_id AND p.region = m.region AND p.plan_id = m.plan_id
+SELECT p."partition", p.account_id, p.region, p.plan_id, p.name, p.description, p.throttle_burst, p.throttle_rate, p.quota_limit, p.quota_offset, p.quota_period, p.cfn_stack_id, p.cfn_logical_id, p.cfn_incarnation FROM apigateway_usage_plans p JOIN apigateway_usage_plan_memberships m ON p.partition = m.partition AND p.account_id = m.account_id AND p.region = m.region AND p.plan_id = m.plan_id
 WHERE m.partition = ? AND m.account_id = ? AND m.region = ? AND m.client_key_id = ? ORDER BY p.plan_id
 `
 
@@ -459,6 +478,9 @@ func (q *Queries) ListUsagePlansForKey(ctx context.Context, arg ListUsagePlansFo
 			&i.QuotaLimit,
 			&i.QuotaOffset,
 			&i.QuotaPeriod,
+			&i.CfnStackID,
+			&i.CfnLogicalID,
+			&i.CfnIncarnation,
 		); err != nil {
 			return nil, err
 		}
@@ -474,22 +496,25 @@ func (q *Queries) ListUsagePlansForKey(ctx context.Context, arg ListUsagePlansFo
 }
 
 const putUsagePlan = `-- name: PutUsagePlan :exec
-INSERT INTO apigateway_usage_plans (partition, account_id, region, plan_id, name, description, throttle_burst, throttle_rate, quota_limit, quota_offset, quota_period) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, plan_id) DO UPDATE SET name = excluded.name, description = excluded.description, throttle_burst = excluded.throttle_burst, throttle_rate = excluded.throttle_rate, quota_limit = excluded.quota_limit, quota_offset = excluded.quota_offset, quota_period = excluded.quota_period
+INSERT INTO apigateway_usage_plans (partition, account_id, region, plan_id, name, description, throttle_burst, throttle_rate, quota_limit, quota_offset, quota_period, cfn_stack_id, cfn_logical_id, cfn_incarnation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, plan_id) DO UPDATE SET name = excluded.name, description = excluded.description, throttle_burst = excluded.throttle_burst, throttle_rate = excluded.throttle_rate, quota_limit = excluded.quota_limit, quota_offset = excluded.quota_offset, quota_period = excluded.quota_period, cfn_stack_id = excluded.cfn_stack_id, cfn_logical_id = excluded.cfn_logical_id, cfn_incarnation = excluded.cfn_incarnation
 `
 
 type PutUsagePlanParams struct {
-	Partition     string
-	AccountID     string
-	Region        string
-	PlanID        string
-	Name          string
-	Description   sql.NullString
-	ThrottleBurst sql.NullInt64
-	ThrottleRate  sql.NullFloat64
-	QuotaLimit    sql.NullInt64
-	QuotaOffset   sql.NullInt64
-	QuotaPeriod   sql.NullString
+	Partition      string
+	AccountID      string
+	Region         string
+	PlanID         string
+	Name           string
+	Description    sql.NullString
+	ThrottleBurst  sql.NullInt64
+	ThrottleRate   sql.NullFloat64
+	QuotaLimit     sql.NullInt64
+	QuotaOffset    sql.NullInt64
+	QuotaPeriod    sql.NullString
+	CfnStackID     string
+	CfnLogicalID   string
+	CfnIncarnation string
 }
 
 func (q *Queries) PutUsagePlan(ctx context.Context, arg PutUsagePlanParams) error {
@@ -505,22 +530,28 @@ func (q *Queries) PutUsagePlan(ctx context.Context, arg PutUsagePlanParams) erro
 		arg.QuotaLimit,
 		arg.QuotaOffset,
 		arg.QuotaPeriod,
+		arg.CfnStackID,
+		arg.CfnLogicalID,
+		arg.CfnIncarnation,
 	)
 	return err
 }
 
 const putUsagePlanMembership = `-- name: PutUsagePlanMembership :exec
-INSERT INTO apigateway_usage_plan_memberships (partition, account_id, region, plan_id, client_key_id, created) VALUES (?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, plan_id, client_key_id) DO UPDATE SET created = excluded.created
+INSERT INTO apigateway_usage_plan_memberships (partition, account_id, region, plan_id, client_key_id, created, cfn_stack_id, cfn_logical_id, cfn_incarnation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, plan_id, client_key_id) DO UPDATE SET created = excluded.created, cfn_stack_id = excluded.cfn_stack_id, cfn_logical_id = excluded.cfn_logical_id, cfn_incarnation = excluded.cfn_incarnation
 `
 
 type PutUsagePlanMembershipParams struct {
-	Partition   string
-	AccountID   string
-	Region      string
-	PlanID      string
-	ClientKeyID string
-	Created     time.Time
+	Partition      string
+	AccountID      string
+	Region         string
+	PlanID         string
+	ClientKeyID    string
+	Created        time.Time
+	CfnStackID     string
+	CfnLogicalID   string
+	CfnIncarnation string
 }
 
 func (q *Queries) PutUsagePlanMembership(ctx context.Context, arg PutUsagePlanMembershipParams) error {
@@ -531,6 +562,9 @@ func (q *Queries) PutUsagePlanMembership(ctx context.Context, arg PutUsagePlanMe
 		arg.PlanID,
 		arg.ClientKeyID,
 		arg.Created,
+		arg.CfnStackID,
+		arg.CfnLogicalID,
+		arg.CfnIncarnation,
 	)
 	return err
 }

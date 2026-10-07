@@ -51,8 +51,17 @@ correspondence, fingerprints, tags, selectors, errors, IAM and scope isolation.
 An actual CLI process/restart workflow also generated all four type/format
 combinations; OpenSSH and PuTTY recovered matching public keys, and OpenSSH
 signed and verified messages with the generated private keys. Native probe keys
-were deleted. This does not implement instance SSH admission, key installation,
-Windows password retrieval or CloudFormation/Parameter Store key ownership.
+were deleted. This does not implement instance SSH admission, key installation
+or Windows password retrieval. CloudFormation key creation stores actual
+generated private material in an encrypted `/ec2/keypair/<key-pair-id>` Parameter
+Store value in the same native transaction; imported keys have no private-key
+parameter. Recovery uses the scoped immutable key-pair ID, while the public
+CloudFormation identifier and Ref remain the key name.
+Creation retries reject supplied physical identities that differ from the
+native incarnation's private admission, including attempts to attach an
+unadmitted foreign ID. Current native IAM is checked before that fence.
+Customer tag changes cannot grant or revoke private admission, which survives
+repository reopen.
 
 ## EBS direct snapshot data plane
 
@@ -489,6 +498,17 @@ retention. Scale-in protection starts at `InService`, not
 `Pending:Wait`; it does not prevent unhealthy-instance replacement. Accepted
 desired capacity is distinct from actual membership and completed activity.
 Activity history survives group deletion.
+
+CloudFormation group, policy, schedule and hook ownership is private native-row
+incarnation metadata, not public tags or a generated-name/token hash. Recovery
+and mutations still enter current native IAM; admitted lost replies retain the
+same private owner. A scaling policy's full scoped ARN, including its immutable
+UUID, fences updates and deletion against same-name replacements. Reads recover
+native group/policy identity from that ARN without template properties and omit
+the optional `AutoScalingGroupName` filter when it is absent.
+[`PolicyName` is a read-only CloudFormation return value](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-autoscaling-scalingpolicy.html#aws-resource-autoscaling-scalingpolicy-return-values),
+not a writable template property. Declarative group-property removals restore
+native create defaults; ordinary native updates retain their merge semantics.
 
 Simple/step policy decisions, one-shot/Unix-calendar schedules, cooldowns, warmup
 and target-tracking alarms use the shared clock and existing CloudWatch owner.
@@ -1592,6 +1612,69 @@ case-only token variants repeatedly returned `InternalError`, despite the
 Their exact observations remain in the route-table fixture and are explicitly
 skipped as unresolved native anomalies, not claimed conformant. Local keys follow
 the documented case-sensitive contract.
+
+### CloudFormation networking ownership
+
+CloudFormation and Cloud Control ownership of VPCs, subnets, internet gateways,
+route tables, NAT gateways, VPC endpoints, security groups and their rules, EIPs,
+network ACLs, DHCP options and ENIs is a private typed claim on the native row
+(schema 390), not a public tag. The claim and an immutable per-incarnation
+creation receipt commit in the same EC2 transaction as the creating command and
+only for identifiers that command allocated; idempotent token replay or a
+supplied existing ID never adopts an unclaimed or foreign row. Rows that existed
+before schema 390 stay unclaimed. Security-group creation also claims its
+automatic egress rule; rules authorized under the group's stack mutation inherit
+the group's claim.
+
+Stack mutations run the ordinary command first, so current IAM decides before
+the claim fence; a stale or foreign incarnation then rolls the whole transaction
+back. Ordinary native and direct Cloud Control mutations retain an existing claim
+without transferring it. Deletion removes the claim, a recreated row starts
+unclaimed, and recovery of a deleted incarnation fails rather than recreating.
+Creation recovery and ownership observation require the current resource-family
+`Describe*` permission and are exact to partition, account and region.
+
+Embedded relations (gateway attachments, routes, subnet route-table and ACL
+associations, ACL entries, DHCP associations and EIP associations) use private
+relation receipts: an immutable incarnation-to-edge admission plus the current
+slot owner, both written atomically with the native edge. Routes use the
+`<route-table-id>|<canonical destination>` slot. A direct EC2 change of the slot
+invalidates the current owner. None of these flows writes, reads or requires
+`stackd:cloudformation:*` tags; such keys are customer metadata and forging or
+removing them changes no ownership. `TestCloudFormationNetworkOwnerPrivateClaims`
+covers tag forgery/removal, lost replies, IAM revocation, scope isolation,
+delete/recreate and SQLite reopen.
+
+### CloudFormation compute ownership
+
+Instances, launch templates and key pairs use the same private native claim and
+immutable creation-receipt admission (schema 399). Volumes and deletion snapshots
+use the authoritative EBS owner's private claim and receipt tables (schema 400),
+not a second EC2 disk catalog. Volume attachments use the instance-owned mapping
+and private native relation slot. Every recovery and ownership observation still
+requires current native IAM; caller scope and resource incarnation must match.
+Direct native and Cloud Control mutations retain, but cannot acquire or transfer,
+an existing stack claim. Customer tags remain mutable and visible metadata.
+
+A key pair's public CloudFormation physical identifier remains its key name;
+private authority and creation recovery name its immutable native `KeyPairId`.
+Generated private-key material is retained through the trusted transactional SSM
+sink. A separate native receipt certifies that exact key's material retention;
+imported or unclaimed keys never authorize SSM cleanup. Cleanup addresses only
+the current authorized native key's exact parameter, never public tagged
+discovery. A key deleted outside CloudFormation cannot authorize parameter
+cleanup by a missing row or a newly recreated key with the same name.
+
+Private ownership does not simulate runtime success. Instance launch still
+requires the configured real native backend and volume creation retains the real
+EBS engine prerequisites. Rejected native admission writes no private owner or
+creation receipt; instance recovery rejects shutting-down or terminated rows.
+The native instance tombstone retains its exact private claim solely for
+authorized deletion stabilization. It is not a new creation admission, never
+matches a different native instance ID, and cannot bypass native terminal-state
+mutation checks. `TestCloudFormationInstanceTerminalClaimTransition` exercises
+this native control-plane transition without claiming guest execution; the
+real-backend prerequisite regression verifies rejected launches admit no claim.
 
 ## Internet gateways and routes
 

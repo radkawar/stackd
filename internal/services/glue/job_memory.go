@@ -100,6 +100,9 @@ func (w memoryWriter) PutJob(v JobRecord) error {
 	if err := w.tx.Check(true); err != nil {
 		return err
 	}
+	if old, ok := w.s.jobDefinitions[v.Key]; ok {
+		v.CFNOwner = old.CFNOwner
+	}
 	w.s.jobDefinitions[v.Key] = cloneJob(v)
 	return nil
 }

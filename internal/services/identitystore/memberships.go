@@ -29,7 +29,10 @@ func (s *Service) createMembership(tx Transaction, in *api.CreateGroupMembership
 	if _, e := tx.Group(Key{store, group}); e != nil {
 		return nil, e
 	}
-	if _, e := tx.MembershipFor(store, user, group); e == nil {
+	if existing, e := tx.MembershipFor(store, user, group); e == nil {
+		if owner := CloudFormationOwner(tx.Context()); owner != "" && existing.CloudFormationOwner == owner {
+			return &api.CreateGroupMembershipOutput{IdentityStoreId: in.IdentityStoreId, MembershipId: new(api.ResourceId(existing.ID))}, nil
+		}
 		return nil, conflict("The user is already a member of the group.")
 	} else if !errors.Is(e, ErrNotFound) {
 		return nil, e
@@ -38,7 +41,7 @@ func (s *Service) createMembership(tx Transaction, in *api.CreateGroupMembership
 	if e != nil {
 		return nil, e
 	}
-	if e := tx.PutMembership(Membership{StoreID: store, ID: id, UserID: user, GroupID: group}); e != nil {
+	if e := tx.PutMembership(Membership{StoreID: store, ID: id, UserID: user, GroupID: group, CloudFormationOwner: CloudFormationOwner(tx.Context())}); e != nil {
 		return nil, e
 	}
 	return &api.CreateGroupMembershipOutput{IdentityStoreId: in.IdentityStoreId, MembershipId: new(api.ResourceId(id))}, nil
@@ -49,6 +52,9 @@ func (s *Service) membership(tx Transaction, action, store, id string) (Membersh
 	}
 	m, e := tx.Membership(Key{store, id})
 	if e != nil {
+		return Membership{}, e
+	}
+	if e := CheckCloudFormationOwner(tx.Context(), m.CloudFormationOwner); e != nil {
 		return Membership{}, e
 	}
 	if e := s.admit(tx, action, store, m.UserID, m.GroupID, id); e != nil {

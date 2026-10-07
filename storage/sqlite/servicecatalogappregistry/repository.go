@@ -78,8 +78,9 @@ func (r reader) applicationRecord(row sqlcgen.AppregistryApplication) (domain.Ap
 	a := domain.Application{
 		Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region},
 		ID:    row.ID, ARN: row.Arn, Name: row.Name, Description: row.Description, ClientToken: row.ClientToken,
-		CreateFingerprint: row.CreateFingerprint,
-		GroupARN:          row.GroupArn, TagGroupARN: row.TagGroupArn,
+		CreateFingerprint:   row.CreateFingerprint,
+		CloudFormationClaim: row.CloudformationClaim,
+		GroupARN:            row.GroupArn, TagGroupARN: row.TagGroupArn,
 		Created: readTime(row.Created), Modified: readTime(row.Modified), Tags: map[string]string{},
 	}
 	tags, err := r.q.ListApplicationTags(r.ctx, a.ARN)
@@ -95,8 +96,9 @@ func (w writer) PutApplication(a domain.Application) error {
 	changed, err := w.q.PutApplication(w.ctx, sqlcgen.PutApplicationParams{
 		Arn: a.ARN, Partition: a.Partition, AccountID: a.AccountID, Region: a.Region,
 		ID: a.ID, Name: a.Name, Description: a.Description, ClientToken: a.ClientToken,
-		CreateFingerprint: a.CreateFingerprint,
-		GroupArn:          a.GroupARN, TagGroupArn: a.TagGroupARN, Created: storeTime(a.Created), Modified: storeTime(a.Modified),
+		CreateFingerprint:   a.CreateFingerprint,
+		CloudformationClaim: a.CloudFormationClaim,
+		GroupArn:            a.GroupARN, TagGroupArn: a.TagGroupARN, Created: storeTime(a.Created), Modified: storeTime(a.Modified),
 	})
 	if err != nil {
 		return err
@@ -155,8 +157,9 @@ func (r reader) attributeGroupRecord(row sqlcgen.AppregistryAttributeGroup) (dom
 		Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region},
 		ID:    row.ID, ARN: row.Arn, Name: row.Name, Description: row.Description,
 		Attributes: row.Attributes, ClientToken: row.ClientToken,
-		CreateFingerprint: row.CreateFingerprint,
-		Created:           readTime(row.Created), Modified: readTime(row.Modified), Tags: map[string]string{},
+		CreateFingerprint:   row.CreateFingerprint,
+		CloudFormationClaim: row.CloudformationClaim,
+		Created:             readTime(row.Created), Modified: readTime(row.Modified), Tags: map[string]string{},
 	}
 	tags, err := r.q.ListAttributeGroupTags(r.ctx, g.ARN)
 	if err != nil {
@@ -172,7 +175,8 @@ func (w writer) PutAttributeGroup(g domain.AttributeGroup) error {
 		Arn: g.ARN, Partition: g.Partition, AccountID: g.AccountID, Region: g.Region,
 		ID: g.ID, Name: g.Name, Description: g.Description, Attributes: g.Attributes,
 		ClientToken: g.ClientToken, Created: storeTime(g.Created), Modified: storeTime(g.Modified),
-		CreateFingerprint: g.CreateFingerprint,
+		CreateFingerprint:   g.CreateFingerprint,
+		CloudformationClaim: g.CloudFormationClaim,
 	})
 	if err != nil {
 		return err
@@ -200,11 +204,19 @@ func (w writer) DeleteAttributeGroup(scope domain.Scope, identifier string) erro
 	}
 	return w.q.DeleteAttributeGroup(w.ctx, row.Arn)
 }
-func (r reader) AttributeGroupAssociations(applicationARN string) ([]string, error) {
-	return r.q.ListAttributeLinks(r.ctx, applicationARN)
+func (r reader) AttributeGroupAssociations(applicationARN string) ([]domain.AttributeGroupAssociation, error) {
+	rows, err := r.q.ListAttributeLinks(r.ctx, applicationARN)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.AttributeGroupAssociation, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, domain.AttributeGroupAssociation{ApplicationARN: row.ApplicationArn, AttributeGroupARN: row.AttributeGroupArn, CloudFormationClaim: row.CloudformationClaim})
+	}
+	return out, nil
 }
-func (w writer) AssociateAttributeGroup(applicationARN, attributeGroupARN string) error {
-	changed, err := w.q.PutAttributeLink(w.ctx, sqlcgen.PutAttributeLinkParams{ApplicationArn: applicationARN, AttributeGroupArn: attributeGroupARN})
+func (w writer) AssociateAttributeGroup(link domain.AttributeGroupAssociation) error {
+	changed, err := w.q.PutAttributeLink(w.ctx, sqlcgen.PutAttributeLinkParams{ApplicationArn: link.ApplicationARN, AttributeGroupArn: link.AttributeGroupARN, CloudformationClaim: link.CloudFormationClaim})
 	if err != nil {
 		return err
 	}
@@ -226,7 +238,8 @@ func (r reader) Associations(applicationARN string) ([]domain.Association, error
 		out = append(out, domain.Association{
 			ApplicationARN: row.ApplicationArn, ResourceARN: row.ResourceArn,
 			ResourceName: row.ResourceName, ResourceType: row.ResourceType,
-			Incarnation: row.Incarnation, ApplyTag: row.ApplyTag != 0, Created: readTime(row.Created),
+			Incarnation: row.Incarnation, CloudFormationClaim: row.CloudformationClaim,
+			ApplyTag: row.ApplyTag != 0, Created: readTime(row.Created),
 		})
 	}
 	return out, nil
@@ -239,6 +252,7 @@ func (w writer) PutAssociation(a domain.Association) error {
 	return w.q.PutAssociation(w.ctx, sqlcgen.PutAssociationParams{
 		ApplicationArn: a.ApplicationARN, ResourceArn: a.ResourceARN, ResourceName: a.ResourceName,
 		ResourceType: a.ResourceType, Incarnation: a.Incarnation, ApplyTag: applyTag, Created: storeTime(a.Created),
+		CloudformationClaim: a.CloudFormationClaim,
 	})
 }
 func (w writer) DeleteAssociation(applicationARN, resourceARN string) error {

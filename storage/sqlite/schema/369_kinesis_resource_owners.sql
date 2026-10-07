@@ -1,0 +1,9 @@
+ALTER TABLE kinesis_streams ADD COLUMN owner_stack_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE kinesis_streams ADD COLUMN owner_logical_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE kinesis_streams ADD COLUMN owner_token TEXT NOT NULL DEFAULT '';
+ALTER TABLE kinesis_consumers ADD COLUMN owner_stack_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE kinesis_consumers ADD COLUMN owner_logical_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE kinesis_consumers ADD COLUMN owner_token TEXT NOT NULL DEFAULT '';
+ALTER TABLE kinesis_policies ADD COLUMN owner_stack_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE kinesis_policies ADD COLUMN owner_logical_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE kinesis_policies ADD COLUMN owner_token TEXT NOT NULL DEFAULT '';

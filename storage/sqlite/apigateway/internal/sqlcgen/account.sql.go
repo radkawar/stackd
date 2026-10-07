@@ -10,7 +10,7 @@ import (
 )
 
 const getAccount = `-- name: GetAccount :one
-SELECT cloudwatch_role_arn FROM apigateway_accounts
+SELECT "partition", account_id, region, cloudwatch_role_arn, cfn_stack_id, cfn_logical_id, cfn_incarnation FROM apigateway_accounts
 WHERE partition = ? AND account_id = ? AND region = ?
 `
 
@@ -20,17 +20,25 @@ type GetAccountParams struct {
 	Region    string
 }
 
-func (q *Queries) GetAccount(ctx context.Context, arg GetAccountParams) (string, error) {
+func (q *Queries) GetAccount(ctx context.Context, arg GetAccountParams) (ApigatewayAccount, error) {
 	row := q.db.QueryRowContext(ctx, getAccount, arg.Partition, arg.AccountID, arg.Region)
-	var cloudwatch_role_arn string
-	err := row.Scan(&cloudwatch_role_arn)
-	return cloudwatch_role_arn, err
+	var i ApigatewayAccount
+	err := row.Scan(
+		&i.Partition,
+		&i.AccountID,
+		&i.Region,
+		&i.CloudwatchRoleArn,
+		&i.CfnStackID,
+		&i.CfnLogicalID,
+		&i.CfnIncarnation,
+	)
+	return i, err
 }
 
 const putAccount = `-- name: PutAccount :exec
-INSERT INTO apigateway_accounts (partition, account_id, region, cloudwatch_role_arn)
-VALUES (?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region) DO UPDATE SET cloudwatch_role_arn = excluded.cloudwatch_role_arn
+INSERT INTO apigateway_accounts (partition, account_id, region, cloudwatch_role_arn, cfn_stack_id, cfn_logical_id, cfn_incarnation)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region) DO UPDATE SET cloudwatch_role_arn = excluded.cloudwatch_role_arn, cfn_stack_id = excluded.cfn_stack_id, cfn_logical_id = excluded.cfn_logical_id, cfn_incarnation = excluded.cfn_incarnation
 `
 
 type PutAccountParams struct {
@@ -38,6 +46,9 @@ type PutAccountParams struct {
 	AccountID         string
 	Region            string
 	CloudwatchRoleArn string
+	CfnStackID        string
+	CfnLogicalID      string
+	CfnIncarnation    string
 }
 
 func (q *Queries) PutAccount(ctx context.Context, arg PutAccountParams) error {
@@ -46,6 +57,9 @@ func (q *Queries) PutAccount(ctx context.Context, arg PutAccountParams) error {
 		arg.AccountID,
 		arg.Region,
 		arg.CloudwatchRoleArn,
+		arg.CfnStackID,
+		arg.CfnLogicalID,
+		arg.CfnIncarnation,
 	)
 	return err
 }

@@ -4,8 +4,10 @@ SELECT * FROM cognitoidentity_pools WHERE partition=? AND account_id=? AND regio
 SELECT * FROM cognitoidentity_pools WHERE partition=? AND region=? AND pool_id=?;
 -- name: ListPools :many
 SELECT * FROM cognitoidentity_pools WHERE partition=? AND account_id=? AND region=? ORDER BY pool_id;
+-- name: PoolByOwner :one
+SELECT * FROM cognitoidentity_pools WHERE partition=? AND account_id=? AND region=? AND owner_stack_id=? AND owner_logical_id=? AND owner_token=? AND owner_token<>'';
 -- name: PutPool :exec
-INSERT INTO cognitoidentity_pools(partition,account_id,region,pool_id,name,allow_unauthenticated,allow_classic,providers,tags,roles,mappings,principal_tag_maps) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+INSERT INTO cognitoidentity_pools(partition,account_id,region,pool_id,name,allow_unauthenticated,allow_classic,providers,tags,roles,mappings,principal_tag_maps,owner_stack_id,owner_logical_id,owner_token) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(partition,account_id,region,pool_id) DO UPDATE SET name=excluded.name,allow_unauthenticated=excluded.allow_unauthenticated,allow_classic=excluded.allow_classic,providers=excluded.providers,tags=excluded.tags,roles=excluded.roles,mappings=excluded.mappings,principal_tag_maps=excluded.principal_tag_maps;
 -- name: DeletePool :exec
 DELETE FROM cognitoidentity_pools WHERE partition=? AND account_id=? AND region=? AND pool_id=?;

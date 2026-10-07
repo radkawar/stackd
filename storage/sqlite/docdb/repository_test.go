@@ -34,6 +34,7 @@ func TestSourceIdentityAndCredentialIntentShareAuditRollback(t *testing.T) {
 	k := domain.Key{Scope: scope, Kind: "cluster", Name: "source"}
 	epoch := time.Unix(0, 0).UTC()
 	v := domain.Cluster{Key: k, RuntimeID: "source-incarnation", Username: "owner", EngineVersion: "5.0", Status: "modifying", Operation: "password", Ciphertext: []byte{1, 2}, PendingCiphertext: []byte{3, 4}, Endpoint: engine.Endpoint{Address: "localhost", Port: 27017, ReplicaSet: "rs0", CA: []byte("trust")}, Created: epoch, Due: epoch, Version: 7, Tags: map[string]string{"owner": "first"}}
+	v.Owner = domain.CloudFormationOwner{StackID: "stack", LogicalID: "Cluster", Token: "claim-token"}
 	appendEvent := func(ctx context.Context) error {
 		return events.AppendAPICallCompleted(ctx, journal.Envelope{At: epoch, Partition: scope.Partition, AccountID: scope.AccountID, Region: scope.Region}, journal.APICallCompleted{EventID: "accepted", EventSource: "docdb.amazonaws.com", EventName: "ModifyDBCluster", Category: journal.CategoryManagement})
 	}
@@ -71,6 +72,9 @@ func TestSourceIdentityAndCredentialIntentShareAuditRollback(t *testing.T) {
 		}
 		if got.RuntimeID != v.RuntimeID || got.Version != 7 || got.Operation != "password" || string(got.PendingCiphertext) != string(v.PendingCiphertext) || string(got.Endpoint.CA) != "trust" || got.Tags["owner"] != "first" {
 			t.Fatalf("source identity/authority escaped rollback: %#v", got)
+		}
+		if got.Owner != v.Owner {
+			t.Fatalf("private cluster authority escaped rollback or restart: %#v", got)
 		}
 		if got.Due.IsZero() || !got.Due.Equal(epoch) {
 			t.Fatalf("epoch deadline changed: %s", got.Due)
@@ -117,8 +121,9 @@ func TestSourceResolutionSharesCurrentIAMReadTransaction(t *testing.T) {
 	scope := domain.Scope{Partition: "aws", AccountID: "111111111111", Region: "us-east-1"}
 	key := domain.Key{Scope: scope, Kind: "cluster", Name: "source"}
 	endpoint := engine.Endpoint{Address: "127.0.0.1", Port: 27017, ReplicaSet: "stackd", CA: []byte("current-trust")}
+	owner := domain.CloudFormationOwner{StackID: "stack", LogicalID: "Cluster", Token: "exact-native-token"}
 	if err := documents.Update(t.Context(), func(tx domain.Transaction) error {
-		if err := tx.PutCluster(domain.Cluster{Key: key, RuntimeID: "current-incarnation", Status: "available", Endpoint: endpoint}); err != nil {
+		if err := tx.PutCluster(domain.Cluster{Key: key, RuntimeID: "current-incarnation", Status: "available", Endpoint: endpoint, Owner: owner}); err != nil {
 			return err
 		}
 		return tx.PutInstance(domain.Instance{Key: domain.Key{Scope: scope, Kind: "db", Name: "writer"}, Cluster: key.Name, Status: "available"})
@@ -148,6 +153,7 @@ func TestSourceResolutionSharesCurrentIAMReadTransaction(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(awsctx.WithMetadata(t.Context(), metadata), 5*time.Second)
 	defer cancel()
+	ctx = docdbservice.WithCloudFormationOwner(ctx, key.Kind, key.Name, owner)
 	got, err := source.ResolveCluster(ctx, key.ARN())
 	if err != nil {
 		t.Fatal(err)

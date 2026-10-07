@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -273,6 +274,9 @@ func (d *DockerExecutor) recoverLateCreates(lifetime context.Context) {
 		}
 		ctx, cancel := context.WithTimeout(lifetime, 30*time.Second)
 		d.recoveryErr = d.recover(ctx, false)
+		if err := d.reconcileImagePins(ctx); err != nil {
+			slog.Error("Lambda image retention reconciliation failed", "namespace", d.config.Namespace, "error", err)
+		}
 		cancel()
 		d.mu.Unlock()
 	}
@@ -300,6 +304,9 @@ func (d *DockerExecutor) Close(ctx context.Context) error {
 		return errors.Join(fmt.Errorf("lambda instance ownership was lost; refusing to sweep a successor's resources"), err, d.removeOwnerVolume(ctx))
 	}
 	if err := d.recover(ctx, true); err != nil {
+		return err
+	}
+	if err := d.reconcileImagePins(ctx); err != nil {
 		return err
 	}
 	if err := d.engine.RemoveContainer(ctx, d.owner); err != nil {

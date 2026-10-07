@@ -18,6 +18,9 @@ func observeStack(inventory *Inventory) (err error) {
 	if err := validateCatalogSelection(inventory.Services); err != nil {
 		return err
 	}
+	if err := observeCloudFormation(inventory); err != nil {
+		return err
+	}
 	stack, err := stackd.New(stackd.Config{})
 	if err != nil {
 		return fmt.Errorf("create default local stack: %w", err)

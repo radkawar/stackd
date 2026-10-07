@@ -61,7 +61,12 @@ func (s *Service) UpdateTable(ctx context.Context, in *api.UpdateTableInput) (*a
 // This only commits regional metadata and may join the scaling transaction:
 // engine reconciliation owns physical changes after commit, without gate inversion.
 func (s *Service) UpdateCapacity(ctx context.Context, in *api.UpdateTableInput) (*api.UpdateTableOutput, *awswire.Error) {
-	return s.updateTableCommand(ctx, in, s.updateTableSettings)
+	return s.updateTableCommand(ctx, in, func(ctx context.Context, tx Transaction, table TableRecord, in *api.UpdateTableInput) (*TableRecord, error) {
+		if err := s.requireEngine(); err != nil {
+			return nil, err
+		}
+		return s.updateTableSettings(ctx, tx, table, in)
+	})
 }
 
 func (s *Service) updateTableCommand(ctx context.Context, in *api.UpdateTableInput, update func(context.Context, Transaction, TableRecord, *api.UpdateTableInput) (*TableRecord, error)) (*api.UpdateTableOutput, *awswire.Error) {

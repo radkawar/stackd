@@ -39,13 +39,16 @@ type EcrImage struct {
 }
 
 type EcrRegistry struct {
-	Partition        string
-	AccountID        string
-	Region           string
-	Policy           string
-	PolicyPrincipals string
-	Scanning         string
-	Replication      string
+	Partition            string
+	AccountID            string
+	Region               string
+	Policy               string
+	PolicyPrincipals     string
+	Scanning             string
+	Replication          string
+	PolicyOwnership      string
+	ReplicationOwnership string
+	ScanningOwnership    string
 }
 
 type EcrReplication struct {
@@ -89,6 +92,7 @@ type EcrRepository struct {
 	PreviewStatus      string
 	PreviewResults     string
 	PreviewExpires     int64
+	Ownership          string
 }
 
 type EcrToken struct {

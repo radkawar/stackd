@@ -11,10 +11,12 @@ type (
 	Application    = domain.Application
 	AttributeGroup = domain.AttributeGroup
 	Association    = domain.Association
-	Configuration  = domain.Configuration
-	Reader         = domain.Reader
-	Transaction    = domain.Transaction
-	Repository     = domain.Repository
+	// AttributeGroupAssociation carries the private CloudFormation edge claim.
+	AttributeGroupAssociation = domain.AttributeGroupAssociation
+	Configuration             = domain.Configuration
+	Reader                    = domain.Reader
+	Transaction               = domain.Transaction
+	Repository                = domain.Repository
 )
 
 func NewMemory(d *memory.Domain) Repository { return domain.NewMemoryRepository(d) }

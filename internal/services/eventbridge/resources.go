@@ -98,7 +98,14 @@ func (s *Service) authorizeRule(r Reader, action string, rule RuleRecord, condit
 	if rule.ManagedBy != "" {
 		conditions["events:ManagedBy"] = []string{rule.ManagedBy}
 	}
-	return s.authorize(r, action, rule.Key.ARN(), rule.Tags, conditions, bus.Policy)
+	if err := s.authorize(r, action, rule.Key.ARN(), rule.Tags, conditions, bus.Policy); err != nil {
+		return err
+	}
+	// PutRule and DeleteRule may observe an absent row and fence it themselves.
+	if action == "PutRule" || action == "DeleteRule" {
+		return nil
+	}
+	return cloudFormationRuleCheck(r.Context(), rule, true)
 }
 
 var invocationRoleResource = regexp.MustCompile(`^role/([!-~]+/)?[A-Za-z0-9_+=,.@-]{1,64}$`)

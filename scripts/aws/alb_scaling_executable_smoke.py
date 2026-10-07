@@ -46,7 +46,7 @@ class Smoke:
     def record(self,label,**values):self.data['observations'].append(dict(label=label,**values));self.save();print(label+': '+json.dumps(values,default=str),flush=True)
     def call(self,kind,method,**parameters):return getattr(self.clients[kind],method)(**parameters)
     def start(self):
-        command=[str(self.args.binary),'-listen','0.0.0.0:'+str(self.port),'-dns-listen',self.dns_endpoint,'-database',str(self.work/'state.sqlite'),'-account-id','819230000001','-clock-start','2026-09-27T12:00:00Z','-docker-host',os.environ.get('DOCKER_HOST','unix:///var/run/docker.sock'),'-compute-endpoint','http://host.docker.internal:'+str(self.port),'-elbv2-node-executable',str(self.args.relay)]
+        command=[str(self.args.binary),'-listen','0.0.0.0:'+str(self.port),'-dns-listen',self.dns_endpoint,'-database',str(self.work/'state.sqlite'),'-account-id','819230000001','-clock-start','2026-09-27T12:00:00Z','-docker-host',os.environ.get('DOCKER_HOST','unix:///var/run/docker.sock'),'-ecs-runtime','-compute-endpoint','http://host.docker.internal:'+str(self.port),'-elbv2-node-executable',str(self.args.relay)]
         self.controller.start(command,self.endpoint,environment=os.environ,timeout=30)
         self.now()
     def now(self):

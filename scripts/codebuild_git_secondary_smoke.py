@@ -230,7 +230,6 @@ def main():
     parser.add_argument('--binary', required=True)
     parser.add_argument('--state-dir', required=True)
     parser.add_argument('--port', type=int, required=True)
-    parser.add_argument('--lambda-telemetry-directory')
     parser.add_argument('--keep-resources', action='store_true')
     parser.add_argument('--docker-host', default='unix:///var/run/docker.sock', choices=['unix:///var/run/docker.sock'])
     args = parser.parse_args()

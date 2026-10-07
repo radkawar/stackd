@@ -72,7 +72,7 @@ func (r reader) zone(row sqlcgen.Route53Zone) (domain.Zone, error) {
 	index := make(map[key]int, len(records))
 	z.Records = make([]domain.RecordSet, len(records))
 	for i, row := range records {
-		rr := domain.RecordSet{Name: row.Name, Type: row.Type, Identifier: row.Identifier, TTL: row.Ttl, Weighted: row.Weighted, Weight: row.Weight, MultiValue: row.MultiValue}
+		rr := domain.RecordSet{Name: row.Name, Type: row.Type, Identifier: row.Identifier, TTL: row.Ttl, Weighted: row.Weighted, Weight: row.Weight, MultiValue: row.MultiValue, Owner: row.CfnOwner}
 		if row.AliasZoneID != "" {
 			rr.Alias = &domain.AliasTarget{HostedZoneID: row.AliasZoneID, DNSName: row.AliasDnsName}
 		}
@@ -96,7 +96,7 @@ func (w writer) PutZone(z domain.Zone) error {
 		return e
 	}
 	for _, rr := range z.Records {
-		row := sqlcgen.PutRecordSetParams{ZoneID: z.ID, Name: rr.Name, Type: rr.Type, Identifier: rr.Identifier, Ttl: rr.TTL, Weighted: rr.Weighted, Weight: rr.Weight, MultiValue: rr.MultiValue}
+		row := sqlcgen.PutRecordSetParams{ZoneID: z.ID, Name: rr.Name, Type: rr.Type, Identifier: rr.Identifier, Ttl: rr.TTL, Weighted: rr.Weighted, Weight: rr.Weight, MultiValue: rr.MultiValue, CfnOwner: rr.Owner}
 		if rr.Alias != nil {
 			row.AliasZoneID = rr.Alias.HostedZoneID
 			row.AliasDnsName = rr.Alias.DNSName

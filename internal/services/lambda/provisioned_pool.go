@@ -178,14 +178,36 @@ func (s *Service) fillProvisioned(row ProvisionedConcurrencyRecord) error {
 }
 func (s *Service) allocateProvisioned(row ProvisionedConcurrencyRecord, function FunctionRecord) error {
 	key := FunctionVersionKey{FunctionKey: function.Key, Version: function.Version}
-	slot := &execution{key: key, leased: true, provisioned: row.Key, provisionedGeneration: row.Generation}
+	slot := &execution{key: key, image: function.Image, leased: true, provisioned: row.Key, provisionedGeneration: row.Generation}
 	s.mu.Lock()
 	if s.closed.Load() {
 		s.mu.Unlock()
 		return s.lifetime.Err()
 	}
-	s.environments[key] = append(s.environments[key], slot)
+	check := s.repository.View(s.lifetime, func(r Reader) error {
+		current, err := r.ProvisionedConcurrency(row.Key)
+		if err != nil {
+			return err
+		}
+		if current.Generation != row.Generation {
+			return ErrNotFound
+		}
+		deployment, err := loadDeployment(r, key)
+		if err != nil {
+			return err
+		}
+		if deployment.DeploymentRevision != function.DeploymentRevision {
+			return ErrNotFound
+		}
+		return nil
+	})
+	if check == nil {
+		s.environments[key] = append(s.environments[key], slot)
+	}
 	s.mu.Unlock()
+	if check != nil {
+		return check
+	}
 	slot.mu.Lock()
 	defer slot.mu.Unlock()
 	environment, expiration, err := s.prepareMode(ownerContext(s.lifetime, function.Key), function, true)
@@ -199,7 +221,7 @@ func (s *Service) allocateProvisioned(row ProvisionedConcurrencyRecord, function
 	}
 	slot.environment, slot.revision, slot.expires, slot.lastUse = environment, function.DeploymentRevision, expiration, s.clock.Now()
 	s.mu.Lock()
-	check := s.repository.View(s.lifetime, func(r Reader) error {
+	check = s.repository.View(s.lifetime, func(r Reader) error {
 		current, err := r.ProvisionedConcurrency(row.Key)
 		if err != nil {
 			return err

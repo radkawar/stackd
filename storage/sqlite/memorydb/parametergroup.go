@@ -6,7 +6,7 @@ import (
 )
 
 func (r reader) readParameterGroup(row sqlcgen.MemorydbParameterGroup) (domain.ParameterGroup, error) {
-	v := domain.ParameterGroup{Key: domain.Key{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Kind: "parametergroup", Name: row.Name}, Family: row.Family, Description: row.Description}
+	v := domain.ParameterGroup{Key: domain.Key{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Kind: "parametergroup", Name: row.Name}, Family: row.Family, Description: row.Description, CloudFormationOwner: row.CloudformationOwner}
 	var e error
 	v.Tags, e = r.tags(row.Arn)
 	if e != nil {
@@ -40,7 +40,7 @@ func (r reader) ParameterGroups(sc domain.Scope) ([]domain.ParameterGroup, error
 	return out, nil
 }
 func (w writer) PutParameterGroup(v domain.ParameterGroup) error {
-	if e := w.q.PutParameterGroup(w.ctx, sqlcgen.PutParameterGroupParams{Arn: v.Key.ARN(), Partition: v.Key.Partition, AccountID: v.Key.AccountID, Region: v.Key.Region, Name: v.Key.Name, Family: v.Family, Description: v.Description}); e != nil {
+	if e := w.q.PutParameterGroup(w.ctx, sqlcgen.PutParameterGroupParams{Arn: v.Key.ARN(), Partition: v.Key.Partition, AccountID: v.Key.AccountID, Region: v.Key.Region, Name: v.Key.Name, Family: v.Family, Description: v.Description, CloudformationOwner: v.CloudFormationOwner}); e != nil {
 		return e
 	}
 	if e := w.putTags(v.Key.ARN(), v.Tags); e != nil {

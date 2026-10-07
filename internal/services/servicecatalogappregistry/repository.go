@@ -11,24 +11,37 @@ type Scope struct{ Partition, AccountID, Region string }
 type Application struct {
 	Scope
 	ID, ARN, Name, Description, ClientToken, CreateFingerprint string
-	GroupARN, TagGroupARN                                      string
-	Created, Modified                                          time.Time
-	Tags                                                       map[string]string
+	// CloudFormationClaim comes only from trusted creation context, not ClientToken.
+	CloudFormationClaim   string
+	GroupARN, TagGroupARN string
+	Created, Modified     time.Time
+	Tags                  map[string]string
 }
 
 type AttributeGroup struct {
 	Scope
 	ID, ARN, Name, Description, Attributes, ClientToken, CreateFingerprint string
-	Created, Modified                                                      time.Time
-	Tags                                                                   map[string]string
+	// CloudFormationClaim comes only from trusted creation context, not ClientToken.
+	CloudFormationClaim string
+	Created, Modified   time.Time
+	Tags                map[string]string
 }
 
 // Association retains association intent, not resource tags or an ARN catalog.
 // Resource existence, tags and incarnation remain authoritative at their owner.
+// CloudFormationClaim is the private creating stack-resource incarnation,
+// empty for direct API edges.
 type Association struct {
 	ApplicationARN, ResourceARN, ResourceName, ResourceType, Incarnation string
+	CloudFormationClaim                                                  string
 	ApplyTag                                                             bool
 	Created                                                              time.Time
+}
+
+// AttributeGroupAssociation is one application/attribute group edge.
+// CloudFormationClaim is private and empty for direct API edges.
+type AttributeGroupAssociation struct {
+	ApplicationARN, AttributeGroupARN, CloudFormationClaim string
 }
 
 type Configuration struct {
@@ -43,7 +56,7 @@ type Reader interface {
 	AccountApplications(partition, accountID string) ([]Application, error)
 	AttributeGroup(Scope, string) (AttributeGroup, bool, error)
 	AttributeGroups(Scope) ([]AttributeGroup, error)
-	AttributeGroupAssociations(string) ([]string, error)
+	AttributeGroupAssociations(string) ([]AttributeGroupAssociation, error)
 	Associations(string) ([]Association, error)
 	Configuration(Scope) (Configuration, error)
 }
@@ -54,7 +67,7 @@ type Transaction interface {
 	DeleteApplication(Scope, string) error
 	PutAttributeGroup(AttributeGroup) error
 	DeleteAttributeGroup(Scope, string) error
-	AssociateAttributeGroup(string, string) error
+	AssociateAttributeGroup(AttributeGroupAssociation) error
 	DisassociateAttributeGroup(string, string) error
 	PutAssociation(Association) error
 	DeleteAssociation(string, string) error

@@ -54,10 +54,11 @@ func applicationFixture(scope domain.Scope, id, name string) domain.Application 
 	return domain.Application{
 		Scope: scope, ID: id, ARN: fmt.Sprintf("arn:%s:servicecatalog:%s:%s:/applications/%s", scope.Partition, scope.Region, scope.AccountID, id),
 		Name: name, Description: "retained application", ClientToken: "application-token",
-		CreateFingerprint: "original-application-fingerprint",
-		GroupARN:          "arn:aws:resource-groups:us-east-1:111111111111:group/application",
-		TagGroupARN:       "arn:aws:resource-groups:us-east-1:111111111111:group/application-tags",
-		Created:           time.Unix(0, 0).UTC(), Modified: time.Unix(1700000000, 123456789).UTC(),
+		CreateFingerprint:   "original-application-fingerprint",
+		CloudFormationClaim: "trusted-application-claim",
+		GroupARN:            "arn:aws:resource-groups:us-east-1:111111111111:group/application",
+		TagGroupARN:         "arn:aws:resource-groups:us-east-1:111111111111:group/application-tags",
+		Created:             time.Unix(0, 0).UTC(), Modified: time.Unix(1700000000, 123456789).UTC(),
 		Tags: map[string]string{"team": "blue"},
 	}
 }
@@ -65,8 +66,9 @@ func attributeFixture(scope domain.Scope, id, name string) domain.AttributeGroup
 	return domain.AttributeGroup{
 		Scope: scope, ID: id, ARN: fmt.Sprintf("arn:%s:servicecatalog:%s:%s:/attribute-groups/%s", scope.Partition, scope.Region, scope.AccountID, id),
 		Name: name, Description: "retained attributes", Attributes: "{\n  \"team\": [\"blue\", \"green\"]\n}", ClientToken: "attribute-token",
-		CreateFingerprint: "original-attribute-fingerprint",
-		Created:           time.Unix(0, 0).UTC(), Modified: time.Unix(1700000000, 123456789).UTC(),
+		CreateFingerprint:   "original-attribute-fingerprint",
+		CloudFormationClaim: "trusted-attribute-claim",
+		Created:             time.Unix(0, 0).UTC(), Modified: time.Unix(1700000000, 123456789).UTC(),
 		Tags: map[string]string{"owner": "platform"},
 	}
 }
@@ -333,7 +335,10 @@ func TestUniqueNamesAndCascadesRetainIndependentResources(t *testing.T) {
 			scope := domain.Scope{Partition: "aws", AccountID: "111111111111", Region: "us-east-1"}
 			a, b := applicationFixture(scope, "a", "first"), applicationFixture(scope, "b", "second")
 			g, h := attributeFixture(scope, "g", "shared"), attributeFixture(scope, "h", "retained")
-			association := domain.Association{ApplicationARN: a.ARN, ResourceARN: "arn:aws:s3:::bucket", ResourceName: "bucket", ResourceType: "AWS::S3::Bucket", Incarnation: "first-incarnation", ApplyTag: true, Created: time.Unix(1700000000, 0).UTC()}
+			association := domain.Association{ApplicationARN: a.ARN, ResourceARN: "arn:aws:s3:::bucket", ResourceName: "bucket", ResourceType: "AWS::S3::Bucket", Incarnation: "first-incarnation", CloudFormationClaim: "first-resource-claim", ApplyTag: true, Created: time.Unix(1700000000, 0).UTC()}
+			edgeClaim := func(app domain.Application, attributes domain.AttributeGroup) string {
+				return "claim:" + app.ID + "/" + attributes.ID
+			}
 			if err := r.apps.Update(t.Context(), func(tx domain.Transaction) error {
 				for _, app := range []domain.Application{a, b} {
 					if err := tx.PutApplication(app); err != nil {
@@ -347,7 +352,7 @@ func TestUniqueNamesAndCascadesRetainIndependentResources(t *testing.T) {
 				}
 				for _, app := range []domain.Application{a, b} {
 					for _, attributes := range []domain.AttributeGroup{g, h} {
-						if err := tx.AssociateAttributeGroup(app.ARN, attributes.ARN); err != nil {
+						if err := tx.AssociateAttributeGroup(domain.AttributeGroupAssociation{ApplicationARN: app.ARN, AttributeGroupARN: attributes.ARN, CloudFormationClaim: edgeClaim(app, attributes)}); err != nil {
 							return err
 						}
 					}
@@ -357,10 +362,10 @@ func TestUniqueNamesAndCascadesRetainIndependentResources(t *testing.T) {
 						return err
 					}
 				}
-				if err := tx.AssociateAttributeGroup(a.ARN, g.ARN); err != nil {
+				if err := tx.AssociateAttributeGroup(domain.AttributeGroupAssociation{ApplicationARN: a.ARN, AttributeGroupARN: g.ARN}); err != nil {
 					return err
 				}
-				association.Incarnation, association.ApplyTag = "replacement-incarnation", false
+				association.Incarnation, association.CloudFormationClaim, association.ApplyTag = "replacement-incarnation", "", false
 				return tx.PutAssociation(association)
 			}); err != nil {
 				t.Fatal(err)
@@ -372,7 +377,9 @@ func TestUniqueNamesAndCascadesRetainIndependentResources(t *testing.T) {
 				func(tx domain.Transaction) error {
 					return tx.PutAttributeGroup(attributeFixture(scope, "duplicate", g.Name))
 				},
-				func(tx domain.Transaction) error { return tx.AssociateAttributeGroup(a.ARN, "missing") },
+				func(tx domain.Transaction) error {
+					return tx.AssociateAttributeGroup(domain.AttributeGroupAssociation{ApplicationARN: a.ARN, AttributeGroupARN: "missing"})
+				},
 				func(tx domain.Transaction) error {
 					row := association
 					row.ApplicationARN = "missing"
@@ -391,6 +398,14 @@ func TestUniqueNamesAndCascadesRetainIndependentResources(t *testing.T) {
 				if !reflect.DeepEqual(rows, []domain.Association{association}) {
 					t.Fatalf("association replacement: %#v", rows)
 				}
+				links, err := tx.AttributeGroupAssociations(a.ARN)
+				if err != nil {
+					return err
+				}
+				// Replacing a link replaces its private claim; it never survives a direct edge.
+				if want := []domain.AttributeGroupAssociation{{ApplicationARN: a.ARN, AttributeGroupARN: g.ARN}, {ApplicationARN: a.ARN, AttributeGroupARN: h.ARN, CloudFormationClaim: edgeClaim(a, h)}}; !reflect.DeepEqual(links, want) {
+					t.Fatalf("attribute link claims: %#v", links)
+				}
 				if err := tx.DisassociateAttributeGroup(a.ARN, g.ARN); err != nil {
 					return err
 				}
@@ -405,7 +420,7 @@ func TestUniqueNamesAndCascadesRetainIndependentResources(t *testing.T) {
 					if err != nil {
 						return err
 					}
-					if !reflect.DeepEqual(links, []string{h.ARN}) {
+					if want := []domain.AttributeGroupAssociation{{ApplicationARN: app.ARN, AttributeGroupARN: h.ARN, CloudFormationClaim: edgeClaim(app, h)}}; !reflect.DeepEqual(links, want) {
 						t.Fatalf("attribute deletion left links: %#v", links)
 					}
 				}
@@ -444,8 +459,8 @@ func TestUniqueNamesAndCascadesRetainIndependentResources(t *testing.T) {
 					return err
 				}
 				retained := association
-				retained.ApplicationARN, retained.Incarnation, retained.ApplyTag = b.ARN, "first-incarnation", true
-				if !reflect.DeepEqual(links, []string{h.ARN}) || !reflect.DeepEqual(rows, []domain.Association{retained}) {
+				retained.ApplicationARN, retained.Incarnation, retained.CloudFormationClaim, retained.ApplyTag = b.ARN, "first-incarnation", "first-resource-claim", true
+				if want := []domain.AttributeGroupAssociation{{ApplicationARN: b.ARN, AttributeGroupARN: h.ARN, CloudFormationClaim: edgeClaim(b, h)}}; !reflect.DeepEqual(links, want) || !reflect.DeepEqual(rows, []domain.Association{retained}) {
 					t.Fatal("application deletion damaged independent associations")
 				}
 				return nil

@@ -54,20 +54,22 @@ their containers or guests.
 The quick start runs the API control plane only. Real functions, tasks, databases,
 virtual machines, and Kubernetes workloads require their native backends.
 **Use a dedicated, trusted Linux host** for the full runtime setup: rootful Docker,
-systemd/cgroup v2, and KVM for accelerated guests. A laptop API-only deployment does
-not need those dependencies.
+systemd/cgroup v2, and KVM for accelerated guests. The API controller also supports
+a native macOS build; opt-in Lambda/DynamoDB/Kinesis on Docker Desktop use its real
+Linux VM, not ECS's local-host contract. This is an intended deployment contract,
+not a claim of an observed macOS run. An API-only deployment needs no Docker.
 
 | Deployment | Prepare first | Enable in the controller |
 | --- | --- | --- |
-| Lambda, ECS, CodeBuild, DynamoDB, Kinesis | [Docker host, helper binaries, and installed images](docs/runtime-containers.md#shared-docker-host) | `-docker-host` |
+| Lambda, ECS, CodeBuild, DynamoDB, Kinesis | [Docker host, selected helpers, and installed images](docs/runtime-containers.md#shared-docker-host) | `-docker-host` plus, respectively, `-lambda-runtime`, `-ecs-runtime`, `-codebuild-runtime`, `-dynamodb-runtime`, `-kinesis-runtime` |
 | RDS, DocumentDB compatibility, OpenSearch, Kafka/MSK, Valkey, MQ, Glue/Athena | [Per-engine images, TLS, and state](docs/runtime-containers.md) | Docker plus the service's runtime flag |
 | Real EC2/EBS guests | [QEMU/KVM, firmware, networking, and imported guest images](docs/runtime-vms.md#qemukvm-ec2) | Docker, SQLite, and `-ec2-state-directory` |
 | EKS Kubernetes clusters | [Pinned k3d and k3s images](docs/runtime-vms.md#k3d-eks) | Docker, SQLite, and `-eks-state-directory` |
 | EKS managed EC2 workers | [Prepared worker AMIs and worker routing](docs/runtime-vms.md#k3d-eks) | Both EC2 and EKS runtimes |
 | Lambda managed-instance guests | [Guest Docker, SSM, runtime images, and Lambda agent](docs/runtime-vms.md#managed-instance-lambda) | EC2 plus the managed-Lambda selectors |
-| ALB sockets, ORC inventory, ECR scanning | [Relay/encoder/scanner preparation](docs/runtime-containers.md) | Their documented helper flags and dependencies |
+| ALB sockets, ORC inventory, ECR scanning | [Relay/encoder/scanner preparation](docs/runtime-containers.md) | ALB/scanner helper flags; `-docker-host -inventory-orc-runtime` for ORC |
 
-Build the controller and Lambda telemetry helpers:
+Build the native controller (and, with `make build`, the static Linux helpers needed only by Lambda):
 
 ```sh
 make build
@@ -79,17 +81,20 @@ these foreground launches. **Stop the previous controller first**; these are
 alternatives, not three processes sharing a database. Flags can be combined on
 one controller when all corresponding dependencies are prepared.
 
-### Docker-backed execution
+### Docker-backed Lambda execution
 
 ```sh
 ./bin/stackd -listen 0.0.0.0:4566 -database ./data/stackd.sqlite \
-  -docker-host unix:///var/run/docker.sock
+  -docker-host unix:///var/run/docker.sock -lambda-runtime
 ```
 
-The CLI constructs Lambda and ECS together, so their shared host/helper
-requirements apply even when you only want a database. Optional engines still
-need their flags, for example `-rds-runtime` after installing the PostgreSQL/MySQL
-images. See the [complete container deployment recipes](docs/runtime-containers.md).
+`-docker-host` selects Engine transport only; it does not enable any execution
+owner or pull images. The five flags listed above and `-inventory-orc-runtime`
+default to false; each enables only its own real boundary. ECS's local
+Linux/rootful/systemd/cgroup-v2 admission applies only when ECS is requested.
+Other engines retain their service-specific opt-ins, such as `-rds-runtime`.
+See the [container recipes](docs/runtime-containers.md), including the
+[native macOS / Docker Desktop recipe](docs/runtime-containers.md#native-macos-controller-with-docker-desktop).
 
 ### QEMU/KVM guests
 

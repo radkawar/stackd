@@ -9,7 +9,7 @@ import (
 
 func (s *Service) registerPermissions() {
 	register(s, "ssoadmin", "PutInlinePolicyToPermissionSet", func(tx Transaction, in *api.PutInlinePolicyToPermissionSetInput) (*api.PutInlinePolicyToPermissionSetOutput, error) {
-		_, p, e := s.permission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "PutInlinePolicyToPermissionSet")
+		_, p, e := s.ownedPermission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "PutInlinePolicyToPermissionSet")
 		if e != nil {
 			return nil, e
 		}
@@ -20,14 +20,14 @@ func (s *Service) registerPermissions() {
 		return &api.PutInlinePolicyToPermissionSetOutput{}, tx.PutPermissionSet(p)
 	})
 	register(s, "ssoadmin", "GetInlinePolicyForPermissionSet", func(tx Transaction, in *api.GetInlinePolicyForPermissionSetInput) (*api.GetInlinePolicyForPermissionSetOutput, error) {
-		_, p, e := s.permission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "GetInlinePolicyForPermissionSet")
+		_, p, e := s.ownedPermission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "GetInlinePolicyForPermissionSet")
 		if e != nil {
 			return nil, e
 		}
 		return &api.GetInlinePolicyForPermissionSetOutput{InlinePolicy: new(api.PermissionSetPolicyDocument(p.InlinePolicy))}, nil
 	})
 	register(s, "ssoadmin", "DeleteInlinePolicyFromPermissionSet", func(tx Transaction, in *api.DeleteInlinePolicyFromPermissionSetInput) (*api.DeleteInlinePolicyFromPermissionSetOutput, error) {
-		_, p, e := s.permission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "DeleteInlinePolicyFromPermissionSet")
+		_, p, e := s.ownedPermission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "DeleteInlinePolicyFromPermissionSet")
 		if e != nil {
 			return nil, e
 		}
@@ -35,7 +35,7 @@ func (s *Service) registerPermissions() {
 		return &api.DeleteInlinePolicyFromPermissionSetOutput{}, tx.PutPermissionSet(p)
 	})
 	register(s, "ssoadmin", "AttachManagedPolicyToPermissionSet", func(tx Transaction, in *api.AttachManagedPolicyToPermissionSetInput) (*api.AttachManagedPolicyToPermissionSetOutput, error) {
-		i, p, e := s.permission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "AttachManagedPolicyToPermissionSet")
+		i, p, e := s.ownedPermission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "AttachManagedPolicyToPermissionSet")
 		if e != nil {
 			return nil, e
 		}
@@ -50,7 +50,7 @@ func (s *Service) registerPermissions() {
 		return &api.AttachManagedPolicyToPermissionSetOutput{}, tx.PutPermissionSet(p)
 	})
 	register(s, "ssoadmin", "DetachManagedPolicyFromPermissionSet", func(tx Transaction, in *api.DetachManagedPolicyFromPermissionSetInput) (*api.DetachManagedPolicyFromPermissionSetOutput, error) {
-		_, p, e := s.permission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "DetachManagedPolicyFromPermissionSet")
+		_, p, e := s.ownedPermission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "DetachManagedPolicyFromPermissionSet")
 		if e != nil {
 			return nil, e
 		}
@@ -62,7 +62,7 @@ func (s *Service) registerPermissions() {
 		return &api.DetachManagedPolicyFromPermissionSetOutput{}, tx.PutPermissionSet(p)
 	})
 	register(s, "ssoadmin", "ListManagedPoliciesInPermissionSet", func(tx Transaction, in *api.ListManagedPoliciesInPermissionSetInput) (*api.ListManagedPoliciesInPermissionSetOutput, error) {
-		_, p, e := s.permission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "ListManagedPoliciesInPermissionSet")
+		_, p, e := s.ownedPermission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "ListManagedPoliciesInPermissionSet")
 		if e != nil {
 			return nil, e
 		}
@@ -80,7 +80,7 @@ func (s *Service) registerPermissions() {
 		return out, nil
 	})
 	register(s, "ssoadmin", "AttachCustomerManagedPolicyReferenceToPermissionSet", func(tx Transaction, in *api.AttachCustomerManagedPolicyReferenceToPermissionSetInput) (*api.AttachCustomerManagedPolicyReferenceToPermissionSetOutput, error) {
-		_, p, e := s.permission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "AttachCustomerManagedPolicyReferenceToPermissionSet")
+		_, p, e := s.ownedPermission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "AttachCustomerManagedPolicyReferenceToPermissionSet")
 		if e != nil {
 			return nil, e
 		}
@@ -95,7 +95,7 @@ func (s *Service) registerPermissions() {
 		return &api.AttachCustomerManagedPolicyReferenceToPermissionSetOutput{}, tx.PutPermissionSet(p)
 	})
 	register(s, "ssoadmin", "DetachCustomerManagedPolicyReferenceFromPermissionSet", func(tx Transaction, in *api.DetachCustomerManagedPolicyReferenceFromPermissionSetInput) (*api.DetachCustomerManagedPolicyReferenceFromPermissionSetOutput, error) {
-		_, p, e := s.permission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "DetachCustomerManagedPolicyReferenceFromPermissionSet")
+		_, p, e := s.ownedPermission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "DetachCustomerManagedPolicyReferenceFromPermissionSet")
 		if e != nil {
 			return nil, e
 		}
@@ -111,7 +111,7 @@ func (s *Service) registerPermissions() {
 		return &api.DetachCustomerManagedPolicyReferenceFromPermissionSetOutput{}, tx.PutPermissionSet(p)
 	})
 	register(s, "ssoadmin", "ListCustomerManagedPolicyReferencesInPermissionSet", func(tx Transaction, in *api.ListCustomerManagedPolicyReferencesInPermissionSetInput) (*api.ListCustomerManagedPolicyReferencesInPermissionSetOutput, error) {
-		_, p, e := s.permission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "ListCustomerManagedPolicyReferencesInPermissionSet")
+		_, p, e := s.ownedPermission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "ListCustomerManagedPolicyReferencesInPermissionSet")
 		if e != nil {
 			return nil, e
 		}
@@ -129,7 +129,7 @@ func (s *Service) registerPermissions() {
 		return out, nil
 	})
 	register(s, "ssoadmin", "PutPermissionsBoundaryToPermissionSet", func(tx Transaction, in *api.PutPermissionsBoundaryToPermissionSetInput) (*api.PutPermissionsBoundaryToPermissionSetOutput, error) {
-		i, p, e := s.permission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "PutPermissionsBoundaryToPermissionSet")
+		i, p, e := s.ownedPermission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "PutPermissionsBoundaryToPermissionSet")
 		if e != nil {
 			return nil, e
 		}
@@ -153,7 +153,7 @@ func (s *Service) registerPermissions() {
 		return &api.PutPermissionsBoundaryToPermissionSetOutput{}, tx.PutPermissionSet(p)
 	})
 	register(s, "ssoadmin", "GetPermissionsBoundaryForPermissionSet", func(tx Transaction, in *api.GetPermissionsBoundaryForPermissionSetInput) (*api.GetPermissionsBoundaryForPermissionSetOutput, error) {
-		_, p, e := s.permission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "GetPermissionsBoundaryForPermissionSet")
+		_, p, e := s.ownedPermission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "GetPermissionsBoundaryForPermissionSet")
 		if e != nil {
 			return nil, e
 		}
@@ -166,7 +166,7 @@ func (s *Service) registerPermissions() {
 		return out, nil
 	})
 	register(s, "ssoadmin", "DeletePermissionsBoundaryFromPermissionSet", func(tx Transaction, in *api.DeletePermissionsBoundaryFromPermissionSetInput) (*api.DeletePermissionsBoundaryFromPermissionSetOutput, error) {
-		_, p, e := s.permission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "DeletePermissionsBoundaryFromPermissionSet")
+		_, p, e := s.ownedPermission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "DeletePermissionsBoundaryFromPermissionSet")
 		if e != nil {
 			return nil, e
 		}

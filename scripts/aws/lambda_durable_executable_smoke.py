@@ -64,7 +64,7 @@ def main():
         nonlocal process, log, starts
         starts += 1
         log = (state / ('controller-' + str(starts) + '.log')).open('wb')
-        process = subprocess.Popen([str(Path(args.binary).resolve()), '-listen', '0.0.0.0:' + str(port), '-public-endpoint', endpoint, '-database', str(database), '-docker-host', args.docker_host, '-lambda-telemetry-directory', args.telemetry_directory, '-compute-endpoint', 'http://host.docker.internal:' + str(port)], env=env, stdout=log, stderr=log)
+        process = subprocess.Popen([str(Path(args.binary).resolve()), '-listen', '0.0.0.0:' + str(port), '-public-endpoint', endpoint, '-database', str(database), '-docker-host', args.docker_host, '-lambda-runtime', '-lambda-telemetry-directory', args.telemetry_directory, '-compute-endpoint', 'http://host.docker.internal:' + str(port)], env=env, stdout=log, stderr=log)
         def health():
             if process.poll() is not None:
                 raise RuntimeError('Controller exited; inspect owned log')

@@ -328,7 +328,6 @@ def main():
     parser.add_argument("--skip-artifacts", action="store_true")
     args = parser.parse_args()
     args.docker_host = "unix:///var/run/docker.sock"
-    args.lambda_telemetry_directory = str(Path(args.binary).resolve().parent)
     args.ecr_scanner = None
     args.keep_resources = False
     import boto3

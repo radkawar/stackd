@@ -161,6 +161,7 @@ func runCommand[I, O any](s *Service, ctx context.Context, name string, in *I, f
 	}
 	var out *O
 	err = s.repository.Attempt(ctx, func(tx Transaction) error {
+		tx = bindCloudFormationOwnership(tx)
 		var err error
 		out, err = fn(tx, in)
 		if err != nil {

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
+	"net"
+	"net/url"
 	"regexp"
 	"stackd/internal/authorization"
 	api "stackd/internal/awsapi/mq"
@@ -63,7 +65,7 @@ func (s *Service) load(ctx context.Context, r Reader, id, action string, conditi
 		}
 		return v, e
 	}
-	if requestedARN != "" && requestedARN != v.ARN {
+	if (requestedARN != "" && requestedARN != v.ARN) || cloudFormationForeign(ctx, cloudFormationBroker, v.Ownership) {
 		return BrokerRecord{}, brokerNotFound(id)
 	}
 	var attributes map[string][]string
@@ -152,6 +154,9 @@ func (s *Service) createBroker(ctx context.Context, t Transaction, in *api.Creat
 	id := "b-" + uuid.NewString()
 	v := BrokerRecord{Scope: sc, ID: id, ARN: "arn:" + sc.Partition + ":mq:" + sc.Region + ":" + sc.AccountID + ":broker:" + name + ":" + id, Name: name, Engine: engine, EngineVersion: version, InstanceType: instance, State: "CREATION_IN_PROGRESS", CreatorRequestID: value(in.CreatorRequestId), Username: username, Password: password, Version: 1, Created: s.clock.Now(), Due: s.clock.Now(), Operation: "create", Tags: map[string]string{}}
 	v.Users = users
+	if claim, ok := cloudFormationClaim(ctx, cloudFormationBroker); ok {
+		v.Ownership = claim
+	}
 	v.MaintenanceDay, v.MaintenanceTime, v.MaintenanceZone = "SUNDAY", "03:00", "UTC"
 	if in.MaintenanceWindowStartTime != nil {
 		if e := setMaintenance(&v, in.MaintenanceWindowStartTime); e != nil {
@@ -195,7 +200,9 @@ func (s *Service) createBroker(ctx context.Context, t Transaction, in *api.Creat
 		// TODO: Comeback calibrate cross-name token reuse and remaining creation
 		// fields; retain original instance/engine identity before their rollout.
 		if v.CreatorRequestID != "" && existing.CreatorRequestID == v.CreatorRequestID {
-			if existing.Name != v.Name || existing.Engine != v.Engine {
+			// A creator token is caller-supplied and may be public; only the
+			// same private incarnation claim (or none on both) may replay it.
+			if existing.Name != v.Name || existing.Engine != v.Engine || existing.Ownership != v.Ownership {
 				return nil, failure("ConflictException", "CreatorRequestId has already been used", 409)
 			}
 			if existing.InstanceType != v.InstanceType {
@@ -285,6 +292,11 @@ func (s *Service) describeBroker(ctx context.Context, t Transaction, in *api.Des
 	if v.State == "RUNNING" {
 		i := api.BrokerInstance{}
 		stringList(&i.Endpoints, []string{v.Endpoint.Address})
+		if endpoint, err := url.Parse(v.Endpoint.Address); err == nil {
+			if ip := net.ParseIP(endpoint.Hostname()); ip != nil {
+				text(&i.IpAddress, ip.String())
+			}
+		}
 		if v.Endpoint.ConsoleURL != "" {
 			text(&i.ConsoleURL, v.Endpoint.ConsoleURL)
 		}

@@ -362,6 +362,8 @@ SELECT * FROM ec2_network_interfaces WHERE partition = sqlc.arg(partition) AND a
 INSERT INTO ec2_network_interfaces (
  subnet_owner_account_id,
  lambda_mapping_owner_arn,
+ lambda_function_owner_arn, lambda_function_owner_incarnation,
+ network_control_owner_id,
  partition, account_id, region, resource_id, network_interface_id, owner_id, requester_id, requester_managed,
  availability_zone, availability_zone_id, subnet_id, vpc_id, mac_address, description, interface_type,
  source_dest_check, status, private_ip_address, private_dns_name, groups_present, private_ip_addresses_present,
@@ -372,6 +374,8 @@ INSERT INTO ec2_network_interfaces (
 VALUES (
  sqlc.arg(subnet_owner_account_id),
  sqlc.arg(lambda_mapping_owner_arn),
+ sqlc.arg(lambda_function_owner_arn), sqlc.arg(lambda_function_owner_incarnation),
+ sqlc.arg(network_control_owner_id),
  sqlc.arg(partition), sqlc.arg(account_id), sqlc.arg(region), sqlc.arg(resource_id), sqlc.arg(network_interface_id),
  sqlc.arg(owner_id), sqlc.arg(requester_id), sqlc.arg(requester_managed), sqlc.arg(availability_zone),
  sqlc.arg(availability_zone_id), sqlc.arg(subnet_id), sqlc.arg(vpc_id), sqlc.arg(mac_address), sqlc.arg(description),
@@ -384,6 +388,9 @@ VALUES (
 )
 ON CONFLICT (partition, account_id, region, resource_id) DO UPDATE SET
  subnet_owner_account_id = excluded.subnet_owner_account_id,
+ lambda_function_owner_arn = excluded.lambda_function_owner_arn,
+ lambda_function_owner_incarnation = excluded.lambda_function_owner_incarnation,
+ network_control_owner_id = excluded.network_control_owner_id,
  network_interface_id = excluded.network_interface_id, owner_id = excluded.owner_id, requester_id = excluded.requester_id,
  requester_managed = excluded.requester_managed, availability_zone = excluded.availability_zone, availability_zone_id = excluded.availability_zone_id,
  subnet_id = excluded.subnet_id, vpc_id = excluded.vpc_id, mac_address = excluded.mac_address, description = excluded.description,

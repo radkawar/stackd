@@ -15,12 +15,14 @@ ORDER BY region, name;
 
 -- name: PutCluster :exec
 INSERT INTO ecs_clusters (
+ ownership,
  partition, account_id, region, name, cluster_arn, cluster_name, status,
  active_services_count, pending_tasks_count, registered_container_instances_count, running_tasks_count,
  attachments_status, attachments, configuration, default_capacity_provider_strategy,
  service_connect_defaults, settings, statistics, capacity_providers_present, created, updated
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, name) DO UPDATE SET
+ ownership = excluded.ownership,
  cluster_arn = excluded.cluster_arn, cluster_name = excluded.cluster_name, status = excluded.status,
  active_services_count = excluded.active_services_count, pending_tasks_count = excluded.pending_tasks_count,
  registered_container_instances_count = excluded.registered_container_instances_count,
@@ -94,14 +96,16 @@ LIMIT sqlc.arg(row_limit);
 
 -- name: PutTaskDefinition :exec
 INSERT INTO ecs_task_definitions (
+ ownership,
  partition, account_id, region, family, revision, task_definition_arn, task_family, task_revision, status,
  cpu, memory, network_mode, ipc_mode, pid_mode, execution_role_arn, task_role_arn, registered_by,
  registered_at, deregistered_at, delete_requested_at, enable_fault_injection,
  container_definitions, ephemeral_storage, inference_accelerators, placement_constraints,
  proxy_configuration, requires_attributes, runtime_platform, volumes,
  compatibilities_present, requires_compatibilities_present
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, family, revision) DO UPDATE SET
+ ownership = excluded.ownership,
  task_definition_arn = excluded.task_definition_arn, task_family = excluded.task_family,
  task_revision = excluded.task_revision, status = excluded.status, cpu = excluded.cpu, memory = excluded.memory,
  network_mode = excluded.network_mode, ipc_mode = excluded.ipc_mode, pid_mode = excluded.pid_mode,

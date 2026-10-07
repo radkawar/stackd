@@ -245,7 +245,7 @@ func (q *Queries) GetSource(ctx context.Context, streamID string) (FirehoseSourc
 }
 
 const getStream = `-- name: GetStream :one
-SELECT id, "partition", account_id, region, name, status, version, created, updated, lifecycle_due, buffer_id, tags_present FROM firehose_streams WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name = ?4
+SELECT id, "partition", account_id, region, name, status, version, created, updated, lifecycle_due, buffer_id, tags_present, cfn_owner FROM firehose_streams WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name = ?4
 `
 
 type GetStreamParams struct {
@@ -276,12 +276,13 @@ func (q *Queries) GetStream(ctx context.Context, arg GetStreamParams) (FirehoseS
 		&i.LifecycleDue,
 		&i.BufferID,
 		&i.TagsPresent,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const getStreamByID = `-- name: GetStreamByID :one
-SELECT id, "partition", account_id, region, name, status, version, created, updated, lifecycle_due, buffer_id, tags_present FROM firehose_streams WHERE id = ?
+SELECT id, "partition", account_id, region, name, status, version, created, updated, lifecycle_due, buffer_id, tags_present, cfn_owner FROM firehose_streams WHERE id = ?
 `
 
 func (q *Queries) GetStreamByID(ctx context.Context, id string) (FirehoseStream, error) {
@@ -300,6 +301,7 @@ func (q *Queries) GetStreamByID(ctx context.Context, id string) (FirehoseStream,
 		&i.LifecycleDue,
 		&i.BufferID,
 		&i.TagsPresent,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -518,7 +520,7 @@ func (q *Queries) ListRecords(ctx context.Context, bufferID string) ([]FirehoseR
 }
 
 const listStreams = `-- name: ListStreams :many
-SELECT id, "partition", account_id, region, name, status, version, created, updated, lifecycle_due, buffer_id, tags_present FROM firehose_streams WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name > ?4 AND (?5 = '' OR CASE WHEN EXISTS (SELECT 1 FROM firehose_sources WHERE stream_id = firehose_streams.id) THEN 'KinesisStreamAsSource' ELSE 'DirectPut' END = ?5) ORDER BY name LIMIT ?6
+SELECT id, "partition", account_id, region, name, status, version, created, updated, lifecycle_due, buffer_id, tags_present, cfn_owner FROM firehose_streams WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND name > ?4 AND (?5 = '' OR CASE WHEN EXISTS (SELECT 1 FROM firehose_sources WHERE stream_id = firehose_streams.id) THEN 'KinesisStreamAsSource' ELSE 'DirectPut' END = ?5) ORDER BY name LIMIT ?6
 `
 
 type ListStreamsParams struct {
@@ -559,6 +561,7 @@ func (q *Queries) ListStreams(ctx context.Context, arg ListStreamsParams) ([]Fir
 			&i.LifecycleDue,
 			&i.BufferID,
 			&i.TagsPresent,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -627,7 +630,7 @@ func (q *Queries) NextDelivery(ctx context.Context) (FirehoseBuffer, error) {
 }
 
 const nextLifecycle = `-- name: NextLifecycle :one
-SELECT id, "partition", account_id, region, name, status, version, created, updated, lifecycle_due, buffer_id, tags_present FROM firehose_streams WHERE status IN ('CREATING', 'DELETING') ORDER BY lifecycle_due, id LIMIT 1
+SELECT id, "partition", account_id, region, name, status, version, created, updated, lifecycle_due, buffer_id, tags_present, cfn_owner FROM firehose_streams WHERE status IN ('CREATING', 'DELETING') ORDER BY lifecycle_due, id LIMIT 1
 `
 
 func (q *Queries) NextLifecycle(ctx context.Context) (FirehoseStream, error) {
@@ -646,6 +649,7 @@ func (q *Queries) NextLifecycle(ctx context.Context) (FirehoseStream, error) {
 		&i.LifecycleDue,
 		&i.BufferID,
 		&i.TagsPresent,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -692,7 +696,7 @@ func (q *Queries) NextProcessing(ctx context.Context) (FirehoseProcessing, error
 }
 
 const nextSource = `-- name: NextSource :one
-SELECT firehose_streams.id, firehose_streams."partition", firehose_streams.account_id, firehose_streams.region, firehose_streams.name, firehose_streams.status, firehose_streams.version, firehose_streams.created, firehose_streams.updated, firehose_streams.lifecycle_due, firehose_streams.buffer_id, firehose_streams.tags_present FROM firehose_streams JOIN firehose_sources ON firehose_sources.stream_id = firehose_streams.id WHERE status = 'ACTIVE' ORDER BY firehose_sources.due, firehose_streams.id LIMIT 1
+SELECT firehose_streams.id, firehose_streams."partition", firehose_streams.account_id, firehose_streams.region, firehose_streams.name, firehose_streams.status, firehose_streams.version, firehose_streams.created, firehose_streams.updated, firehose_streams.lifecycle_due, firehose_streams.buffer_id, firehose_streams.tags_present, firehose_streams.cfn_owner FROM firehose_streams JOIN firehose_sources ON firehose_sources.stream_id = firehose_streams.id WHERE status = 'ACTIVE' ORDER BY firehose_sources.due, firehose_streams.id LIMIT 1
 `
 
 func (q *Queries) NextSource(ctx context.Context) (FirehoseStream, error) {
@@ -711,6 +715,7 @@ func (q *Queries) NextSource(ctx context.Context) (FirehoseStream, error) {
 		&i.LifecycleDue,
 		&i.BufferID,
 		&i.TagsPresent,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -1043,8 +1048,8 @@ func (q *Queries) PutSource(ctx context.Context, arg PutSourceParams) error {
 }
 
 const putStream = `-- name: PutStream :exec
-INSERT INTO firehose_streams (id, partition, account_id, region, name, status, version, created, updated, lifecycle_due, buffer_id, tags_present)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+INSERT INTO firehose_streams (id, partition, account_id, region, name, status, version, created, updated, lifecycle_due, buffer_id, tags_present, cfn_owner)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
 ON CONFLICT (id) DO UPDATE SET partition = excluded.partition, account_id = excluded.account_id, region = excluded.region, name = excluded.name, status = excluded.status, version = excluded.version, created = excluded.created, updated = excluded.updated, lifecycle_due = excluded.lifecycle_due, buffer_id = excluded.buffer_id, tags_present = excluded.tags_present
 `
 
@@ -1061,6 +1066,7 @@ type PutStreamParams struct {
 	LifecycleDue time.Time
 	BufferID     string
 	TagsPresent  bool
+	CfnOwner     string
 }
 
 func (q *Queries) PutStream(ctx context.Context, arg PutStreamParams) error {
@@ -1077,6 +1083,7 @@ func (q *Queries) PutStream(ctx context.Context, arg PutStreamParams) error {
 		arg.LifecycleDue,
 		arg.BufferID,
 		arg.TagsPresent,
+		arg.CfnOwner,
 	)
 	return err
 }

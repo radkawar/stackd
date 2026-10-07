@@ -139,6 +139,7 @@ type CodebuildCredential struct {
 	AuthType   string
 	Arn        string
 	Ciphertext []byte
+	Ownership  string
 }
 
 type CodebuildFleet struct {
@@ -163,6 +164,7 @@ type CodebuildFleet struct {
 	Status               []byte
 	VpcConfig            []byte
 	TagsPresent          bool
+	Ownership            string
 }
 
 type CodebuildFleetTag struct {
@@ -234,6 +236,7 @@ type CodebuildProject struct {
 	EnvironmentVariablesPresent    bool
 	SecondarySourceVersionsPresent bool
 	TagsPresent                    bool
+	Ownership                      string
 }
 
 type CodebuildProjectSourceVersion struct {

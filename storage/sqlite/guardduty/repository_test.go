@@ -47,14 +47,14 @@ func repository(t *testing.T, kind string) (domain.Repository, func() domain.Rep
 func records(scope domain.Scope) (domain.Detector, domain.Finding, domain.Filter) {
 	now := time.Date(2031, 2, 3, 4, 5, 6, 123456789, time.UTC)
 	arn := fmt.Sprintf("arn:%s:guardduty:%s:%s:detector/detector", scope.Partition, scope.Region, scope.AccountID)
-	detector := domain.Detector{Scope: scope, ID: "detector", ARN: arn, Status: "ENABLED", Frequency: "SIX_HOURS", ServiceRole: "role", ClientToken: "detector-token", Created: now, Updated: now.Add(time.Minute), Tags: map[string]string{"owner": "security"}, Features: []domain.Feature{
+	detector := domain.Detector{CFNOwnership: domain.CloudFormationOwnership{Owner: "detector-owner", Token: "detector-incarnation"}, Scope: scope, ID: "detector", ARN: arn, Status: "ENABLED", Frequency: "SIX_HOURS", ServiceRole: "role", ClientToken: "detector-token", Created: now, Updated: now.Add(time.Minute), Tags: map[string]string{"owner": "security"}, Features: []domain.Feature{
 		{Name: "RUNTIME_MONITORING", Status: "DISABLED", Updated: now, Additional: []domain.AdditionalFeature{{Name: "EKS_ADDON_MANAGEMENT", Status: "DISABLED", Updated: now}}},
 		{Name: "S3_DATA_EVENTS", Status: "ENABLED", Updated: now, Additional: []domain.AdditionalFeature{}},
 	}}
 	finding := domain.Finding{Scope: scope, DetectorID: detector.ID, ID: "finding", SampleType: "Recon:EC2/PortProbeUnprotectedPort", SampleRevision: "immutable-corpus-v1", Created: now, Updated: now.Add(time.Hour), Count: 9, Archived: true, Feedback: "USEFUL"}
 	longMin, longMax, zeroLong := api.Long(math.MinInt64), api.Long(math.MaxInt64), api.Long(0)
 	intMin, intMax, zeroInt := api.Integer(math.MinInt32), api.Integer(math.MaxInt32), api.Integer(0)
-	filter := domain.Filter{Scope: scope, DetectorID: detector.ID, Name: "triage", ARN: arn + "/filter/triage", Action: "ARCHIVE", Description: "retained criteria", DescriptionSet: true, ClientToken: "filter-token", Rank: 4, Version: 8, Created: now, Updated: now.Add(time.Hour), Tags: map[string]string{"owner": "analyst"}, Criteria: api.FindingCriteria{Criterion: api.Criterion{
+	filter := domain.Filter{CFNOwnership: domain.CloudFormationOwnership{Owner: "filter-owner", Token: "filter-incarnation"}, Scope: scope, DetectorID: detector.ID, Name: "triage", ARN: arn + "/filter/triage", Action: "ARCHIVE", Description: "retained criteria", DescriptionSet: true, ClientToken: "filter-token", Rank: 4, Version: 8, Created: now, Updated: now.Add(time.Hour), Tags: map[string]string{"owner": "analyst"}, Criteria: api.FindingCriteria{Criterion: api.Criterion{
 		"all-operators":    {Eq: api.Eq{"second", "first", "second"}, Equals: api.Equals{"equal"}, Neq: api.Neq{"neq"}, NotEquals: api.NotEquals{"not-equal"}, Matches: api.Matches{"prefix*", "*suffix"}, NotMatches: api.NotMatches{"excluded*"}, GreaterThan: &longMin, GreaterThanOrEqual: &zeroLong, LessThan: &longMax, LessThanOrEqual: &zeroLong, Gt: &intMin, Gte: &zeroInt, Lt: &intMax, Lte: &zeroInt},
 		"empty-lists":      {Eq: api.Eq{}, Equals: api.Equals{}, Neq: api.Neq{}, NotEquals: api.NotEquals{}, Matches: api.Matches{}, NotMatches: api.NotMatches{}},
 		"absent-operators": {},

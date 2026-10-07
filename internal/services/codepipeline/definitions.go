@@ -76,6 +76,14 @@ func (s *Service) updatePipeline(tx Transaction, in *api.UpdatePipelineInput) (*
 	if err != nil {
 		return nil, err
 	}
+	updateHash, _ := tx.Context().Value(cfnUpdateKey{}).(string)
+	if updateHash != "" && v.LastUpdate == updateHash {
+		current, err := findDefinition(tx, v, v.Version)
+		if err != nil {
+			return nil, err
+		}
+		return &api.UpdatePipelineOutput{Pipeline: &current.Declaration}, nil
+	}
 	d, err := s.admitDefinition(tx, in.Pipeline, v.Version+1)
 	if err != nil {
 		return nil, err
@@ -83,6 +91,7 @@ func (s *Service) updatePipeline(tx Transaction, in *api.UpdatePipelineInput) (*
 	d.Scope = v.Scope
 	d.Incarnation = v.Incarnation
 	v.Version++
+	v.LastUpdate = updateHash
 	v.UpdatedAt = s.clock.Now().UTC()
 	if err = tx.PutDefinition(d); err != nil {
 		return nil, err

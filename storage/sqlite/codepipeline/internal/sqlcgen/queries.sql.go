@@ -821,7 +821,7 @@ func (q *Queries) ListOverrides(ctx context.Context, executionID string) ([]Code
 }
 
 const listPipelines = `-- name: ListPipelines :many
-SELECT "partition", account_id, region, name, incarnation, version, created_at, updated_at, polling_disabled_at FROM codepipeline_pipelines WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
+SELECT "partition", account_id, region, name, incarnation, version, created_at, updated_at, polling_disabled_at, ownership, last_update FROM codepipeline_pipelines WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
 `
 
 type ListPipelinesParams struct {
@@ -849,6 +849,8 @@ func (q *Queries) ListPipelines(ctx context.Context, arg ListPipelinesParams) ([
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.PollingDisabledAt,
+			&i.Ownership,
+			&i.LastUpdate,
 		); err != nil {
 			return nil, err
 		}
@@ -1742,7 +1744,7 @@ func (q *Queries) PutOverrides(ctx context.Context, arg PutOverridesParams) erro
 }
 
 const putPipelines = `-- name: PutPipelines :exec
-INSERT INTO codepipeline_pipelines (partition, account_id, region, name, incarnation, version, created_at, updated_at, polling_disabled_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) ON CONFLICT (incarnation) DO UPDATE SET partition = excluded.partition, account_id = excluded.account_id, region = excluded.region, name = excluded.name, version = excluded.version, created_at = excluded.created_at, updated_at = excluded.updated_at, polling_disabled_at = excluded.polling_disabled_at
+INSERT INTO codepipeline_pipelines (partition, account_id, region, name, incarnation, version, created_at, updated_at, polling_disabled_at, ownership, last_update) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11) ON CONFLICT (incarnation) DO UPDATE SET partition = excluded.partition, account_id = excluded.account_id, region = excluded.region, name = excluded.name, version = excluded.version, created_at = excluded.created_at, updated_at = excluded.updated_at, polling_disabled_at = excluded.polling_disabled_at, ownership = excluded.ownership, last_update = excluded.last_update
 `
 
 type PutPipelinesParams struct {
@@ -1755,6 +1757,8 @@ type PutPipelinesParams struct {
 	CreatedAt         int64
 	UpdatedAt         int64
 	PollingDisabledAt int64
+	Ownership         string
+	LastUpdate        string
 }
 
 func (q *Queries) PutPipelines(ctx context.Context, arg PutPipelinesParams) error {
@@ -1768,6 +1772,8 @@ func (q *Queries) PutPipelines(ctx context.Context, arg PutPipelinesParams) erro
 		arg.CreatedAt,
 		arg.UpdatedAt,
 		arg.PollingDisabledAt,
+		arg.Ownership,
+		arg.LastUpdate,
 	)
 	return err
 }

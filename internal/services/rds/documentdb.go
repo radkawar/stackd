@@ -14,6 +14,7 @@ type DocumentDB interface {
 	CheckCreate(context.Context, any) error
 	Databases(context.Context) ([]Database, error)
 	Snapshots(context.Context) ([]Snapshot, error)
+	CloudFormationRequestedPort(context.Context, string, string) (int32, bool, error)
 }
 
 func (s *Service) queryDatabases(ctx context.Context, tx Reader) ([]Database, error) {

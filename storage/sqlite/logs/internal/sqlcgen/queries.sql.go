@@ -181,7 +181,7 @@ func (q *Queries) DeleteTags(ctx context.Context, groupID string) error {
 }
 
 const getDestination = `-- name: GetDestination :one
-SELECT "partition", account_id, region, name, target_arn, role_arn, access_policy, created FROM logs_destinations WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
+SELECT "partition", account_id, region, name, target_arn, role_arn, access_policy, created, cfn_owner FROM logs_destinations WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
 `
 
 type GetDestinationParams struct {
@@ -208,12 +208,13 @@ func (q *Queries) GetDestination(ctx context.Context, arg GetDestinationParams) 
 		&i.RoleArn,
 		&i.AccessPolicy,
 		&i.Created,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const getGroup = `-- name: GetGroup :one
-SELECT "partition", account_id, region, name, id, created, sequence, retention_days FROM logs_groups WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
+SELECT "partition", account_id, region, name, id, created, sequence, retention_days, cfn_owner FROM logs_groups WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
 `
 
 type GetGroupParams struct {
@@ -240,12 +241,13 @@ func (q *Queries) GetGroup(ctx context.Context, arg GetGroupParams) (LogsGroup, 
 		&i.Created,
 		&i.Sequence,
 		&i.RetentionDays,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const getResourcePolicy = `-- name: GetResourcePolicy :one
-SELECT "partition", account_id, region, policy_scope, name, group_id, document, updated, revision FROM logs_resource_policies
+SELECT "partition", account_id, region, policy_scope, name, group_id, document, updated, revision, cfn_owner FROM logs_resource_policies
 WHERE partition = ? AND account_id = ? AND region = ? AND policy_scope = ? AND name = ?
 `
 
@@ -276,12 +278,13 @@ func (q *Queries) GetResourcePolicy(ctx context.Context, arg GetResourcePolicyPa
 		&i.Document,
 		&i.Updated,
 		&i.Revision,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const getStream = `-- name: GetStream :one
-SELECT group_id, name, id, created, first_event, last_event, last_ingestion, event_count FROM logs_streams WHERE group_id = ? AND name = ?
+SELECT group_id, name, id, created, first_event, last_event, last_ingestion, event_count, cfn_owner FROM logs_streams WHERE group_id = ? AND name = ?
 `
 
 type GetStreamParams struct {
@@ -301,12 +304,13 @@ func (q *Queries) GetStream(ctx context.Context, arg GetStreamParams) (LogsStrea
 		&i.LastEvent,
 		&i.LastIngestion,
 		&i.EventCount,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const getSubscription = `-- name: GetSubscription :one
-SELECT group_id, name, id, pattern, destination_arn, apply_on_transformed_logs, distribution, field_selection, created, disabled_until, role_arn, target_arn, role_source_arn, sender_role_arn FROM logs_subscriptions WHERE group_id = ? AND name = ?
+SELECT group_id, name, id, pattern, destination_arn, apply_on_transformed_logs, distribution, field_selection, created, disabled_until, role_arn, target_arn, role_source_arn, sender_role_arn, cfn_owner FROM logs_subscriptions WHERE group_id = ? AND name = ?
 `
 
 type GetSubscriptionParams struct {
@@ -332,6 +336,7 @@ func (q *Queries) GetSubscription(ctx context.Context, arg GetSubscriptionParams
 		&i.TargetArn,
 		&i.RoleSourceArn,
 		&i.SenderRoleArn,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -528,7 +533,7 @@ func (q *Queries) ListDestinationTags(ctx context.Context, arg ListDestinationTa
 }
 
 const listDestinations = `-- name: ListDestinations :many
-SELECT "partition", account_id, region, name, target_arn, role_arn, access_policy, created FROM logs_destinations
+SELECT "partition", account_id, region, name, target_arn, role_arn, access_policy, created, cfn_owner FROM logs_destinations
 WHERE partition = ?1 AND account_id = ?2 AND region = ?3
  AND name > ?4 AND substr(name, 1, length(?5)) = ?5
 ORDER BY name LIMIT ?6
@@ -568,6 +573,7 @@ func (q *Queries) ListDestinations(ctx context.Context, arg ListDestinationsPara
 			&i.RoleArn,
 			&i.AccessPolicy,
 			&i.Created,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -583,7 +589,7 @@ func (q *Queries) ListDestinations(ctx context.Context, arg ListDestinationsPara
 }
 
 const listGroups = `-- name: ListGroups :many
-SELECT "partition", account_id, region, name, id, created, sequence, retention_days FROM logs_groups WHERE partition = ?1 AND account_id = ?2 AND region = ?3
+SELECT "partition", account_id, region, name, id, created, sequence, retention_days, cfn_owner FROM logs_groups WHERE partition = ?1 AND account_id = ?2 AND region = ?3
  AND name > ?4 AND substr(name, 1, length(?5)) = ?5
  AND instr(name, ?6) > 0
  AND (?7 = '' OR ?7 = 'STANDARD')
@@ -628,6 +634,7 @@ func (q *Queries) ListGroups(ctx context.Context, arg ListGroupsParams) ([]LogsG
 			&i.Created,
 			&i.Sequence,
 			&i.RetentionDays,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -643,7 +650,7 @@ func (q *Queries) ListGroups(ctx context.Context, arg ListGroupsParams) ([]LogsG
 }
 
 const listResourcePolicies = `-- name: ListResourcePolicies :many
-SELECT "partition", account_id, region, policy_scope, name, group_id, document, updated, revision FROM logs_resource_policies
+SELECT "partition", account_id, region, policy_scope, name, group_id, document, updated, revision, cfn_owner FROM logs_resource_policies
 WHERE partition = ?1 AND account_id = ?2 AND region = ?3
  AND policy_scope = ?4 AND name > ?5
  AND (?6 = '' OR name = ?6)
@@ -687,6 +694,7 @@ func (q *Queries) ListResourcePolicies(ctx context.Context, arg ListResourcePoli
 			&i.Document,
 			&i.Updated,
 			&i.Revision,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -702,7 +710,7 @@ func (q *Queries) ListResourcePolicies(ctx context.Context, arg ListResourcePoli
 }
 
 const listStreamsByName = `-- name: ListStreamsByName :many
-SELECT group_id, name, id, created, first_event, last_event, last_ingestion, event_count FROM logs_streams WHERE group_id = ?1
+SELECT group_id, name, id, created, first_event, last_event, last_ingestion, event_count, cfn_owner FROM logs_streams WHERE group_id = ?1
  AND substr(name,1,length(?2)) = ?2
  AND name > ?3 ORDER BY name LIMIT ?4
 `
@@ -737,6 +745,7 @@ func (q *Queries) ListStreamsByName(ctx context.Context, arg ListStreamsByNamePa
 			&i.LastEvent,
 			&i.LastIngestion,
 			&i.EventCount,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -752,7 +761,7 @@ func (q *Queries) ListStreamsByName(ctx context.Context, arg ListStreamsByNamePa
 }
 
 const listStreamsByNameBackward = `-- name: ListStreamsByNameBackward :many
-SELECT group_id, name, id, created, first_event, last_event, last_ingestion, event_count FROM logs_streams WHERE group_id = ?1
+SELECT group_id, name, id, created, first_event, last_event, last_ingestion, event_count, cfn_owner FROM logs_streams WHERE group_id = ?1
  AND substr(name,1,length(?2)) = ?2
  AND (?3 = '' OR name < ?3) ORDER BY name DESC LIMIT ?4
 `
@@ -787,6 +796,7 @@ func (q *Queries) ListStreamsByNameBackward(ctx context.Context, arg ListStreams
 			&i.LastEvent,
 			&i.LastIngestion,
 			&i.EventCount,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -802,7 +812,7 @@ func (q *Queries) ListStreamsByNameBackward(ctx context.Context, arg ListStreams
 }
 
 const listStreamsByTime = `-- name: ListStreamsByTime :many
-SELECT group_id, name, id, created, first_event, last_event, last_ingestion, event_count FROM logs_streams WHERE group_id = ?1
+SELECT group_id, name, id, created, first_event, last_event, last_ingestion, event_count, cfn_owner FROM logs_streams WHERE group_id = ?1
  AND (?2 = '' OR (last_event, name) > (?3, ?2))
  ORDER BY last_event, name LIMIT ?4
 `
@@ -837,6 +847,7 @@ func (q *Queries) ListStreamsByTime(ctx context.Context, arg ListStreamsByTimePa
 			&i.LastEvent,
 			&i.LastIngestion,
 			&i.EventCount,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -852,7 +863,7 @@ func (q *Queries) ListStreamsByTime(ctx context.Context, arg ListStreamsByTimePa
 }
 
 const listStreamsByTimeBackward = `-- name: ListStreamsByTimeBackward :many
-SELECT group_id, name, id, created, first_event, last_event, last_ingestion, event_count FROM logs_streams WHERE group_id = ?1
+SELECT group_id, name, id, created, first_event, last_event, last_ingestion, event_count, cfn_owner FROM logs_streams WHERE group_id = ?1
  AND (?2 = '' OR (last_event, name) < (?3, ?2))
  ORDER BY last_event DESC, name DESC LIMIT ?4
 `
@@ -887,6 +898,7 @@ func (q *Queries) ListStreamsByTimeBackward(ctx context.Context, arg ListStreams
 			&i.LastEvent,
 			&i.LastIngestion,
 			&i.EventCount,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -902,7 +914,7 @@ func (q *Queries) ListStreamsByTimeBackward(ctx context.Context, arg ListStreams
 }
 
 const listSubscriptions = `-- name: ListSubscriptions :many
-SELECT group_id, name, id, pattern, destination_arn, apply_on_transformed_logs, distribution, field_selection, created, disabled_until, role_arn, target_arn, role_source_arn, sender_role_arn FROM logs_subscriptions WHERE group_id = ?1
+SELECT group_id, name, id, pattern, destination_arn, apply_on_transformed_logs, distribution, field_selection, created, disabled_until, role_arn, target_arn, role_source_arn, sender_role_arn, cfn_owner FROM logs_subscriptions WHERE group_id = ?1
  AND name > ?2 AND substr(name, 1, length(?3)) = ?3
 ORDER BY name LIMIT ?4
 `
@@ -943,6 +955,7 @@ func (q *Queries) ListSubscriptions(ctx context.Context, arg ListSubscriptionsPa
 			&i.TargetArn,
 			&i.RoleSourceArn,
 			&i.SenderRoleArn,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -1007,10 +1020,10 @@ func (q *Queries) NextSubscriptionDelivery(ctx context.Context) (NextSubscriptio
 }
 
 const putDestination = `-- name: PutDestination :exec
-INSERT INTO logs_destinations (partition, account_id, region, name, target_arn, role_arn, access_policy, created)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO logs_destinations (partition, account_id, region, name, target_arn, role_arn, access_policy, created, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, name) DO UPDATE SET
- target_arn=excluded.target_arn, role_arn=excluded.role_arn, access_policy=excluded.access_policy
+ target_arn=excluded.target_arn, role_arn=excluded.role_arn, access_policy=excluded.access_policy, cfn_owner=excluded.cfn_owner
 `
 
 type PutDestinationParams struct {
@@ -1022,6 +1035,7 @@ type PutDestinationParams struct {
 	RoleArn      string
 	AccessPolicy string
 	Created      int64
+	CfnOwner     string
 }
 
 func (q *Queries) PutDestination(ctx context.Context, arg PutDestinationParams) error {
@@ -1034,6 +1048,7 @@ func (q *Queries) PutDestination(ctx context.Context, arg PutDestinationParams) 
 		arg.RoleArn,
 		arg.AccessPolicy,
 		arg.Created,
+		arg.CfnOwner,
 	)
 	return err
 }
@@ -1064,10 +1079,10 @@ func (q *Queries) PutDestinationTag(ctx context.Context, arg PutDestinationTagPa
 }
 
 const putGroup = `-- name: PutGroup :exec
-INSERT INTO logs_groups (partition, account_id, region, name, id, created, sequence, retention_days)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO logs_groups (partition, account_id, region, name, id, created, sequence, retention_days, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, name) DO UPDATE SET
- sequence=excluded.sequence, retention_days=excluded.retention_days
+ sequence=excluded.sequence, retention_days=excluded.retention_days, cfn_owner=excluded.cfn_owner
 `
 
 type PutGroupParams struct {
@@ -1079,6 +1094,7 @@ type PutGroupParams struct {
 	Created       int64
 	Sequence      int64
 	RetentionDays int64
+	CfnOwner      string
 }
 
 func (q *Queries) PutGroup(ctx context.Context, arg PutGroupParams) error {
@@ -1091,15 +1107,16 @@ func (q *Queries) PutGroup(ctx context.Context, arg PutGroupParams) error {
 		arg.Created,
 		arg.Sequence,
 		arg.RetentionDays,
+		arg.CfnOwner,
 	)
 	return err
 }
 
 const putResourcePolicy = `-- name: PutResourcePolicy :exec
-INSERT INTO logs_resource_policies (partition, account_id, region, policy_scope, name, group_id, document, updated, revision)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO logs_resource_policies (partition, account_id, region, policy_scope, name, group_id, document, updated, revision, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, policy_scope, name) DO UPDATE SET
- group_id=excluded.group_id, document=excluded.document, updated=excluded.updated, revision=excluded.revision
+ group_id=excluded.group_id, document=excluded.document, updated=excluded.updated, revision=excluded.revision, cfn_owner=excluded.cfn_owner
 `
 
 type PutResourcePolicyParams struct {
@@ -1112,6 +1129,7 @@ type PutResourcePolicyParams struct {
 	Document    string
 	Updated     int64
 	Revision    int64
+	CfnOwner    string
 }
 
 func (q *Queries) PutResourcePolicy(ctx context.Context, arg PutResourcePolicyParams) error {
@@ -1125,15 +1143,16 @@ func (q *Queries) PutResourcePolicy(ctx context.Context, arg PutResourcePolicyPa
 		arg.Document,
 		arg.Updated,
 		arg.Revision,
+		arg.CfnOwner,
 	)
 	return err
 }
 
 const putStream = `-- name: PutStream :exec
-INSERT INTO logs_streams (group_id, name, id, created, first_event, last_event, last_ingestion, event_count)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO logs_streams (group_id, name, id, created, first_event, last_event, last_ingestion, event_count, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(group_id, name) DO UPDATE SET first_event=excluded.first_event, last_event=excluded.last_event,
- last_ingestion=excluded.last_ingestion, event_count=excluded.event_count
+ last_ingestion=excluded.last_ingestion, event_count=excluded.event_count, cfn_owner=excluded.cfn_owner
 `
 
 type PutStreamParams struct {
@@ -1145,6 +1164,7 @@ type PutStreamParams struct {
 	LastEvent     int64
 	LastIngestion int64
 	EventCount    int64
+	CfnOwner      string
 }
 
 func (q *Queries) PutStream(ctx context.Context, arg PutStreamParams) error {
@@ -1157,18 +1177,19 @@ func (q *Queries) PutStream(ctx context.Context, arg PutStreamParams) error {
 		arg.LastEvent,
 		arg.LastIngestion,
 		arg.EventCount,
+		arg.CfnOwner,
 	)
 	return err
 }
 
 const putSubscription = `-- name: PutSubscription :exec
 INSERT INTO logs_subscriptions (group_id, name, id, pattern, destination_arn, apply_on_transformed_logs, distribution, field_selection, created, disabled_until,
- role_arn, target_arn, role_source_arn, sender_role_arn)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ role_arn, target_arn, role_source_arn, sender_role_arn, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(group_id, name) DO UPDATE SET pattern=excluded.pattern, destination_arn=excluded.destination_arn,
  apply_on_transformed_logs=excluded.apply_on_transformed_logs, distribution=excluded.distribution, field_selection=excluded.field_selection,
  created=excluded.created, disabled_until=excluded.disabled_until,
- role_arn=excluded.role_arn, target_arn=excluded.target_arn, role_source_arn=excluded.role_source_arn, sender_role_arn=excluded.sender_role_arn
+ role_arn=excluded.role_arn, target_arn=excluded.target_arn, role_source_arn=excluded.role_source_arn, sender_role_arn=excluded.sender_role_arn, cfn_owner=excluded.cfn_owner
 `
 
 type PutSubscriptionParams struct {
@@ -1186,6 +1207,7 @@ type PutSubscriptionParams struct {
 	TargetArn              string
 	RoleSourceArn          string
 	SenderRoleArn          string
+	CfnOwner               string
 }
 
 func (q *Queries) PutSubscription(ctx context.Context, arg PutSubscriptionParams) error {
@@ -1204,6 +1226,7 @@ func (q *Queries) PutSubscription(ctx context.Context, arg PutSubscriptionParams
 		arg.TargetArn,
 		arg.RoleSourceArn,
 		arg.SenderRoleArn,
+		arg.CfnOwner,
 	)
 	return err
 }

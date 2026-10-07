@@ -79,7 +79,7 @@ class Proof:
     def start(self):
         self.controller.start([str(Path(self.args.binary).resolve()), '-listen', f"0.0.0.0:{self.owned['port']}",
             '-public-endpoint', self.endpoint, '-database', str(self.state / 'state.sqlite'),
-            '-docker-host', self.args.docker_host, '-lambda-telemetry-directory', str(Path(self.args.telemetry_directory).resolve()),
+            '-docker-host', self.args.docker_host, '-lambda-runtime', '-lambda-telemetry-directory', str(Path(self.args.telemetry_directory).resolve()),
             '-compute-endpoint', self.endpoint.replace('127.0.0.1', 'host.docker.internal')], self.endpoint, environment=self.env, timeout=180)
 
     def wait(self, predicate, label, timeout=120):

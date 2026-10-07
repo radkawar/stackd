@@ -84,7 +84,8 @@ func (s *Service) createJob(ctx context.Context, tx Transaction, in *api.CreateJ
 		return nil, err
 	}
 	if existing, err := tx.GetJob(key); err == nil {
-		job.CreatedAt, job.UpdatedAt = existing.CreatedAt, existing.UpdatedAt
+		// The private CloudFormation claim is not a customer job parameter.
+		job.CFNOwner, job.CreatedAt, job.UpdatedAt = existing.CFNOwner, existing.CreatedAt, existing.UpdatedAt
 		if reflect.DeepEqual(job, existing) {
 			return &api.CreateJobOutput{Name: in.Name}, nil
 		}
@@ -214,7 +215,7 @@ func (s *Service) updateJob(ctx context.Context, tx Transaction, in *api.UpdateJ
 	}
 	u := in.JobUpdate
 	// AWS UpdateJob replaces the definition, rather than patching omitted fields.
-	job := JobRecord{Key: key, Description: value(u.Description), Role: value(u.Role), GlueVersion: value(u.GlueVersion), WorkerType: value(u.WorkerType), ExecutionClass: value(u.ExecutionClass), SecurityConfiguration: value(u.SecurityConfiguration), DefaultArguments: jobArguments(u.DefaultArguments), NonOverridableArguments: jobArguments(u.NonOverridableArguments), Tags: old.Tags, CreatedAt: old.CreatedAt, UpdatedAt: s.clock.Now(), MaxConcurrentRuns: 1, Timeout: 2880}
+	job := JobRecord{CFNOwner: old.CFNOwner, Key: key, Description: value(u.Description), Role: value(u.Role), GlueVersion: value(u.GlueVersion), WorkerType: value(u.WorkerType), ExecutionClass: value(u.ExecutionClass), SecurityConfiguration: value(u.SecurityConfiguration), DefaultArguments: jobArguments(u.DefaultArguments), NonOverridableArguments: jobArguments(u.NonOverridableArguments), Tags: old.Tags, CreatedAt: old.CreatedAt, UpdatedAt: s.clock.Now(), MaxConcurrentRuns: 1, Timeout: 2880}
 	if u.Command != nil {
 		job.Command = value(u.Command.Name)
 		job.ScriptLocation = value(u.Command.ScriptLocation)

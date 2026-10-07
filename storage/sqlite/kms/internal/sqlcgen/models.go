@@ -93,6 +93,9 @@ type KmsKey struct {
 	AvailableAt         time.Time
 	PendingDeletionDays int64
 	Policy              string
+	OwnerStackID        string
+	OwnerLogicalID      string
+	OwnerToken          string
 }
 
 type KmsKeySet struct {

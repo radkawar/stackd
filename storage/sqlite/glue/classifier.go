@@ -34,6 +34,7 @@ func (r reader) Classifiers(scope domain.Scope) ([]domain.ClassifierRecord, erro
 }
 func decodeClassifier(v sqlcgen.GlueClassifier) (domain.ClassifierRecord, error) {
 	row := domain.ClassifierRecord{Key: domain.ResourceKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name}}
+	row.CFNOwner = v.CfnOwner
 	created, updated := time.Unix(0, v.CreatedAt).UTC(), time.Unix(0, v.UpdatedAt).UTC()
 	name, version := api.NameString(v.Name), api.VersionId(v.Version)
 	switch v.Kind {
@@ -59,6 +60,7 @@ func decodeClassifier(v sqlcgen.GlueClassifier) (domain.ClassifierRecord, error)
 }
 func (w writer) PutClassifier(row domain.ClassifierRecord) error {
 	v := sqlcgen.PutGlueClassifierParams{Partition: row.Key.Partition, AccountID: row.Key.AccountID, Region: row.Key.Region, Name: row.Key.Name, Header: "null", CustomDatatypes: "null"}
+	v.CfnOwner = row.CFNOwner
 	switch c := row.Classifier; {
 	case c.JsonClassifier != nil:
 		x := c.JsonClassifier

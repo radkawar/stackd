@@ -49,6 +49,7 @@ func (r reader) eventSourceMappingRecord(v sqlcgen.LambdaEventSourceMapping) (do
 	k := domain.EventSourceMappingKey{Scope: domain.Scope{Partition: v.Partition, Account: v.Account, Region: v.Region}, UUID: v.Uuid}
 	out := domain.EventSourceMappingRecord{
 		Key: k, Function: domain.FunctionReference{FunctionKey: domain.FunctionKey{Scope: domain.Scope{Partition: v.FunctionPartition, Account: v.FunctionAccount, Region: v.FunctionRegion}, Name: v.FunctionName}, Qualifier: v.FunctionQualifier},
+		Owner:          domain.MappingOwner{StackID: v.OwnerStackID, LogicalID: v.OwnerLogicalID, Token: v.OwnerToken},
 		EventSourceARN: v.EventSourceArn, Version: uint64(v.Version), State: v.State, StateTransitionReason: v.StateTransitionReason,
 		LastModified: v.LastModified, TransitionAt: v.TransitionAt, TransitionState: v.TransitionState, LastProcessingResult: v.LastProcessingResult.String,
 		Settings: domain.EventSourceMappingSettings{BatchSize: int(v.BatchSize), BatchingWindow: time.Duration(v.BatchingWindowSeconds) * time.Second, ReportBatchItemFailures: v.ReportBatchItemFailures},
@@ -132,6 +133,7 @@ func (w writer) PutEventSourceMapping(v domain.EventSourceMappingRecord) error {
 	params := sqlcgen.PutEventSourceMappingParams{
 		Partition: k.Partition, Account: k.Account, Region: k.Region, Uuid: k.UUID,
 		FunctionPartition: v.Function.Partition, FunctionAccount: v.Function.Account, FunctionRegion: v.Function.Region, FunctionName: v.Function.Name, FunctionQualifier: v.Function.Qualifier,
+		OwnerStackID: v.Owner.StackID, OwnerLogicalID: v.Owner.LogicalID, OwnerToken: v.Owner.Token,
 		EventSourceArn: v.EventSourceARN, Version: sqlite.Uint64(v.Version), State: v.State, StateTransitionReason: v.StateTransitionReason,
 		LastModified: v.LastModified, TransitionAt: v.TransitionAt, TransitionState: v.TransitionState,
 		BatchSize: int64(v.Settings.BatchSize), BatchingWindowSeconds: int64(v.Settings.BatchingWindow / time.Second), ReportBatchItemFailures: v.Settings.ReportBatchItemFailures,

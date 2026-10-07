@@ -2,12 +2,14 @@ package integrations
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 
 	api "stackd/internal/awsapi/sqs"
 	"stackd/internal/services/cloudformation"
+	"stackd/internal/services/sqs"
 )
 
 type cfnSQSQueue struct{ commands StepFunctionsCommands }
@@ -25,8 +27,8 @@ type cfnSQSQueueProperties struct {
 	ReceiveMessageWaitTimeSeconds *cfnMessagingInt
 	VisibilityTimeout             *cfnMessagingInt
 	KmsDataKeyReusePeriodSeconds  *cfnMessagingInt
-	RedrivePolicy                 map[string]any
-	RedriveAllowPolicy            map[string]any
+	RedrivePolicy                 cfnStorageDocument
+	RedriveAllowPolicy            cfnStorageDocument
 	Tags                          []cfnMessagingTag
 }
 
@@ -42,12 +44,11 @@ func (h cfnSQSQueue) Validate(raw cloudformation.Properties) error {
 	if !p.fifo() && (p.ContentBasedDeduplication != nil || p.DeduplicationScope != "" || p.FifoThroughputLimit != "") {
 		return fmt.Errorf("FIFO properties require FifoQueue=true")
 	}
-	// TODO: Comeback admit per-message-group throughput after the SQS owner enforces its quotas.
-	if p.FifoThroughputLimit != "" && p.FifoThroughputLimit != "perQueue" {
-		return fmt.Errorf("SQS per-message-group FIFO throughput is not implemented by this resource handler")
-	}
 	if p.DeduplicationScope != "" && p.DeduplicationScope != "queue" && p.DeduplicationScope != "messageGroup" {
 		return fmt.Errorf("DeduplicationScope must be queue or messageGroup")
+	}
+	if p.FifoThroughputLimit != "" && p.FifoThroughputLimit != "perQueue" && p.FifoThroughputLimit != "perMessageGroupId" {
+		return fmt.Errorf("FifoThroughputLimit must be perQueue or perMessageGroupId")
 	}
 	if p.KmsMasterKeyId != "" && p.SqsManagedSseEnabled != nil && bool(*p.SqsManagedSseEnabled) {
 		return fmt.Errorf("SSE-KMS and SSE-SQS are mutually exclusive")
@@ -68,7 +69,7 @@ func (h cfnSQSQueue) Validate(raw cloudformation.Properties) error {
 			DeadLetterTargetArn string          `json:"deadLetterTargetArn"`
 			MaxReceiveCount     cfnMessagingInt `json:"maxReceiveCount"`
 		}
-		if err := cfnMessagingDecode(p.RedrivePolicy, &policy); err != nil {
+		if err := cfnMessagingDecode(cloudformation.Properties(p.RedrivePolicy), &policy); err != nil {
 			return err
 		}
 		if policy.DeadLetterTargetArn == "" || policy.MaxReceiveCount < 1 || policy.MaxReceiveCount > 1000 {
@@ -80,7 +81,7 @@ func (h cfnSQSQueue) Validate(raw cloudformation.Properties) error {
 			RedrivePermission string   `json:"redrivePermission"`
 			SourceQueueArns   []string `json:"sourceQueueArns"`
 		}
-		if err := cfnMessagingDecode(p.RedriveAllowPolicy, &policy); err != nil {
+		if err := cfnMessagingDecode(cloudformation.Properties(p.RedriveAllowPolicy), &policy); err != nil {
 			return err
 		}
 	}
@@ -135,8 +136,11 @@ func (p cfnSQSQueueProperties) attributes(creating bool) (api.QueueAttributeMap,
 			attrs["DeduplicationScope"] = api.String(p.DeduplicationScope)
 		}
 		attrs["FifoThroughputLimit"] = "perQueue"
+		if p.FifoThroughputLimit != "" {
+			attrs["FifoThroughputLimit"] = api.String(p.FifoThroughputLimit)
+		}
 	}
-	for key, doc := range map[api.QueueAttributeName]map[string]any{"RedrivePolicy": p.RedrivePolicy, "RedriveAllowPolicy": p.RedriveAllowPolicy} {
+	for key, doc := range map[api.QueueAttributeName]cfnStorageDocument{"RedrivePolicy": p.RedrivePolicy, "RedriveAllowPolicy": p.RedriveAllowPolicy} {
 		attrs[key] = ""
 		if doc != nil {
 			body, err := cfnMessagingJSON(doc)
@@ -150,8 +154,8 @@ func (p cfnSQSQueueProperties) attributes(creating bool) (api.QueueAttributeMap,
 }
 func cfnSQSNativeTags(tags map[string]string) api.TagMap {
 	out := make(api.TagMap, len(tags))
-	for k, v := range tags {
-		out[api.TagKey(k)] = api.TagValue(v)
+	for key, value := range tags {
+		out[api.TagKey(key)] = api.TagValue(value)
 	}
 	return out
 }
@@ -177,10 +181,17 @@ func (h cfnSQSQueue) untag(ctx context.Context, url string, keys []string) error
 	return cfnMessagingExec(ctx, h.commands, "sqs", "UntagQueue", &api.UntagQueueInput{QueueUrl: new(api.String(url)), TagKeys: native})
 }
 func (h cfnSQSQueue) result(ctx context.Context, url string) (cloudformation.ResourceResult, error) {
+	return h.resultFor(ctx, url, true)
+}
+
+func (h cfnSQSQueue) resultFor(ctx context.Context, url string, requireAttributes bool) (cloudformation.ResourceResult, error) {
 	out, err := cfnMessagingCall[api.GetQueueAttributesOutput](ctx, h.commands, "sqs", "GetQueueAttributes", &api.GetQueueAttributesInput{QueueUrl: new(api.String(url)), AttributeNames: api.AttributeNameList{"QueueArn"}})
 	result := cfnMessagingResult(url)
-	if err != nil {
+	if err != nil && requireAttributes {
 		return result, err
+	}
+	if err != nil {
+		return result, nil
 	}
 	arn := string(out.Attributes["QueueArn"])
 	parts := strings.Split(arn, ":")
@@ -191,6 +202,14 @@ func (h cfnSQSQueue) result(ctx context.Context, url string) (cloudformation.Res
 	return result, nil
 }
 func (h cfnSQSQueue) Create(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
+	if result, err := h.RecoverCreation(ctx, r); result.PhysicalID != "" {
+		if err != nil {
+			return result, err
+		}
+		return result, h.Validate(r.Properties)
+	} else if !cfnMessagingMissing(err, "ResourceNotFoundException") {
+		return result, err
+	}
 	if err := h.Validate(r.Properties); err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
@@ -205,14 +224,10 @@ func (h cfnSQSQueue) Create(ctx context.Context, r cloudformation.ResourceReques
 	found, err := cfnMessagingCall[api.GetQueueUrlOutput](ctx, h.commands, "sqs", "GetQueueUrl", &api.GetQueueUrlInput{QueueName: new(api.String(name))})
 	if err == nil {
 		url := string(*found.QueueUrl)
-		tags, err := h.tags(ctx, url)
-		if err != nil {
-			return cloudformation.ResourceResult{}, err
-		}
-		if err := cfnMessagingOwned(tags, r); err != nil {
+		if err := h.owns(ctx, r, url); err != nil {
 			return cloudformation.ResourceResult{}, cfnResourceCreateOwnedError(r, err)
 		}
-		return h.result(ctx, url)
+		return h.result(sqs.WithCloudFormationOwner(ctx, cfnSQSOwner(r)), url)
 	}
 	if !cfnMessagingMissing(err, "QueueDoesNotExist", "AWS.SimpleQueueService.NonExistentQueue") {
 		return cloudformation.ResourceResult{}, err
@@ -225,19 +240,22 @@ func (h cfnSQSQueue) Create(ctx context.Context, r cloudformation.ResourceReques
 	if err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
-	out, err := cfnMessagingCall[api.CreateQueueOutput](ctx, h.commands, "sqs", "CreateQueue", &api.CreateQueueInput{QueueName: new(api.String(name)), Attributes: attrs, Tags: cfnSQSNativeTags(tags)})
+	out, err := cfnMessagingCall[api.CreateQueueOutput](sqs.WithCloudFormationOwner(ctx, cfnSQSOwner(r)), h.commands, "sqs", "CreateQueue", &api.CreateQueueInput{QueueName: new(api.String(name)), Attributes: attrs, Tags: cfnSQSNativeTags(tags)})
 	if err != nil {
-		return cloudformation.ResourceResult{}, err
+		result, recoveryErr := h.RecoverCreation(ctx, r)
+		if result.PhysicalID != "" {
+			return result, err
+		}
+		if recoveryErr != nil && !cfnMessagingMissing(recoveryErr, "ResourceNotFoundException") {
+			return result, errors.Join(err, recoveryErr)
+		}
+		return result, err
 	}
 	url := string(*out.QueueUrl)
-	actual, err := h.tags(ctx, url)
-	if err != nil {
+	if err := h.owns(ctx, r, url); err != nil {
 		return cfnMessagingResult(url), err
 	}
-	if err := cfnMessagingOwned(actual, r); err != nil {
-		return cloudformation.ResourceResult{}, cfnResourceCreateOwnedError(r, err)
-	}
-	return h.result(ctx, url)
+	return h.result(sqs.WithCloudFormationOwner(ctx, cfnSQSOwner(r)), url)
 }
 func (h cfnSQSQueue) Update(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
 	if r.CloudControl {
@@ -250,6 +268,7 @@ func (h cfnSQSQueue) Update(ctx context.Context, r cloudformation.ResourceReques
 		}
 		r.PhysicalID = url
 	}
+	ctx = cfnSQSContext(ctx, r)
 	result := cfnMessagingResult(r.PhysicalID)
 	replace, err := h.Replacement(r.Previous, r.Properties)
 	if err != nil {
@@ -266,9 +285,6 @@ func (h cfnSQSQueue) Update(ctx context.Context, r cloudformation.ResourceReques
 	if err != nil {
 		return result, err
 	}
-	if err := cfnMessagingOwned(tags, r); !r.CloudControl && err != nil {
-		return result, err
-	}
 	attrs, err := p.attributes(false)
 	if err != nil {
 		return result, err
@@ -280,13 +296,10 @@ func (h cfnSQSQueue) Update(ctx context.Context, r cloudformation.ResourceReques
 	if err != nil {
 		return result, err
 	}
-	next = cfnResourceMutationTags(r, tags, next)
 	var remove []string
 	for k := range tags {
-		if !strings.HasPrefix(k, "stackd:cloudformation:") {
-			if _, ok := next[k]; !ok {
-				remove = append(remove, k)
-			}
+		if _, ok := next[k]; !ok {
+			remove = append(remove, k)
 		}
 	}
 	if len(remove) > 0 {
@@ -309,15 +322,18 @@ func (h cfnSQSQueue) Delete(ctx context.Context, r cloudformation.ResourceReques
 		}
 		r.PhysicalID = url
 	}
-	tags, err := h.tags(ctx, r.PhysicalID)
+	ctx = cfnSQSContext(ctx, r)
+	_, err := h.tags(ctx, r.PhysicalID)
 	if cfnMessagingMissing(err, "QueueDoesNotExist", "AWS.SimpleQueueService.NonExistentQueue") {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	if err := cfnMessagingOwned(tags, r); !r.CloudControl && err != nil {
-		return err
+	if !r.CloudControl {
+		if err := h.owns(ctx, r, r.PhysicalID); err != nil {
+			return err
+		}
 	}
 	return cfnMessagingExec(ctx, h.commands, "sqs", "DeleteQueue", &api.DeleteQueueInput{QueueUrl: new(api.String(r.PhysicalID))})
 }

@@ -125,8 +125,12 @@ func (s *Service) modifyParameterGroup(ctx context.Context, tx Transaction, in *
 	if builtinParameterFamily(v.Key.Name) != "" {
 		return nil, stateError(v.Key.Kind)
 	}
-	if len(in.ParameterNameValues) < 1 || len(in.ParameterNameValues) > 20 {
+	replace, _ := ctx.Value(cloudFormationParameterReplacementKey{}).(bool)
+	if (!replace && len(in.ParameterNameValues) < 1) || len(in.ParameterNameValues) > 20 {
 		return nil, failure("InvalidParameterValue", "Supply between 1 and 20 parameters.")
+	}
+	if replace {
+		v.Parameters = map[string]string{}
 	}
 	seen := map[string]bool{}
 	for _, p := range in.ParameterNameValues {

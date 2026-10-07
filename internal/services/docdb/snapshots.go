@@ -11,7 +11,7 @@ func (s *Service) createSnapshot(ctx context.Context, tx Transaction, in *api.Cr
 	if e != nil {
 		return nil, e
 	}
-	if v.Status != "available" || v.Operation != "" {
+	if v.Operation != "" || v.Status != "available" && v.Status != "creating" {
 		return nil, stateError("cluster")
 	}
 	k, e := resourceKey(ctx, "cluster-snapshot", value(in.DBClusterSnapshotIdentifier))
@@ -46,6 +46,7 @@ func (s *Service) createSnapshot(ctx context.Context, tx Transaction, in *api.Cr
 		return nil, e
 	}
 	snap := Snapshot{Key: k, Source: v.Key.Name, SourceRuntimeID: v.RuntimeID, RuntimeID: id, Username: v.Username, EngineVersion: v.EngineVersion, Status: "creating", Operation: "create", Ciphertext: cipher, Version: 1, Created: s.clock.Now(), Due: s.clock.Now(), Tags: tags}
+	snap.Owner = cloudFormationClaim(ctx, k)
 	v.Status = "backing-up"
 	v.Version++
 	v.Due = zeroTime
@@ -142,6 +143,7 @@ func (s *Service) restoreCluster(ctx context.Context, tx Transaction, in *api.Re
 		return nil, e
 	}
 	v := Cluster{Key: k, RuntimeID: id, Username: user, EngineVersion: snap.EngineVersion, Status: "creating", RestoreSnapshot: snap.RuntimeID, Ciphertext: cipher, RequestedPort: port, Version: 1, Created: s.clock.Now(), DeletionProtection: yes(in.DeletionProtection), Tags: tags}
+	v.Owner = cloudFormationClaim(ctx, k)
 	if e = tx.PutCluster(v); e != nil {
 		return nil, e
 	}

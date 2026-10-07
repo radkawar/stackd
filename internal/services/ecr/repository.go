@@ -45,12 +45,16 @@ type RepositoryRecord struct {
 	PreviewPolicy, PreviewStatus     string
 	PreviewResults                   api.LifecyclePolicyPreviewResultList
 	PreviewExpires                   time.Time
+	// Ownership is the private CloudFormation incarnation claim stamped only
+	// by bound CreateRepository. Tags never grant it; public APIs never expose it.
+	Ownership string
 }
 type RegistryRecord struct {
-	Scope       Scope
-	Policy      authorization.BoundPolicy
-	Scanning    api.RegistryScanningConfiguration
-	Replication api.ReplicationConfiguration
+	Scope                                                    Scope
+	Policy                                                   authorization.BoundPolicy
+	Scanning                                                 api.RegistryScanningConfiguration
+	Replication                                              api.ReplicationConfiguration
+	PolicyOwnership, ReplicationOwnership, ScanningOwnership string
 }
 type ImageRecord struct {
 	Key                                              ImageKey

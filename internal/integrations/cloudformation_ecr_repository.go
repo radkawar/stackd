@@ -7,7 +7,9 @@ import (
 	"strings"
 
 	api "stackd/internal/awsapi/ecr"
+	"stackd/internal/awsctx"
 	"stackd/internal/services/cloudformation"
+	"stackd/internal/services/ecr"
 )
 
 type cfnECRRepository struct{ commands StepFunctionsCommands }
@@ -40,6 +42,9 @@ func (h cfnECRRepository) Validate(p cloudformation.Properties) error {
 			fields = []string{"EncryptionType", "KmsKey"}
 		case "LifecyclePolicy":
 			fields = []string{"LifecyclePolicyText", "RegistryId"}
+			if err := cfnComputeStrings(v, "LifecyclePolicyText", "RegistryId"); err != nil {
+				return err
+			}
 		}
 		if err := cfnComputeProperties(v, fields...); err != nil {
 			return err
@@ -101,28 +106,67 @@ func cfnECRResult(repo *api.Repository) cloudformation.ResourceResult {
 	name := cfnComputeValue(repo.RepositoryName)
 	return cloudformation.ResourceResult{PhysicalID: name, Ref: name, Attributes: map[string]any{"Arn": cfnComputeValue(repo.RepositoryArn), "RepositoryUri": cfnComputeValue(repo.RepositoryUri)}}
 }
-func (h cfnECRRepository) Create(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
-	if err := h.Validate(r.Properties); err != nil {
-		return cloudformation.ResourceResult{}, err
+
+// A repository lifecycle policy is part of this repository, not a second
+// independently owned repository in a caller-selected registry.
+func cfnECRLifecycleScope(p cloudformation.Properties, account string) error {
+	if raw := p["LifecyclePolicy"]; raw != nil {
+		policy, _ := cfnComputeObject(raw)
+		if rawRegistry := policy["RegistryId"]; rawRegistry != nil {
+			registry, ok := rawRegistry.(string)
+			if !ok || registry != account {
+				return fmt.Errorf("LifecyclePolicy.RegistryId must match the repository account %s", account)
+			}
+		}
 	}
+	return nil
+}
+func (h cfnECRRepository) name(r cloudformation.ResourceRequest) string {
 	name := cfnComputeName(r, "RepositoryName", 256)
 	if r.Properties["RepositoryName"] == nil && r.PhysicalID == "" {
 		name = strings.ToLower(name)
 	}
-	repo, err := h.get(ctx, name)
-	if err == nil {
-		tags, err := h.tags(ctx, cfnComputeValue(repo.RepositoryArn))
-		if err != nil {
+	return name
+}
+
+// owned observes the private claim stamped by bound CreateRepository through
+// an IAM-authorized exact-name DescribeRepositories. Public tags prove nothing.
+func (h cfnECRRepository) owned(ctx context.Context, r cloudformation.ResourceRequest) (*api.Repository, error) {
+	name := h.name(r)
+	claims := map[string]string{}
+	repo, err := h.get(cfnECRSingletonContext(ctx, r, ecr.RepositoryOwnershipKind, false, false, claims), name)
+	if cfnMessagingMissing(err, "RepositoryNotFoundException") {
+		return nil, cfnDeveloperNotFound("ECR repository", name)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if claims[cfnComputeValue(repo.RepositoryArn)] != cfnDeveloperClaim(r) {
+		return nil, cfnResourceCreateOwnedError(r, fmt.Errorf("ECR repository %s belongs to another resource incarnation", name))
+	}
+	return repo, nil
+}
+func (h cfnECRRepository) RecoverCreation(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
+	repo, err := h.owned(ctx, r)
+	if err != nil {
+		return cloudformation.ResourceResult{}, err
+	}
+	return cfnECRResult(repo), nil
+}
+func (h cfnECRRepository) Create(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
+	if err := h.Validate(r.Properties); err != nil {
+		return cloudformation.ResourceResult{}, err
+	}
+	name := h.name(r)
+	repo, err := h.owned(ctx, r)
+	if err != nil {
+		if !cfnComputeMissing(err) {
 			return cloudformation.ResourceResult{}, err
 		}
-		if err := cfnComputeOwnership(r, tags); err != nil {
-			return cloudformation.ResourceResult{}, cfnResourceCreateOwnedError(r, err)
-		}
-	} else {
-		if !cfnMessagingMissing(err, "RepositoryNotFoundException") {
+		if err := cfnECRLifecycleScope(r.Properties, awsctx.FromContext(ctx).AccountID); err != nil {
 			return cloudformation.ResourceResult{}, err
 		}
-		input := map[string]any{"repositoryName": name, "tags": cfnECRTags(cfnComputeOwnedTags(r))}
+		input := map[string]any{"repositoryName": name, "tags": cfnECRTags(cfnResourceTags(r))}
 		if p := r.Properties["ImageTagMutability"]; p != nil {
 			input["imageTagMutability"] = p
 		}
@@ -131,16 +175,25 @@ func (h cfnECRRepository) Create(ctx context.Context, r cloudformation.ResourceR
 				input[strings.ToLower(key[:1])+key[1:]] = cfnECRConfiguration(p)
 			}
 		}
-		out, err := cfnComputeCall[api.CreateRepositoryOutput](ctx, h.commands, "ecr", "CreateRepository", input)
+		// Cloud Control creation also stamps the private claim atomically.
+		out, err := cfnComputeCall[api.CreateRepositoryOutput](cfnECRSingletonContext(ctx, r, ecr.RepositoryOwnershipKind, false, false, nil), h.commands, "ecr", "CreateRepository", input)
 		if err != nil {
+			// Admission can precede a lost reply. Only this exact private claim
+			// is retained for rollback; never adopt by name or public tags.
+			if admitted, recoveryErr := h.owned(ctx, r); recoveryErr == nil {
+				return cfnECRResult(admitted), err
+			}
 			return cloudformation.ResourceResult{}, err
 		}
 		repo = out.Repository
 	}
 	result := cfnECRResult(repo)
-	return result, h.policies(ctx, r, name)
+	if err := cfnECRLifecycleScope(r.Properties, cfnComputeValue(repo.RegistryId)); err != nil {
+		return result, err
+	}
+	return result, h.policies(cfnECRSingletonContext(ctx, r, ecr.RepositoryOwnershipKind, true, false, nil), r, name, cfnComputeValue(repo.RegistryId))
 }
-func (h cfnECRRepository) policies(ctx context.Context, r cloudformation.ResourceRequest, name string) error {
+func (h cfnECRRepository) policies(ctx context.Context, r cloudformation.ResourceRequest, name, account string) error {
 	if raw := r.Properties["RepositoryPolicyText"]; raw != nil {
 		document, err := cfnComputeDocument(raw)
 		if err != nil {
@@ -157,13 +210,10 @@ func (h cfnECRRepository) policies(ctx context.Context, r cloudformation.Resourc
 	}
 	if raw := r.Properties["LifecyclePolicy"]; raw != nil {
 		p, _ := cfnComputeObject(raw)
-		input := map[string]any{"repositoryName": name, "lifecyclePolicyText": p["LifecyclePolicyText"]}
-		if p["RegistryId"] != nil {
-			input["registryId"] = p["RegistryId"]
-		}
+		input := map[string]any{"repositoryName": name, "registryId": account, "lifecyclePolicyText": p["LifecyclePolicyText"]}
 		return cfnComputeRun(ctx, h.commands, "ecr", "PutLifecyclePolicy", input)
 	} else if r.Previous["LifecyclePolicy"] != nil {
-		err := cfnComputeRun(ctx, h.commands, "ecr", "DeleteLifecyclePolicy", map[string]any{"repositoryName": name})
+		err := cfnComputeRun(ctx, h.commands, "ecr", "DeleteLifecyclePolicy", map[string]any{"repositoryName": name, "registryId": account})
 		if !cfnMessagingMissing(err, "LifecyclePolicyNotFoundException") {
 			return err
 		}
@@ -174,19 +224,24 @@ func (h cfnECRRepository) Update(ctx context.Context, r cloudformation.ResourceR
 	if err := h.Validate(r.Properties); err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
+	// Every owner call is fenced in its native transaction after current IAM.
+	ctx = cfnECRSingletonContext(ctx, r, ecr.RepositoryOwnershipKind, true, false, nil)
 	repo, err := h.get(ctx, r.PhysicalID)
 	if err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
 	result := cfnECRResult(repo)
+	if err := cfnECRLifecycleScope(r.Properties, cfnComputeValue(repo.RegistryId)); err != nil {
+		return result, err
+	}
+	// Legacy cross-registry state cannot safely be removed through this owner.
+	// Reject before deleting an unrelated same-name local lifecycle policy.
+	if err := cfnECRLifecycleScope(r.Previous, cfnComputeValue(repo.RegistryId)); err != nil {
+		return result, err
+	}
 	tags, err := h.tags(ctx, cfnComputeValue(repo.RepositoryArn))
 	if err != nil {
 		return result, err
-	}
-	if !r.CloudControl {
-		if err := cfnComputeOwnership(r, tags); err != nil {
-			return result, err
-		}
 	}
 	if err := cfnComputeRun(ctx, h.commands, "ecr", "PutImageTagMutability", map[string]any{"repositoryName": r.PhysicalID, "imageTagMutability": cfnComputeDefault(r.Properties, "ImageTagMutability", "MUTABLE")}); err != nil {
 		return result, err
@@ -198,10 +253,10 @@ func (h cfnECRRepository) Update(ctx context.Context, r cloudformation.ResourceR
 	if err := cfnComputeRun(ctx, h.commands, "ecr", "PutImageScanningConfiguration", map[string]any{"repositoryName": r.PhysicalID, "imageScanningConfiguration": scan}); err != nil {
 		return result, err
 	}
-	if err := h.policies(ctx, r, r.PhysicalID); err != nil {
+	if err := h.policies(ctx, r, r.PhysicalID, cfnComputeValue(repo.RegistryId)); err != nil {
 		return result, err
 	}
-	desired := cfnResourceMutationTags(r, tags, cfnComputeOwnedTags(r))
+	desired := cfnResourceTags(r)
 	if removed := cfnComputeRemovedTags(tags, desired); len(removed) > 0 {
 		if err := cfnComputeRun(ctx, h.commands, "ecr", "UntagResource", map[string]any{"resourceArn": cfnComputeValue(repo.RepositoryArn), "tagKeys": removed}); err != nil {
 			return result, err
@@ -213,25 +268,9 @@ func (h cfnECRRepository) Update(ctx context.Context, r cloudformation.ResourceR
 	return result, cfnComputeRun(ctx, h.commands, "ecr", "TagResource", map[string]any{"resourceArn": cfnComputeValue(repo.RepositoryArn), "tags": cfnECRTags(desired)})
 }
 func (h cfnECRRepository) Delete(ctx context.Context, r cloudformation.ResourceRequest) error {
-	name := cfnComputeName(r, "RepositoryName", 256)
-	repo, err := h.get(ctx, name)
-	if cfnMessagingMissing(err, "RepositoryNotFoundException") {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if !r.CloudControl {
-		tags, err := h.tags(ctx, cfnComputeValue(repo.RepositoryArn))
-		if err != nil {
-			return err
-		}
-		if err := cfnComputeOwnership(r, tags); err != nil {
-			return err
-		}
-	}
+	ctx = cfnECRSingletonContext(ctx, r, ecr.RepositoryOwnershipKind, true, false, nil)
 	force, _ := r.Properties["EmptyOnDelete"].(bool)
-	err = cfnComputeRun(ctx, h.commands, "ecr", "DeleteRepository", map[string]any{"repositoryName": name, "force": force})
+	err := cfnComputeRun(ctx, h.commands, "ecr", "DeleteRepository", map[string]any{"repositoryName": cfnComputeName(r, "RepositoryName", 256), "force": force})
 	if cfnMessagingMissing(err, "RepositoryNotFoundException") {
 		return nil
 	}

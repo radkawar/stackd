@@ -28,7 +28,7 @@ func (r reader) Permissions() ([]domain.Permission, error) {
 	return out, nil
 }
 func (r reader) permission(row sqlcgen.RamPermission) (domain.Permission, error) {
-	v := domain.Permission{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ARN: row.Arn, Name: row.Name, ResourceType: row.ResourceType, Type: row.Type, FeatureSet: row.FeatureSet, Status: row.Status, ResourceTypeDefault: row.ResourceTypeDefault, DefaultVersion: int32(row.DefaultVersion), Created: row.Created, Updated: row.Updated, Tags: map[string]string{}}
+	v := domain.Permission{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ARN: row.Arn, Name: row.Name, ResourceType: row.ResourceType, Type: row.Type, FeatureSet: row.FeatureSet, Status: row.Status, ResourceTypeDefault: row.ResourceTypeDefault, DefaultVersion: int32(row.DefaultVersion), Created: row.Created, Updated: row.Updated, Tags: map[string]string{}, CloudFormationOwner: row.CloudformationOwner, ObjectID: row.ObjectID}
 	tags, e := r.q.ListPermissionTags(r.ctx, v.ARN)
 	if e != nil {
 		return v, e
@@ -56,7 +56,7 @@ func (r reader) permission(row sqlcgen.RamPermission) (domain.Permission, error)
 	return v, nil
 }
 func (w writer) PutPermission(v domain.Permission) error {
-	if e := w.q.PutPermission(w.ctx, sqlcgen.PutPermissionParams{Arn: v.ARN, Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, Name: v.Name, ResourceType: v.ResourceType, Type: v.Type, FeatureSet: v.FeatureSet, Status: v.Status, ResourceTypeDefault: v.ResourceTypeDefault, DefaultVersion: int64(v.DefaultVersion), Created: v.Created, Updated: v.Updated}); e != nil {
+	if e := w.q.PutPermission(w.ctx, sqlcgen.PutPermissionParams{Arn: v.ARN, Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, Name: v.Name, ResourceType: v.ResourceType, Type: v.Type, FeatureSet: v.FeatureSet, Status: v.Status, ResourceTypeDefault: v.ResourceTypeDefault, DefaultVersion: int64(v.DefaultVersion), Created: v.Created, Updated: v.Updated, CloudformationOwner: v.CloudFormationOwner, ObjectID: v.ObjectID}); e != nil {
 		return e
 	}
 	if e := w.q.DeletePermissionTags(w.ctx, v.ARN); e != nil {
@@ -88,10 +88,10 @@ func (r reader) Receipt(sc domain.Scope, op, token string) (domain.Receipt, erro
 	if e != nil {
 		return domain.Receipt{}, missing(e)
 	}
-	return domain.Receipt{Scope: sc, Operation: v.Operation, Token: v.Token, Hash: v.Hash, ARN: v.Arn, Version: int32(v.Version)}, nil
+	return domain.Receipt{Scope: sc, Operation: v.Operation, Token: v.Token, Hash: v.Hash, ARN: v.Arn, Version: int32(v.Version), CloudFormationOwner: v.CloudformationOwner, ObjectID: v.ObjectID}, nil
 }
 func (w writer) PutReceipt(v domain.Receipt) error {
-	return w.q.PutReceipt(w.ctx, sqlcgen.PutReceiptParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, Operation: v.Operation, Token: v.Token, Hash: v.Hash, Arn: v.ARN, Version: int64(v.Version)})
+	return w.q.PutReceipt(w.ctx, sqlcgen.PutReceiptParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, Operation: v.Operation, Token: v.Token, Hash: v.Hash, Arn: v.ARN, Version: int64(v.Version), CloudformationOwner: v.CloudFormationOwner, ObjectID: v.ObjectID})
 }
 func (r reader) Replacements() ([]domain.Replacement, error) {
 	rows, e := r.q.ListReplacements(r.ctx)

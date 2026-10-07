@@ -109,6 +109,10 @@ func (s *Service) enableKinesis(ctx context.Context, tx Transaction, in *api.Ena
 	if err = transitionAvailable(table); err != nil {
 		return nil, err
 	}
+	// Destination records are native table-stream captures.
+	if err = s.requireEngine(); err != nil {
+		return nil, err
+	}
 	stream := value(in.StreamArn)
 	if len(stream) < 37 || len(stream) > 1024 {
 		return nil, failure("ValidationException", "StreamArn must have length between 37 and 1024")
@@ -230,6 +234,9 @@ func (s *Service) disableKinesis(ctx context.Context, tx Transaction, in *api.Di
 func (s *Service) updateKinesis(ctx context.Context, tx Transaction, in *api.UpdateKinesisStreamingDestinationInput) (*api.UpdateKinesisStreamingDestinationOutput, error) {
 	table, err := s.controlTable(ctx, tx, value(in.TableName), "UpdateKinesisStreamingDestination", nil)
 	if err != nil {
+		return nil, err
+	}
+	if err = s.requireEngine(); err != nil {
 		return nil, err
 	}
 	ds, err := tx.KinesisDestinations()

@@ -84,6 +84,10 @@ func (s *Service) resolveRepositoryWithConditions(tx Transaction, id *api.Regist
 	if err != nil {
 		return RepositoryRecord{}, err
 	}
+	// The private incarnation fence observes only rows current IAM authorized.
+	if err = fenceRepository(tx, repo); err != nil {
+		return RepositoryRecord{}, err
+	}
 	return repo, nil
 }
 func tagsConditions(tags api.TagList) map[string][]string {

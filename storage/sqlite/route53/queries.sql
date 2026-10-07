@@ -13,7 +13,7 @@ SELECT * FROM route53_record_values WHERE zone_id=? ORDER BY name,type,identifie
 -- name: DeleteRecordSets :exec
 DELETE FROM route53_record_sets WHERE zone_id=?;
 -- name: PutRecordSet :exec
-INSERT INTO route53_record_sets(zone_id,name,type,identifier,ttl,weighted,weight,multi_value,alias_zone_id,alias_dns_name) VALUES(?,?,?,?,?,?,?,?,?,?);
+INSERT INTO route53_record_sets(zone_id,name,type,identifier,ttl,weighted,weight,multi_value,alias_zone_id,alias_dns_name,cfn_owner) VALUES(?,?,?,?,?,?,?,?,?,?,?);
 -- name: PutRecordValue :exec
 INSERT INTO route53_record_values(zone_id,name,type,identifier,position,value) VALUES(?,?,?,?,?,?);
 -- name: GetChange :one

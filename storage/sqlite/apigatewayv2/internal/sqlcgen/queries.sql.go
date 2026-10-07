@@ -194,7 +194,7 @@ func (q *Queries) DeleteStageAuthorizerCache(ctx context.Context, arg DeleteStag
 }
 
 const getAPI = `-- name: GetAPI :one
-SELECT "partition", account_id, region, id, name, description, version, disabled, created_at, tags, protocol_type, route_selection_expression FROM apigatewayv2_api WHERE partition = ? AND account_id = ? AND region = ? AND id = ?
+SELECT "partition", account_id, region, id, name, description, version, disabled, created_at, tags, protocol_type, route_selection_expression, owner_stack_id, owner_logical_id, owner_token FROM apigatewayv2_api WHERE partition = ? AND account_id = ? AND region = ? AND id = ?
 `
 
 type GetAPIParams struct {
@@ -225,12 +225,15 @@ func (q *Queries) GetAPI(ctx context.Context, arg GetAPIParams) (Apigatewayv2Api
 		&i.Tags,
 		&i.ProtocolType,
 		&i.RouteSelectionExpression,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
 
 const getAPIByID = `-- name: GetAPIByID :one
-SELECT "partition", account_id, region, id, name, description, version, disabled, created_at, tags, protocol_type, route_selection_expression FROM apigatewayv2_api WHERE id = ?
+SELECT "partition", account_id, region, id, name, description, version, disabled, created_at, tags, protocol_type, route_selection_expression, owner_stack_id, owner_logical_id, owner_token FROM apigatewayv2_api WHERE id = ?
 `
 
 func (q *Queries) GetAPIByID(ctx context.Context, id string) (Apigatewayv2Api, error) {
@@ -249,12 +252,15 @@ func (q *Queries) GetAPIByID(ctx context.Context, id string) (Apigatewayv2Api, e
 		&i.Tags,
 		&i.ProtocolType,
 		&i.RouteSelectionExpression,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
 
 const getAuthorizer = `-- name: GetAuthorizer :one
-SELECT "partition", account_id, region, gateway_id, id, name, issuer, audiences, authorizer_type, uri, function_arn, payload_version, identity_sources, ttl_seconds, simple_responses, credentials_arn, validation_expression FROM apigatewayv2_authorizer WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? AND id = ?
+SELECT "partition", account_id, region, gateway_id, id, name, issuer, audiences, authorizer_type, uri, function_arn, payload_version, identity_sources, ttl_seconds, simple_responses, credentials_arn, validation_expression, owner_stack_id, owner_logical_id, owner_token FROM apigatewayv2_authorizer WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? AND id = ?
 `
 
 type GetAuthorizerParams struct {
@@ -292,6 +298,9 @@ func (q *Queries) GetAuthorizer(ctx context.Context, arg GetAuthorizerParams) (A
 		&i.SimpleResponses,
 		&i.CredentialsArn,
 		&i.ValidationExpression,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
@@ -339,7 +348,7 @@ func (q *Queries) GetAuthorizerCache(ctx context.Context, arg GetAuthorizerCache
 }
 
 const getDeployment = `-- name: GetDeployment :one
-SELECT "partition", account_id, region, gateway_id, id, description, auto_deployed, created_at, route_selection_expression FROM apigatewayv2_deployment WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? AND id = ?
+SELECT "partition", account_id, region, gateway_id, id, description, auto_deployed, created_at, route_selection_expression, owner_stack_id, owner_logical_id, owner_token FROM apigatewayv2_deployment WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? AND id = ?
 `
 
 type GetDeploymentParams struct {
@@ -369,12 +378,15 @@ func (q *Queries) GetDeployment(ctx context.Context, arg GetDeploymentParams) (A
 		&i.AutoDeployed,
 		&i.CreatedAt,
 		&i.RouteSelectionExpression,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
 
 const getIntegration = `-- name: GetIntegration :one
-SELECT "partition", account_id, region, gateway_id, id, description, uri, payload_version, timeout_millis, passthrough_behavior, credentials_arn FROM apigatewayv2_integration WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? AND id = ?
+SELECT "partition", account_id, region, gateway_id, id, description, uri, payload_version, timeout_millis, passthrough_behavior, credentials_arn, owner_stack_id, owner_logical_id, owner_token FROM apigatewayv2_integration WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? AND id = ?
 `
 
 type GetIntegrationParams struct {
@@ -406,12 +418,15 @@ func (q *Queries) GetIntegration(ctx context.Context, arg GetIntegrationParams) 
 		&i.TimeoutMillis,
 		&i.PassthroughBehavior,
 		&i.CredentialsArn,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
 
 const getRoute = `-- name: GetRoute :one
-SELECT "partition", account_id, region, gateway_id, id, route_key, target, authorization_type, authorizer_id, operation_name, scopes, route_response_selection_expression FROM apigatewayv2_route WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? AND id = ?
+SELECT "partition", account_id, region, gateway_id, id, route_key, target, authorization_type, authorizer_id, operation_name, scopes, route_response_selection_expression, owner_stack_id, owner_logical_id, owner_token FROM apigatewayv2_route WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? AND id = ?
 `
 
 type GetRouteParams struct {
@@ -444,12 +459,15 @@ func (q *Queries) GetRoute(ctx context.Context, arg GetRouteParams) (Apigatewayv
 		&i.OperationName,
 		&i.Scopes,
 		&i.RouteResponseSelectionExpression,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
 
 const getRouteResponse = `-- name: GetRouteResponse :one
-SELECT "partition", account_id, region, gateway_id, id, route_id, response_key FROM apigatewayv2_route_response WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? AND id = ?
+SELECT "partition", account_id, region, gateway_id, id, route_id, response_key, owner_stack_id, owner_logical_id, owner_token FROM apigatewayv2_route_response WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? AND id = ?
 `
 
 type GetRouteResponseParams struct {
@@ -477,12 +495,15 @@ func (q *Queries) GetRouteResponse(ctx context.Context, arg GetRouteResponsePara
 		&i.ID,
 		&i.RouteID,
 		&i.ResponseKey,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
 
 const getStage = `-- name: GetStage :one
-SELECT "partition", account_id, region, gateway_id, id, description, deployment_id, last_deployment_status_message, auto_deploy, created_at, updated_at, variables, tags, detailed_metrics, logging_level, data_trace, access_log_destination_arn, access_log_format FROM apigatewayv2_stage WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? AND id = ?
+SELECT "partition", account_id, region, gateway_id, id, description, deployment_id, last_deployment_status_message, auto_deploy, created_at, updated_at, variables, tags, detailed_metrics, logging_level, data_trace, access_log_destination_arn, access_log_format, owner_stack_id, owner_logical_id, owner_token FROM apigatewayv2_stage WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? AND id = ?
 `
 
 type GetStageParams struct {
@@ -521,12 +542,15 @@ func (q *Queries) GetStage(ctx context.Context, arg GetStageParams) (Apigatewayv
 		&i.DataTrace,
 		&i.AccessLogDestinationArn,
 		&i.AccessLogFormat,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
 
 const listAPIs = `-- name: ListAPIs :many
-SELECT "partition", account_id, region, id, name, description, version, disabled, created_at, tags, protocol_type, route_selection_expression FROM apigatewayv2_api WHERE partition = ? AND account_id = ? AND region = ? ORDER BY id
+SELECT "partition", account_id, region, id, name, description, version, disabled, created_at, tags, protocol_type, route_selection_expression, owner_stack_id, owner_logical_id, owner_token FROM apigatewayv2_api WHERE partition = ? AND account_id = ? AND region = ? ORDER BY id
 `
 
 type ListAPIsParams struct {
@@ -557,6 +581,9 @@ func (q *Queries) ListAPIs(ctx context.Context, arg ListAPIsParams) ([]Apigatewa
 			&i.Tags,
 			&i.ProtocolType,
 			&i.RouteSelectionExpression,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -572,7 +599,7 @@ func (q *Queries) ListAPIs(ctx context.Context, arg ListAPIsParams) ([]Apigatewa
 }
 
 const listAuthorizers = `-- name: ListAuthorizers :many
-SELECT "partition", account_id, region, gateway_id, id, name, issuer, audiences, authorizer_type, uri, function_arn, payload_version, identity_sources, ttl_seconds, simple_responses, credentials_arn, validation_expression FROM apigatewayv2_authorizer WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? ORDER BY id
+SELECT "partition", account_id, region, gateway_id, id, name, issuer, audiences, authorizer_type, uri, function_arn, payload_version, identity_sources, ttl_seconds, simple_responses, credentials_arn, validation_expression, owner_stack_id, owner_logical_id, owner_token FROM apigatewayv2_authorizer WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? ORDER BY id
 `
 
 type ListAuthorizersParams struct {
@@ -614,6 +641,9 @@ func (q *Queries) ListAuthorizers(ctx context.Context, arg ListAuthorizersParams
 			&i.SimpleResponses,
 			&i.CredentialsArn,
 			&i.ValidationExpression,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -695,7 +725,7 @@ func (q *Queries) ListDeployedRoutes(ctx context.Context, arg ListDeployedRoutes
 }
 
 const listDeployments = `-- name: ListDeployments :many
-SELECT "partition", account_id, region, gateway_id, id, description, auto_deployed, created_at, route_selection_expression FROM apigatewayv2_deployment WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? ORDER BY id
+SELECT "partition", account_id, region, gateway_id, id, description, auto_deployed, created_at, route_selection_expression, owner_stack_id, owner_logical_id, owner_token FROM apigatewayv2_deployment WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? ORDER BY id
 `
 
 type ListDeploymentsParams struct {
@@ -729,6 +759,9 @@ func (q *Queries) ListDeployments(ctx context.Context, arg ListDeploymentsParams
 			&i.AutoDeployed,
 			&i.CreatedAt,
 			&i.RouteSelectionExpression,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -744,7 +777,7 @@ func (q *Queries) ListDeployments(ctx context.Context, arg ListDeploymentsParams
 }
 
 const listIntegrations = `-- name: ListIntegrations :many
-SELECT "partition", account_id, region, gateway_id, id, description, uri, payload_version, timeout_millis, passthrough_behavior, credentials_arn FROM apigatewayv2_integration WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? ORDER BY id
+SELECT "partition", account_id, region, gateway_id, id, description, uri, payload_version, timeout_millis, passthrough_behavior, credentials_arn, owner_stack_id, owner_logical_id, owner_token FROM apigatewayv2_integration WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? ORDER BY id
 `
 
 type ListIntegrationsParams struct {
@@ -780,6 +813,9 @@ func (q *Queries) ListIntegrations(ctx context.Context, arg ListIntegrationsPara
 			&i.TimeoutMillis,
 			&i.PassthroughBehavior,
 			&i.CredentialsArn,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -795,7 +831,7 @@ func (q *Queries) ListIntegrations(ctx context.Context, arg ListIntegrationsPara
 }
 
 const listRouteResponses = `-- name: ListRouteResponses :many
-SELECT "partition", account_id, region, gateway_id, id, route_id, response_key FROM apigatewayv2_route_response WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? AND route_id = ? ORDER BY id
+SELECT "partition", account_id, region, gateway_id, id, route_id, response_key, owner_stack_id, owner_logical_id, owner_token FROM apigatewayv2_route_response WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? AND route_id = ? ORDER BY id
 `
 
 type ListRouteResponsesParams struct {
@@ -829,6 +865,9 @@ func (q *Queries) ListRouteResponses(ctx context.Context, arg ListRouteResponses
 			&i.ID,
 			&i.RouteID,
 			&i.ResponseKey,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -844,7 +883,7 @@ func (q *Queries) ListRouteResponses(ctx context.Context, arg ListRouteResponses
 }
 
 const listRoutes = `-- name: ListRoutes :many
-SELECT "partition", account_id, region, gateway_id, id, route_key, target, authorization_type, authorizer_id, operation_name, scopes, route_response_selection_expression FROM apigatewayv2_route WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? ORDER BY id
+SELECT "partition", account_id, region, gateway_id, id, route_key, target, authorization_type, authorizer_id, operation_name, scopes, route_response_selection_expression, owner_stack_id, owner_logical_id, owner_token FROM apigatewayv2_route WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? ORDER BY id
 `
 
 type ListRoutesParams struct {
@@ -881,6 +920,9 @@ func (q *Queries) ListRoutes(ctx context.Context, arg ListRoutesParams) ([]Apiga
 			&i.OperationName,
 			&i.Scopes,
 			&i.RouteResponseSelectionExpression,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -896,7 +938,7 @@ func (q *Queries) ListRoutes(ctx context.Context, arg ListRoutesParams) ([]Apiga
 }
 
 const listStages = `-- name: ListStages :many
-SELECT "partition", account_id, region, gateway_id, id, description, deployment_id, last_deployment_status_message, auto_deploy, created_at, updated_at, variables, tags, detailed_metrics, logging_level, data_trace, access_log_destination_arn, access_log_format FROM apigatewayv2_stage WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? ORDER BY id
+SELECT "partition", account_id, region, gateway_id, id, description, deployment_id, last_deployment_status_message, auto_deploy, created_at, updated_at, variables, tags, detailed_metrics, logging_level, data_trace, access_log_destination_arn, access_log_format, owner_stack_id, owner_logical_id, owner_token FROM apigatewayv2_stage WHERE partition = ? AND account_id = ? AND region = ? AND gateway_id = ? ORDER BY id
 `
 
 type ListStagesParams struct {
@@ -939,6 +981,9 @@ func (q *Queries) ListStages(ctx context.Context, arg ListStagesParams) ([]Apiga
 			&i.DataTrace,
 			&i.AccessLogDestinationArn,
 			&i.AccessLogFormat,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -977,7 +1022,7 @@ func (q *Queries) PruneAuthorizerCache(ctx context.Context, arg PruneAuthorizerC
 }
 
 const putAPI = `-- name: PutAPI :exec
-INSERT INTO apigatewayv2_api (partition, account_id, region, id, name, description, version, disabled, created_at, tags, protocol_type, route_selection_expression) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, id) DO UPDATE SET name = excluded.name, description = excluded.description, version = excluded.version, disabled = excluded.disabled, created_at = excluded.created_at, tags = excluded.tags, protocol_type = excluded.protocol_type, route_selection_expression = excluded.route_selection_expression
+INSERT INTO apigatewayv2_api (partition, account_id, region, id, name, description, version, disabled, created_at, tags, protocol_type, route_selection_expression, owner_stack_id, owner_logical_id, owner_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, id) DO UPDATE SET name = excluded.name, description = excluded.description, version = excluded.version, disabled = excluded.disabled, created_at = excluded.created_at, tags = excluded.tags, protocol_type = excluded.protocol_type, route_selection_expression = excluded.route_selection_expression, owner_stack_id = excluded.owner_stack_id, owner_logical_id = excluded.owner_logical_id, owner_token = excluded.owner_token
 `
 
 type PutAPIParams struct {
@@ -993,6 +1038,9 @@ type PutAPIParams struct {
 	Tags                     []byte
 	ProtocolType             string
 	RouteSelectionExpression string
+	OwnerStackID             string
+	OwnerLogicalID           string
+	OwnerToken               string
 }
 
 func (q *Queries) PutAPI(ctx context.Context, arg PutAPIParams) error {
@@ -1009,12 +1057,15 @@ func (q *Queries) PutAPI(ctx context.Context, arg PutAPIParams) error {
 		arg.Tags,
 		arg.ProtocolType,
 		arg.RouteSelectionExpression,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
 	)
 	return err
 }
 
 const putAuthorizer = `-- name: PutAuthorizer :exec
-INSERT INTO apigatewayv2_authorizer (partition, account_id, region, gateway_id, id, name, issuer, audiences, authorizer_type, uri, function_arn, payload_version, identity_sources, ttl_seconds, simple_responses, credentials_arn, validation_expression) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, gateway_id, id) DO UPDATE SET name = excluded.name, issuer = excluded.issuer, audiences = excluded.audiences, authorizer_type = excluded.authorizer_type, uri = excluded.uri, function_arn = excluded.function_arn, payload_version = excluded.payload_version, identity_sources = excluded.identity_sources, ttl_seconds = excluded.ttl_seconds, simple_responses = excluded.simple_responses, credentials_arn = excluded.credentials_arn, validation_expression = excluded.validation_expression
+INSERT INTO apigatewayv2_authorizer (partition, account_id, region, gateway_id, id, name, issuer, audiences, authorizer_type, uri, function_arn, payload_version, identity_sources, ttl_seconds, simple_responses, credentials_arn, validation_expression, owner_stack_id, owner_logical_id, owner_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, gateway_id, id) DO UPDATE SET name = excluded.name, issuer = excluded.issuer, audiences = excluded.audiences, authorizer_type = excluded.authorizer_type, uri = excluded.uri, function_arn = excluded.function_arn, payload_version = excluded.payload_version, identity_sources = excluded.identity_sources, ttl_seconds = excluded.ttl_seconds, simple_responses = excluded.simple_responses, credentials_arn = excluded.credentials_arn, validation_expression = excluded.validation_expression, owner_stack_id = excluded.owner_stack_id, owner_logical_id = excluded.owner_logical_id, owner_token = excluded.owner_token
 `
 
 type PutAuthorizerParams struct {
@@ -1035,6 +1086,9 @@ type PutAuthorizerParams struct {
 	SimpleResponses      int64
 	CredentialsArn       string
 	ValidationExpression string
+	OwnerStackID         string
+	OwnerLogicalID       string
+	OwnerToken           string
 }
 
 func (q *Queries) PutAuthorizer(ctx context.Context, arg PutAuthorizerParams) error {
@@ -1056,6 +1110,9 @@ func (q *Queries) PutAuthorizer(ctx context.Context, arg PutAuthorizerParams) er
 		arg.SimpleResponses,
 		arg.CredentialsArn,
 		arg.ValidationExpression,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
 	)
 	return err
 }
@@ -1159,7 +1216,7 @@ func (q *Queries) PutDeployedRoute(ctx context.Context, arg PutDeployedRoutePara
 }
 
 const putDeployment = `-- name: PutDeployment :exec
-INSERT INTO apigatewayv2_deployment (partition, account_id, region, gateway_id, id, description, auto_deployed, created_at, route_selection_expression) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, gateway_id, id) DO UPDATE SET description = excluded.description, auto_deployed = excluded.auto_deployed, created_at = excluded.created_at, route_selection_expression = excluded.route_selection_expression
+INSERT INTO apigatewayv2_deployment (partition, account_id, region, gateway_id, id, description, auto_deployed, created_at, route_selection_expression, owner_stack_id, owner_logical_id, owner_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, gateway_id, id) DO UPDATE SET description = excluded.description, auto_deployed = excluded.auto_deployed, created_at = excluded.created_at, route_selection_expression = excluded.route_selection_expression, owner_stack_id = excluded.owner_stack_id, owner_logical_id = excluded.owner_logical_id, owner_token = excluded.owner_token
 `
 
 type PutDeploymentParams struct {
@@ -1172,6 +1229,9 @@ type PutDeploymentParams struct {
 	AutoDeployed             int64
 	CreatedAt                time.Time
 	RouteSelectionExpression string
+	OwnerStackID             string
+	OwnerLogicalID           string
+	OwnerToken               string
 }
 
 func (q *Queries) PutDeployment(ctx context.Context, arg PutDeploymentParams) error {
@@ -1185,12 +1245,15 @@ func (q *Queries) PutDeployment(ctx context.Context, arg PutDeploymentParams) er
 		arg.AutoDeployed,
 		arg.CreatedAt,
 		arg.RouteSelectionExpression,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
 	)
 	return err
 }
 
 const putIntegration = `-- name: PutIntegration :exec
-INSERT INTO apigatewayv2_integration (partition, account_id, region, gateway_id, id, description, uri, payload_version, timeout_millis, passthrough_behavior, credentials_arn) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, gateway_id, id) DO UPDATE SET description = excluded.description, uri = excluded.uri, payload_version = excluded.payload_version, timeout_millis = excluded.timeout_millis, passthrough_behavior = excluded.passthrough_behavior, credentials_arn = excluded.credentials_arn
+INSERT INTO apigatewayv2_integration (partition, account_id, region, gateway_id, id, description, uri, payload_version, timeout_millis, passthrough_behavior, credentials_arn, owner_stack_id, owner_logical_id, owner_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, gateway_id, id) DO UPDATE SET description = excluded.description, uri = excluded.uri, payload_version = excluded.payload_version, timeout_millis = excluded.timeout_millis, passthrough_behavior = excluded.passthrough_behavior, credentials_arn = excluded.credentials_arn, owner_stack_id = excluded.owner_stack_id, owner_logical_id = excluded.owner_logical_id, owner_token = excluded.owner_token
 `
 
 type PutIntegrationParams struct {
@@ -1205,6 +1268,9 @@ type PutIntegrationParams struct {
 	TimeoutMillis       int64
 	PassthroughBehavior string
 	CredentialsArn      string
+	OwnerStackID        string
+	OwnerLogicalID      string
+	OwnerToken          string
 }
 
 func (q *Queries) PutIntegration(ctx context.Context, arg PutIntegrationParams) error {
@@ -1220,12 +1286,15 @@ func (q *Queries) PutIntegration(ctx context.Context, arg PutIntegrationParams) 
 		arg.TimeoutMillis,
 		arg.PassthroughBehavior,
 		arg.CredentialsArn,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
 	)
 	return err
 }
 
 const putRoute = `-- name: PutRoute :exec
-INSERT INTO apigatewayv2_route (partition, account_id, region, gateway_id, id, route_key, target, authorization_type, authorizer_id, operation_name, scopes, route_response_selection_expression) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, gateway_id, id) DO UPDATE SET route_key = excluded.route_key, target = excluded.target, authorization_type = excluded.authorization_type, authorizer_id = excluded.authorizer_id, operation_name = excluded.operation_name, scopes = excluded.scopes, route_response_selection_expression = excluded.route_response_selection_expression
+INSERT INTO apigatewayv2_route (partition, account_id, region, gateway_id, id, route_key, target, authorization_type, authorizer_id, operation_name, scopes, route_response_selection_expression, owner_stack_id, owner_logical_id, owner_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, gateway_id, id) DO UPDATE SET route_key = excluded.route_key, target = excluded.target, authorization_type = excluded.authorization_type, authorizer_id = excluded.authorizer_id, operation_name = excluded.operation_name, scopes = excluded.scopes, route_response_selection_expression = excluded.route_response_selection_expression, owner_stack_id = excluded.owner_stack_id, owner_logical_id = excluded.owner_logical_id, owner_token = excluded.owner_token
 `
 
 type PutRouteParams struct {
@@ -1241,6 +1310,9 @@ type PutRouteParams struct {
 	OperationName                    string
 	Scopes                           []byte
 	RouteResponseSelectionExpression string
+	OwnerStackID                     string
+	OwnerLogicalID                   string
+	OwnerToken                       string
 }
 
 func (q *Queries) PutRoute(ctx context.Context, arg PutRouteParams) error {
@@ -1257,22 +1329,28 @@ func (q *Queries) PutRoute(ctx context.Context, arg PutRouteParams) error {
 		arg.OperationName,
 		arg.Scopes,
 		arg.RouteResponseSelectionExpression,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
 	)
 	return err
 }
 
 const putRouteResponse = `-- name: PutRouteResponse :exec
-INSERT INTO apigatewayv2_route_response (partition, account_id, region, gateway_id, id, route_id, response_key) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, gateway_id, id) DO UPDATE SET route_id = excluded.route_id, response_key = excluded.response_key
+INSERT INTO apigatewayv2_route_response (partition, account_id, region, gateway_id, id, route_id, response_key, owner_stack_id, owner_logical_id, owner_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, gateway_id, id) DO UPDATE SET route_id = excluded.route_id, response_key = excluded.response_key, owner_stack_id = excluded.owner_stack_id, owner_logical_id = excluded.owner_logical_id, owner_token = excluded.owner_token
 `
 
 type PutRouteResponseParams struct {
-	Partition   string
-	AccountID   string
-	Region      string
-	GatewayID   string
-	ID          string
-	RouteID     string
-	ResponseKey string
+	Partition      string
+	AccountID      string
+	Region         string
+	GatewayID      string
+	ID             string
+	RouteID        string
+	ResponseKey    string
+	OwnerStackID   string
+	OwnerLogicalID string
+	OwnerToken     string
 }
 
 func (q *Queries) PutRouteResponse(ctx context.Context, arg PutRouteResponseParams) error {
@@ -1284,12 +1362,15 @@ func (q *Queries) PutRouteResponse(ctx context.Context, arg PutRouteResponsePara
 		arg.ID,
 		arg.RouteID,
 		arg.ResponseKey,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
 	)
 	return err
 }
 
 const putStage = `-- name: PutStage :exec
-INSERT INTO apigatewayv2_stage (partition, account_id, region, gateway_id, id, description, deployment_id, last_deployment_status_message, auto_deploy, created_at, updated_at, variables, tags, detailed_metrics, logging_level, data_trace, access_log_destination_arn, access_log_format) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, gateway_id, id) DO UPDATE SET description = excluded.description, deployment_id = excluded.deployment_id, last_deployment_status_message = excluded.last_deployment_status_message, auto_deploy = excluded.auto_deploy, created_at = excluded.created_at, updated_at = excluded.updated_at, variables = excluded.variables, tags = excluded.tags, detailed_metrics = excluded.detailed_metrics, logging_level = excluded.logging_level, data_trace = excluded.data_trace, access_log_destination_arn = excluded.access_log_destination_arn, access_log_format = excluded.access_log_format
+INSERT INTO apigatewayv2_stage (partition, account_id, region, gateway_id, id, description, deployment_id, last_deployment_status_message, auto_deploy, created_at, updated_at, variables, tags, detailed_metrics, logging_level, data_trace, access_log_destination_arn, access_log_format, owner_stack_id, owner_logical_id, owner_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, gateway_id, id) DO UPDATE SET description = excluded.description, deployment_id = excluded.deployment_id, last_deployment_status_message = excluded.last_deployment_status_message, auto_deploy = excluded.auto_deploy, created_at = excluded.created_at, updated_at = excluded.updated_at, variables = excluded.variables, tags = excluded.tags, detailed_metrics = excluded.detailed_metrics, logging_level = excluded.logging_level, data_trace = excluded.data_trace, access_log_destination_arn = excluded.access_log_destination_arn, access_log_format = excluded.access_log_format, owner_stack_id = excluded.owner_stack_id, owner_logical_id = excluded.owner_logical_id, owner_token = excluded.owner_token
 `
 
 type PutStageParams struct {
@@ -1311,6 +1392,9 @@ type PutStageParams struct {
 	DataTrace                   bool
 	AccessLogDestinationArn     string
 	AccessLogFormat             string
+	OwnerStackID                string
+	OwnerLogicalID              string
+	OwnerToken                  string
 }
 
 func (q *Queries) PutStage(ctx context.Context, arg PutStageParams) error {
@@ -1333,6 +1417,9 @@ func (q *Queries) PutStage(ctx context.Context, arg PutStageParams) error {
 		arg.DataTrace,
 		arg.AccessLogDestinationArn,
 		arg.AccessLogFormat,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
 	)
 	return err
 }

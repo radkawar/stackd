@@ -85,6 +85,7 @@ func (s *Service) createGroup(tx Transaction, in *api.CreateGroupInput) (*api.Cr
 	if len(g.Tags) > 50 {
 		return nil, failure("BadRequestException", "A group may have at most 50 tags.")
 	}
+	g.CloudFormationClaim = cloudFormationGroupClaim(tx.Context())
 	if err := tx.PutGroup(g); err != nil {
 		return nil, err
 	}
@@ -251,6 +252,9 @@ func (s *Service) tag(tx Transaction, in *api.TagInput) (*api.TagOutput, error) 
 	if !ok {
 		return nil, failure("NotFoundException", "The specified group does not exist.")
 	}
+	if err := observeCloudFormationGroup(tx.Context(), g); err != nil {
+		return nil, err
+	}
 	if g.Tags == nil {
 		g.Tags = map[string]string{}
 	}
@@ -280,6 +284,9 @@ func (s *Service) untag(tx Transaction, in *api.UntagInput) (*api.UntagOutput, e
 	}
 	if !ok {
 		return nil, failure("NotFoundException", "The specified group does not exist.")
+	}
+	if err := observeCloudFormationGroup(tx.Context(), g); err != nil {
+		return nil, err
 	}
 	for _, k := range keys {
 		if strings.HasPrefix(strings.ToLower(k), "aws:") {

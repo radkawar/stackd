@@ -109,6 +109,7 @@ func (s *Service) addPermission(r *http.Request, in *api.AddPermissionInput) (*a
 		return nil, failure("InvalidAttributeValue", err.Error())
 	}
 	q.config.policy = string(encoded)
+	q.policyOwner = ""
 	q.modified = s.now()
 	return &api.AddPermissionOutput{}, nil
 }
@@ -139,6 +140,7 @@ func (s *Service) removePermission(r *http.Request, in *api.RemovePermissionInpu
 		encoded, _ := json.Marshal(doc)
 		q.config.policy = string(encoded)
 	}
+	q.policyOwner = ""
 	q.modified = s.now()
 	return &api.RemovePermissionOutput{}, nil
 }

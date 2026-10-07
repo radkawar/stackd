@@ -27,13 +27,17 @@ type ClusterRecord struct {
 	Secrets                                             []string
 	Policy                                              authorization.BoundPolicy
 	PolicyVersion                                       int64
+	// Private immutable CloudFormation incarnation claim set at CreateCluster;
+	// unlike Tags it is never accepted from or rendered by an MSK API.
+	OwnerStackID, OwnerLogicalID, OwnerToken string
 }
 type ConfigurationRecord struct {
 	Scope
-	ARN, Name, Description string
-	Created                time.Time
-	LatestRevision         int64
-	KafkaVersions          []string
+	ARN, Name, Description                   string
+	Created                                  time.Time
+	LatestRevision                           int64
+	KafkaVersions                            []string
+	OwnerStackID, OwnerLogicalID, OwnerToken string
 }
 type RevisionRecord struct {
 	ARN                           string

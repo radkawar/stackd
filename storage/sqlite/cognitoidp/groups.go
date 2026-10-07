@@ -72,7 +72,13 @@ func (w writer) PutGroup(v domain.GroupRecord) error {
 }
 
 func (w writer) DeleteGroup(k domain.GroupKey) error {
-	return w.q.DeleteGroup(w.ctx, sqlcgen.DeleteGroupParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, PoolID: k.ID, GroupName: k.Name})
+	if err := w.q.DeleteGroup(w.ctx, sqlcgen.DeleteGroupParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, PoolID: k.ID, GroupName: k.Name}); err != nil {
+		return err
+	}
+	if err := w.q.DeleteMembershipOwnersByGroup(w.ctx, sqlcgen.DeleteMembershipOwnersByGroupParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, PoolID: k.ID, MemberGroup: k.Name}); err != nil {
+		return err
+	}
+	return w.releaseOwners(k.PoolKey, k.Name, domain.OwnerKindGroup)
 }
 
 func (w writer) AddGroupUser(k domain.GroupKey, username string) error {
@@ -80,5 +86,8 @@ func (w writer) AddGroupUser(k domain.GroupKey, username string) error {
 }
 
 func (w writer) RemoveGroupUser(k domain.GroupKey, username string) error {
-	return w.q.RemoveGroupUser(w.ctx, sqlcgen.RemoveGroupUserParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, PoolID: k.ID, GroupName: k.Name, Username: username})
+	if err := w.q.RemoveGroupUser(w.ctx, sqlcgen.RemoveGroupUserParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, PoolID: k.ID, GroupName: k.Name, Username: username}); err != nil {
+		return err
+	}
+	return w.q.DeleteMembershipOwner(w.ctx, sqlcgen.DeleteMembershipOwnerParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, PoolID: k.ID, MemberUser: username, MemberGroup: k.Name})
 }

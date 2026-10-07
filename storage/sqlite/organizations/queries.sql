@@ -15,15 +15,15 @@ DELETE FROM org_partitions WHERE partition = ?;
 SELECT * FROM org_registry WHERE partition = ? ORDER BY position;
 
 -- name: PutRegistry :exec
-INSERT INTO org_registry (partition, position, id, arn, name, email, status, state, joined_method, joined_timestamp)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO org_registry (partition, position, id, arn, name, email, status, state, joined_method, joined_timestamp, cloudformation_owner, cloudformation_region)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: Organizations :many
 SELECT * FROM org_organizations WHERE partition = ? ORDER BY position;
 
 -- name: PutOrganizations :exec
-INSERT INTO org_organizations (partition, org_id, position, arn, feature_set, master_account_id, master_account_arn, master_account_email, root_id, root_arn, root_name, credentials_management, root_sessions)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO org_organizations (partition, org_id, position, arn, feature_set, master_account_id, master_account_arn, master_account_email, root_id, root_arn, root_name, credentials_management, root_sessions, cloudformation_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: AvailablePolicyTypes :many
 SELECT * FROM org_available_policy_types WHERE partition = ? AND org_id = ? ORDER BY position;
@@ -43,15 +43,15 @@ VALUES (?, ?, ?, ?, ?);
 SELECT * FROM org_members WHERE partition = ? AND org_id = ? ORDER BY position;
 
 -- name: PutMembers :exec
-INSERT INTO org_members (partition, org_id, position, id, arn, name, email, status, state, joined_method, joined_timestamp)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO org_members (partition, org_id, position, id, arn, name, email, status, state, joined_method, joined_timestamp, cloudformation_owner, cloudformation_region)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: Units :many
 SELECT * FROM org_units WHERE partition = ? AND org_id = ? ORDER BY position;
 
 -- name: PutUnits :exec
-INSERT INTO org_units (partition, org_id, position, id, arn, name)
-VALUES (?, ?, ?, ?, ?, ?);
+INSERT INTO org_units (partition, org_id, position, id, arn, name, cloudformation_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?);
 
 -- name: Parents :many
 SELECT * FROM org_parents WHERE partition = ? AND org_id = ? ORDER BY position;
@@ -64,15 +64,15 @@ VALUES (?, ?, ?, ?, ?);
 SELECT * FROM org_creations WHERE partition = ? AND org_id = ? ORDER BY position;
 
 -- name: PutCreations :exec
-INSERT INTO org_creations (partition, org_id, position, id, account_id, account_name, email, role_name, state, failure_reason, requested_at, due, completed_at, request_id, request_region, actor_arn)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO org_creations (partition, org_id, position, id, account_id, account_name, email, role_name, state, failure_reason, requested_at, due, completed_at, request_id, request_region, actor_arn, cloudformation_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: Policies :many
 SELECT * FROM org_policies WHERE partition = ? AND org_id = ? ORDER BY position;
 
 -- name: PutPolicies :exec
-INSERT INTO org_policies (partition, org_id, position, id, arn, name, description, type, content, aws_managed)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO org_policies (partition, org_id, position, id, arn, name, description, type, content, aws_managed, cloudformation_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: Attachments :many
 SELECT * FROM org_attachments WHERE partition = ? AND org_id = ? ORDER BY position;
@@ -110,10 +110,10 @@ INSERT INTO org_creation_tags (partition, org_id, creation_position, key, value)
 VALUES (?, ?, ?, ?, ?);
 
 -- name: ResourcePolicy :one
-SELECT id, arn, content FROM org_resource_policies WHERE partition = ? AND org_id = ?;
+SELECT id, arn, content, cloudformation_owner FROM org_resource_policies WHERE partition = ? AND org_id = ?;
 
 -- name: PutResourcePolicy :exec
-INSERT INTO org_resource_policies (partition, org_id, id, arn, content) VALUES (?, ?, ?, ?, ?);
+INSERT INTO org_resource_policies (partition, org_id, id, arn, content, cloudformation_owner) VALUES (?, ?, ?, ?, ?, ?);
 
 -- name: Handshakes :many
 SELECT * FROM org_handshakes WHERE partition = ? ORDER BY id;

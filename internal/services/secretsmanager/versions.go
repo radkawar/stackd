@@ -218,6 +218,9 @@ func (s *Service) storeSecretVersion(tx Transaction, secret SecretRecord, token 
 			return VersionRecord{}, err
 		}
 	}
+	if slices.Contains(versions[target].Stages, "AWSCURRENT") {
+		reconcileAttachmentValue(&secret, text, binary)
+	}
 	if err := tx.PutSecret(secret); err != nil {
 		return VersionRecord{}, err
 	}
@@ -245,6 +248,13 @@ func (s *Service) putSecretValue(tx Transaction, in *api.PutSecretValueInput) (*
 	}
 	if err := checkWritable(tx.Context(), secret); err != nil {
 		return nil, err
+	}
+	replay, err := s.prepareCloudFormationAttachment(tx, &secret, in)
+	if err != nil {
+		return nil, err
+	}
+	if replay {
+		return &api.PutSecretValueOutput{ARN: str[api.SecretARNType](secret.ARN), Name: str[api.SecretNameType](secret.Key.Name)}, nil
 	}
 	if in.RotationToken != nil {
 		if err := s.validateRotationToken(tx, secret, in); err != nil {
@@ -401,6 +411,12 @@ func (s *Service) updateSecretVersionStage(tx Transaction, in *api.UpdateSecretV
 		}
 	}
 	secret.Changed = s.clock.Now().UTC()
+	if stage == "AWSCURRENT" && owner != target {
+		// A direct staging operation selects another value incarnation. It
+		// cannot transfer the old attachment claim to that selected version.
+		secret.AttachmentOwnership = CloudFormationOwnership{}
+		secret.AttachmentMetadata = SecretTargetMetadata{}
+	}
 	if err := tx.PutSecret(secret); err != nil {
 		return nil, err
 	}

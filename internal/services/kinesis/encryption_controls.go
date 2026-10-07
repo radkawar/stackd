@@ -60,6 +60,10 @@ func (s *Service) startStreamEncryption(ctx context.Context, in *api.StartStream
 	if err := validateEncryption(in.EncryptionType, in.KeyId); err != nil {
 		return nil, err
 	}
+	// Fail before resolving or granting KMS use for an update that cannot complete.
+	if err := s.requireRuntime(); err != nil {
+		return nil, err
+	}
 	var stream StreamRecord
 	err := s.repository.View(ctx, func(r Reader) error {
 		var err error
@@ -104,7 +108,7 @@ func (s *Service) startStreamEncryption(ctx context.Context, in *api.StartStream
 		if err != nil {
 			return err
 		}
-		return beginStreamUpdate(tx, current, StreamUpdate{AcceptedAt: now, EncryptionType: api.EncryptionTypeKMS, KeyID: key})
+		return s.beginStreamUpdate(tx, current, StreamUpdate{AcceptedAt: now, EncryptionType: api.EncryptionTypeKMS, KeyID: key})
 	})
 	if err != nil {
 		return nil, err
@@ -137,7 +141,7 @@ func (s *Service) stopStreamEncryption(ctx context.Context, tx Transaction, in *
 	}
 	// Stopping does not require a usable KMS key. Retained encrypted records
 	// carry their original key; disabling the stream setting cannot decrypt them.
-	if err = beginStreamUpdate(tx, stream, StreamUpdate{AcceptedAt: now, EncryptionType: api.EncryptionTypeNONE}); err != nil {
+	if err = s.beginStreamUpdate(tx, stream, StreamUpdate{AcceptedAt: now, EncryptionType: api.EncryptionTypeNONE}); err != nil {
 		return nil, err
 	}
 	return &api.StopStreamEncryptionOutput{}, nil

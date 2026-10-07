@@ -73,6 +73,10 @@ type admittedRestore struct {
 // admitTable owns creation validation and resource allocation for both table
 // creation and restore; restore requires its own IAM action, not CreateTable.
 func (s *Service) admitTable(ctx context.Context, tx Transaction, in *api.CreateTableInput, restore *admittedRestore) (*TableRecord, error) {
+	owner, err := resourceOwnerFor(ctx)
+	if err != nil {
+		return nil, err
+	}
 	key, err := parseTableKey(ctx, value(in.TableName))
 	if err != nil {
 		return nil, err
@@ -119,6 +123,9 @@ func (s *Service) admitTable(ctx context.Context, tx Transaction, in *api.Create
 		return nil, err
 	}
 	if err = validateAccountCapacity(tx, key, in); err != nil {
+		return nil, err
+	}
+	if err = s.requireEngine(); err != nil {
 		return nil, err
 	}
 	if restore != nil {
@@ -203,7 +210,7 @@ func (s *Service) admitTable(ctx context.Context, tx Transaction, in *api.Create
 			}
 		}
 	}
-	table := TableRecord{Key: key, Data: data, DatabaseID: db.Spec.ID, PhysicalName: "table_" + strings.ReplaceAll(id, "-", ""), PendingCreate: &pending, TTL: api.TimeToLiveDescription{TimeToLiveStatus: new(api.TimeToLiveStatusDISABLED)}}
+	table := TableRecord{Key: key, Owner: owner, Data: data, DatabaseID: db.Spec.ID, PhysicalName: "table_" + strings.ReplaceAll(id, "-", ""), PendingCreate: &pending, TTL: api.TimeToLiveDescription{TimeToLiveStatus: new(api.TimeToLiveStatusDISABLED)}}
 	if restore != nil {
 		table.RestoreRecoveryID = restore.RecoveryID
 		table.RestoreRecoverySequence = restore.RecoverySequence
@@ -354,6 +361,9 @@ func (s *Service) deleteTableCommand(ctx context.Context, in *api.DeleteTableInp
 			return nil, failure("ResourceInUseException", "Attempt to change a resource which is still in use: Table is being deleted: "+table.Key.Name)
 		}
 		if err = replicaDeletable(&table, s.clock.Now()); err != nil {
+			return nil, err
+		}
+		if err = s.requireEngine(); err != nil {
 			return nil, err
 		}
 		if planErr != nil {

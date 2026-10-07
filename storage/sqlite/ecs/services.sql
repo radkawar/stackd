@@ -17,6 +17,7 @@ ORDER BY partition, account_id, region, cluster_name, service_name;
 
 -- name: PutService :exec
 INSERT INTO ecs_services (
+ ownership,
  partition,
  account_id,
  region,
@@ -88,10 +89,12 @@ INSERT INTO ecs_services (
  service_effective_launch_type,
  next_metric_collection
 ) VALUES (
+ ?,
  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
  , ?, ?
 )
 ON CONFLICT(partition, account_id, region, cluster_name, service_name) DO UPDATE SET
+ ownership = excluded.ownership,
  service_availability_zone_rebalancing = excluded.service_availability_zone_rebalancing,
  service_capacity_provider_strategy = excluded.service_capacity_provider_strategy,
  service_cluster_arn = excluded.service_cluster_arn,

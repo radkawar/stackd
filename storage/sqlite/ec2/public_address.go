@@ -44,6 +44,7 @@ func (r reader) publicAddress(row sqlcgen.Ec2PublicAddress) (domain.PublicAddres
 	out := domain.PublicAddressRecord{Key: k, Automatic: row.Automatic, Data: api.Address{
 		PublicIp: stringPointer[api.String](row.PublicIp), AssociationId: stringPointer[api.String](row.AssociationID), NetworkInterfaceId: stringPointer[api.String](row.NetworkInterfaceID), PrivateIpAddress: stringPointer[api.String](row.PrivateIpAddress), NetworkBorderGroup: new(api.String(row.NetworkBorderGroup)), Domain: new(api.DomainType("vpc")), PublicIpv4Pool: new(api.String("amazon")),
 	}}
+	out.CloudFormationOwner = cloudFormationOwner(row.CloudformationResourceType, row.CloudformationOwner)
 	if !out.Automatic {
 		out.Data.AllocationId = new(api.String(k.ID))
 	}

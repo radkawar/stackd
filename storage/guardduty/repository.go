@@ -7,23 +7,24 @@ import (
 )
 
 type (
-	Scope                 = service.Scope
-	Detector              = service.Detector
-	Feature               = service.Feature
-	AdditionalFeature     = service.AdditionalFeature
-	Finding               = service.Finding
-	Observation           = service.Observation
-	Filter                = service.Filter
-	IPList                = service.IPList
-	IPListKind            = service.IPListKind
-	IPRange               = service.IPRange
-	PublishingDestination = service.PublishingDestination
-	FindingExport         = service.FindingExport
-	FindingExportDeadline = service.FindingExportDeadline
-	Repository            = service.Repository
-	Reader                = service.Reader
-	Transaction           = service.Transaction
-	MemoryRepository      = service.MemoryRepository
+	CloudFormationOwnership = service.CloudFormationOwnership
+	Scope                   = service.Scope
+	Detector                = service.Detector
+	Feature                 = service.Feature
+	AdditionalFeature       = service.AdditionalFeature
+	Finding                 = service.Finding
+	Observation             = service.Observation
+	Filter                  = service.Filter
+	IPList                  = service.IPList
+	IPListKind              = service.IPListKind
+	IPRange                 = service.IPRange
+	PublishingDestination   = service.PublishingDestination
+	FindingExport           = service.FindingExport
+	FindingExportDeadline   = service.FindingExportDeadline
+	Repository              = service.Repository
+	Reader                  = service.Reader
+	Transaction             = service.Transaction
+	MemoryRepository        = service.MemoryRepository
 )
 
 const (

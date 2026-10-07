@@ -45,26 +45,36 @@ func (b *Bridges) runNativeOperation(ctx context.Context, owner string, environm
 			return nil, errors.New("native public/private network admission requires rootful Docker without user namespace remapping")
 		}
 	}
-	identity, err := nativeNetworkIdentity(ctx)
-	if err != nil {
-		return nil, err
+	identity := ""
+	if !b.daemonOwned {
+		identity, err = nativeNetworkIdentity(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 	const completed = "\nSTACKD_NATIVE_OPERATION_COMPLETE\n"
 	const ready = "STACKD_NATIVE_OPERATION_READY\n"
+	admissionScript := "\nprintf 'STACKD_NATIVE_OPERATION_READY\\n'\nIFS= read -r admission\n[ \"$admission\" = admit ]\n" + script + "\nprintf '\\nSTACKD_NATIVE_OPERATION_COMPLETE\\n'\n"
+	entrypoint := []string{"/bin/sh", "-ec", nativeLockCheckScript + admissionScript}
+	var command []string
+	if b.daemonOwned {
+		entrypoint = []string{"python3", "-c", nativeDaemonLockScript}
+		command = []string{admissionScript}
+	}
 	config := docker.ContainerConfig{
 		Image: docker.ToolkitImage, OpenStdin: true, StdinOnce: true,
-		Entrypoint: []string{"/bin/sh", "-ec", nativeLockCheckScript + "\nprintf 'STACKD_NATIVE_OPERATION_READY\\n'\nIFS= read -r admission\n[ \"$admission\" = admit ]\n" + script + "\nprintf '\\nSTACKD_NATIVE_OPERATION_COMPLETE\\n'\n"},
-		Env:        append(environment, "NATIVE_LOCK_IDENTITY="+identity, "NATIVE_ENGINE_ID="+engine.ID), Labels: labels,
+		Entrypoint: entrypoint, Cmd: command,
+		Env: append(environment, "NATIVE_LOCK_IDENTITY="+identity, "NATIVE_ENGINE_ID="+engine.ID), Labels: labels,
 		HostConfig: docker.ContainerHostConfig{
 			AutoRemove: true, NetworkMode: "host", ReadonlyRootfs: true,
 			CapDrop: []string{"ALL"}, CapAdd: []string{"NET_ADMIN"},
 			SecurityOpt: []string{"no-new-privileges:true"},
-			Mounts:      []docker.ContainerMount{{Type: "bind", Source: "/run/lock", Target: "/run/lock", ReadOnly: true}},
+			Mounts:      []docker.ContainerMount{{Type: "bind", Source: "/run/lock", Target: "/run/lock", ReadOnly: !b.daemonOwned}},
 			Memory:      64 << 20, MemorySwap: 64 << 20, PidsLimit: 32,
 			LogConfig: docker.ContainerLogConfig{Type: "json-file", Config: map[string]string{"max-size": "1m", "max-file": "1"}},
 		},
 	}
-	if bridge || strings.HasPrefix(owner, "stackd_eks_workers_") {
+	if b.daemonOwned || bridge || strings.HasPrefix(owner, "stackd_eks_workers_") {
 		config.HostConfig.Mounts = append(config.HostConfig.Mounts, docker.ContainerMount{Type: "bind", Source: "/var/run/docker.sock", Target: "/var/run/docker.sock", ReadOnly: true})
 	}
 	name := "stackd-" + kind + "-" + rand.Text()

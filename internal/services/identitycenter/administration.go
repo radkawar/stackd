@@ -4,6 +4,7 @@ import (
 	"maps"
 	"slices"
 	api "stackd/internal/awsapi/ssoadmin"
+	"stackd/internal/services/identitystore"
 	"strconv"
 	"strings"
 	"time"
@@ -13,14 +14,14 @@ func (s *Service) registerAdministration() {
 	register(s, "ssoadmin", "CreateInstance", s.createInstance)
 	register(s, "ssoadmin", "ListInstances", s.listInstances)
 	register(s, "ssoadmin", "DescribeInstance", func(tx Transaction, in *api.DescribeInstanceInput) (*api.DescribeInstanceOutput, error) {
-		v, e := s.instance(tx, value(in.InstanceArn), "DescribeInstance")
+		v, e := s.ownedInstance(tx, value(in.InstanceArn), "DescribeInstance")
 		if e != nil {
 			return nil, e
 		}
 		return &api.DescribeInstanceOutput{InstanceArn: new(api.InstanceArn(v.ARN)), IdentityStoreId: new(api.Id(v.StoreID)), Name: new(api.NameType(v.Name)), OwnerAccountId: new(api.AccountId(v.AccountID)), CreatedDate: new(api.Date(v.Created)), Status: new(api.InstanceStatusACTIVE), PermissionSetsEnabled: new(api.Boolean(true))}, nil
 	})
 	register(s, "ssoadmin", "UpdateInstance", func(tx Transaction, in *api.UpdateInstanceInput) (*api.UpdateInstanceOutput, error) {
-		v, e := s.instance(tx, value(in.InstanceArn), "UpdateInstance")
+		v, e := s.ownedInstance(tx, value(in.InstanceArn), "UpdateInstance")
 		if e != nil {
 			return nil, e
 		}
@@ -33,7 +34,7 @@ func (s *Service) registerAdministration() {
 		return &api.UpdateInstanceOutput{}, tx.PutInstance(v)
 	})
 	register(s, "ssoadmin", "DeleteInstance", func(tx Transaction, in *api.DeleteInstanceInput) (*api.DeleteInstanceOutput, error) {
-		v, e := s.instance(tx, value(in.InstanceArn), "DeleteInstance")
+		v, e := s.ownedInstance(tx, value(in.InstanceArn), "DeleteInstance")
 		if e != nil {
 			return nil, e
 		}
@@ -54,14 +55,14 @@ func (s *Service) registerAdministration() {
 	})
 	register(s, "ssoadmin", "CreatePermissionSet", s.createPermissionSet)
 	register(s, "ssoadmin", "DescribePermissionSet", func(tx Transaction, in *api.DescribePermissionSetInput) (*api.DescribePermissionSetOutput, error) {
-		_, p, e := s.permission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "DescribePermissionSet")
+		_, p, e := s.ownedPermission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "DescribePermissionSet")
 		if e != nil {
 			return nil, e
 		}
 		return &api.DescribePermissionSetOutput{PermissionSet: wirePermission(p)}, nil
 	})
 	register(s, "ssoadmin", "UpdatePermissionSet", func(tx Transaction, in *api.UpdatePermissionSetInput) (*api.UpdatePermissionSetOutput, error) {
-		_, p, e := s.permission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "UpdatePermissionSet")
+		_, p, e := s.ownedPermission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "UpdatePermissionSet")
 		if e != nil {
 			return nil, e
 		}
@@ -80,7 +81,7 @@ func (s *Service) registerAdministration() {
 		return &api.UpdatePermissionSetOutput{}, tx.PutPermissionSet(p)
 	})
 	register(s, "ssoadmin", "DeletePermissionSet", func(tx Transaction, in *api.DeletePermissionSetInput) (*api.DeletePermissionSetOutput, error) {
-		i, p, e := s.permission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "DeletePermissionSet")
+		i, p, e := s.ownedPermission(tx, value(in.InstanceArn), value(in.PermissionSetArn), "DeletePermissionSet")
 		if e != nil {
 			return nil, e
 		}
@@ -124,6 +125,10 @@ func (s *Service) registerAdministration() {
 		if e != nil {
 			return nil, e
 		}
+		// Controller observers list only their own incarnation's permission sets.
+		if owner := identitystore.CloudFormationOwner(tx.Context()); owner != "" {
+			rows = slices.DeleteFunc(rows, func(v PermissionSet) bool { return v.CloudFormationOwner != owner })
+		}
 		rows, next, e := pageSlice(rows, value(in.NextToken), "ListPermissionSets/"+i.ARN, intValue(in.MaxResults), func(v PermissionSet) string { return v.ARN })
 		if e != nil {
 			return nil, e
@@ -152,9 +157,18 @@ func (s *Service) createInstance(tx Transaction, in *api.CreateInstanceInput) (*
 	if e != nil {
 		return nil, e
 	}
+	// A controller replay observes only its own committed instance. The
+	// customer-visible ClientToken is not an ownership claim.
+	owner := identitystore.CloudFormationOwner(tx.Context())
 	for _, v := range rows {
 		if e = s.authorizeTags(tx.Context(), "CreateInstance", v.ARN, nil, tags); e != nil {
 			return nil, e
+		}
+		if owner != "" {
+			if v.CloudFormationOwner == owner {
+				return &api.CreateInstanceOutput{InstanceArn: new(api.InstanceArn(v.ARN))}, nil
+			}
+			continue
 		}
 		if value(in.ClientToken) != "" && v.ClientToken == value(in.ClientToken) {
 			if v.Name != value(in.Name) || !maps.Equal(v.Tags, tags) {
@@ -174,7 +188,7 @@ func (s *Service) createInstance(tx Transaction, in *api.CreateInstanceInput) (*
 	if e != nil {
 		return nil, e
 	}
-	v := Instance{Scope: scope, ARN: "arn:" + scope.Partition + ":sso:::instance/ssoins-" + id, StoreID: "d-" + store, Name: value(in.Name), ClientToken: value(in.ClientToken), Created: s.clock.Now(), Tags: tags}
+	v := Instance{Scope: scope, ARN: "arn:" + scope.Partition + ":sso:::instance/ssoins-" + id, StoreID: "d-" + store, Name: value(in.Name), ClientToken: value(in.ClientToken), Created: s.clock.Now(), Tags: tags, CloudFormationOwner: owner}
 	if e = s.authorizeTags(tx.Context(), "CreateInstance", v.ARN, nil, tags); e != nil {
 		return nil, e
 	}
@@ -194,6 +208,9 @@ func (s *Service) listInstances(tx Transaction, in *api.ListInstancesInput) (*ap
 	rows, e := tx.Instances(scope)
 	if e != nil {
 		return nil, e
+	}
+	if owner := identitystore.CloudFormationOwner(tx.Context()); owner != "" {
+		rows = slices.DeleteFunc(rows, func(v Instance) bool { return v.CloudFormationOwner != owner })
 	}
 	rows, next, e := pageSlice(rows, value(in.NextToken), "ListInstances/"+scope.Partition+"/"+scope.AccountID+"/"+scope.Region, intValue(in.MaxResults), func(v Instance) string { return v.ARN })
 	if e != nil {
@@ -231,6 +248,16 @@ func (s *Service) createPermissionSet(tx Transaction, in *api.CreatePermissionSe
 	if e != nil {
 		return nil, e
 	}
+	// A controller replay observes its committed permission set, even after a
+	// native rename; it never adopts a same-name permission set.
+	owner := identitystore.CloudFormationOwner(tx.Context())
+	if owner != "" {
+		for _, p := range rows {
+			if p.CloudFormationOwner == owner {
+				return &api.CreatePermissionSetOutput{PermissionSet: wirePermission(p)}, nil
+			}
+		}
+	}
 	for _, p := range rows {
 		if p.Name == value(in.Name) {
 			return nil, failure("ConflictException", "A permission set with this name already exists.", 400)
@@ -241,7 +268,7 @@ func (s *Service) createPermissionSet(tx Transaction, in *api.CreatePermissionSe
 		return nil, e
 	}
 	instanceID := instance.ARN[strings.LastIndexByte(instance.ARN, '/')+1:]
-	p := PermissionSet{InstanceARN: instance.ARN, ARN: "arn:" + instance.Partition + ":sso:::permissionSet/" + instanceID + "/ps-" + id, Name: value(in.Name), Description: value(in.Description), RelayState: value(in.RelayState), Duration: duration, Created: s.clock.Now(), Tags: tags}
+	p := PermissionSet{InstanceARN: instance.ARN, ARN: "arn:" + instance.Partition + ":sso:::permissionSet/" + instanceID + "/ps-" + id, Name: value(in.Name), Description: value(in.Description), RelayState: value(in.RelayState), Duration: duration, Created: s.clock.Now(), Tags: tags, CloudFormationOwner: owner}
 	if e = s.authorizeTags(tx.Context(), "CreatePermissionSet", p.ARN, nil, tags); e != nil {
 		return nil, e
 	}

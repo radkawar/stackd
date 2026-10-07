@@ -11,6 +11,7 @@ import (
 func (r reader) capacityProvider(row sqlcgen.LambdaCapacityProvider) (domain.CapacityProviderRecord, error) {
 	key := domain.CapacityProviderKey{Scope: domain.Scope{Partition: row.Partition, Account: row.Account, Region: row.Region}, Name: row.Name}
 	out := domain.CapacityProviderRecord{Key: key, Generation: row.Generation, State: row.State, StateReason: row.StateReason, OperatorRoleARN: row.OperatorRoleArn, KMSKeyARN: row.KmsKeyArn, Architecture: row.Architecture, ScalingMode: row.ScalingMode, MaxVCPUs: int32(row.MaxVcpus), TargetCPU: row.TargetCpu, LogGroup: row.LogGroup, SystemLogLevel: row.SystemLogLevel, Modified: row.Modified, Tags: map[string]string{}}
+	out.Owner = domain.AdditionalOwner{StackID: row.OwnerStackID, LogicalID: row.OwnerLogicalID, Token: row.OwnerToken}
 	if row.PropagateExplicit {
 		out.PropagateTags = map[string]string{}
 	}
@@ -83,7 +84,7 @@ func (r reader) capacityProviders(rows []sqlcgen.LambdaCapacityProvider) ([]doma
 }
 func (w writer) PutCapacityProvider(v domain.CapacityProviderRecord) error {
 	k := v.Key
-	if err := w.q.PutCapacityProvider(w.ctx, sqlcgen.PutCapacityProviderParams{Partition: k.Partition, Account: k.Account, Region: k.Region, Name: k.Name, Generation: v.Generation, State: v.State, StateReason: v.StateReason, OperatorRoleArn: v.OperatorRoleARN, KmsKeyArn: v.KMSKeyARN, Architecture: v.Architecture, ScalingMode: v.ScalingMode, MaxVcpus: int64(v.MaxVCPUs), TargetCpu: v.TargetCPU, LogGroup: v.LogGroup, SystemLogLevel: v.SystemLogLevel, PropagateExplicit: v.PropagateTags != nil, Modified: v.Modified}); err != nil {
+	if err := w.q.PutCapacityProvider(w.ctx, sqlcgen.PutCapacityProviderParams{Partition: k.Partition, Account: k.Account, Region: k.Region, Name: k.Name, Generation: v.Generation, State: v.State, StateReason: v.StateReason, OperatorRoleArn: v.OperatorRoleARN, KmsKeyArn: v.KMSKeyARN, Architecture: v.Architecture, ScalingMode: v.ScalingMode, MaxVcpus: int64(v.MaxVCPUs), TargetCpu: v.TargetCPU, LogGroup: v.LogGroup, SystemLogLevel: v.SystemLogLevel, PropagateExplicit: v.PropagateTags != nil, Modified: v.Modified, OwnerStackID: v.Owner.StackID, OwnerLogicalID: v.Owner.LogicalID, OwnerToken: v.Owner.Token}); err != nil {
 		return err
 	}
 	if err := w.q.DeleteCapacityProviderMembers(w.ctx, sqlcgen.DeleteCapacityProviderMembersParams{Partition: k.Partition, Account: k.Account, Region: k.Region, ProviderName: k.Name}); err != nil {

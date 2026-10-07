@@ -89,6 +89,9 @@ func (s *Service) loadConfiguration(ctx context.Context, r Reader, id, action st
 		}
 		return v, e
 	}
+	if cloudFormationForeign(ctx, cloudFormationConfiguration, v.Ownership) {
+		return ConfigurationRecord{}, configurationNotFound(id)
+	}
 	var attributes map[string][]string
 	if len(conditions) != 0 {
 		attributes = conditions[0]
@@ -121,6 +124,9 @@ func (s *Service) createConfiguration(ctx context.Context, t Transaction, in *ap
 		return nil, invalid("LDAP and configuration-managed authentication require an unavailable native authentication owner")
 	}
 	v := s.initialConfiguration(scopeFor(ctx), name, engine, version)
+	if claim, ok := cloudFormationClaim(ctx, cloudFormationConfiguration); ok {
+		v.Ownership = claim
+	}
 	conditions := map[string][]string{}
 	for k, x := range in.Tags {
 		v.Tags[string(k)] = string(x)

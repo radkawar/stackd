@@ -218,6 +218,40 @@ or template collection share that actual owner rather than a duplicate list.
   public key. Applications doing only offline verification must not interpret
   signature validity as proof that Cognito still accepts the token.
 
+The local-only regression `TestCognitoRegionlessEndpointPasswordLogin` covers
+unsigned SDK login through a regionless endpoint and SDK login signed with the
+existing native-replay SigV4 transport. Explicitly regional requests remain
+bound to that Region; a regionless unsigned request resolves the bearer client
+ID uniquely within its partition, without default-account or default-Region
+fallback. Public `InitiateAuth` is not IAM-authorized: cross-account isolation
+means credentials and sessions cannot authenticate a different pool's user,
+not that the caller's IAM account must own the app client
+([AWS API contract](https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/API_InitiateAuth.html)).
+
+The regression independently checks both JWT signatures with Go's RSA verifier
+and keys fetched over HTTP from the served JWKS, and asserts pool/client/user
+claims and distinct access/ID signing keys. It checks wrong passwords, another
+account's user credentials, missing clients, wrong-client refresh and wrong
+Region. Its SQLite reopen path verifies previously issued JWTs against retained
+keys, accepts the original access and refresh sessions, and repeats signed login.
+These are local behavioral assertions, not new native captures or evidence that
+offline signature verification enforces revocation. Run the regression with:
+
+```sh
+go test ./integration -run '^TestCognitoRegionlessEndpointPasswordLogin$' -count=1 -v
+```
+
+CloudFormation prefix-domain creation recovery is observation-only under the
+caller's current `CreateUserPoolDomain` authority. It returns the persisted
+result only for the exact private incarnation claim; an authorized lookup of a
+foreign or unclaimed domain certifies that this incarnation was not admitted.
+It never retries native creation to infer ownership from a duplicate-domain
+error. A missing parent or current IAM denial remains a recovery failure rather
+than a certificate of nonadmission. The local memory/SQLite regression is
+`TestCFNCognitoDomainRecoveryNeverAdoptsForeignDomain`; the stack-level
+`TestCloudFormationCognitoGuardLifecycle` requires a conflicting domain create
+to reach `ROLLBACK_COMPLETE` without disturbing the original domain.
+
 ## Refresh rotation
 
 Essentials clients support rotation, with zero to sixty seconds of retry grace.
@@ -524,13 +558,13 @@ These observations do not justify retaining deleted clients indefinitely.
 
 SMTP/Internet delivery, SMS invitation/verification/recovery, custom message
 templates, MFA, remembered devices,
-federated identity providers, hosted UI, OAuth endpoints/custom domains, Lambda
+external federated sign-in, hosted UI, OAuth endpoints/custom domains, Lambda
 triggers/custom authentication and signing-key rotation
 are deferred. So are advanced security/analytics, imported client secrets,
 customer-managed pool keys and remaining modeled operations. Broader
 quotas, error precedence, schema/alias conformance and partition behavior remain
-incomplete. Unsupported active settings fail explicitly; they are not accepted
-as inert configuration.
+incomplete. Unsupported execution operations fail explicitly; configuring OAuth
+and identity providers does not synthesize external authentication or OAuth tokens.
 
 SES capture does not implement suppression/contact lists, event destinations,
 delivery analytics, DNS/DKIM domain verification, custom MAIL FROM, dedicated IPs
@@ -540,12 +574,24 @@ Stored templates support simple
 substitutions and nested object paths, not full Handlebars blocks, helpers or
 partials; unsupported syntax is rejected rather than sent unchanged.
 
+App clients persist OAuth flows, scopes, callback/logout URLs, default redirect URI
+and enabled identity-provider selection through native Create/Update/Describe and
+SQLite reopen. Updates replace omitted mutable settings with their defaults (the
+client name and immutable secret remain). OAuth fields require
+`AllowedOAuthFlowsUserPoolClient: true`; code/implicit flows require callback URLs,
+and client credentials requires a secret and cannot be combined with another flow.
+Standard OIDC scopes are supported; custom scopes fail `ScopeDoesNotExistException`
+because native resource servers are not implemented. Redirects must be absolute
+and fragment-free; HTTP is limited to localhost/loopback addresses. A default
+redirect must appear in callback URLs. Federated providers must already exist in
+the same user pool, so a CloudFormation client selecting Google must depend on the
+provider resource (a literal `"Google"` does not create an implicit dependency).
+These rules follow the [AWS CreateUserPoolClient contract](https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/API_CreateUserPoolClient.html).
+
 Intentional `TODO: Comeback` markers currently live in:
 
 - `internal/services/cognitoidp/pools.go`: real triggers, SMS, MFA, devices,
   customer-managed keys and advanced security before admitting active settings.
-- `internal/services/cognitoidp/clients.go`: OAuth/hosted UI, federation, custom
-  challenges, analytics, secret import and refresh rotation.
 - `internal/services/cognitoidp/email.go`: selected SMS recovery delivery.
 - `internal/services/sesv2/service.go`: remaining SES operation families and
   external delivery owners.

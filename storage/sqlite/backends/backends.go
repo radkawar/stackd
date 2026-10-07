@@ -70,6 +70,7 @@ import (
 	"stackd/storage/sqlite/ssmcommands"
 	"stackd/storage/sqlite/ssmdocuments"
 	"stackd/storage/sqlite/stepfunctions"
+	"stackd/storage/sqlite/wafv2"
 	"stackd/storage/sqlite/xray"
 )
 
@@ -146,6 +147,7 @@ func New(ctx context.Context, db *sql.DB) (*storage.Backends, error) {
 		SSMCommands:               ssmcommands.New(db),
 		SSMDocuments:              ssmdocuments.New(db),
 		StepFunctions:             workflows,
+		WAFv2:                     wafv2.New(db),
 		XRay:                      xray.New(db),
 		MQ:                        mq.New(db),
 		Signer:                    signer.New(db),

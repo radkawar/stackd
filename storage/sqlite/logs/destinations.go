@@ -7,6 +7,7 @@ import (
 
 func (r reader) destination(v sqlcgen.LogsDestination) (domain.DestinationRecord, error) {
 	out := domain.DestinationRecord{
+		CFNOwner:  v.CfnOwner,
 		Key:       domain.DestinationKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name},
 		TargetARN: v.TargetArn, RoleARN: v.RoleArn, AccessPolicy: v.AccessPolicy, Created: v.Created,
 	}
@@ -46,7 +47,7 @@ func (r reader) Destinations(q domain.DestinationQuery) ([]domain.DestinationRec
 }
 
 func (w writer) PutDestination(v domain.DestinationRecord) error {
-	if err := w.q.PutDestination(w.ctx, sqlcgen.PutDestinationParams{Partition: v.Key.Partition, AccountID: v.Key.AccountID, Region: v.Key.Region, Name: v.Key.Name, TargetArn: v.TargetARN, RoleArn: v.RoleARN, AccessPolicy: v.AccessPolicy, Created: v.Created}); err != nil {
+	if err := w.q.PutDestination(w.ctx, sqlcgen.PutDestinationParams{CfnOwner: v.CFNOwner, Partition: v.Key.Partition, AccountID: v.Key.AccountID, Region: v.Key.Region, Name: v.Key.Name, TargetArn: v.TargetARN, RoleArn: v.RoleARN, AccessPolicy: v.AccessPolicy, Created: v.Created}); err != nil {
 		return err
 	}
 	if err := w.q.DeleteDestinationTags(w.ctx, sqlcgen.DeleteDestinationTagsParams{Partition: v.Key.Partition, AccountID: v.Key.AccountID, Region: v.Key.Region, DestinationName: v.Key.Name}); err != nil {

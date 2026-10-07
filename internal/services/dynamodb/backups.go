@@ -52,6 +52,10 @@ func (s *Service) createBackupCommand(ctx context.Context, in *api.CreateBackupI
 		if err := s.authorizeTable(ctx, tx, key, "CreateBackup", "", nil); err != nil {
 			return nil, err
 		}
+		// Backups are native engine snapshots completed by the controller.
+		if err := s.requireEngine(); err != nil {
+			return nil, err
+		}
 		table, err := tx.Table(key)
 		if errors.Is(err, ErrNotFound) {
 			return nil, failure("TableNotFoundException", "Requested source table not found: "+key.Name)

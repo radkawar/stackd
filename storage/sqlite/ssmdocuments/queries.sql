@@ -14,8 +14,8 @@ DELETE FROM ssm_document_shares WHERE document_id=?;
 -- name: InsertShare :exec
 INSERT INTO ssm_document_shares(document_id,account_id,version_selector) VALUES(?,?,?);
 -- name: PutDocument :one
-INSERT INTO ssm_documents(partition,account_id,region,name,document_uuid,default_version,latest_version,next_version,document_type,schema_name,schema_version,schema_document_uuid) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
-ON CONFLICT(partition,account_id,region,name) DO UPDATE SET document_uuid=excluded.document_uuid,default_version=excluded.default_version,latest_version=excluded.latest_version,next_version=excluded.next_version,document_type=excluded.document_type,schema_name=excluded.schema_name,schema_version=excluded.schema_version,schema_document_uuid=excluded.schema_document_uuid RETURNING id;
+INSERT INTO ssm_documents(partition,account_id,region,name,document_uuid,default_version,latest_version,next_version,document_type,schema_name,schema_version,schema_document_uuid,cloudformation_owner) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+ON CONFLICT(partition,account_id,region,name) DO UPDATE SET document_uuid=excluded.document_uuid,default_version=excluded.default_version,latest_version=excluded.latest_version,next_version=excluded.next_version,document_type=excluded.document_type,schema_name=excluded.schema_name,schema_version=excluded.schema_version,schema_document_uuid=excluded.schema_document_uuid,cloudformation_owner=excluded.cloudformation_owner RETURNING id;
 -- name: DeleteDocument :exec
 DELETE FROM ssm_documents WHERE partition=? AND account_id=? AND region=? AND name=?;
 -- name: ListTags :many

@@ -56,6 +56,7 @@ func (r reader) tables(rows []sqlcgen.DynamodbTable) ([]domain.TableRecord, erro
 func (r reader) table(row sqlcgen.DynamodbTable) (domain.TableRecord, error) {
 	k := domain.TableKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Name: row.Name}
 	out := domain.TableRecord{Key: k, DatabaseID: row.DatabaseID, PhysicalName: row.PhysicalName,
+		Owner:        domain.ResourceOwner{StackID: row.OwnerStackID, LogicalID: row.OwnerLogicalID, Token: row.OwnerToken},
 		TTL:          api.TimeToLiveDescription{AttributeName: stringPointer[api.TimeToLiveAttributeName](row.TtlAttributeName), TimeToLiveStatus: stringPointer[api.TimeToLiveStatus](row.TtlStatus)},
 		TTLChangedAt: row.TtlChangedAt, TTLNextScan: row.TtlNextScan,
 		MetricsNextAt: row.MetricsNextAt,
@@ -116,6 +117,9 @@ func (w writer) PutTable(v domain.TableRecord) error {
 	params.RecoveryID, params.RestoreRecoveryID = v.RecoveryID, v.RestoreRecoveryID
 	params.RestoreRecoverySequence = v.RestoreRecoverySequence
 	if err := w.q.PutTable(w.ctx, params); err != nil {
+		return err
+	}
+	if err := w.q.SetTableOwner(w.ctx, sqlcgen.SetTableOwnerParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, OwnerStackID: v.Owner.StackID, OwnerLogicalID: v.Owner.LogicalID, OwnerToken: v.Owner.Token}); err != nil {
 		return err
 	}
 	if err := w.q.SetTableReplica(w.ctx, sqlcgen.SetTableReplicaParams{

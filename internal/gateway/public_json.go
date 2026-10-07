@@ -58,12 +58,38 @@ func (g *Gateway) servePublicJSON(w http.ResponseWriter, r *http.Request) bool {
 		writeError(failure)
 		return true
 	}
+	// Signed optional-auth calls (AWS CLI with credentials) keep their verified
+	// SigV4 Region and identity; malformed signing material fails closed.
+	if hasSigningMaterial(r.Header, r.URL.Query()) {
+		scope, err := parseCredential(r)
+		if err != nil {
+			writeError(&awswire.Error{Code: "IncompleteSignature", Message: err.Error(), StatusCode: http.StatusBadRequest})
+			return true
+		}
+		if scope.service != service.SigningName {
+			writeError(&awswire.Error{Code: "SignatureDoesNotMatch", Message: "Credential scope does not match the requested service", StatusCode: http.StatusForbidden})
+			return true
+		}
+		authenticated, rejected := g.authenticate(r, scope, service.Model)
+		if rejected != nil {
+			writeError(serviceAuthenticationError(service, rejected))
+			return true
+		}
+		if rejected = g.checkRegion(authenticated, service); rejected != nil {
+			writeError(rejected)
+			return true
+		}
+		g.serveOperation(w, authenticated, selected, writeError)
+		return true
+	}
 	// Never synthesize an account or IAM principal for public application calls.
 	// The provider resolves the real pool scope from its client/token authority.
 	metadata := awsctx.FromContext(r.Context())
 	metadata.Region = g.config.UnsignedRegion
+	metadata.EndpointRegionImplicit = true
 	if region := cognitoEndpointRegion(r.Host); region != "" {
 		metadata.Region = region
+		metadata.EndpointRegionImplicit = false
 	}
 	metadata.Partition = awscatalog.RegionPartition(metadata.Region)
 	BindRequestTransport(r, &metadata)
@@ -73,7 +99,8 @@ func (g *Gateway) servePublicJSON(w http.ResponseWriter, r *http.Request) bool {
 }
 
 // cognitoEndpointRegion trusts only an SDK-described region on a matching AWS
-// partition endpoint. Custom endpoint overrides use the configured local region.
+// partition endpoint. Unsigned custom endpoint overrides carry no region: they
+// use the configured local region and let the owner resolve the bearer resource.
 func cognitoEndpointRegion(host string) string {
 	return identityEndpointRegion(host, "cognito-idp", "cognito-idp-fips", "cognito-identity", "cognito-identity-fips")
 }

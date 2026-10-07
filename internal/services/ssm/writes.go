@@ -54,6 +54,24 @@ func (s *Service) putParameter(tx Transaction, in *api.PutParameterRequest) (*ap
 	if err := s.authorize(tx, "PutParameter", p, conditions); err != nil {
 		return nil, err
 	}
+	if claim, claimed := cloudFormationParameterOwner(tx.Context()); claimed {
+		overwrite := in.Overwrite != nil && bool(*in.Overwrite)
+		switch {
+		case !exists:
+			p.CloudFormationOwner = claim
+		case p.CloudFormationOwner == claim && !overwrite:
+			// The exact incarnation that created this parameter recovers it
+			// unchanged; its name, value and tags never prove ownership.
+			if p.CurrentVersion == 0 {
+				return nil, failure("TooManyUpdates", "An update to this parameter is already in progress.")
+			}
+			return &api.PutParameterResult{Version: new(api.PSParameterVersion(p.CurrentVersion)), Tier: new(api.ParameterTier(p.Tier))}, nil
+		case overwrite:
+			if err := cloudFormationParameterConflict(tx.Context(), p); err != nil {
+				return nil, err
+			}
+		}
+	}
 	if exists && (in.Overwrite == nil || !bool(*in.Overwrite)) {
 		return nil, failure("ParameterAlreadyExists", "The parameter already exists. To overwrite this value, set the overwrite option in the request to true.")
 	}
@@ -264,6 +282,11 @@ func (s *Service) deleteParameter(tx Transaction, in *api.DeleteParameterRequest
 	}
 	if rejected := s.authorize(tx, "DeleteParameter", p, nil); rejected != nil {
 		return nil, rejected
+	}
+	if err == nil {
+		if conflict := cloudFormationParameterConflict(tx.Context(), p); conflict != nil {
+			return nil, conflict
+		}
 	}
 	if err != nil || p.CurrentVersion == 0 {
 		return nil, ErrNotFound

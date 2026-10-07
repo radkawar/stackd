@@ -85,6 +85,7 @@ func (r reader) Pipes() ([]domain.PipeRecord, error) {
 }
 func (r reader) pipe(v sqlcgen.PipesPipe) (domain.PipeRecord, error) {
 	p := domain.PipeRecord{
+		CFNOwner:      v.CfnOwner,
 		Key:           domain.Key{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name},
 		ID:            v.ID,
 		Version:       v.Version,
@@ -155,6 +156,7 @@ func (r reader) pipe(v sqlcgen.PipesPipe) (domain.PipeRecord, error) {
 func (w writer) PutPipe(p domain.PipeRecord) error {
 	p = domain.Stored(p)
 	v := sqlcgen.PipesPipe{
+		CfnOwner:           p.CFNOwner,
 		Partition:          p.Key.Partition,
 		AccountID:          p.Key.AccountID,
 		Region:             p.Key.Region,

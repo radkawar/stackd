@@ -17,66 +17,105 @@ type ResourceKey struct {
 	Scope Scope
 	ID    string
 }
+
+// CloudFormationOwner is private native admission identity, never public tags
+// or IAM authority. The enclosing resource key supplies its exact AWS scope.
+type CloudFormationOwner struct{ ResourceType, Owner string }
 type VPCRecord struct {
 	Key                                                  ResourceKey
+	CloudFormationOwner                                  CloudFormationOwner
 	Data                                                 api.Vpc
 	DNSHostnames, DNSSupport, NetworkAddressUsageMetrics bool
 }
 type SubnetRecord struct {
-	Key  ResourceKey
-	Data api.Subnet
+	Key                 ResourceKey
+	CloudFormationOwner CloudFormationOwner
+	Data                api.Subnet
 }
 type SecurityGroupRecord struct {
-	Key               ResourceKey
-	Data              api.SecurityGroup
-	VPCOwnerAccountID string
+	Key                 ResourceKey
+	CloudFormationOwner CloudFormationOwner
+	Data                api.SecurityGroup
+	VPCOwnerAccountID   string
 }
 type SecurityGroupRuleRecord struct {
-	Key  ResourceKey
-	Data api.SecurityGroupRule
+	Key                 ResourceKey
+	CloudFormationOwner CloudFormationOwner
+	Data                api.SecurityGroupRule
 }
 type RouteTableRecord struct {
-	Key  ResourceKey
-	Data api.RouteTable
+	Key                 ResourceKey
+	CloudFormationOwner CloudFormationOwner
+	Data                api.RouteTable
 }
 type InternetGatewayRecord struct {
-	Key  ResourceKey
-	Data api.InternetGateway
+	Key                 ResourceKey
+	CloudFormationOwner CloudFormationOwner
+	Data                api.InternetGateway
+}
+
+type NatGatewayRecord struct {
+	Key                 ResourceKey
+	CloudFormationOwner CloudFormationOwner
+	Data                api.NatGateway
+}
+type VPCEndpointRecord struct {
+	Key                 ResourceKey
+	CloudFormationOwner CloudFormationOwner
+	Data                api.VpcEndpoint
+}
+
+// NetworkOwnerCreationRecord fences retries, including after deletion.
+// CloudFormationRelation actions use nonempty tokens for immutable admissions
+// (Fingerprint is the exact slot), and an empty token for the current slot owner
+// (Fingerprint is its incarnation). Public resource tags cannot forge either.
+type NetworkOwnerCreationRecord struct {
+	Key                     NetworkCreationKey
+	ResourceID, Fingerprint string
 }
 type NetworkInterfaceRecord struct {
-	Key  ResourceKey
-	Data api.NetworkInterface
+	Key                 ResourceKey
+	CloudFormationOwner CloudFormationOwner
+	Data                api.NetworkInterface
 	// Task ownership is service-only authority, never a public ENI attribute.
 	TaskOwnerARN         string
 	TaskPublicNetworking bool
 	// Lambda mapping ownership is immutable and independent of description.
-	LambdaMappingOwnerARN string
+	LambdaMappingOwnerARN          string
+	LambdaFunctionOwnerARN         string
+	LambdaFunctionOwnerIncarnation string
+	// NAT/endpoint control ownership is private, not an AWS requester identity.
+	NetworkControlOwnerID string
 	// Network ownership is independent of the participant owning this ENI.
 	SubnetOwnerAccountID string
 }
 type NetworkACLRecord struct {
-	Key  ResourceKey
-	Data api.NetworkAcl
+	Key                 ResourceKey
+	CloudFormationOwner CloudFormationOwner
+	Data                api.NetworkAcl
 }
 type DHCPOptionsRecord struct {
-	Key  ResourceKey
-	Data api.DhcpOptions
+	Key                 ResourceKey
+	CloudFormationOwner CloudFormationOwner
+	Data                api.DhcpOptions
 }
 
 // PublicAddressRecord is the single owner of elastic and automatic public IPv4.
 // Automatic records retain launch intent across stop; a nil PublicIp then means
 // that the ephemeral address has been released, not that it remains reserved.
 type PublicAddressRecord struct {
-	Key       ResourceKey
-	Data      api.Address
-	Automatic bool
+	Key                 ResourceKey
+	CloudFormationOwner CloudFormationOwner
+	Data                api.Address
+	Automatic           bool
 }
 
 // KeyPairRecord retains only public metadata; generated private material is
 // returned by CreateKeyPair and never enters repository state.
 type KeyPairRecord struct {
-	Key  ResourceKey
-	Data api.KeyPairInfo
+	Key                 ResourceKey
+	CloudFormationOwner CloudFormationOwner
+	Data                api.KeyPairInfo
 }
 
 // DHCPDefaultsRecord distinguishes an uninitialized region from a deleted default.
@@ -136,6 +175,12 @@ type Reader interface {
 	RouteTables(Scope) ([]RouteTableRecord, error)
 	InternetGateway(ResourceKey) (InternetGatewayRecord, error)
 	InternetGateways(Scope) ([]InternetGatewayRecord, error)
+	NatGateway(ResourceKey) (NatGatewayRecord, error)
+	NatGateways(Scope) ([]NatGatewayRecord, error)
+	VPCEndpoint(ResourceKey) (VPCEndpointRecord, error)
+	VPCEndpoints(Scope) ([]VPCEndpointRecord, error)
+	NetworkOwnerCreation(NetworkCreationKey) (NetworkOwnerCreationRecord, error)
+	NetworkResourceOwner(ResourceKey) (CloudFormationOwner, error)
 	NetworkInterface(ResourceKey) (NetworkInterfaceRecord, error)
 	NetworkInterfaces(Scope) ([]NetworkInterfaceRecord, error)
 	// RegionalNetworkInterfaces is internal network authority for allocation,
@@ -199,6 +244,12 @@ type Transaction interface {
 	DeleteRouteTable(ResourceKey) error
 	PutInternetGateway(InternetGatewayRecord) error
 	DeleteInternetGateway(ResourceKey) error
+	PutNatGateway(NatGatewayRecord) error
+	DeleteNatGateway(ResourceKey) error
+	PutVPCEndpoint(VPCEndpointRecord) error
+	DeleteVPCEndpoint(ResourceKey) error
+	PutNetworkOwnerCreation(NetworkOwnerCreationRecord) error
+	PutNetworkResourceOwner(ResourceKey, CloudFormationOwner) error
 	PutNetworkInterface(NetworkInterfaceRecord) error
 	DeleteNetworkInterface(ResourceKey) error
 	PutNetworkInterfaceCreation(NetworkInterfaceCreationRecord) error

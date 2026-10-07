@@ -190,3 +190,15 @@ SELECT * FROM kinesis_streams ORDER BY partition, account_id, region, name;
 
 -- name: NextMetricPublication :one
 SELECT partition, account_id, region, name, minute FROM kinesis_metric_samples ORDER BY minute, partition, account_id, region, name LIMIT 1;
+
+-- name: SetStreamOwner :exec
+UPDATE kinesis_streams SET owner_stack_id = sqlc.arg(owner_stack_id), owner_logical_id = sqlc.arg(owner_logical_id), owner_token = sqlc.arg(owner_token)
+WHERE partition = sqlc.arg(partition) AND account_id = sqlc.arg(account_id) AND region = sqlc.arg(region) AND name = sqlc.arg(name);
+
+-- name: SetConsumerOwner :exec
+UPDATE kinesis_consumers SET owner_stack_id = sqlc.arg(owner_stack_id), owner_logical_id = sqlc.arg(owner_logical_id), owner_token = sqlc.arg(owner_token)
+WHERE partition = sqlc.arg(partition) AND account_id = sqlc.arg(account_id) AND region = sqlc.arg(region) AND name = sqlc.arg(name) AND consumer_name = sqlc.arg(consumer_name) AND created_at = sqlc.arg(created_at);
+
+-- name: SetPolicyOwner :exec
+UPDATE kinesis_policies SET owner_stack_id = sqlc.arg(owner_stack_id), owner_logical_id = sqlc.arg(owner_logical_id), owner_token = sqlc.arg(owner_token)
+WHERE partition = sqlc.arg(partition) AND account_id = sqlc.arg(account_id) AND region = sqlc.arg(region) AND arn = sqlc.arg(arn);

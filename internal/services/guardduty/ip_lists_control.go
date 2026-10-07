@@ -160,6 +160,9 @@ func (s *Service) loadIPList(r Reader, detector string, kind IPListKind, id, act
 	if err != nil {
 		return v, missingIPList()
 	}
+	if err := checkCloudFormationOwnership(r.Context(), v.CFNOwnership); err != nil {
+		return v, err
+	}
 	return v, nil
 }
 
@@ -248,6 +251,9 @@ func (s *Service) createIPList(tx Transaction, in ipListCreate, action string) (
 			}
 		}
 		if in.ClientToken != "" && existing.ClientToken == in.ClientToken {
+			if err := checkCloudFormationOwnership(tx.Context(), existing.CFNOwnership); err != nil {
+				return IPList{}, nil, err
+			}
 			return existing, nil, nil
 		}
 		return IPList{}, nil, invalid("An IP list with this name already exists")
@@ -260,6 +266,7 @@ func (s *Service) createIPList(tx Transaction, in ipListCreate, action string) (
 		return IPList{}, nil, failure("InternalServerErrorException", "The request is rejected because it’s an attempt to create resources beyond the current AWS account limits.", 400)
 	}
 	v := IPList{Scope: sc, DetectorID: in.DetectorID, Kind: in.Kind, ID: newID(), Name: in.Name, Format: in.Format, Location: in.Location, ExpectedBucketOwner: value(in.Owner), ClientToken: in.ClientToken, Tags: tags, Status: "INACTIVE", Version: 1}
+	v.CFNOwnership = creationOwnership(tx.Context())
 	v.ARN = ipListARN(sc, v.DetectorID, v.Kind, v.ID)
 	if len(tags) > 0 {
 		if err := s.authorize(tx.Context(), "TagResource", v.ARN, nil, tags, keys); err != nil {

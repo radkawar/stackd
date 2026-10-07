@@ -40,6 +40,9 @@ func (s *Service) authorize(ctx context.Context, action, resource string, condit
 // policies in the caller's existing transaction. Index calls use index ARNs but
 // inherit the table's resource policy and tags.
 func (s *Service) authorizeTable(ctx context.Context, r Reader, key TableKey, action, index string, conditions map[string][]string) error {
+	if err := checkResourceOwner(ctx, r, key); err != nil {
+		return err
+	}
 	if conditions == nil {
 		conditions = map[string][]string{}
 	}

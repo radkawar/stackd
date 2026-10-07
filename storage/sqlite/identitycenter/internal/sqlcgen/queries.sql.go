@@ -245,7 +245,7 @@ func (q *Queries) GetDeviceByUserCode(ctx context.Context, userCode string) (Ide
 }
 
 const getInstance = `-- name: GetInstance :one
-SELECT arn, "partition", account_id, region, store_id, name, client_token, created FROM identitycenter_instances WHERE arn=?
+SELECT arn, "partition", account_id, region, store_id, name, client_token, created, cloudformation_owner FROM identitycenter_instances WHERE arn=?
 `
 
 func (q *Queries) GetInstance(ctx context.Context, arn string) (IdentitycenterInstance, error) {
@@ -260,6 +260,7 @@ func (q *Queries) GetInstance(ctx context.Context, arn string) (IdentitycenterIn
 		&i.Name,
 		&i.ClientToken,
 		&i.Created,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
@@ -285,7 +286,7 @@ func (q *Queries) GetOperation(ctx context.Context, id string) (IdentitycenterOp
 }
 
 const getPermissionSet = `-- name: GetPermissionSet :one
-SELECT arn, instance_arn, name, description, relay_state, inline_policy, duration_ns, created, boundary_arn, boundary_name, boundary_path FROM identitycenter_permission_sets WHERE arn=?
+SELECT arn, instance_arn, name, description, relay_state, inline_policy, duration_ns, created, boundary_arn, boundary_name, boundary_path, cloudformation_owner FROM identitycenter_permission_sets WHERE arn=?
 `
 
 func (q *Queries) GetPermissionSet(ctx context.Context, arn string) (IdentitycenterPermissionSet, error) {
@@ -303,6 +304,7 @@ func (q *Queries) GetPermissionSet(ctx context.Context, arn string) (Identitycen
 		&i.BoundaryArn,
 		&i.BoundaryName,
 		&i.BoundaryPath,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
@@ -354,7 +356,7 @@ func (q *Queries) GetSessionByRefresh(ctx context.Context, refreshHash string) (
 }
 
 const listAssignments = `-- name: ListAssignments :many
-SELECT instance_arn, permission_set_arn, account_id, principal_type, principal_id FROM identitycenter_assignments WHERE instance_arn=? ORDER BY permission_set_arn,account_id,principal_type,principal_id
+SELECT instance_arn, permission_set_arn, account_id, principal_type, principal_id, cloudformation_owner FROM identitycenter_assignments WHERE instance_arn=? ORDER BY permission_set_arn,account_id,principal_type,principal_id
 `
 
 func (q *Queries) ListAssignments(ctx context.Context, instanceArn string) ([]IdentitycenterAssignment, error) {
@@ -372,6 +374,7 @@ func (q *Queries) ListAssignments(ctx context.Context, instanceArn string) ([]Id
 			&i.AccountID,
 			&i.PrincipalType,
 			&i.PrincipalID,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -527,7 +530,7 @@ func (q *Queries) ListInstanceTags(ctx context.Context, instanceArn string) ([]I
 }
 
 const listInstances = `-- name: ListInstances :many
-SELECT arn, "partition", account_id, region, store_id, name, client_token, created FROM identitycenter_instances WHERE partition=? AND account_id=? AND region=? ORDER BY arn
+SELECT arn, "partition", account_id, region, store_id, name, client_token, created, cloudformation_owner FROM identitycenter_instances WHERE partition=? AND account_id=? AND region=? ORDER BY arn
 `
 
 type ListInstancesParams struct {
@@ -554,6 +557,7 @@ func (q *Queries) ListInstances(ctx context.Context, arg ListInstancesParams) ([
 			&i.Name,
 			&i.ClientToken,
 			&i.Created,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -659,7 +663,7 @@ func (q *Queries) ListPermissionSetTags(ctx context.Context, permissionSetArn st
 }
 
 const listPermissionSets = `-- name: ListPermissionSets :many
-SELECT arn, instance_arn, name, description, relay_state, inline_policy, duration_ns, created, boundary_arn, boundary_name, boundary_path FROM identitycenter_permission_sets WHERE instance_arn=? ORDER BY arn
+SELECT arn, instance_arn, name, description, relay_state, inline_policy, duration_ns, created, boundary_arn, boundary_name, boundary_path, cloudformation_owner FROM identitycenter_permission_sets WHERE instance_arn=? ORDER BY arn
 `
 
 func (q *Queries) ListPermissionSets(ctx context.Context, instanceArn string) ([]IdentitycenterPermissionSet, error) {
@@ -683,6 +687,7 @@ func (q *Queries) ListPermissionSets(ctx context.Context, instanceArn string) ([
 			&i.BoundaryArn,
 			&i.BoundaryName,
 			&i.BoundaryPath,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -771,15 +776,16 @@ func (q *Queries) ListSessions(ctx context.Context, familyID string) ([]Identity
 }
 
 const putAssignment = `-- name: PutAssignment :exec
-INSERT INTO identitycenter_assignments (instance_arn,permission_set_arn,account_id,principal_type,principal_id) VALUES (?,?,?,?,?) ON CONFLICT DO NOTHING
+INSERT INTO identitycenter_assignments (instance_arn,permission_set_arn,account_id,principal_type,principal_id,cloudformation_owner) VALUES (?,?,?,?,?,?) ON CONFLICT DO NOTHING
 `
 
 type PutAssignmentParams struct {
-	InstanceArn      string
-	PermissionSetArn string
-	AccountID        string
-	PrincipalType    string
-	PrincipalID      string
+	InstanceArn         string
+	PermissionSetArn    string
+	AccountID           string
+	PrincipalType       string
+	PrincipalID         string
+	CloudformationOwner string
 }
 
 func (q *Queries) PutAssignment(ctx context.Context, arg PutAssignmentParams) error {
@@ -789,6 +795,7 @@ func (q *Queries) PutAssignment(ctx context.Context, arg PutAssignmentParams) er
 		arg.AccountID,
 		arg.PrincipalType,
 		arg.PrincipalID,
+		arg.CloudformationOwner,
 	)
 	return err
 }
@@ -966,19 +973,20 @@ func (q *Queries) PutDevice(ctx context.Context, arg PutDeviceParams) error {
 }
 
 const putInstance = `-- name: PutInstance :exec
-INSERT INTO identitycenter_instances (arn,partition,account_id,region,store_id,name,client_token,created) VALUES (?,?,?,?,?,?,?,?)
-ON CONFLICT(arn) DO UPDATE SET partition=excluded.partition,account_id=excluded.account_id,region=excluded.region,store_id=excluded.store_id,name=excluded.name,client_token=excluded.client_token,created=excluded.created
+INSERT INTO identitycenter_instances (arn,partition,account_id,region,store_id,name,client_token,created,cloudformation_owner) VALUES (?,?,?,?,?,?,?,?,?)
+ON CONFLICT(arn) DO UPDATE SET partition=excluded.partition,account_id=excluded.account_id,region=excluded.region,store_id=excluded.store_id,name=excluded.name,client_token=excluded.client_token,created=excluded.created,cloudformation_owner=excluded.cloudformation_owner
 `
 
 type PutInstanceParams struct {
-	Arn         string
-	Partition   string
-	AccountID   string
-	Region      string
-	StoreID     string
-	Name        string
-	ClientToken string
-	Created     time.Time
+	Arn                 string
+	Partition           string
+	AccountID           string
+	Region              string
+	StoreID             string
+	Name                string
+	ClientToken         string
+	Created             time.Time
+	CloudformationOwner string
 }
 
 func (q *Queries) PutInstance(ctx context.Context, arg PutInstanceParams) error {
@@ -991,6 +999,7 @@ func (q *Queries) PutInstance(ctx context.Context, arg PutInstanceParams) error 
 		arg.Name,
 		arg.ClientToken,
 		arg.Created,
+		arg.CloudformationOwner,
 	)
 	return err
 }
@@ -1056,22 +1065,23 @@ func (q *Queries) PutOperation(ctx context.Context, arg PutOperationParams) erro
 }
 
 const putPermissionSet = `-- name: PutPermissionSet :exec
-INSERT INTO identitycenter_permission_sets (arn,instance_arn,name,description,relay_state,inline_policy,duration_ns,created,boundary_arn,boundary_name,boundary_path) VALUES (?,?,?,?,?,?,?,?,?,?,?)
-ON CONFLICT(arn) DO UPDATE SET instance_arn=excluded.instance_arn,name=excluded.name,description=excluded.description,relay_state=excluded.relay_state,inline_policy=excluded.inline_policy,duration_ns=excluded.duration_ns,created=excluded.created,boundary_arn=excluded.boundary_arn,boundary_name=excluded.boundary_name,boundary_path=excluded.boundary_path
+INSERT INTO identitycenter_permission_sets (arn,instance_arn,name,description,relay_state,inline_policy,duration_ns,created,boundary_arn,boundary_name,boundary_path,cloudformation_owner) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+ON CONFLICT(arn) DO UPDATE SET instance_arn=excluded.instance_arn,name=excluded.name,description=excluded.description,relay_state=excluded.relay_state,inline_policy=excluded.inline_policy,duration_ns=excluded.duration_ns,created=excluded.created,boundary_arn=excluded.boundary_arn,boundary_name=excluded.boundary_name,boundary_path=excluded.boundary_path,cloudformation_owner=excluded.cloudformation_owner
 `
 
 type PutPermissionSetParams struct {
-	Arn          string
-	InstanceArn  string
-	Name         string
-	Description  string
-	RelayState   string
-	InlinePolicy string
-	DurationNs   int64
-	Created      time.Time
-	BoundaryArn  string
-	BoundaryName string
-	BoundaryPath string
+	Arn                 string
+	InstanceArn         string
+	Name                string
+	Description         string
+	RelayState          string
+	InlinePolicy        string
+	DurationNs          int64
+	Created             time.Time
+	BoundaryArn         string
+	BoundaryName        string
+	BoundaryPath        string
+	CloudformationOwner string
 }
 
 func (q *Queries) PutPermissionSet(ctx context.Context, arg PutPermissionSetParams) error {
@@ -1087,6 +1097,7 @@ func (q *Queries) PutPermissionSet(ctx context.Context, arg PutPermissionSetPara
 		arg.BoundaryArn,
 		arg.BoundaryName,
 		arg.BoundaryPath,
+		arg.CloudformationOwner,
 	)
 	return err
 }

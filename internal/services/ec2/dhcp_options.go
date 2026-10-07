@@ -249,6 +249,10 @@ func (s *Service) associateDHCPOptions(ctx context.Context, tx Transaction, req 
 	if err := dryRun(req.DryRun); err != nil {
 		return nil, err
 	}
+	physical := fmt.Sprintf("{\"DhcpOptionsId\":%q,\"VpcId\":%q}", id, vpc.Key.ID)
+	if err := relationAdmission(ctx, tx, "VPCDHCPOptionsAssociation", vpc.Key.ID, physical); err != nil {
+		return nil, err
+	}
 	vpc.Data.DhcpOptionsId = new(api.String(id))
 	if err := tx.PutVPC(vpc); err != nil {
 		return nil, err

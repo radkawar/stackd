@@ -7,7 +7,7 @@ import (
 )
 
 func (r reader) loadRule(v sqlcgen.ConfigRule) (domain.Rule, error) {
-	out := domain.Rule{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name, ID: v.ID, ARN: v.ARN, Description: v.Description, Owner: v.Owner, SourceIdentifier: v.SourceIdentifier, ResourceID: v.ResourceID, TagKey: v.TagKey, TagValue: v.TagValue, CreatedAt: v.CreatedAt, LastEvaluation: v.LastEvaluation, LastReevaluation: v.LastReevaluation, ErrorCode: v.ErrorCode, ErrorMessage: v.ErrorMessage}
+	out := domain.Rule{CFNOwnership: domain.CloudFormationOwnership{Owner: v.CfnOwner, Token: v.CfnToken}, Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name, ID: v.ID, ARN: v.ARN, Description: v.Description, Owner: v.Owner, SourceIdentifier: v.SourceIdentifier, ResourceID: v.ResourceID, TagKey: v.TagKey, TagValue: v.TagValue, CreatedAt: v.CreatedAt, LastEvaluation: v.LastEvaluation, LastReevaluation: v.LastReevaluation, ErrorCode: v.ErrorCode, ErrorMessage: v.ErrorMessage}
 	types, err := r.q.ListRuleTypes(r.ctx, v.RowID)
 	if err != nil {
 		return out, err
@@ -63,7 +63,7 @@ func (w writer) PutRule(v domain.Rule) error {
 			return err
 		}
 	}
-	id, err := w.q.PutRule(w.ctx, sqlcgen.PutRuleParams{Partition: v.Scope.Partition, AccountID: v.Scope.AccountID, Region: v.Scope.Region, Name: v.Name, ID: v.ID, ARN: v.ARN, Description: v.Description, Owner: v.Owner, SourceIdentifier: v.SourceIdentifier, ParametersPresent: v.InputParameters != "", ResourceID: v.ResourceID, TagKey: v.TagKey, TagValue: v.TagValue, CreatedAt: v.CreatedAt, LastEvaluation: v.LastEvaluation, LastReevaluation: v.LastReevaluation, ErrorCode: v.ErrorCode, ErrorMessage: v.ErrorMessage})
+	id, err := w.q.PutRule(w.ctx, sqlcgen.PutRuleParams{CfnOwner: v.CFNOwnership.Owner, CfnToken: v.CFNOwnership.Token, Partition: v.Scope.Partition, AccountID: v.Scope.AccountID, Region: v.Scope.Region, Name: v.Name, ID: v.ID, ARN: v.ARN, Description: v.Description, Owner: v.Owner, SourceIdentifier: v.SourceIdentifier, ParametersPresent: v.InputParameters != "", ResourceID: v.ResourceID, TagKey: v.TagKey, TagValue: v.TagValue, CreatedAt: v.CreatedAt, LastEvaluation: v.LastEvaluation, LastReevaluation: v.LastReevaluation, ErrorCode: v.ErrorCode, ErrorMessage: v.ErrorMessage})
 	if err != nil {
 		return err
 	}

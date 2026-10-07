@@ -56,11 +56,27 @@ func (s *Service) createTopic(ctx context.Context, in *api.CreateTopicInput) (ou
 		if err != nil && !errors.Is(err, ErrNotFound) {
 			return err
 		}
+		claim, managed := ctx.Value(cloudFormationTopicContextKey{}).(CloudFormationTopicClaim)
+		if managed {
+			if claim.Owner == "" || claim.Token == "" {
+				return failure("InvalidParameter", "Topic creation requires a private owner claim")
+			}
+			if exists {
+				if err := checkCloudFormationTopicClaim(tx.Context(), previous); err != nil {
+					return err
+				}
+				out = &api.CreateTopicOutput{TopicArn: str[api.TopicARN](key.ARN())}
+				return s.recordCall(tx.Context(), "CreateTopic", in, out, nil)
+			}
+		}
 		topic := previous
 		topic.Feedback = maps.Clone(previous.Feedback)
 		if !exists {
 			now := s.clock.Now()
 			topic = TopicRecord{Key: key, ID: identifier(), Tags: tags, Created: now, Updated: now, FIFO: fifo}
+			if managed {
+				topic.CreationOwner = claim.TopicCreationOwner
+			}
 			topic.Policy, err = s.bindTopicPolicy(tx.Context(), defaultTopicPolicy(key), key)
 			if err != nil {
 				return err
@@ -127,6 +143,11 @@ func (s *Service) deleteTopic(ctx context.Context, in *api.DeleteTopicInput) (ou
 			return err
 		}
 		if exists {
+			if err := checkCloudFormationTopicClaim(tx.Context(), topic); err != nil {
+				return err
+			}
+		}
+		if exists {
 			if topic.Archive != nil {
 				return failure("InvalidState", "Invalid state: Cannot delete a topic with an ArchivePolicy")
 			}
@@ -161,6 +182,10 @@ func (s *Service) getTopicAttributes(ctx context.Context, in *api.GetTopicAttrib
 		if err := s.authorize(tx, "GetTopicAttributes", key.ARN(), topic.Tags, nil, topic.Policy); err != nil {
 			return err
 		}
+		if err := checkCloudFormationTopicClaim(tx.Context(), topic); err != nil {
+			return err
+		}
+		observeTopicOwnership(tx.Context(), topic)
 		document, err := s.renderPolicy(tx.Context(), topic.Policy)
 		if err != nil {
 			return err
@@ -241,8 +266,15 @@ func (s *Service) setTopicAttributes(ctx context.Context, in *api.SetTopicAttrib
 		if err := s.authorize(tx, "SetTopicAttributes", key.ARN(), topic.Tags, nil, topic.Policy); err != nil {
 			return err
 		}
+		if err := checkCloudFormationTopicClaim(tx.Context(), topic); err != nil {
+			return err
+		}
 		previousArchive := topic.Archive
-		if err := s.setTopicAttribute(tx.Context(), &topic, value(in.AttributeName), value(in.AttributeValue)); err != nil {
+		if value(in.AttributeName) == "Policy" {
+			if err := s.setClaimedTopicPolicy(tx.Context(), &topic, value(in.AttributeValue)); err != nil {
+				return err
+			}
+		} else if err := s.setTopicAttribute(tx.Context(), &topic, value(in.AttributeName), value(in.AttributeValue)); err != nil {
 			return err
 		}
 		topic.Updated = s.clock.Now()

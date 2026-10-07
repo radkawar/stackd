@@ -34,7 +34,7 @@ func (r reader) Filters(sc domain.Scope, detector string) ([]domain.Filter, erro
 	return out, nil
 }
 func (r reader) filter(row sqlcgen.GuarddutyFilter) (domain.Filter, error) {
-	v := domain.Filter{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, DetectorID: row.DetectorID, Name: row.Name, ARN: row.Arn, Action: row.Action, Description: row.Description, DescriptionSet: row.DescriptionSet, ClientToken: row.ClientToken, Rank: int32(row.Rank), Version: int32(row.Version), Created: row.Created, Updated: row.Updated}
+	v := domain.Filter{CFNOwnership: domain.CloudFormationOwnership{Owner: row.CfnOwner, Token: row.CfnToken}, Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, DetectorID: row.DetectorID, Name: row.Name, ARN: row.Arn, Action: row.Action, Description: row.Description, DescriptionSet: row.DescriptionSet, ClientToken: row.ClientToken, Rank: int32(row.Rank), Version: int32(row.Version), Created: row.Created, Updated: row.Updated}
 	if row.TagsPresent {
 		v.Tags = map[string]string{}
 	}
@@ -107,7 +107,7 @@ func (w writer) PutFilter(v domain.Filter) error {
 	if _, err := w.q.GetDetector(w.ctx, sqlcgen.GetDetectorParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, ID: v.DetectorID}); err != nil {
 		return notFound(err)
 	}
-	err := w.q.PutFilter(w.ctx, sqlcgen.PutFilterParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, DetectorID: v.DetectorID, Name: v.Name, Arn: v.ARN, Action: v.Action, Description: v.Description, DescriptionSet: v.DescriptionSet, ClientToken: v.ClientToken, Rank: int64(v.Rank), Version: int64(v.Version), Created: v.Created, Updated: v.Updated, CriteriaPresent: v.Criteria.Criterion != nil, TagsPresent: v.Tags != nil})
+	err := w.q.PutFilter(w.ctx, sqlcgen.PutFilterParams{CfnOwner: v.CFNOwnership.Owner, CfnToken: v.CFNOwnership.Token, Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, DetectorID: v.DetectorID, Name: v.Name, Arn: v.ARN, Action: v.Action, Description: v.Description, DescriptionSet: v.DescriptionSet, ClientToken: v.ClientToken, Rank: int64(v.Rank), Version: int64(v.Version), Created: v.Created, Updated: v.Updated, CriteriaPresent: v.Criteria.Criterion != nil, TagsPresent: v.Tags != nil})
 	if err != nil {
 		return err
 	}

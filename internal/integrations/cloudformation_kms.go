@@ -14,7 +14,7 @@ import (
 
 // CloudFormationKMSHandlers delegates cryptographic resource effects to KMS.
 func CloudFormationKMSHandlers(commands StepFunctionsCommands) map[string]cloudformation.ResourceHandler {
-	return map[string]cloudformation.ResourceHandler{"AWS::KMS::Key": cfnKMSKey{commands}, "AWS::KMS::Alias": cfnKMSAlias{commands}}
+	return map[string]cloudformation.ResourceHandler{"AWS::KMS::Key": cfnKMSKey{commands}, "AWS::KMS::Alias": cfnKMSAlias{commands}, "AWS::KMS::ReplicaKey": cfnKMSReplicaKey{commands}}
 }
 
 type cfnKMSKey struct{ commands StepFunctionsCommands }
@@ -29,14 +29,14 @@ func cfnKMSAbsent(err error) error {
 }
 
 func (h cfnKMSKey) Validate(p cloudformation.Properties) error {
-	if err := cfnComputeProperties(p, "KeyPolicy", "Description", "Enabled", "EnableKeyRotation", "RotationPeriodInDays", "PendingWindowInDays", "KeySpec", "KeyUsage", "MultiRegion", "BypassPolicyLockoutSafetyCheck", "Tags"); err != nil {
+	if err := cfnComputeProperties(p, "KeyPolicy", "Description", "Enabled", "EnableKeyRotation", "RotationPeriodInDays", "PendingWindowInDays", "KeySpec", "KeyUsage", "Origin", "MultiRegion", "BypassPolicyLockoutSafetyCheck", "Tags"); err != nil {
 		return err
 	}
-	if err := cfnComputeStrings(p, "Description", "KeySpec", "KeyUsage"); err != nil {
+	if err := cfnComputeStrings(p, "Description", "KeySpec", "KeyUsage", "Origin"); err != nil {
 		return err
 	}
 	if p["KeyPolicy"] != nil {
-		if _, err := cfnComputeDocument(p["KeyPolicy"]); err != nil {
+		if _, err := cfnKMSPolicy(p["KeyPolicy"]); err != nil {
 			return err
 		}
 	}
@@ -47,6 +47,9 @@ func (h cfnKMSKey) Validate(p cloudformation.Properties) error {
 			}
 		}
 	}
+	if _, err := cfnKMSPendingWindow(p); err != nil {
+		return err
+	}
 	_, err := cfnComputeTags(p)
 	return err
 }
@@ -54,8 +57,11 @@ func (h cfnKMSKey) Replacement(a, b cloudformation.Properties) (bool, error) {
 	if err := h.Validate(b); err != nil {
 		return false, err
 	}
-	if cfnComputeChanged(a, b, "KeySpec", "KeyUsage", "MultiRegion") {
-		return false, fmt.Errorf("KMS key specification, usage and multi-region mode cannot be updated")
+	if cfnComputeDefault(a, "KeySpec", "SYMMETRIC_DEFAULT") != cfnComputeDefault(b, "KeySpec", "SYMMETRIC_DEFAULT") ||
+		cfnComputeDefault(a, "KeyUsage", "ENCRYPT_DECRYPT") != cfnComputeDefault(b, "KeyUsage", "ENCRYPT_DECRYPT") ||
+		cfnComputeDefault(a, "Origin", "AWS_KMS") != cfnComputeDefault(b, "Origin", "AWS_KMS") ||
+		cfnComputeDefault(a, "MultiRegion", false) != cfnComputeDefault(b, "MultiRegion", false) {
+		return false, fmt.Errorf("KMS key specification, usage, origin and multi-region mode cannot be updated")
 	}
 	return false, nil
 }
@@ -94,60 +100,35 @@ func (h cfnKMSKey) result(ctx context.Context, id string) (cloudformation.Resour
 	if err != nil {
 		return cloudformation.ResourceResult{PhysicalID: id, Ref: id}, err
 	}
-	return cloudformation.ResourceResult{PhysicalID: cfnComputeValue(out.KeyMetadata.KeyId), Ref: cfnComputeValue(out.KeyMetadata.KeyId), Attributes: map[string]any{"Arn": cfnComputeValue(out.KeyMetadata.Arn)}}, nil
-}
-func (h cfnKMSKey) recover(ctx context.Context, r cloudformation.ResourceRequest) (string, error) {
-	input := map[string]any{}
-	for {
-		out, err := cfnComputeCall[api.ListKeysOutput](ctx, h.commands, "kms", "ListKeys", input)
-		if err != nil {
-			return "", err
-		}
-		for _, key := range out.Keys {
-			id := cfnComputeValue(key.KeyId)
-			tags, err := h.tags(ctx, id)
-			if err != nil {
-				return "", err
-			}
-			if cfnComputeOwnership(r, tags) == nil {
-				return id, nil
-			}
-		}
-		marker := cfnComputeValue(out.NextMarker)
-		if marker == "" {
-			return "", nil
-		}
-		input["Marker"] = marker
+	if cfnKMSPendingDeletion(out.KeyMetadata) {
+		return cloudformation.ResourceResult{PhysicalID: id, Ref: id}, &awswire.Error{Code: "NotFoundException", Message: "The KMS key is scheduled for deletion", StatusCode: 400}
 	}
+	return cfnKMSMetadataResult(out.KeyMetadata), nil
 }
 func (h cfnKMSKey) Create(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
 	if err := h.Validate(r.Properties); err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
-	id, err := h.recover(ctx, r)
-	if err != nil {
-		return cloudformation.ResourceResult{}, err
-	}
-	if id == "" {
-		input := cfnComputeCopy(r.Properties, "Description", "KeySpec", "KeyUsage", "MultiRegion", "BypassPolicyLockoutSafetyCheck")
-		if r.Properties["KeyPolicy"] != nil {
-			input["Policy"], err = cfnComputeDocument(r.Properties["KeyPolicy"])
-			if err != nil {
-				return cloudformation.ResourceResult{}, err
-			}
-		}
-		input["Tags"] = cfnKMSTags(cfnComputeOwnedTags(r))
-		out, err := cfnComputeCall[api.CreateKeyOutput](ctx, h.commands, "kms", "CreateKey", input)
+	ctx = cfnKMSKeyCreationContext(ctx, r)
+	input := cfnComputeCopy(r.Properties, "Description", "KeySpec", "KeyUsage", "Origin", "MultiRegion", "BypassPolicyLockoutSafetyCheck")
+	var err error
+	if r.Properties["KeyPolicy"] != nil {
+		input["Policy"], err = cfnComputeDocument(r.Properties["KeyPolicy"])
 		if err != nil {
 			return cloudformation.ResourceResult{}, err
 		}
-		id = cfnComputeValue(out.KeyMetadata.KeyId)
 	}
-	r.PhysicalID = id
-	result, err := h.result(ctx, id)
+	input["Tags"] = cfnKMSTags(cfnResourceTags(r))
+	out, err := cfnComputeCall[api.CreateKeyOutput](ctx, h.commands, "kms", "CreateKey", input)
+	if err != nil {
+		return cloudformation.ResourceResult{}, err
+	}
+	r.PhysicalID = cfnComputeValue(out.KeyMetadata.KeyId)
+	result, err := h.result(ctx, r.PhysicalID)
 	if err != nil {
 		return result, err
 	}
+	r.Previous = nil
 	return result, h.configure(ctx, r)
 }
 func (h cfnKMSKey) configure(ctx context.Context, r cloudformation.ResourceRequest) error {
@@ -165,7 +146,7 @@ func (h cfnKMSKey) configure(ctx context.Context, r cloudformation.ResourceReque
 			return err
 		}
 	}
-	if value, ok := r.Properties["Enabled"]; ok {
+	if value := cfnComputeDefault(r.Properties, "Enabled", true); cfnComputeString(r.Properties, "Origin") != "EXTERNAL" && value != cfnComputeDefault(r.Previous, "Enabled", true) {
 		action := "DisableKey"
 		if value == true {
 			action = "EnableKey"
@@ -193,11 +174,12 @@ func (h cfnKMSKey) Update(ctx context.Context, r cloudformation.ResourceRequest)
 	if _, err := h.Replacement(r.Previous, r.Properties); err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
-	current, err := h.tags(ctx, r.PhysicalID)
-	if err != nil {
+	ctx = cfnKMSKeyContext(ctx, r)
+	if _, err := cfnKMSIdentifier(ctx, r.PhysicalID); err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
-	if err = cfnComputeOwnership(r, current); err != nil {
+	current, err := h.tags(ctx, r.PhysicalID)
+	if err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
 	result, err := h.result(ctx, r.PhysicalID)
@@ -210,7 +192,7 @@ func (h cfnKMSKey) Update(ctx context.Context, r cloudformation.ResourceRequest)
 	if err = cfnComputeRun(ctx, h.commands, "kms", "UpdateKeyDescription", map[string]any{"KeyId": r.PhysicalID, "Description": cfnComputeString(r.Properties, "Description")}); err != nil {
 		return result, err
 	}
-	desired := cfnComputeOwnedTags(r)
+	desired := cfnResourceTags(r)
 	if removed := cfnComputeRemovedTags(current, desired); len(removed) > 0 {
 		if err = cfnComputeRun(ctx, h.commands, "kms", "UntagResource", map[string]any{"KeyId": r.PhysicalID, "TagKeys": removed}); err != nil {
 			return result, err
@@ -219,18 +201,18 @@ func (h cfnKMSKey) Update(ctx context.Context, r cloudformation.ResourceRequest)
 	return result, cfnComputeRun(ctx, h.commands, "kms", "TagResource", map[string]any{"KeyId": r.PhysicalID, "Tags": cfnKMSTags(desired)})
 }
 func (h cfnKMSKey) Delete(ctx context.Context, r cloudformation.ResourceRequest) error {
+	if err := h.ValidateDeletionPolicy(r.DeletionPolicy); err != nil {
+		return err
+	}
+	ctx = cfnKMSKeyContext(ctx, r)
+	if _, err := cfnKMSIdentifier(ctx, r.PhysicalID); err != nil {
+		return err
+	}
 	out, err := cfnComputeCall[api.DescribeKeyOutput](ctx, h.commands, "kms", "DescribeKey", map[string]any{"KeyId": r.PhysicalID})
 	if err != nil {
 		return cfnKMSAbsent(err)
 	}
-	tags, err := h.tags(ctx, r.PhysicalID)
-	if err != nil {
-		return err
-	}
-	if err = cfnComputeOwnership(r, tags); err != nil {
-		return err
-	}
-	if cfnComputeValue(out.KeyMetadata.KeyState) == "PendingDeletion" {
+	if state := cfnComputeValue(out.KeyMetadata.KeyState); state == "PendingDeletion" || state == "PendingReplicaDeletion" {
 		return nil
 	}
 	return cfnComputeRun(ctx, h.commands, "kms", "ScheduleKeyDeletion", map[string]any{"KeyId": r.PhysicalID, "PendingWindowInDays": cfnComputeDefault(r.Properties, "PendingWindowInDays", 30)})
@@ -252,7 +234,7 @@ func (h cfnKMSAlias) Create(ctx context.Context, r cloudformation.ResourceReques
 		return cloudformation.ResourceResult{}, err
 	}
 	name := cfnComputeString(r.Properties, "AliasName")
-	ctx = cfnKMSAliasContext(ctx, r)
+	ctx = kms.WithAliasOwner(ctx, kms.AliasOwner{StackID: r.StackID, LogicalID: r.LogicalID, Token: r.Token})
 	err := cfnComputeRun(ctx, h.commands, "kms", "CreateAlias", cfnComputeCopy(r.Properties, "AliasName", "TargetKeyId"))
 	if err != nil {
 		return cloudformation.ResourceResult{}, err

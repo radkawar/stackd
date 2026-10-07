@@ -15,12 +15,12 @@ WHERE g.partition = sqlc.arg(partition) AND g.account_id = sqlc.arg(account_id) 
 ORDER BY f.name, g.name LIMIT sqlc.arg(page_limit);
 
 -- name: PutMetricFilter :exec
-INSERT INTO logs_metric_filters (group_id, name, pattern, metric_namespace, metric_name, metric_value, unit, default_value, apply_on_transformed_logs, field_selection, created)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO logs_metric_filters (group_id, name, pattern, metric_namespace, metric_name, metric_value, unit, default_value, apply_on_transformed_logs, field_selection, created, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(group_id, name) DO UPDATE SET pattern=excluded.pattern,
  metric_namespace=excluded.metric_namespace, metric_name=excluded.metric_name, metric_value=excluded.metric_value,
  unit=excluded.unit, default_value=excluded.default_value,
- apply_on_transformed_logs=excluded.apply_on_transformed_logs, field_selection=excluded.field_selection, created=excluded.created;
+ apply_on_transformed_logs=excluded.apply_on_transformed_logs, field_selection=excluded.field_selection, created=excluded.created, cfn_owner=excluded.cfn_owner;
 
 -- name: DeleteMetricFilter :exec
 DELETE FROM logs_metric_filters WHERE group_id = ? AND name = ?;

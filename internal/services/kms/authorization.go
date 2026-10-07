@@ -105,6 +105,9 @@ func (s *Service) resolveAuthorized(ctx context.Context, identifier string, allo
 }
 
 func (s *Service) authorizeResolvedKey(ctx context.Context, k *key, identifier string) *awswire.Error {
+	if err := checkKeyResourceOwner(ctx, k); err != nil {
+		return err
+	}
 	conditions := map[string][]string{"kms:KeySpec": {k.Spec}, "kms:KeyUsage": {k.Usage}, "kms:KeyOrigin": {k.Origin}, "kms:KeyManager": {k.manager}, "kms:MultiRegion": {strconv.FormatBool(k.MultiRegion)}}
 	if k.MultiRegion {
 		kind := "REPLICA"

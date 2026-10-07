@@ -16,6 +16,9 @@ type memoryState struct {
 	rules                  map[ResourceKey]SecurityGroupRuleRecord
 	routes                 map[ResourceKey]RouteTableRecord
 	gateways               map[ResourceKey]InternetGatewayRecord
+	natGateways            map[ResourceKey]NatGatewayRecord
+	vpcEndpoints           map[ResourceKey]VPCEndpointRecord
+	networkOwnerCreations  map[NetworkCreationKey]NetworkOwnerCreationRecord
 	networkInterfaces      map[ResourceKey]NetworkInterfaceRecord
 	interfaceCreations     map[NetworkInterfaceCreationKey]NetworkInterfaceCreationRecord
 	acls                   map[ResourceKey]NetworkACLRecord
@@ -52,11 +55,17 @@ func NewMemoryRepository(domain *memory.Domain) *MemoryRepository {
 	initial.launchTemplates = map[ResourceKey]LaunchTemplateRecord{}
 	initial.launchTemplateVersions = map[LaunchTemplateVersionKey]LaunchTemplateVersionRecord{}
 	initial.launchTemplateTokens = map[LaunchTemplateTokenKey]LaunchTemplateTokenRecord{}
+	initial.natGateways = map[ResourceKey]NatGatewayRecord{}
+	initial.vpcEndpoints = map[ResourceKey]VPCEndpointRecord{}
+	initial.networkOwnerCreations = map[NetworkCreationKey]NetworkOwnerCreationRecord{}
 	return &MemoryRepository{memory.New(domain, initial, func(v memoryState) memoryState {
 		v.launchTemplates = maps.Clone(v.launchTemplates)
 		v.launchTemplateVersions = maps.Clone(v.launchTemplateVersions)
 		v.launchTemplateTokens = maps.Clone(v.launchTemplateTokens)
-		return memoryState{publicAddresses: maps.Clone(v.publicAddresses), vpcs: maps.Clone(v.vpcs), subnets: maps.Clone(v.subnets), groups: maps.Clone(v.groups), rules: maps.Clone(v.rules), routes: maps.Clone(v.routes), gateways: maps.Clone(v.gateways), networkInterfaces: maps.Clone(v.networkInterfaces), interfaceCreations: maps.Clone(v.interfaceCreations), acls: maps.Clone(v.acls), dhcp: maps.Clone(v.dhcp), dhcpDefaults: maps.Clone(v.dhcpDefaults), creations: maps.Clone(v.creations), keyPairs: maps.Clone(v.keyPairs), images: maps.Clone(v.images), instances: maps.Clone(v.instances), profileAssociations: maps.Clone(v.profileAssociations), reservations: maps.Clone(v.reservations), creditDefaults: maps.Clone(v.creditDefaults), creditLaunches: maps.Clone(v.creditLaunches), creditModifications: maps.Clone(v.creditModifications), identitySigningKeys: maps.Clone(v.identitySigningKeys), counters: maps.Clone(v.counters), launchTemplates: v.launchTemplates, launchTemplateVersions: v.launchTemplateVersions, launchTemplateTokens: v.launchTemplateTokens}
+		natGateways := maps.Clone(v.natGateways)
+		vpcEndpoints := maps.Clone(v.vpcEndpoints)
+		networkOwnerCreations := maps.Clone(v.networkOwnerCreations)
+		return memoryState{natGateways: natGateways, vpcEndpoints: vpcEndpoints, networkOwnerCreations: networkOwnerCreations, publicAddresses: maps.Clone(v.publicAddresses), vpcs: maps.Clone(v.vpcs), subnets: maps.Clone(v.subnets), groups: maps.Clone(v.groups), rules: maps.Clone(v.rules), routes: maps.Clone(v.routes), gateways: maps.Clone(v.gateways), networkInterfaces: maps.Clone(v.networkInterfaces), interfaceCreations: maps.Clone(v.interfaceCreations), acls: maps.Clone(v.acls), dhcp: maps.Clone(v.dhcp), dhcpDefaults: maps.Clone(v.dhcpDefaults), creations: maps.Clone(v.creations), keyPairs: maps.Clone(v.keyPairs), images: maps.Clone(v.images), instances: maps.Clone(v.instances), profileAssociations: maps.Clone(v.profileAssociations), reservations: maps.Clone(v.reservations), creditDefaults: maps.Clone(v.creditDefaults), creditLaunches: maps.Clone(v.creditLaunches), creditModifications: maps.Clone(v.creditModifications), identitySigningKeys: maps.Clone(v.identitySigningKeys), counters: maps.Clone(v.counters), launchTemplates: v.launchTemplates, launchTemplateVersions: v.launchTemplateVersions, launchTemplateTokens: v.launchTemplateTokens}
 	})}
 }
 func (m *MemoryRepository) View(ctx context.Context, fn func(Reader) error) error {
@@ -127,7 +136,9 @@ func (r memoryReader) VPC(k ResourceKey) (VPCRecord, error) {
 func (r memoryReader) VPCs(s Scope) ([]VPCRecord, error) {
 	return listRecords(r.tx, r.s.vpcs, s, cloneVPC)
 }
-func (w memoryWriter) PutVPC(v VPCRecord) error      { return putRecord(w.tx, w.s.vpcs, v.Key, v, cloneVPC) }
+func (w memoryWriter) PutVPC(v VPCRecord) error {
+	return putClaimed(w.tx, w.s.vpcs, v.Key, v, cloneVPC)
+}
 func (w memoryWriter) DeleteVPC(k ResourceKey) error { return deleteRecord(w.tx, w.s.vpcs, k) }
 func (r memoryReader) Subnet(k ResourceKey) (SubnetRecord, error) {
 	return getRecord(r.tx, r.s.subnets, k, cloneSubnet)
@@ -136,7 +147,7 @@ func (r memoryReader) Subnets(s Scope) ([]SubnetRecord, error) {
 	return listRecords(r.tx, r.s.subnets, s, cloneSubnet)
 }
 func (w memoryWriter) PutSubnet(v SubnetRecord) error {
-	return putRecord(w.tx, w.s.subnets, v.Key, v, cloneSubnet)
+	return putClaimed(w.tx, w.s.subnets, v.Key, v, cloneSubnet)
 }
 func (w memoryWriter) DeleteSubnet(k ResourceKey) error { return deleteRecord(w.tx, w.s.subnets, k) }
 func (r memoryReader) SecurityGroup(k ResourceKey) (SecurityGroupRecord, error) {
@@ -146,7 +157,7 @@ func (r memoryReader) SecurityGroups(s Scope) ([]SecurityGroupRecord, error) {
 	return listRecords(r.tx, r.s.groups, s, cloneGroup)
 }
 func (w memoryWriter) PutSecurityGroup(v SecurityGroupRecord) error {
-	return putRecord(w.tx, w.s.groups, v.Key, v, cloneGroup)
+	return putClaimed(w.tx, w.s.groups, v.Key, v, cloneGroup)
 }
 func (w memoryWriter) DeleteSecurityGroup(k ResourceKey) error {
 	return deleteRecord(w.tx, w.s.groups, k)
@@ -158,7 +169,7 @@ func (r memoryReader) SecurityGroupRules(s Scope) ([]SecurityGroupRuleRecord, er
 	return listRecords(r.tx, r.s.rules, s, cloneRule)
 }
 func (w memoryWriter) PutSecurityGroupRule(v SecurityGroupRuleRecord) error {
-	return putRecord(w.tx, w.s.rules, v.Key, v, cloneRule)
+	return putClaimed(w.tx, w.s.rules, v.Key, v, cloneRule)
 }
 func (w memoryWriter) DeleteSecurityGroupRule(k ResourceKey) error {
 	return deleteRecord(w.tx, w.s.rules, k)
@@ -170,7 +181,7 @@ func (r memoryReader) RouteTables(s Scope) ([]RouteTableRecord, error) {
 	return listRecords(r.tx, r.s.routes, s, cloneRouteTable)
 }
 func (w memoryWriter) PutRouteTable(v RouteTableRecord) error {
-	return putRecord(w.tx, w.s.routes, v.Key, v, cloneRouteTable)
+	return putClaimed(w.tx, w.s.routes, v.Key, v, cloneRouteTable)
 }
 func (w memoryWriter) DeleteRouteTable(k ResourceKey) error { return deleteRecord(w.tx, w.s.routes, k) }
 func (r memoryReader) InternetGateway(k ResourceKey) (InternetGatewayRecord, error) {
@@ -180,7 +191,7 @@ func (r memoryReader) InternetGateways(s Scope) ([]InternetGatewayRecord, error)
 	return listRecords(r.tx, r.s.gateways, s, cloneInternetGateway)
 }
 func (w memoryWriter) PutInternetGateway(v InternetGatewayRecord) error {
-	return putRecord(w.tx, w.s.gateways, v.Key, v, cloneInternetGateway)
+	return putClaimed(w.tx, w.s.gateways, v.Key, v, cloneInternetGateway)
 }
 func (w memoryWriter) DeleteInternetGateway(k ResourceKey) error {
 	return deleteRecord(w.tx, w.s.gateways, k)
@@ -219,7 +230,7 @@ func (r memoryReader) RegionalSecurityGroups(scope Scope) ([]SecurityGroupRecord
 	return out, nil
 }
 func (w memoryWriter) PutNetworkInterface(v NetworkInterfaceRecord) error {
-	return putRecord(w.tx, w.s.networkInterfaces, v.Key, v, cloneNetworkInterface)
+	return putClaimed(w.tx, w.s.networkInterfaces, v.Key, v, cloneNetworkInterface)
 }
 func (w memoryWriter) DeleteNetworkInterface(k ResourceKey) error {
 	return deleteRecord(w.tx, w.s.networkInterfaces, k)
@@ -237,7 +248,7 @@ func (r memoryReader) NetworkACLs(s Scope) ([]NetworkACLRecord, error) {
 	return listRecords(r.tx, r.s.acls, s, cloneACL)
 }
 func (w memoryWriter) PutNetworkACL(v NetworkACLRecord) error {
-	return putRecord(w.tx, w.s.acls, v.Key, v, cloneACL)
+	return putClaimed(w.tx, w.s.acls, v.Key, v, cloneACL)
 }
 func (w memoryWriter) DeleteNetworkACL(k ResourceKey) error { return deleteRecord(w.tx, w.s.acls, k) }
 
@@ -248,7 +259,7 @@ func (r memoryReader) DHCPOptionsSets(s Scope) ([]DHCPOptionsRecord, error) {
 	return listRecords(r.tx, r.s.dhcp, s, cloneDHCPOptions)
 }
 func (w memoryWriter) PutDHCPOptions(v DHCPOptionsRecord) error {
-	return putRecord(w.tx, w.s.dhcp, v.Key, v, cloneDHCPOptions)
+	return putClaimed(w.tx, w.s.dhcp, v.Key, v, cloneDHCPOptions)
 }
 func (w memoryWriter) DeleteDHCPOptions(k ResourceKey) error {
 	return deleteRecord(w.tx, w.s.dhcp, k)
@@ -291,7 +302,7 @@ func (w memoryWriter) PutKeyPair(v KeyPairRecord) error {
 			return duplicateKeyPair()
 		}
 	}
-	return putRecord(w.tx, w.s.keyPairs, v.Key, v, cloneKeyPair)
+	return putClaimed(w.tx, w.s.keyPairs, v.Key, v, cloneKeyPair)
 }
 func (w memoryWriter) DeleteKeyPair(k ResourceKey) error {
 	return deleteRecord(w.tx, w.s.keyPairs, k)

@@ -28,6 +28,7 @@ func (k TopicKey) ARN() string {
 type TopicRecord struct {
 	Key              TopicKey
 	ID               string
+	CreationOwner    TopicCreationOwner
 	Created, Updated time.Time
 	DisplayName      string
 	// Empty preserves an omitted attribute; notification signing defaults to 1.
@@ -40,6 +41,7 @@ type TopicRecord struct {
 	FifoThroughputScope             string
 	Sequence                        uint64
 	Policy                          authorization.BoundPolicy
+	PolicyOwnership                 PolicyOwnership
 	Tags                            map[string]string
 	Feedback                        map[string]FeedbackConfig
 	Archive                         *ArchiveConfig

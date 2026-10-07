@@ -8,6 +8,7 @@ import (
 )
 
 type ConnectionEncryptionRecord struct {
+	CFNOwner        string
 	Scope           Scope
 	KeyID           string
 	ReturnEncrypted bool
@@ -111,5 +112,12 @@ func (w memoryWriter) PutConnectionEncryption(v ConnectionEncryptionRecord) erro
 		return err
 	}
 	w.s.connectionEncryption[v.Scope] = v
+	return nil
+}
+func (w memoryWriter) DeleteConnectionEncryption(scope Scope) error {
+	if err := w.tx.Check(true); err != nil {
+		return err
+	}
+	delete(w.s.connectionEncryption, scope)
 	return nil
 }

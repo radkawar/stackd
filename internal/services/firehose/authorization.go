@@ -28,6 +28,11 @@ func (s *Service) authorize(ctx context.Context, r Reader, key StreamKey, action
 	}); rejected != nil {
 		return rejected
 	}
+	if err == nil {
+		if rejected := cloudFormationCheck(ctx, stream.CFNOwner); rejected != nil {
+			return rejected
+		}
+	}
 	return nil
 }
 

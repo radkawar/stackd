@@ -9,11 +9,15 @@ import (
 )
 
 type taggedResource struct {
-	api   *APIRecord
-	stage *StageRecord
+	api    *APIRecord
+	stage  *StageRecord
+	domain *DomainRecord
 }
 
 func (v taggedResource) tags() map[string]string {
+	if v.domain != nil {
+		return v.domain.Tags
+	}
 	if v.api != nil {
 		return v.api.Tags
 	}
@@ -23,6 +27,13 @@ func (v taggedResource) tags() map[string]string {
 	return nil
 }
 func (v taggedResource) put(tx Transaction, tags map[string]string) error {
+	if v.domain != nil {
+		if err := domainOwner(tx, v.domain.Owner); err != nil {
+			return err
+		}
+		v.domain.Tags = tags
+		return tx.PutDomain(*v.domain)
+	}
 	if v.api != nil {
 		v.api.Tags = tags
 		return tx.PutAPI(*v.api)
@@ -31,6 +42,11 @@ func (v taggedResource) put(tx Transaction, tags map[string]string) error {
 	return tx.PutStage(*v.stage)
 }
 func tagged(r Reader, arn string) (taggedResource, string, error) {
+	domainPrefix := controlARN(scopeFor(r.Context()), "/domainnames/")
+	if name, ok := strings.CutPrefix(arn, domainPrefix); ok && name != "" && !strings.Contains(name, "/") {
+		v, err := r.Domain(DomainKey{scopeFor(r.Context()), name})
+		return taggedResource{domain: &v}, "/domainnames/" + name, err
+	}
 	prefix := controlARN(scopeFor(r.Context()), "/apis/")
 	if !strings.HasPrefix(arn, prefix) {
 		return taggedResource{}, "", ErrNotFound
@@ -45,7 +61,7 @@ func tagged(r Reader, arn string) (taggedResource, string, error) {
 		v, err := r.Stage(ResourceKey{key, parts[2]})
 		return taggedResource{stage: &v}, "/apis/" + parts[0] + "/stages/" + parts[2], err
 	default:
-		return taggedResource{}, "", bad("Tags are supported on APIs and stages")
+		return taggedResource{}, "", bad("Tags are supported on APIs, stages and domains")
 	}
 }
 func (s *Service) authorizeTags(r Reader, method, arn, path string, current, requested map[string]string, keys []string) error {

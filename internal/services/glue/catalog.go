@@ -13,6 +13,7 @@ import (
 
 func registerCatalog(s *Service) {
 	registerControl(s, "CreateCatalog", s.createCatalog)
+	registerControl(s, "UpdateCatalog", s.updateCatalog)
 	registerControl(s, "GetCatalog", s.getCatalog)
 	registerControl(s, "GetCatalogs", s.getCatalogs)
 	registerControl(s, "DeleteCatalog", s.deleteCatalog)

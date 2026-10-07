@@ -18,7 +18,7 @@ import (
 
 func ipListRecord(sc domain.Scope, kind domain.IPListKind, id string) domain.IPList {
 	d, _, _ := records(sc)
-	return domain.IPList{Scope: sc, DetectorID: d.ID, Kind: kind, ID: id, ARN: d.ARN + "/" + string(kind) + "/" + id, Name: "list-" + id, Format: "TXT", Location: "https://s3.amazonaws.com/bucket/list.txt", ExpectedBucketOwner: sc.AccountID, ClientToken: "token-" + id, Status: "ACTIVE", Version: 7, Due: time.Date(2031, 2, 3, 4, 5, 6, 123456789, time.UTC), Tags: map[string]string{"owner": "security"}}
+	return domain.IPList{CFNOwnership: domain.CloudFormationOwnership{Owner: "list-owner", Token: "list-incarnation"}, Scope: sc, DetectorID: d.ID, Kind: kind, ID: id, ARN: d.ARN + "/" + string(kind) + "/" + id, Name: "list-" + id, Format: "TXT", Location: "https://s3.amazonaws.com/bucket/list.txt", ExpectedBucketOwner: sc.AccountID, ClientToken: "token-" + id, Status: "ACTIVE", Version: 7, Due: time.Date(2031, 2, 3, 4, 5, 6, 123456789, time.UTC), Tags: map[string]string{"owner": "security"}}
 }
 
 func assertIPMatches(t *testing.T, repo domain.Repository, sc domain.Scope, ip uint32, want ...domain.IPList) {

@@ -11,12 +11,23 @@ func registerFunctions(s *Service) {
 		if e != nil {
 			return nil, e
 		}
+		if b, ok := ctx.Value(cfnOwnershipKey{}).(*cfnOwnership); ok && b.Kind == "FunctionConfiguration" && b.Claim != "" {
+			rows, err := t.Functions(p.Key)
+			if err != nil {
+				return nil, err
+			}
+			for _, row := range rows {
+				if row.Ownership == b.Claim {
+					return &api.CreateFunctionResponse{FunctionConfiguration: &row.Function}, nil
+				}
+			}
+		}
 		f := api.FunctionConfiguration{Name: in.Name, Description: in.Description, DataSourceName: in.DataSourceName, Runtime: in.Runtime, Code: in.Code, FunctionVersion: in.FunctionVersion, RequestMappingTemplate: in.RequestMappingTemplate, ResponseMappingTemplate: in.ResponseMappingTemplate, SyncConfig: in.SyncConfig, MaxBatchSize: in.MaxBatchSize}
 		text(&f.FunctionId, randomID())
 		if e = validateFunction(t, p, &f); e != nil {
 			return nil, e
 		}
-		if e = t.PutFunction(FunctionRecord{p.Key, f}); e != nil {
+		if e = t.PutFunction(FunctionRecord{API: p.Key, Function: f}); e != nil {
 			return nil, e
 		}
 		return &api.CreateFunctionResponse{FunctionConfiguration: &f}, nil
@@ -34,7 +45,7 @@ func registerFunctions(s *Service) {
 		if e = validateFunction(t, p, &f); e != nil {
 			return nil, e
 		}
-		if e = t.PutFunction(FunctionRecord{p.Key, f}); e != nil {
+		if e = t.PutFunction(FunctionRecord{API: p.Key, Function: f}); e != nil {
 			return nil, e
 		}
 		return &api.UpdateFunctionResponse{FunctionConfiguration: &f}, nil

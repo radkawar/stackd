@@ -32,6 +32,7 @@ type GroupRecord struct {
 	FilterExpression string
 	Version          int64
 	Tags             map[string]string
+	CFNOwner         string
 }
 
 // GroupMembership retains the configuration and time at first match. Completed

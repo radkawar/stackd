@@ -18,6 +18,13 @@ func registerKeys(s *Service) {
 		if e != nil {
 			return nil, e
 		}
+		if b, ok := ctx.Value(cfnOwnershipKey{}).(*cfnOwnership); ok && b.Kind == "ApiKey" && b.Claim != "" {
+			for _, row := range keys {
+				if row.Ownership == b.Claim {
+					return &api.CreateApiKeyResponse{ApiKey: &row.Key}, nil
+				}
+			}
+		}
 		if len(keys) >= 50 {
 			return nil, failure("ApiKeyLimitExceededException", "API key limit exceeded.", 400)
 		}
@@ -26,7 +33,7 @@ func registerKeys(s *Service) {
 		if e = s.expiration(&key, in.Expires); e != nil {
 			return nil, e
 		}
-		if e = t.PutAPIKey(APIKeyRecord{p.Key, key}); e != nil {
+		if e = t.PutAPIKey(APIKeyRecord{API: p.Key, Key: key}); e != nil {
 			return nil, e
 		}
 		return &api.CreateApiKeyResponse{ApiKey: &key}, nil

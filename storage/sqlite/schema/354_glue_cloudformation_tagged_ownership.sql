@@ -1,0 +1,9 @@
+ALTER TABLE glue_catalogs ADD COLUMN cfn_owner TEXT NOT NULL DEFAULT '';
+ALTER TABLE glue_databases ADD COLUMN cfn_owner TEXT NOT NULL DEFAULT '';
+ALTER TABLE glue_connections ADD COLUMN cfn_owner TEXT NOT NULL DEFAULT '';
+ALTER TABLE glue_jobs ADD COLUMN cfn_owner TEXT NOT NULL DEFAULT '';
+ALTER TABLE glue_crawlers ADD COLUMN cfn_owner TEXT NOT NULL DEFAULT '';
+ALTER TABLE glue_registries ADD COLUMN cfn_owner TEXT NOT NULL DEFAULT '';
+ALTER TABLE glue_schemas ADD COLUMN cfn_owner TEXT NOT NULL DEFAULT '';
+ALTER TABLE glue_workflow ADD COLUMN cfn_owner TEXT NOT NULL DEFAULT '';
+ALTER TABLE glue_trigger ADD COLUMN cfn_owner TEXT NOT NULL DEFAULT '';

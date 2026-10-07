@@ -1,6 +1,6 @@
 -- name: PutStream :exec
-INSERT INTO firehose_streams (id, partition, account_id, region, name, status, version, created, updated, lifecycle_due, buffer_id, tags_present)
-VALUES (sqlc.arg(id), sqlc.arg(partition), sqlc.arg(account_id), sqlc.arg(region), sqlc.arg(name), sqlc.arg(status), sqlc.arg(version), sqlc.arg(created), sqlc.arg(updated), sqlc.arg(lifecycle_due), sqlc.arg(buffer_id), sqlc.arg(tags_present))
+INSERT INTO firehose_streams (id, partition, account_id, region, name, status, version, created, updated, lifecycle_due, buffer_id, tags_present, cfn_owner)
+VALUES (sqlc.arg(id), sqlc.arg(partition), sqlc.arg(account_id), sqlc.arg(region), sqlc.arg(name), sqlc.arg(status), sqlc.arg(version), sqlc.arg(created), sqlc.arg(updated), sqlc.arg(lifecycle_due), sqlc.arg(buffer_id), sqlc.arg(tags_present), sqlc.arg(cfn_owner))
 ON CONFLICT (id) DO UPDATE SET partition = excluded.partition, account_id = excluded.account_id, region = excluded.region, name = excluded.name, status = excluded.status, version = excluded.version, created = excluded.created, updated = excluded.updated, lifecycle_due = excluded.lifecycle_due, buffer_id = excluded.buffer_id, tags_present = excluded.tags_present;
 
 -- name: PutSource :exec

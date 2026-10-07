@@ -31,6 +31,7 @@ type UsagePlanStage struct {
 }
 
 type UsagePlanRecord struct {
+	Ownership   Ownership
 	Key         PlanKey
 	Name        string
 	Description *string
@@ -43,6 +44,7 @@ type UsagePlanRecord struct {
 // UsagePlanMembership retains when this key joined the plan. Key names and
 // values remain owned by ClientKeyRecord, not copied into each membership.
 type UsagePlanMembership struct {
+	Ownership   Ownership
 	Plan        PlanKey
 	ClientKeyID string
 	Created     time.Time

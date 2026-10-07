@@ -28,22 +28,24 @@ type VersionKey struct {
 // SecretRecord owns metadata and incarnation identity. Values live in immutable
 // versions; staging labels select those versions without copying their values.
 type SecretRecord struct {
-	Key                       SecretKey
-	ARN                       string
-	Type                      string
-	Description               *string
-	KMSKeyID, OwningService   string
-	Created, Changed          time.Time
-	LastAccessed              *time.Time
-	Deleted, DeleteAfter      *time.Time
-	Tags                      map[string]string
-	Policy                    authorization.BoundPolicy
-	RotationEnabled           *bool
-	RotationLambdaARN         string
-	RotationRules             *api.RotationRulesType
-	LastRotated, NextRotation *time.Time
-	RotationDue               *time.Time
-	PrimaryRegion             string
+	Key                                                                SecretKey
+	ARN                                                                string
+	Type                                                               string
+	Description                                                        *string
+	KMSKeyID, OwningService                                            string
+	Created, Changed                                                   time.Time
+	LastAccessed                                                       *time.Time
+	Deleted, DeleteAfter                                               *time.Time
+	Tags                                                               map[string]string
+	Policy                                                             authorization.BoundPolicy
+	RotationEnabled                                                    *bool
+	RotationLambdaARN                                                  string
+	RotationRules                                                      *api.RotationRulesType
+	LastRotated, NextRotation                                          *time.Time
+	RotationDue                                                        *time.Time
+	PrimaryRegion                                                      string
+	Ownership, PolicyOwnership, RotationOwnership, AttachmentOwnership CloudFormationOwnership
+	AttachmentMetadata                                                 SecretTargetMetadata
 }
 
 // SealedValue is one KMS-backed encryption of an immutable version. Changing a

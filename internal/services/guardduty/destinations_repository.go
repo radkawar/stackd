@@ -8,6 +8,7 @@ import (
 // PublishingDestination retains regional destination intent and actual delivery
 // health. Version fences work prepared before a destination replacement.
 type PublishingDestination struct {
+	CFNOwnership CloudFormationOwnership
 	Scope
 	DetectorID, ID, ARN, Type, ClientToken string
 	DestinationARN, KMSKeyARN, Status      string

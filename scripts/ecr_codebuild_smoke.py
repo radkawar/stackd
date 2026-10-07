@@ -3,7 +3,7 @@
 
 Prerequisites: boto3, Docker CLI/socket, locally installed busybox:1.38.0 and
 the pinned compute/docker.ToolkitImage (the credential proxy), plus a parent-built
-stackd with lambda-telemetry-amd64/arm64 beside it (or explicitly selected below).
+stackd. Lambda telemetry helpers are not required.
 This script never downloads images or contacts AWS.
 
 Example (run only after the integrating owner has assembled authorization):
@@ -241,10 +241,6 @@ class Smoke:
         self.fleet_image = json.loads(self.docker("image", "inspect", BASE_IMAGE).stdout)[0]["Id"]
         require(self.docker("image", "inspect", TOOLKIT_IMAGE, check=False).returncode == 0,
                 "missing locally installed metadata toolkit: " + TOOLKIT_IMAGE)
-        helpers = Path(self.args.lambda_telemetry_directory).resolve() if self.args.lambda_telemetry_directory else self.binary.parent
-        for architecture in ("amd64", "arm64"):
-            require((helpers / ("lambda-telemetry-" + architecture)).is_file(),
-                    "missing parent-built Lambda telemetry helper for " + architecture)
         self.server_log = (self.state / "stackd.log").open("ab", buffering=0)
         self.note("prerequisites", base_image=BASE_IMAGE, metadata_image=TOOLKIT_IMAGE,
                   docker_host=self.args.docker_host, database=str(self.state / "stackd.sqlite"))
@@ -253,12 +249,10 @@ class Smoke:
         arguments = [str(self.binary), "-database", str(self.state / "stackd.sqlite"),
                      "-listen", "0.0.0.0:" + str(self.args.port),
                      "-public-endpoint", self.endpoint, "-compute-endpoint", self.compute_endpoint,
-                     "-docker-host", self.args.docker_host, "-codebuild-fleet-image", self.fleet_image]
+                     "-docker-host", self.args.docker_host, "-codebuild-runtime", "-codebuild-fleet-image", self.fleet_image]
         if self.args.ecr_scanner:
             arguments += ["-ecr-scanner", str(Path(self.args.ecr_scanner).resolve()),
                           "-ecr-scanner-cache", str(Path(self.args.ecr_scanner_cache).resolve())]
-        if self.args.lambda_telemetry_directory:
-            arguments += ["-lambda-telemetry-directory", str(Path(self.args.lambda_telemetry_directory).resolve())]
         self.process = subprocess.Popen(arguments, cwd=self.state, env=self.env,
                                         stdin=subprocess.DEVNULL, stdout=self.server_log,
                                         stderr=subprocess.STDOUT)
@@ -1117,7 +1111,6 @@ def main():
     parser.add_argument("--state-dir", required=True, help="new owned directory, basename starts stackd-buildowner")
     parser.add_argument("--port", required=True, type=int, help="unique unused local TCP port")
     parser.add_argument("--docker-host", default="unix:///var/run/docker.sock", choices=["unix:///var/run/docker.sock"])
-    parser.add_argument("--lambda-telemetry-directory", help="absolute directory of parent-built Lambda telemetry helpers")
     parser.add_argument("--restart-mode", choices=["graceful", "crash"], default="graceful")
     parser.add_argument("--sdk-image", help="locally installed Python/boto3 image for real in-container current-policy proof")
     parser.add_argument("--runtime-image", help="installed official CodeBuild image with actual Corretto 17 runtime manifest")

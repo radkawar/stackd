@@ -45,7 +45,7 @@ type capacityJobs struct{ s *Service }
 
 func (j capacityJobs) Next(ctx context.Context) (job scheduler.Job, found bool, err error) {
 	s := j.s
-	if !s.started.Load() || s.closed.Load() || s.capacityBackend == nil {
+	if s.closed.Load() {
 		return
 	}
 	err = s.repository.View(ctx, func(r Reader) error {
@@ -56,6 +56,20 @@ func (j capacityJobs) Next(ctx context.Context) (job scheduler.Job, found bool, 
 		s.capacity.mu.Lock()
 		defer s.capacity.mu.Unlock()
 		for _, p := range providers {
+			if !s.started.Load() || s.capacityBackend == nil {
+				// Empty deletion is a native storage transition: there is no
+				// guest to terminate and no runtime/backend effect to manufacture.
+				if p.State != "Deleting" {
+					continue
+				}
+				guests, err := r.CapacityGuests(p.Key)
+				if err != nil {
+					return err
+				}
+				if len(guests) != 0 {
+					continue
+				}
+			}
 			key := p.Key.ARN() + "\x00" + p.Generation
 			if s.capacity.running[key] {
 				continue
@@ -148,6 +162,9 @@ func (s *Service) reconcileCapacity(ctx context.Context, job scheduler.Job) erro
 		return err
 	}
 	ctx = capacityOwnerContext(ctx, p.Key)
+	if s.capacityBackend == nil && (p.State != "Deleting" || len(guests) != 0) {
+		return unsupported("A real managed EC2 guest backend is required.")
+	}
 	byFunction := map[FunctionVersionKey]FunctionRecord{}
 	for _, f := range functions {
 		byFunction[FunctionVersionKey{FunctionKey: f.Key, Version: f.Version}] = f

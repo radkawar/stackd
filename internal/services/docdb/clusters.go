@@ -55,6 +55,7 @@ func (s *Service) createCluster(ctx context.Context, tx Transaction, in *api.Cre
 		return nil, e
 	}
 	v := Cluster{Key: k, RuntimeID: id, Username: user, EngineVersion: "5.0", Status: "creating", Ciphertext: cipher, RequestedPort: port, Version: 1, Created: s.clock.Now(), DeletionProtection: yes(in.DeletionProtection), Tags: tags}
+	v.Owner = cloudFormationClaim(ctx, k)
 	if e = tx.PutCluster(v); e != nil {
 		return nil, e
 	}
@@ -66,11 +67,25 @@ func (s *Service) modifyCluster(ctx context.Context, tx Transaction, in *api.Mod
 	if e != nil {
 		return nil, e
 	}
-	if v.Status != "available" && v.Status != "stopped" && !(v.Status == "creating" && v.Operation == "") {
+	if v.Status != "available" && v.Status != "stopped" && !(v.Status == "creating" && v.Operation == "") && !(v.Status == "modifying" && v.Operation == "password") {
 		return nil, stateError("cluster")
 	}
 	if yes(in.AllowMajorVersionUpgrade) || in.BackupRetentionPeriod != nil || in.CloudwatchLogsExportConfiguration != nil || in.DBClusterParameterGroupName != nil || in.EngineVersion != nil || yes(in.ManageMasterUserPassword) || in.MasterUserSecretKmsKeyId != nil || in.NetworkType != nil || in.NewDBClusterIdentifier != nil || in.Port != nil || in.PreferredBackupWindow != nil || in.PreferredMaintenanceWindow != nil || yes(in.RotateMasterUserPassword) || in.ServerlessV2ScalingConfiguration != nil || in.StorageType != nil || len(in.VpcSecurityGroupIds) > 0 {
 		return nil, unsupported("Only deletion protection and immediate native password changes are supported.")
+	}
+	if v.Status == "modifying" {
+		if in.MasterUserPassword == nil || !yes(in.ApplyImmediately) {
+			return nil, stateError("cluster")
+		}
+		user, pending, err := s.cipher.Open(ctx, v.Key.ARN(), v.PendingCiphertext)
+		if err != nil {
+			return nil, err
+		}
+		if user != v.Username || pending != value(in.MasterUserPassword) || in.DeletionProtection != nil && bool(*in.DeletionProtection) != v.DeletionProtection {
+			return nil, stateError("cluster")
+		}
+		out, err := clusterOutput(tx, v)
+		return &api.ModifyDBClusterOutput{DBCluster: out}, err
 	}
 	if in.DeletionProtection != nil {
 		v.DeletionProtection = bool(*in.DeletionProtection)
@@ -219,6 +234,33 @@ func clusterOutput(r Reader, v Cluster) (*api.DBCluster, error) {
 		out.DBClusterMembers = append(out.DBClusterMembers, api.DBClusterMember{DBInstanceIdentifier: new(api.String(m.Key.Name)), IsClusterWriter: new(api.Boolean(true)), DBClusterParameterGroupStatus: new(api.String("in-sync"))})
 	}
 	return out, nil
+}
+
+// CloudFormationRequestedPort retains the distinction between a fixed listener
+// and owner-selected allocation even before a writer publishes an endpoint.
+// A member has no independently configurable listener; observe its actual row
+// and current DescribeDBInstances authority before reporting that distinction.
+func (s *Service) CloudFormationRequestedPort(ctx context.Context, kind, name string) (int32, error) {
+	if kind == "db" {
+		err := s.repository.View(ctx, func(r Reader) error {
+			_, err := s.loadInstance(r.Context(), r, "DescribeDBInstances", name)
+			return err
+		})
+		return 0, err
+	}
+	if kind != "cluster" {
+		return 0, failure("InvalidParameterValue", "A cluster owns the DocumentDB port.")
+	}
+	var port int32
+	err := s.repository.View(ctx, func(r Reader) error {
+		v, err := s.loadCluster(r.Context(), r, "DescribeDBClusters", name)
+		if err != nil {
+			return err
+		}
+		port = v.RequestedPort
+		return nil
+	})
+	return port, err
 }
 
 // ResolveCluster rechecks current authority and reports the source incarnation

@@ -150,6 +150,7 @@ type SsmParameter struct {
 	PoliciesPresent         bool
 	ResourcePoliciesPresent bool
 	Incarnation             string
+	CloudformationOwner     string
 }
 
 type SsmParameterPolicy struct {
@@ -171,14 +172,15 @@ type SsmParameterPolicyAttribute struct {
 }
 
 type SsmResourcePolicy struct {
-	ID                int64
-	ParentID          int64
-	Position          int64
-	PolicyID          string
-	Hash              string
-	Document          string
-	TrustPolicy       bool
-	PrincipalsPresent bool
+	ID                  int64
+	ParentID            int64
+	Position            int64
+	PolicyID            string
+	Hash                string
+	Document            string
+	TrustPolicy         bool
+	PrincipalsPresent   bool
+	CloudformationOwner string
 }
 
 type SsmResourcePolicyBinding struct {

@@ -108,6 +108,18 @@ func (r reader) function(v sqlcgen.LambdaFunction) (domain.FunctionRecord, error
 	if err != nil {
 		return domain.FunctionRecord{}, err
 	}
+	out.Image, out.ImageConfig, err = r.functionImage(out.Key, v.Pending, out.Version)
+	if err != nil {
+		return domain.FunctionRecord{}, err
+	}
+	out.VpcConfig, out.NetworkIncarnation, err = r.functionNetwork(out.Key, v.Pending, out.Version)
+	if err != nil {
+		return domain.FunctionRecord{}, err
+	}
+	out.Owner, err = r.functionOwner(out.Key, v.Pending, out.Version)
+	if err != nil {
+		return domain.FunctionRecord{}, err
+	}
 	return out, nil
 }
 func (r reader) Functions(scope domain.Scope) ([]domain.FunctionRecord, error) {
@@ -201,6 +213,15 @@ func (w writer) putFunction(v domain.FunctionRecord, pending bool) error {
 		return err
 	}
 	if err := w.putFunctionCapacityConfig(v, pending); err != nil {
+		return err
+	}
+	if err := w.putFunctionImage(v, pending); err != nil {
+		return err
+	}
+	if err := w.putFunctionNetwork(v, pending); err != nil {
+		return err
+	}
+	if err := w.putFunctionOwner(v, pending); err != nil {
 		return err
 	}
 	if v.Version != 0 {

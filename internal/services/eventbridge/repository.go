@@ -23,18 +23,28 @@ type RuleKey struct {
 	Name string
 }
 
+// PolicyStatementOwner is private controller provenance for one surviving Sid.
+// Public policy/tag DTOs never expose or accept this incarnation.
+type PolicyStatementOwner struct {
+	CFNOwner string
+}
+
 type BusRecord struct {
 	Key                             BusKey
+	CFNOwner                        string
 	Description                     string
 	KmsKeyIdentifier, DeadLetterARN string
 	ConfigurationDataKey            []byte
 	ConfigurationKeyARN             string
 	Tags                            map[string]string
 	Policy                          authorization.BoundPolicy
+	PolicyStatementOwners           map[string]PolicyStatementOwner
 	Created, Modified               time.Time
 }
 type RuleRecord struct {
 	Key RuleKey
+	// CFNOwner is private controller provenance for this surviving native row.
+	CFNOwner string
 	// ManagedBy identifies the service owner, including a targetless managed rule.
 	ManagedBy string
 	// ArchiveID separately identifies archive-owned rule and delivery lifetimes.

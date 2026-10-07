@@ -1,16 +1,19 @@
 -- name: PutGroup :one
 INSERT INTO asg_groups (
+ ownership,
  partition, account_id, region, name, native_id, origin_event_id, deleting, reconcile_at, version, data_auto_scaling_group_arn, data_auto_scaling_group_name, has_data_availability_zone_distribution, data_availability_zone_distribution_capacity_distribution_strategy, has_data_availability_zone_ids, has_data_availability_zones, data_capacity_rebalance, has_data_capacity_reservation_specification, data_capacity_reservation_specification_capacity_reservation_preference, has_data_capacity_reservation_specification_capacity_reservation_target, has_data_capacity_reservation_specification_capacity_reservation_target_capacity_reservation_ids, has_data_capacity_reservation_specification_capacity_reservation_target_capacity_reservation_resource_group_arns, data_context, data_created_time, data_default_cooldown, data_default_instance_warmup, data_deletion_protection, data_desired_capacity, data_desired_capacity_type, has_data_enabled_metrics, data_health_check_grace_period, data_health_check_type, has_data_instance_lifecycle_policy, has_data_instance_lifecycle_policy_retention_triggers, data_instance_lifecycle_policy_retention_triggers_terminate_hook_abandon, data_launch_configuration_name, has_data_launch_template, data_launch_template_launch_template_id, data_launch_template_launch_template_name, data_launch_template_version, has_data_load_balancer_names, data_max_instance_lifetime, data_max_size, data_min_size, data_new_instances_protected_from_scale_in, data_placement_group, data_predicted_capacity, data_service_linked_role_arn, data_status, has_data_suspended_processes, has_data_tags, has_data_target_group_arns, has_data_termination_policies, has_data_traffic_sources, data_vpc_zone_identifier, data_warm_pool_size
  , reconcile_cause, pending_instance_warmup, metric_at
  , scale_up_version
  , has_data_warm_pool_configuration, data_warm_pool_configuration_min_size, data_warm_pool_configuration_max_group_prepared_capacity, data_warm_pool_configuration_pool_state, data_warm_pool_configuration_status, has_data_warm_pool_configuration_instance_reuse_policy, data_warm_pool_configuration_instance_reuse_policy_reuse_on_scale_in
 ) VALUES (
+ sqlc.arg(ownership),
  sqlc.arg(partition), sqlc.arg(account_id), sqlc.arg(region), sqlc.arg(name), sqlc.arg(native_id), sqlc.arg(origin_event_id), sqlc.arg(deleting), sqlc.arg(reconcile_at), sqlc.arg(version), sqlc.arg(data_auto_scaling_group_arn), sqlc.arg(data_auto_scaling_group_name), sqlc.arg(has_data_availability_zone_distribution), sqlc.arg(data_availability_zone_distribution_capacity_distribution_strategy), sqlc.arg(has_data_availability_zone_ids), sqlc.arg(has_data_availability_zones), sqlc.arg(data_capacity_rebalance), sqlc.arg(has_data_capacity_reservation_specification), sqlc.arg(data_capacity_reservation_specification_capacity_reservation_preference), sqlc.arg(has_data_capacity_reservation_specification_capacity_reservation_target), sqlc.arg(has_data_capacity_reservation_specification_capacity_reservation_target_capacity_reservation_ids), sqlc.arg(has_data_capacity_reservation_specification_capacity_reservation_target_capacity_reservation_resource_group_arns), sqlc.arg(data_context), sqlc.arg(data_created_time), sqlc.arg(data_default_cooldown), sqlc.arg(data_default_instance_warmup), sqlc.arg(data_deletion_protection), sqlc.arg(data_desired_capacity), sqlc.arg(data_desired_capacity_type), sqlc.arg(has_data_enabled_metrics), sqlc.arg(data_health_check_grace_period), sqlc.arg(data_health_check_type), sqlc.arg(has_data_instance_lifecycle_policy), sqlc.arg(has_data_instance_lifecycle_policy_retention_triggers), sqlc.arg(data_instance_lifecycle_policy_retention_triggers_terminate_hook_abandon), sqlc.arg(data_launch_configuration_name), sqlc.arg(has_data_launch_template), sqlc.arg(data_launch_template_launch_template_id), sqlc.arg(data_launch_template_launch_template_name), sqlc.arg(data_launch_template_version), sqlc.arg(has_data_load_balancer_names), sqlc.arg(data_max_instance_lifetime), sqlc.arg(data_max_size), sqlc.arg(data_min_size), sqlc.arg(data_new_instances_protected_from_scale_in), sqlc.arg(data_placement_group), sqlc.arg(data_predicted_capacity), sqlc.arg(data_service_linked_role_arn), sqlc.arg(data_status), sqlc.arg(has_data_suspended_processes), sqlc.arg(has_data_tags), sqlc.arg(has_data_target_group_arns), sqlc.arg(has_data_termination_policies), sqlc.arg(has_data_traffic_sources), sqlc.arg(data_vpc_zone_identifier), sqlc.arg(data_warm_pool_size)
  , sqlc.arg(reconcile_cause), sqlc.arg(pending_instance_warmup), sqlc.arg(metric_at)
  , sqlc.arg(scale_up_version)
  , sqlc.arg(has_data_warm_pool_configuration), sqlc.arg(data_warm_pool_configuration_min_size), sqlc.arg(data_warm_pool_configuration_max_group_prepared_capacity), sqlc.arg(data_warm_pool_configuration_pool_state), sqlc.arg(data_warm_pool_configuration_status), sqlc.arg(has_data_warm_pool_configuration_instance_reuse_policy), sqlc.arg(data_warm_pool_configuration_instance_reuse_policy_reuse_on_scale_in)
 )
 ON CONFLICT(partition, account_id, region, name) DO UPDATE SET
+ ownership = excluded.ownership,
  native_id = excluded.native_id,
  origin_event_id = excluded.origin_event_id,
  deleting = excluded.deleting,
@@ -320,11 +323,14 @@ DELETE FROM asg_activity_launch_tags WHERE activity_pk = sqlc.arg(activity_pk);
 
 -- name: PutPolicy :one
 INSERT INTO asg_policies (
+ ownership,
  partition, account_id, region, group_name, name, group_id, last_scale_at, data_adjustment_type, has_data_alarms, data_auto_scaling_group_name, data_cooldown, data_enabled, data_estimated_instance_warmup, data_metric_aggregation_type, data_min_adjustment_magnitude, data_min_adjustment_step, data_policy_arn, data_policy_name, data_policy_type, data_scaling_adjustment, has_data_step_adjustments, has_data_target_tracking_configuration, has_data_target_tracking_configuration_customized_metric_specification, has_data_target_tracking_configuration_customized_metric_specification_dimensions, data_target_tracking_configuration_customized_metric_specification_metric_name, has_data_target_tracking_configuration_customized_metric_specification_metrics, data_target_tracking_configuration_customized_metric_specification_namespace, data_target_tracking_configuration_customized_metric_specification_period, data_target_tracking_configuration_customized_metric_specification_statistic, data_target_tracking_configuration_customized_metric_specification_unit, data_target_tracking_configuration_disable_scale_in, has_data_target_tracking_configuration_predefined_metric_specification, data_target_tracking_configuration_predefined_metric_specification_predefined_metric_type, data_target_tracking_configuration_predefined_metric_specification_resource_label, data_target_tracking_configuration_target_value
 ) VALUES (
+ sqlc.arg(ownership),
  sqlc.arg(partition), sqlc.arg(account_id), sqlc.arg(region), sqlc.arg(group_name), sqlc.arg(name), sqlc.arg(group_id), sqlc.arg(last_scale_at), sqlc.arg(data_adjustment_type), sqlc.arg(has_data_alarms), sqlc.arg(data_auto_scaling_group_name), sqlc.arg(data_cooldown), sqlc.arg(data_enabled), sqlc.arg(data_estimated_instance_warmup), sqlc.arg(data_metric_aggregation_type), sqlc.arg(data_min_adjustment_magnitude), sqlc.arg(data_min_adjustment_step), sqlc.arg(data_policy_arn), sqlc.arg(data_policy_name), sqlc.arg(data_policy_type), sqlc.arg(data_scaling_adjustment), sqlc.arg(has_data_step_adjustments), sqlc.arg(has_data_target_tracking_configuration), sqlc.arg(has_data_target_tracking_configuration_customized_metric_specification), sqlc.arg(has_data_target_tracking_configuration_customized_metric_specification_dimensions), sqlc.arg(data_target_tracking_configuration_customized_metric_specification_metric_name), sqlc.arg(has_data_target_tracking_configuration_customized_metric_specification_metrics), sqlc.arg(data_target_tracking_configuration_customized_metric_specification_namespace), sqlc.arg(data_target_tracking_configuration_customized_metric_specification_period), sqlc.arg(data_target_tracking_configuration_customized_metric_specification_statistic), sqlc.arg(data_target_tracking_configuration_customized_metric_specification_unit), sqlc.arg(data_target_tracking_configuration_disable_scale_in), sqlc.arg(has_data_target_tracking_configuration_predefined_metric_specification), sqlc.arg(data_target_tracking_configuration_predefined_metric_specification_predefined_metric_type), sqlc.arg(data_target_tracking_configuration_predefined_metric_specification_resource_label), sqlc.arg(data_target_tracking_configuration_target_value)
 )
 ON CONFLICT(partition, account_id, region, group_name, name) DO UPDATE SET
+ ownership = excluded.ownership,
  group_id = excluded.group_id,
  last_scale_at = excluded.last_scale_at,
  data_adjustment_type = excluded.data_adjustment_type,
@@ -430,11 +436,14 @@ DELETE FROM asg_policies_metrics_dimensions WHERE item_pk = sqlc.arg(item_pk);
 
 -- name: PutSchedule :exec
 INSERT INTO asg_schedules (
+ ownership,
  partition, account_id, region, group_name, name, group_id, next_due, origin_event_id, data_auto_scaling_group_name, data_desired_capacity, data_end_time, data_max_size, data_min_size, data_recurrence, data_scheduled_action_arn, data_scheduled_action_name, data_start_time, data_time, data_time_zone
 ) VALUES (
+ sqlc.arg(ownership),
  sqlc.arg(partition), sqlc.arg(account_id), sqlc.arg(region), sqlc.arg(group_name), sqlc.arg(name), sqlc.arg(group_id), sqlc.arg(next_due), sqlc.arg(origin_event_id), sqlc.arg(data_auto_scaling_group_name), sqlc.arg(data_desired_capacity), sqlc.arg(data_end_time), sqlc.arg(data_max_size), sqlc.arg(data_min_size), sqlc.arg(data_recurrence), sqlc.arg(data_scheduled_action_arn), sqlc.arg(data_scheduled_action_name), sqlc.arg(data_start_time), sqlc.arg(data_time), sqlc.arg(data_time_zone)
 )
 ON CONFLICT(partition, account_id, region, group_name, name) DO UPDATE SET
+ ownership = excluded.ownership,
  group_id = excluded.group_id,
  next_due = excluded.next_due,
  origin_event_id = excluded.origin_event_id,
@@ -458,11 +467,14 @@ DELETE FROM asg_schedules WHERE partition = sqlc.arg(partition) AND account_id =
 
 -- name: PutHook :exec
 INSERT INTO asg_hooks (
+ ownership,
  partition, account_id, region, group_name, name, group_id, data_auto_scaling_group_name, data_default_result, data_global_timeout, data_heartbeat_timeout, data_lifecycle_hook_name, data_lifecycle_transition, data_notification_metadata, data_notification_target_arn, data_role_arn
 ) VALUES (
+ sqlc.arg(ownership),
  sqlc.arg(partition), sqlc.arg(account_id), sqlc.arg(region), sqlc.arg(group_name), sqlc.arg(name), sqlc.arg(group_id), sqlc.arg(data_auto_scaling_group_name), sqlc.arg(data_default_result), sqlc.arg(data_global_timeout), sqlc.arg(data_heartbeat_timeout), sqlc.arg(data_lifecycle_hook_name), sqlc.arg(data_lifecycle_transition), sqlc.arg(data_notification_metadata), sqlc.arg(data_notification_target_arn), sqlc.arg(data_role_arn)
 )
 ON CONFLICT(partition, account_id, region, group_name, name) DO UPDATE SET
+ ownership = excluded.ownership,
  group_id = excluded.group_id,
  data_auto_scaling_group_name = excluded.data_auto_scaling_group_name,
  data_default_result = excluded.data_default_result,

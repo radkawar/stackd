@@ -121,7 +121,7 @@ func (w writer) DeleteExpiredSegments(cutoff time.Time) error {
 }
 
 func (r reader) policy(v sqlcgen.XrayResourcePolicy) (domain.PolicyRecord, error) {
-	out := domain.PolicyRecord{Key: domain.PolicyKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name}, Revision: v.Revision, Updated: v.Updated}
+	out := domain.PolicyRecord{CFNOwner: v.CfnOwner, Key: domain.PolicyKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name}, Revision: v.Revision, Updated: v.Updated}
 	out.Policy.Document = v.Document
 	rows, err := r.q.GetPolicyPrincipals(r.ctx, sqlcgen.GetPolicyPrincipalsParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, PolicyName: v.Name})
 	if err != nil {
@@ -152,7 +152,7 @@ func (r reader) ResourcePolicies(k domain.Scope) ([]domain.PolicyRecord, error) 
 
 func (w writer) PutResourcePolicy(v domain.PolicyRecord) error {
 	k := v.Key
-	if err := w.q.PutResourcePolicy(w.ctx, sqlcgen.PutResourcePolicyParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, Document: v.Policy.Document, Revision: v.Revision, Updated: v.Updated}); err != nil {
+	if err := w.q.PutResourcePolicy(w.ctx, sqlcgen.PutResourcePolicyParams{CfnOwner: v.CFNOwner, Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, Document: v.Policy.Document, Revision: v.Revision, Updated: v.Updated}); err != nil {
 		return err
 	}
 	if err := w.q.DeletePolicyPrincipals(w.ctx, sqlcgen.DeletePolicyPrincipalsParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, PolicyName: k.Name}); err != nil {

@@ -34,6 +34,8 @@ type redriveAllowPolicy struct {
 type queue struct {
 	key                                 queueKey
 	id                                  string
+	creationOwner                       string
+	policyOwner                         string
 	config                              queueConfig
 	tags                                api.TagMap
 	created, modified, purged           time.Time
@@ -125,7 +127,14 @@ func (s *Service) queueFor(r *http.Request, raw string) (*queue, *awswire.Error)
 	}
 	key := requestKey(r, parts[1])
 	key.account = parts[0]
-	return s.queueByKey(key)
+	q, wire := s.queueByKey(key)
+	if wire != nil {
+		return nil, wire
+	}
+	if wire := checkQueueOwner(r.Context(), q); wire != nil {
+		return nil, wire
+	}
+	return q, nil
 }
 
 // queueByKey resolves message state for both URL and internal ARN commands.

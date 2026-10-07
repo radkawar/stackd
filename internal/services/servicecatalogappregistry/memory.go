@@ -16,7 +16,7 @@ type associationKey struct{ applicationARN, resourceARN string }
 type memoryState struct {
 	applications    map[string]Application
 	attributeGroups map[string]AttributeGroup
-	attributeLinks  map[attributeLink]struct{}
+	attributeLinks  map[attributeLink]string
 	associations    map[associationKey]Association
 	configurations  map[Scope]Configuration
 }
@@ -47,7 +47,7 @@ func NewMemoryRepository(domain *memory.Domain) *MemoryRepository {
 	return &MemoryRepository{store: memory.New(domain, memoryState{
 		applications:    map[string]Application{},
 		attributeGroups: map[string]AttributeGroup{},
-		attributeLinks:  map[attributeLink]struct{}{},
+		attributeLinks:  map[attributeLink]string{},
 		associations:    map[associationKey]Association{},
 		configurations:  map[Scope]Configuration{},
 	}, cloneMemory)}
@@ -229,29 +229,31 @@ func (w memoryWriter) DeleteAttributeGroup(scope Scope, identifier string) error
 	}
 	return nil
 }
-func (r memoryReader) AttributeGroupAssociations(applicationARN string) ([]string, error) {
+func (r memoryReader) AttributeGroupAssociations(applicationARN string) ([]AttributeGroupAssociation, error) {
 	if err := r.tx.Check(false); err != nil {
 		return nil, err
 	}
-	out := []string{}
-	for link := range r.state.attributeLinks {
+	out := []AttributeGroupAssociation{}
+	for link, claim := range r.state.attributeLinks {
 		if link.applicationARN == applicationARN {
-			out = append(out, link.attributeGroupARN)
+			out = append(out, AttributeGroupAssociation{ApplicationARN: link.applicationARN, AttributeGroupARN: link.attributeGroupARN, CloudFormationClaim: claim})
 		}
 	}
-	slices.Sort(out)
+	slices.SortFunc(out, func(a, b AttributeGroupAssociation) int {
+		return strings.Compare(a.AttributeGroupARN, b.AttributeGroupARN)
+	})
 	return out, nil
 }
-func (w memoryWriter) AssociateAttributeGroup(applicationARN, attributeGroupARN string) error {
+func (w memoryWriter) AssociateAttributeGroup(link AttributeGroupAssociation) error {
 	if err := w.tx.Check(true); err != nil {
 		return err
 	}
-	a, appExists := w.state.applications[applicationARN]
-	g, groupExists := w.state.attributeGroups[attributeGroupARN]
+	a, appExists := w.state.applications[link.ApplicationARN]
+	g, groupExists := w.state.attributeGroups[link.AttributeGroupARN]
 	if !appExists || !groupExists || a.Scope != g.Scope {
 		return errors.New("application and attribute group must exist in the same scope")
 	}
-	w.state.attributeLinks[attributeLink{applicationARN, attributeGroupARN}] = struct{}{}
+	w.state.attributeLinks[attributeLink{link.ApplicationARN, link.AttributeGroupARN}] = link.CloudFormationClaim
 	return nil
 }
 func (w memoryWriter) DisassociateAttributeGroup(applicationARN, attributeGroupARN string) error {

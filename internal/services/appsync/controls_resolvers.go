@@ -24,7 +24,7 @@ func registerResolvers(s *Service) {
 		if e = validateResolver(t, p, &r); e != nil {
 			return nil, e
 		}
-		if e = t.PutResolver(ResolverRecord{p.Key, r}); e != nil {
+		if e = t.PutResolver(ResolverRecord{API: p.Key, Resolver: r}); e != nil {
 			return nil, e
 		}
 		return &api.CreateResolverResponse{Resolver: &r}, nil
@@ -48,7 +48,7 @@ func registerResolvers(s *Service) {
 		if e = validateResolver(t, p, &r); e != nil {
 			return nil, e
 		}
-		if e = t.PutResolver(ResolverRecord{p.Key, r}); e != nil {
+		if e = t.PutResolver(ResolverRecord{API: p.Key, Resolver: r}); e != nil {
 			return nil, e
 		}
 		return &api.UpdateResolverResponse{Resolver: &r}, nil

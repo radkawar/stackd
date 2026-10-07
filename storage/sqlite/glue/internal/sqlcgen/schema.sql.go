@@ -98,7 +98,7 @@ func (q *Queries) DeleteGlueSchemaVersion(ctx context.Context, arg DeleteGlueSch
 }
 
 const getGlueSchema = `-- name: GetGlueSchema :one
-SELECT "partition", account_id, region, registry_name, schema_name, description, data_format, compatibility, status, checkpoint, latest_version, next_version, created_at, updated_at, due_at FROM glue_schemas WHERE partition=? AND account_id=? AND region=? AND registry_name=? AND schema_name=?
+SELECT "partition", account_id, region, registry_name, schema_name, description, data_format, compatibility, status, checkpoint, latest_version, next_version, created_at, updated_at, due_at, cfn_owner FROM glue_schemas WHERE partition=? AND account_id=? AND region=? AND registry_name=? AND schema_name=?
 `
 
 type GetGlueSchemaParams struct {
@@ -134,12 +134,13 @@ func (q *Queries) GetGlueSchema(ctx context.Context, arg GetGlueSchemaParams) (G
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DueAt,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const getGlueSchemaVersion = `-- name: GetGlueSchemaVersion :one
-SELECT "partition", account_id, region, registry_name, schema_name, version_number, version_id, definition, canonical, status, created_at, due_at FROM glue_schema_versions WHERE partition=? AND account_id=? AND region=? AND registry_name=? AND schema_name=? AND version_number=?
+SELECT "partition", account_id, region, registry_name, schema_name, version_number, version_id, definition, canonical, status, created_at, due_at, cfn_owner FROM glue_schema_versions WHERE partition=? AND account_id=? AND region=? AND registry_name=? AND schema_name=? AND version_number=?
 `
 
 type GetGlueSchemaVersionParams struct {
@@ -174,12 +175,13 @@ func (q *Queries) GetGlueSchemaVersion(ctx context.Context, arg GetGlueSchemaVer
 		&i.Status,
 		&i.CreatedAt,
 		&i.DueAt,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const getGlueSchemaVersionByID = `-- name: GetGlueSchemaVersionByID :one
-SELECT "partition", account_id, region, registry_name, schema_name, version_number, version_id, definition, canonical, status, created_at, due_at FROM glue_schema_versions WHERE partition=? AND account_id=? AND region=? AND version_id=?
+SELECT "partition", account_id, region, registry_name, schema_name, version_number, version_id, definition, canonical, status, created_at, due_at, cfn_owner FROM glue_schema_versions WHERE partition=? AND account_id=? AND region=? AND version_id=?
 `
 
 type GetGlueSchemaVersionByIDParams struct {
@@ -210,12 +212,13 @@ func (q *Queries) GetGlueSchemaVersionByID(ctx context.Context, arg GetGlueSchem
 		&i.Status,
 		&i.CreatedAt,
 		&i.DueAt,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const listGlueSchemaMetadata = `-- name: ListGlueSchemaMetadata :many
-SELECT version_id, metadata_key, metadata_value, created_at, ordinal FROM glue_schema_metadata WHERE version_id=? ORDER BY metadata_key,ordinal,metadata_value
+SELECT version_id, metadata_key, metadata_value, created_at, ordinal, cfn_owner FROM glue_schema_metadata WHERE version_id=? ORDER BY metadata_key,ordinal,metadata_value
 `
 
 func (q *Queries) ListGlueSchemaMetadata(ctx context.Context, versionID string) ([]GlueSchemaMetadatum, error) {
@@ -233,6 +236,7 @@ func (q *Queries) ListGlueSchemaMetadata(ctx context.Context, versionID string) 
 			&i.MetadataValue,
 			&i.CreatedAt,
 			&i.Ordinal,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -294,7 +298,7 @@ func (q *Queries) ListGlueSchemaTags(ctx context.Context, arg ListGlueSchemaTags
 }
 
 const listGlueSchemaVersions = `-- name: ListGlueSchemaVersions :many
-SELECT "partition", account_id, region, registry_name, schema_name, version_number, version_id, definition, canonical, status, created_at, due_at FROM glue_schema_versions WHERE partition=? AND account_id=? AND region=? AND registry_name=? AND schema_name=? ORDER BY version_number DESC
+SELECT "partition", account_id, region, registry_name, schema_name, version_number, version_id, definition, canonical, status, created_at, due_at, cfn_owner FROM glue_schema_versions WHERE partition=? AND account_id=? AND region=? AND registry_name=? AND schema_name=? ORDER BY version_number DESC
 `
 
 type ListGlueSchemaVersionsParams struct {
@@ -333,6 +337,7 @@ func (q *Queries) ListGlueSchemaVersions(ctx context.Context, arg ListGlueSchema
 			&i.Status,
 			&i.CreatedAt,
 			&i.DueAt,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -348,7 +353,7 @@ func (q *Queries) ListGlueSchemaVersions(ctx context.Context, arg ListGlueSchema
 }
 
 const listGlueSchemas = `-- name: ListGlueSchemas :many
-SELECT "partition", account_id, region, registry_name, schema_name, description, data_format, compatibility, status, checkpoint, latest_version, next_version, created_at, updated_at, due_at FROM glue_schemas WHERE partition=? AND account_id=? AND region=? AND (?4='' OR registry_name=?4) ORDER BY registry_name,schema_name
+SELECT "partition", account_id, region, registry_name, schema_name, description, data_format, compatibility, status, checkpoint, latest_version, next_version, created_at, updated_at, due_at, cfn_owner FROM glue_schemas WHERE partition=? AND account_id=? AND region=? AND (?4='' OR registry_name=?4) ORDER BY registry_name,schema_name
 `
 
 type ListGlueSchemasParams struct {
@@ -388,6 +393,7 @@ func (q *Queries) ListGlueSchemas(ctx context.Context, arg ListGlueSchemasParams
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DueAt,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -403,7 +409,7 @@ func (q *Queries) ListGlueSchemas(ctx context.Context, arg ListGlueSchemasParams
 }
 
 const nextGlueSchemaDeletion = `-- name: NextGlueSchemaDeletion :one
-SELECT "partition", account_id, region, registry_name, schema_name, description, data_format, compatibility, status, checkpoint, latest_version, next_version, created_at, updated_at, due_at FROM glue_schemas WHERE status='DELETING' ORDER BY due_at,partition,account_id,region,registry_name,schema_name LIMIT 1
+SELECT "partition", account_id, region, registry_name, schema_name, description, data_format, compatibility, status, checkpoint, latest_version, next_version, created_at, updated_at, due_at, cfn_owner FROM glue_schemas WHERE status='DELETING' ORDER BY due_at,partition,account_id,region,registry_name,schema_name LIMIT 1
 `
 
 func (q *Queries) NextGlueSchemaDeletion(ctx context.Context) (GlueSchema, error) {
@@ -425,12 +431,13 @@ func (q *Queries) NextGlueSchemaDeletion(ctx context.Context) (GlueSchema, error
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DueAt,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const nextGlueSchemaVersionDeletion = `-- name: NextGlueSchemaVersionDeletion :one
-SELECT "partition", account_id, region, registry_name, schema_name, version_number, version_id, definition, canonical, status, created_at, due_at FROM glue_schema_versions WHERE status='DELETING' ORDER BY due_at,version_id LIMIT 1
+SELECT "partition", account_id, region, registry_name, schema_name, version_number, version_id, definition, canonical, status, created_at, due_at, cfn_owner FROM glue_schema_versions WHERE status='DELETING' ORDER BY due_at,version_id LIMIT 1
 `
 
 func (q *Queries) NextGlueSchemaVersionDeletion(ctx context.Context) (GlueSchemaVersion, error) {
@@ -449,17 +456,19 @@ func (q *Queries) NextGlueSchemaVersionDeletion(ctx context.Context) (GlueSchema
 		&i.Status,
 		&i.CreatedAt,
 		&i.DueAt,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const putGlueSchema = `-- name: PutGlueSchema :exec
-INSERT INTO glue_schemas (partition,account_id,region,registry_name,schema_name,description,data_format,compatibility,status,checkpoint,latest_version,next_version,created_at,updated_at,due_at)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT (partition,account_id,region,registry_name,schema_name) DO UPDATE SET
+INSERT INTO glue_schemas (cfn_owner,partition,account_id,region,registry_name,schema_name,description,data_format,compatibility,status,checkpoint,latest_version,next_version,created_at,updated_at,due_at)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT (partition,account_id,region,registry_name,schema_name) DO UPDATE SET
  description=excluded.description,data_format=excluded.data_format,compatibility=excluded.compatibility,status=excluded.status,checkpoint=excluded.checkpoint,latest_version=excluded.latest_version,next_version=excluded.next_version,created_at=excluded.created_at,updated_at=excluded.updated_at,due_at=excluded.due_at
 `
 
 type PutGlueSchemaParams struct {
+	CfnOwner      string
 	Partition     string
 	AccountID     string
 	Region        string
@@ -479,6 +488,7 @@ type PutGlueSchemaParams struct {
 
 func (q *Queries) PutGlueSchema(ctx context.Context, arg PutGlueSchemaParams) error {
 	_, err := q.db.ExecContext(ctx, putGlueSchema,
+		arg.CfnOwner,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -499,11 +509,12 @@ func (q *Queries) PutGlueSchema(ctx context.Context, arg PutGlueSchemaParams) er
 }
 
 const putGlueSchemaMetadata = `-- name: PutGlueSchemaMetadata :exec
-INSERT INTO glue_schema_metadata (version_id,metadata_key,metadata_value,created_at,ordinal) VALUES (?,?,?,?,?)
+INSERT INTO glue_schema_metadata (cfn_owner,version_id,metadata_key,metadata_value,created_at,ordinal) VALUES (?,?,?,?,?,?)
 ON CONFLICT (version_id,metadata_key,metadata_value) DO UPDATE SET created_at=excluded.created_at,ordinal=excluded.ordinal
 `
 
 type PutGlueSchemaMetadataParams struct {
+	CfnOwner      string
 	VersionID     string
 	MetadataKey   string
 	MetadataValue string
@@ -513,6 +524,7 @@ type PutGlueSchemaMetadataParams struct {
 
 func (q *Queries) PutGlueSchemaMetadata(ctx context.Context, arg PutGlueSchemaMetadataParams) error {
 	_, err := q.db.ExecContext(ctx, putGlueSchemaMetadata,
+		arg.CfnOwner,
 		arg.VersionID,
 		arg.MetadataKey,
 		arg.MetadataValue,
@@ -550,12 +562,13 @@ func (q *Queries) PutGlueSchemaTag(ctx context.Context, arg PutGlueSchemaTagPara
 }
 
 const putGlueSchemaVersion = `-- name: PutGlueSchemaVersion :exec
-INSERT INTO glue_schema_versions (partition,account_id,region,registry_name,schema_name,version_number,version_id,definition,canonical,status,created_at,due_at)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT (partition,account_id,region,registry_name,schema_name,version_number) DO UPDATE SET
+INSERT INTO glue_schema_versions (cfn_owner,partition,account_id,region,registry_name,schema_name,version_number,version_id,definition,canonical,status,created_at,due_at)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT (partition,account_id,region,registry_name,schema_name,version_number) DO UPDATE SET
  version_id=excluded.version_id,definition=excluded.definition,canonical=excluded.canonical,status=excluded.status,created_at=excluded.created_at,due_at=excluded.due_at
 `
 
 type PutGlueSchemaVersionParams struct {
+	CfnOwner      string
 	Partition     string
 	AccountID     string
 	Region        string
@@ -572,6 +585,7 @@ type PutGlueSchemaVersionParams struct {
 
 func (q *Queries) PutGlueSchemaVersion(ctx context.Context, arg PutGlueSchemaVersionParams) error {
 	_, err := q.db.ExecContext(ctx, putGlueSchemaVersion,
+		arg.CfnOwner,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,

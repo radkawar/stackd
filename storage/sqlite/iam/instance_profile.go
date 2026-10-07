@@ -20,6 +20,7 @@ func (r reader) InstanceProfile(scope domain.Scope, key string) (domain.Instance
 	}
 	var record domain.InstanceProfile
 	record.Path = row.Path
+	record.CloudFormationOwner = row.CfnOwner
 	record.InstanceProfileName = row.InstanceProfileName
 	record.InstanceProfileId = row.InstanceProfileID
 	record.Arn = row.Arn
@@ -58,7 +59,7 @@ func (w writer) PutInstanceProfile(scope domain.Scope, record domain.InstancePro
 	if _, err := w.q.DeleteInstanceProfile(w.ctx, sqlcgen.DeleteInstanceProfileParams{Partition: scope.Partition, Account: scope.AccountID, ResourceKey: strings.ToLower(record.InstanceProfileName)}); err != nil {
 		return err
 	}
-	if err := w.q.InsertInstanceProfile(w.ctx, sqlcgen.InsertInstanceProfileParams{Partition: scope.Partition, Account: scope.AccountID, ResourceKey: strings.ToLower(record.InstanceProfileName), Path: record.Path, InstanceProfileName: record.InstanceProfileName, InstanceProfileID: record.InstanceProfileId, Arn: record.Arn, RoleID: record.RoleId, CreateDate: record.CreateDate}); err != nil {
+	if err := w.q.InsertInstanceProfile(w.ctx, sqlcgen.InsertInstanceProfileParams{CfnOwner: record.CloudFormationOwner, Partition: scope.Partition, Account: scope.AccountID, ResourceKey: strings.ToLower(record.InstanceProfileName), Path: record.Path, InstanceProfileName: record.InstanceProfileName, InstanceProfileID: record.InstanceProfileId, Arn: record.Arn, RoleID: record.RoleId, CreateDate: record.CreateDate}); err != nil {
 		return err
 	}
 	if err := w.writeInstanceProfileTags(scope.Partition, scope.AccountID, strings.ToLower(record.InstanceProfileName), record.Tags); err != nil {

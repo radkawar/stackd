@@ -7,6 +7,7 @@ package sqlcgen
 
 import (
 	"context"
+	"database/sql"
 	"time"
 )
 
@@ -255,7 +256,7 @@ func (q *Queries) DeleteRule(ctx context.Context, arg DeleteRuleParams) error {
 }
 
 const getChannel = `-- name: GetChannel :one
-SELECT row_id, "partition", account_id, region, name, bucket, prefix, kms_key_arn, topic_arn, frequency, last_attempt, last_success, next_delivery, status, error_code, error_message FROM config_channels WHERE partition=? AND account_id=? AND region=?
+SELECT row_id, "partition", account_id, region, name, bucket, prefix, kms_key_arn, topic_arn, frequency, last_attempt, last_success, next_delivery, status, error_code, error_message, cfn_owner, cfn_token FROM config_channels WHERE partition=? AND account_id=? AND region=?
 `
 
 type GetChannelParams struct {
@@ -284,12 +285,14 @@ func (q *Queries) GetChannel(ctx context.Context, arg GetChannelParams) (ConfigC
 		&i.Status,
 		&i.ErrorCode,
 		&i.ErrorMessage,
+		&i.CfnOwner,
+		&i.CfnToken,
 	)
 	return i, err
 }
 
 const getRecorder = `-- name: GetRecorder :one
-SELECT row_id, "partition", account_id, region, name, arn, role_arn, all_supported, include_global, recording, last_start, last_stop, last_status_change, last_status, last_error_code, last_error_message FROM config_recorders WHERE partition=? AND account_id=? AND region=?
+SELECT row_id, "partition", account_id, region, name, arn, role_arn, all_supported, include_global, recording, last_start, last_stop, last_status_change, last_status, last_error_code, last_error_message, cfn_owner, cfn_token, cfn_start_on_create, cfn_started_on_create FROM config_recorders WHERE partition=? AND account_id=? AND region=?
 `
 
 type GetRecorderParams struct {
@@ -318,6 +321,10 @@ func (q *Queries) GetRecorder(ctx context.Context, arg GetRecorderParams) (Confi
 		&i.LastStatus,
 		&i.LastErrorCode,
 		&i.LastErrorMessage,
+		&i.CfnOwner,
+		&i.CfnToken,
+		&i.CfnStartOnCreate,
+		&i.CfnStartedOnCreate,
 	)
 	return i, err
 }
@@ -490,7 +497,7 @@ func (q *Queries) InsertTag(ctx context.Context, arg InsertTagParams) error {
 }
 
 const listAggregationAuthorizations = `-- name: ListAggregationAuthorizations :many
-SELECT row_id, "partition", account_id, region, authorized_account_id, authorized_region, arn, created_at FROM config_aggregation_authorizations WHERE partition=? AND account_id=? AND region=? ORDER BY authorized_account_id, authorized_region
+SELECT row_id, "partition", account_id, region, authorized_account_id, authorized_region, arn, created_at, cfn_owner, cfn_token FROM config_aggregation_authorizations WHERE partition=? AND account_id=? AND region=? ORDER BY authorized_account_id, authorized_region
 `
 
 type ListAggregationAuthorizationsParams struct {
@@ -517,6 +524,8 @@ func (q *Queries) ListAggregationAuthorizations(ctx context.Context, arg ListAgg
 			&i.AuthorizedRegion,
 			&i.ARN,
 			&i.CreatedAt,
+			&i.CfnOwner,
+			&i.CfnToken,
 		); err != nil {
 			return nil, err
 		}
@@ -564,7 +573,7 @@ func (q *Queries) ListAggregatorSources(ctx context.Context, parentID int64) ([]
 }
 
 const listAggregators = `-- name: ListAggregators :many
-SELECT row_id, "partition", account_id, region, name, arn, created_at, updated_at FROM config_aggregators WHERE partition=? AND account_id=? AND region=? ORDER BY name
+SELECT row_id, "partition", account_id, region, name, arn, created_at, updated_at, cfn_owner, cfn_token FROM config_aggregators WHERE partition=? AND account_id=? AND region=? ORDER BY name
 `
 
 type ListAggregatorsParams struct {
@@ -591,6 +600,8 @@ func (q *Queries) ListAggregators(ctx context.Context, arg ListAggregatorsParams
 			&i.ARN,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.CfnOwner,
+			&i.CfnToken,
 		); err != nil {
 			return nil, err
 		}
@@ -986,7 +997,7 @@ func (q *Queries) ListRuleTypes(ctx context.Context, parentID int64) ([]ConfigRu
 }
 
 const listRules = `-- name: ListRules :many
-SELECT row_id, "partition", account_id, region, name, id, arn, description, owner, source_identifier, parameters_present, resource_id, tag_key, tag_value, created_at, last_evaluation, last_reevaluation, error_code, error_message FROM config_rules WHERE partition=? AND account_id=? AND region=? ORDER BY name
+SELECT row_id, "partition", account_id, region, name, id, arn, description, owner, source_identifier, parameters_present, resource_id, tag_key, tag_value, created_at, last_evaluation, last_reevaluation, error_code, error_message, cfn_owner, cfn_token FROM config_rules WHERE partition=? AND account_id=? AND region=? ORDER BY name
 `
 
 type ListRulesParams struct {
@@ -1024,6 +1035,8 @@ func (q *Queries) ListRules(ctx context.Context, arg ListRulesParams) ([]ConfigR
 			&i.LastReevaluation,
 			&i.ErrorCode,
 			&i.ErrorMessage,
+			&i.CfnOwner,
+			&i.CfnToken,
 		); err != nil {
 			return nil, err
 		}
@@ -1083,12 +1096,14 @@ func (q *Queries) ListTags(ctx context.Context, arg ListTagsParams) ([]ListTagsR
 }
 
 const putAggregationAuthorization = `-- name: PutAggregationAuthorization :exec
-INSERT INTO config_aggregation_authorizations (partition, account_id, region, authorized_account_id, authorized_region, arn, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO config_aggregation_authorizations (cfn_owner, cfn_token, partition, account_id, region, authorized_account_id, authorized_region, arn, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, authorized_account_id, authorized_region) DO UPDATE SET arn=excluded.arn, created_at=excluded.created_at
 `
 
 type PutAggregationAuthorizationParams struct {
+	CfnOwner            string
+	CfnToken            string
 	Partition           string
 	AccountID           string
 	Region              string
@@ -1100,6 +1115,8 @@ type PutAggregationAuthorizationParams struct {
 
 func (q *Queries) PutAggregationAuthorization(ctx context.Context, arg PutAggregationAuthorizationParams) error {
 	_, err := q.db.ExecContext(ctx, putAggregationAuthorization,
+		arg.CfnOwner,
+		arg.CfnToken,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -1112,13 +1129,15 @@ func (q *Queries) PutAggregationAuthorization(ctx context.Context, arg PutAggreg
 }
 
 const putAggregator = `-- name: PutAggregator :one
-INSERT INTO config_aggregators (partition, account_id, region, name, arn, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO config_aggregators (cfn_owner, cfn_token, partition, account_id, region, name, arn, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, name) DO UPDATE SET arn=excluded.arn, created_at=excluded.created_at, updated_at=excluded.updated_at
 RETURNING row_id
 `
 
 type PutAggregatorParams struct {
+	CfnOwner  string
+	CfnToken  string
 	Partition string
 	AccountID string
 	Region    string
@@ -1130,6 +1149,8 @@ type PutAggregatorParams struct {
 
 func (q *Queries) PutAggregator(ctx context.Context, arg PutAggregatorParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, putAggregator,
+		arg.CfnOwner,
+		arg.CfnToken,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -1144,12 +1165,14 @@ func (q *Queries) PutAggregator(ctx context.Context, arg PutAggregatorParams) (i
 }
 
 const putChannel = `-- name: PutChannel :exec
-INSERT INTO config_channels (partition, account_id, region, name, bucket, prefix, kms_key_arn, topic_arn, frequency, last_attempt, last_success, next_delivery, status, error_code, error_message)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO config_channels (cfn_owner, cfn_token, partition, account_id, region, name, bucket, prefix, kms_key_arn, topic_arn, frequency, last_attempt, last_success, next_delivery, status, error_code, error_message)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region) DO UPDATE SET name=excluded.name, bucket=excluded.bucket, prefix=excluded.prefix, kms_key_arn=excluded.kms_key_arn, topic_arn=excluded.topic_arn, frequency=excluded.frequency, last_attempt=excluded.last_attempt, last_success=excluded.last_success, next_delivery=excluded.next_delivery, status=excluded.status, error_code=excluded.error_code, error_message=excluded.error_message
 `
 
 type PutChannelParams struct {
+	CfnOwner     string
+	CfnToken     string
 	Partition    string
 	AccountID    string
 	Region       string
@@ -1169,6 +1192,8 @@ type PutChannelParams struct {
 
 func (q *Queries) PutChannel(ctx context.Context, arg PutChannelParams) error {
 	_, err := q.db.ExecContext(ctx, putChannel,
+		arg.CfnOwner,
+		arg.CfnToken,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -1312,32 +1337,40 @@ func (q *Queries) PutEvaluationRun(ctx context.Context, arg PutEvaluationRunPara
 }
 
 const putRecorder = `-- name: PutRecorder :one
-INSERT INTO config_recorders (partition, account_id, region, name, arn, role_arn, all_supported, include_global, recording, last_start, last_stop, last_status_change, last_status, last_error_code, last_error_message)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region) DO UPDATE SET name=excluded.name, arn=excluded.arn, role_arn=excluded.role_arn, all_supported=excluded.all_supported, include_global=excluded.include_global, recording=excluded.recording, last_start=excluded.last_start, last_stop=excluded.last_stop, last_status_change=excluded.last_status_change, last_status=excluded.last_status, last_error_code=excluded.last_error_code, last_error_message=excluded.last_error_message
+INSERT INTO config_recorders (cfn_started_on_create, cfn_start_on_create, cfn_owner, cfn_token, partition, account_id, region, name, arn, role_arn, all_supported, include_global, recording, last_start, last_stop, last_status_change, last_status, last_error_code, last_error_message)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region) DO UPDATE SET cfn_start_on_create=excluded.cfn_start_on_create, name=excluded.name, arn=excluded.arn, role_arn=excluded.role_arn, all_supported=excluded.all_supported, include_global=excluded.include_global, recording=excluded.recording, last_start=excluded.last_start, last_stop=excluded.last_stop, last_status_change=excluded.last_status_change, last_status=excluded.last_status, last_error_code=excluded.last_error_code, last_error_message=excluded.last_error_message
 RETURNING row_id
 `
 
 type PutRecorderParams struct {
-	Partition        string
-	AccountID        string
-	Region           string
-	Name             string
-	ARN              string
-	RoleARN          string
-	AllSupported     bool
-	IncludeGlobal    bool
-	Recording        bool
-	LastStart        time.Time
-	LastStop         time.Time
-	LastStatusChange time.Time
-	LastStatus       string
-	LastErrorCode    string
-	LastErrorMessage string
+	CfnStartedOnCreate sql.NullBool
+	CfnStartOnCreate   bool
+	CfnOwner           string
+	CfnToken           string
+	Partition          string
+	AccountID          string
+	Region             string
+	Name               string
+	ARN                string
+	RoleARN            string
+	AllSupported       bool
+	IncludeGlobal      bool
+	Recording          bool
+	LastStart          time.Time
+	LastStop           time.Time
+	LastStatusChange   time.Time
+	LastStatus         string
+	LastErrorCode      string
+	LastErrorMessage   string
 }
 
 func (q *Queries) PutRecorder(ctx context.Context, arg PutRecorderParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, putRecorder,
+		arg.CfnStartedOnCreate,
+		arg.CfnStartOnCreate,
+		arg.CfnOwner,
+		arg.CfnToken,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -1360,13 +1393,15 @@ func (q *Queries) PutRecorder(ctx context.Context, arg PutRecorderParams) (int64
 }
 
 const putRule = `-- name: PutRule :one
-INSERT INTO config_rules (partition, account_id, region, name, id, arn, description, owner, source_identifier, parameters_present, resource_id, tag_key, tag_value, created_at, last_evaluation, last_reevaluation, error_code, error_message)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO config_rules (cfn_owner, cfn_token, partition, account_id, region, name, id, arn, description, owner, source_identifier, parameters_present, resource_id, tag_key, tag_value, created_at, last_evaluation, last_reevaluation, error_code, error_message)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, name) DO UPDATE SET id=excluded.id, arn=excluded.arn, description=excluded.description, owner=excluded.owner, source_identifier=excluded.source_identifier, parameters_present=excluded.parameters_present, resource_id=excluded.resource_id, tag_key=excluded.tag_key, tag_value=excluded.tag_value, created_at=excluded.created_at, last_evaluation=excluded.last_evaluation, last_reevaluation=excluded.last_reevaluation, error_code=excluded.error_code, error_message=excluded.error_message
 RETURNING row_id
 `
 
 type PutRuleParams struct {
+	CfnOwner          string
+	CfnToken          string
 	Partition         string
 	AccountID         string
 	Region            string
@@ -1389,6 +1424,8 @@ type PutRuleParams struct {
 
 func (q *Queries) PutRule(ctx context.Context, arg PutRuleParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, putRule,
+		arg.CfnOwner,
+		arg.CfnToken,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,

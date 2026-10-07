@@ -43,6 +43,9 @@ func TestDefinitionsRemainAtomicScopedAndReferential(t *testing.T) {
 			function := domain.FunctionRecord{API: k, Function: api.FunctionConfiguration{FunctionId: new(api.String("fn")), Name: new(api.ResourceName("fn")), DataSourceName: source.DataSource.Name, Code: new(api.Code("export function request(ctx){return {payload:ctx.arguments};} export function response(ctx){return ctx.result;}")), Runtime: &api.AppSyncRuntime{Name: new(api.RuntimeName("APPSYNC_JS")), RuntimeVersion: new(api.String("1.0.0"))}}}
 			resolver := domain.ResolverRecord{API: k, Resolver: api.Resolver{TypeName: new(api.ResourceName("Query")), FieldName: new(api.ResourceName("value")), Kind: new(api.ResolverKind("PIPELINE")), PipelineConfig: &api.PipelineConfig{Functions: api.FunctionsIds{"fn", "fn"}}, Code: function.Function.Code, Runtime: function.Function.Runtime}}
 			key := domain.APIKeyRecord{API: k, Key: api.ApiKey{Id: new(api.String("da2-retained")), Expires: new(api.Long(2000000000)), Deletes: new(api.Long(2005184000))}}
+			original.SchemaOwnership = "schema-incarnation"
+			original.Ownership = "api-incarnation"
+			source.Ownership, function.Ownership, resolver.Ownership, key.Ownership = "source-incarnation", "function-incarnation", "resolver-incarnation", "key-incarnation"
 			if e := repo.Update(t.Context(), func(tx domain.Transaction) error {
 				if e := tx.PutAPI(original); e != nil {
 					return e
@@ -107,6 +110,19 @@ func TestDefinitionsRemainAtomicScopedAndReferential(t *testing.T) {
 				if p.Key != k || *p.API.Name != "original" || p.API.Tags["owner"] != "team" || p.Schema != "type Query { value: String }" {
 					t.Fatalf("lost API snapshot: %#v", p)
 				}
+				if p.SchemaOwnership != "schema-incarnation" {
+					t.Fatal("schema incarnation lost on restart")
+				}
+				if p.Ownership != "api-incarnation" {
+					t.Fatal("API incarnation lost on restart")
+				}
+				sources, e := r.DataSources(k)
+				if e != nil {
+					return e
+				}
+				if len(sources) != 1 || sources[0].Ownership != "source-incarnation" {
+					t.Fatal("data source incarnation lost on restart")
+				}
 				a := p.API.AdditionalAuthenticationProviders[0].OpenIDConnectConfig
 				if *a.Issuer != "https://issuer.example" || *a.AuthTTL != 1234 {
 					t.Fatalf("lost auth config: %#v", a)
@@ -118,6 +134,9 @@ func TestDefinitionsRemainAtomicScopedAndReferential(t *testing.T) {
 				if string(*fs[0].Function.Code) == "caller-mutated" {
 					t.Fatal("caller mutation escaped repository")
 				}
+				if fs[0].Ownership != "function-incarnation" {
+					t.Fatal("function incarnation lost on restart")
+				}
 				rs, e := r.Resolvers(k)
 				if e != nil {
 					return e
@@ -126,12 +145,18 @@ func TestDefinitionsRemainAtomicScopedAndReferential(t *testing.T) {
 				if len(ids) != 2 || ids[0] != "fn" || ids[1] != "fn" {
 					t.Fatalf("pipeline order/multiplicity lost: %v", ids)
 				}
+				if rs[0].Ownership != "resolver-incarnation" {
+					t.Fatal("resolver incarnation lost on restart")
+				}
 				keys, e := r.APIKeys(k)
 				if e != nil {
 					return e
 				}
 				if *keys[0].Key.Deletes-*keys[0].Key.Expires != 5184000 {
 					t.Fatal("key lifetime lost")
+				}
+				if keys[0].Ownership != "key-incarnation" {
+					t.Fatal("key incarnation lost on restart")
 				}
 				return nil
 			}); e != nil {

@@ -3,6 +3,7 @@ package ram
 import (
 	"slices"
 	api "stackd/internal/awsapi/ram"
+	"stackd/internal/services/identitystore"
 	"strconv"
 	"strings"
 )
@@ -39,6 +40,9 @@ func (s *Service) listPermissions(tx Transaction, in *api.ListPermissionsRequest
 	}
 	out := api.ResourceSharePermissionList{}
 	for _, p := range rows {
+		if owner := identitystore.CloudFormationOwner(tx.Context()); owner != "" && p.Type == "CUSTOMER_MANAGED" && owner != p.CloudFormationOwner {
+			continue
+		}
 		if in.ResourceType != nil && !strings.EqualFold(value(in.ResourceType), p.ResourceType) || in.PermissionType != nil && value(in.PermissionType) != "ALL" && value(in.PermissionType) != p.Type {
 			continue
 		}
@@ -88,8 +92,15 @@ func (s *Service) listResourceSharePermissions(tx Transaction, in *api.ListResou
 	if e != nil {
 		return nil, e
 	}
+	owner, filtered, e := ownedView(tx.Context(), sh)
+	if e != nil {
+		return nil, e
+	}
 	out := api.ResourceSharePermissionList{}
 	for _, a := range sh.Permissions {
+		if filtered && a.CloudFormationOwner != owner {
+			continue
+		}
 		p, e := s.sharePermission(tx, sh, a)
 		if e != nil {
 			return nil, e
@@ -143,8 +154,12 @@ func (s *Service) listPermissionAssociations(tx Transaction, in *api.ListPermiss
 		if sh.Scope != scopeFor(tx.Context()) || sh.Status != "ACTIVE" {
 			continue
 		}
+		owner, filtered, e := ownedView(tx.Context(), sh)
+		if e != nil {
+			return nil, e
+		}
 		for _, a := range sh.Permissions {
-			if !visible[a.ARN] {
+			if !visible[a.ARN] || filtered && a.CloudFormationOwner != owner {
 				continue
 			}
 			p, e := s.sharePermission(tx, sh, a)
@@ -228,7 +243,12 @@ func (s *Service) replacePermissionAssociations(tx Transaction, in *api.ReplaceP
 						}
 					}
 				}
-				sh.Permissions[n] = PermissionAssociation{to.ARN, to.ResourceType, to.DefaultVersion}
+				// A direct replacement clears the claim unless the same edge is only upgraded.
+				replacement := PermissionAssociation{ARN: to.ARN, ResourceType: to.ResourceType, Version: to.DefaultVersion}
+				if to.ARN == a.ARN {
+					replacement.CloudFormationOwner = a.CloudFormationOwner
+				}
+				sh.Permissions[n] = replacement
 				changed = true
 			}
 		}

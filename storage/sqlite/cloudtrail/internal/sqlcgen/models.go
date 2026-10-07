@@ -191,4 +191,5 @@ type CloudtrailTrail struct {
 	SnsTopicName      string
 	OrganizationID    string
 	LogFileValidation bool
+	CfnOwner          string
 }

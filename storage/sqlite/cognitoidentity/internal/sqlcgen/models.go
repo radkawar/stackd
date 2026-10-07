@@ -31,4 +31,7 @@ type CognitoidentityPool struct {
 	Roles                []byte
 	Mappings             []byte
 	PrincipalTagMaps     []byte
+	OwnerStackID         string
+	OwnerLogicalID       string
+	OwnerToken           string
 }

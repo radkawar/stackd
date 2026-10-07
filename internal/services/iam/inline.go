@@ -154,6 +154,7 @@ func deleteInlinePolicy(ctx context.Context, a *account, _ awsctx.Metadata) (any
 		return nil, missing("policy", name)
 	}
 	delete(identity.Inline, storedName)
+	delete(identity.InlineOwners, storedName)
 	return &iamapi.Unit{}, nil
 }
 

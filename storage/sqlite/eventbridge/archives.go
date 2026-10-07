@@ -14,6 +14,7 @@ func archive(v sqlcgen.EventbridgeArchive) domain.ArchiveRecord {
 	out := domain.ArchiveRecord{
 		Key:         domain.ArchiveKey{Scope: domain.Scope{Partition: v.Partition, Account: v.Account, Region: v.Region}, Name: v.Name},
 		ID:          v.ID,
+		CFNOwner:    v.CfnOwner,
 		Source:      domain.BusKey{Scope: domain.Scope{Partition: v.SourcePartition, Account: v.SourceAccount, Region: v.SourceRegion}, Name: v.SourceBusName},
 		Description: v.Description, KmsKeyIdentifier: v.KmsKeyIdentifier, KeyARN: v.KeyArn,
 		Pattern:       domain.ArchivePayload{Content: v.PatternContent, DataKey: v.PatternDataKey},
@@ -146,6 +147,7 @@ func (w writer) PutArchive(v domain.ArchiveRecord) error {
 	k := v.Key
 	return w.q.PutArchive(w.ctx, sqlcgen.PutArchiveParams{
 		Partition: k.Partition, Account: k.Account, Region: k.Region, Name: k.Name, ID: v.ID,
+		CfnOwner:        v.CFNOwner,
 		SourcePartition: v.Source.Partition, SourceAccount: v.Source.Account, SourceRegion: v.Source.Region, SourceBusName: v.Source.Name,
 		Description: v.Description, KmsKeyIdentifier: v.KmsKeyIdentifier, KeyArn: v.KeyARN,
 		PatternContent: archiveBytes(v.Pattern.Content), PatternDataKey: archiveBytes(v.Pattern.DataKey),

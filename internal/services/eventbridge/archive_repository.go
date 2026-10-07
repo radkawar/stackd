@@ -26,6 +26,7 @@ type ArchivePayload struct {
 type ArchiveRecord struct {
 	Key                           ArchiveKey
 	ID                            string
+	CFNOwner                      string
 	Source                        BusKey
 	Description, KmsKeyIdentifier string
 	// The public identifier preserves its supplied form; KeyARN binds the

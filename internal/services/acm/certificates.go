@@ -123,11 +123,37 @@ func (s *Service) requestCertificate(tx Transaction, in *api.RequestCertificateR
 	scope := scopeFor(tx.Context())
 	now := s.clock.Now()
 	token := value(in.IdempotencyToken)
+	owner := cloudFormationOwner(tx.Context())
+	if owner != "" {
+		c, e := tx.CertificateByOwner(scope, owner)
+		if e == nil {
+			if e = observeCloudFormationOwner(tx.Context(), c); e != nil {
+				return nil, e
+			}
+			if !matchesCertificateRequest(c, domain, domains, algorithm, export) {
+				return nil, failure("InvalidParameterException", "This incarnation was admitted with different certificate properties.")
+			}
+			return &api.RequestCertificateResponse{CertificateArn: new(api.Arn(c.ARN))}, nil
+		}
+		if !errors.Is(e, ErrNotFound) {
+			return nil, e
+		}
+	}
 	if token != "" {
 		r, e := tx.Receipt(scope, token)
 		if e == nil && now.Before(r.Expires) {
-			if _, e = tx.Certificate(r.ARN); e == nil {
+			c, lookupErr := tx.Certificate(r.ARN)
+			if lookupErr == nil {
+				if e = observeCloudFormationOwner(tx.Context(), c); e != nil {
+					return nil, e
+				}
+				if owner != "" && !matchesCertificateRequest(c, domain, domains, algorithm, export) {
+					return nil, failure("InvalidParameterException", "Idempotency token identifies a different certificate request.")
+				}
 				return &api.RequestCertificateResponse{CertificateArn: new(api.Arn(r.ARN))}, nil
+			}
+			if !errors.Is(lookupErr, ErrNotFound) {
+				return nil, lookupErr
 			}
 		} else if e != nil && !errors.Is(e, ErrNotFound) {
 			return nil, e
@@ -135,6 +161,7 @@ func (s *Service) requestCertificate(tx Transaction, in *api.RequestCertificateR
 	}
 	id := uuid.NewString()
 	c := CertificateRecord{Scope: scope, ARN: "arn:" + scope.Partition + ":acm:" + scope.Region + ":" + scope.AccountID + ":certificate/" + id, ID: id, Domain: domain, Status: "PENDING_VALIDATION", Type: "AMAZON_ISSUED", KeyAlgorithm: algorithm, Transparency: ct, ExportOption: export, Created: now, ValidationDeadline: now.Add(validationTimeout), NextCheck: now, Version: 1, Tags: tags}
+	c.Owner = owner
 	for _, d := range domains {
 		base := strings.TrimPrefix(d, "*.")
 		t, e := tx.Token(scope.Partition, scope.AccountID, base)
@@ -164,6 +191,18 @@ func (s *Service) requestCertificate(tx Transaction, in *api.RequestCertificateR
 		}
 	}
 	return &api.RequestCertificateResponse{CertificateArn: new(api.Arn(c.ARN))}, nil
+}
+
+func matchesCertificateRequest(c CertificateRecord, domain string, domains []string, algorithm, export string) bool {
+	if c.Domain != domain || c.Type != "AMAZON_ISSUED" || c.KeyAlgorithm != algorithm || c.ExportOption != export || len(c.Validations) != len(domains) {
+		return false
+	}
+	for _, v := range c.Validations {
+		if !slices.Contains(domains, v.Domain) {
+			return false
+		}
+	}
+	return true
 }
 func (s *Service) currentStatus(c CertificateRecord) string {
 	now := s.clock.Now()

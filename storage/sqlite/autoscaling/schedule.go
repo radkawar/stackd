@@ -7,12 +7,10 @@ import (
 )
 
 func (r reader) schedule(row sqlcgen.AsgSchedule) (domain.ScheduleRecord, error) {
-	out := domain.ScheduleRecord{
-		Key:           domain.ScheduleKey{GroupKey: groupKey(row.Partition, row.AccountID, row.Region, row.GroupName), Name: row.Name},
+	out := domain.ScheduleRecord{Ownership: row.Ownership, Key: domain.ScheduleKey{GroupKey: groupKey(row.Partition, row.AccountID, row.Region, row.GroupName), Name: row.Name},
 		GroupID:       row.GroupID,
 		NextDue:       row.NextDue.Time,
-		OriginEventID: row.OriginEventID,
-	}
+		OriginEventID: row.OriginEventID}
 	out.Data.AutoScalingGroupName = stringPointer[api.XmlStringMaxLen255](row.DataAutoScalingGroupName)
 	out.Data.DesiredCapacity = intPointer[api.AutoScalingGroupDesiredCapacity](row.DataDesiredCapacity)
 	out.Data.EndTime = timePointer(row.DataEndTime)
@@ -28,16 +26,14 @@ func (r reader) schedule(row sqlcgen.AsgSchedule) (domain.ScheduleRecord, error)
 }
 
 func (w writer) PutSchedule(v domain.ScheduleRecord) error {
-	p := sqlcgen.PutScheduleParams{
-		Partition:     v.Key.Partition,
+	p := sqlcgen.PutScheduleParams{Ownership: v.Ownership, Partition: v.Key.Partition,
 		AccountID:     v.Key.AccountID,
 		Region:        v.Key.Region,
 		GroupName:     v.Key.GroupKey.Name,
 		Name:          v.Key.Name,
 		GroupID:       v.GroupID,
 		NextDue:       deadline(v.NextDue),
-		OriginEventID: v.OriginEventID,
-	}
+		OriginEventID: v.OriginEventID}
 	p.DataAutoScalingGroupName = nullableString(v.Data.AutoScalingGroupName)
 	p.DataDesiredCapacity = nullableInt(v.Data.DesiredCapacity)
 	p.DataEndTime = nullableTime(v.Data.EndTime)

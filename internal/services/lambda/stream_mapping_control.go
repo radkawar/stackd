@@ -102,10 +102,16 @@ func (c streamMappingControl) preflight(ctx context.Context, f FunctionRecord, k
 		return streamMappingPreflightError(sourceWireError(err))
 	}
 	checkDestination := update == nil || update.DestinationConfig != nil || update.FunctionName != nil
-	if destination := settings.Stream.OnFailure; destination != "" && checkDestination {
+	if destination := settings.Stream.OnFailure; destination != "" {
 		parsed, err := arn.Parse(destination)
 		if err != nil || (parsed.Service != "sqs" && parsed.Service != "sns" && parsed.Service != "s3") {
 			return mappingParameter("Stream failure destinations must be SQS, SNS or S3 ARNs.")
+		}
+		if (parsed.Service == "sqs" || parsed.Service == "sns") && strings.HasSuffix(parsed.Resource, ".fifo") {
+			return mappingParameter("FIFO SQS queues and SNS topics are not supported as stream failure destinations.")
+		}
+		if !checkDestination {
+			return nil
 		}
 		if c.s.streamTargets == nil {
 			return unsupported("Stream failure destinations require a destination adapter.")

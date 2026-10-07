@@ -49,6 +49,9 @@ func (s *Service) tagTarget(tx Transaction, arn, action string, requested map[st
 		if err := s.authorize(tx.Context(), action, arn, a.Tags, requested, keys); err != nil {
 			return nil, nil, err
 		}
+		if err := fenceParent(tx.Context(), a.ID, a.ARN, a.CloudFormationClaim); err != nil {
+			return nil, nil, err
+		}
 		return a.Tags, func(tags map[string]string) error { a.Tags = tags; return tx.PutApplication(a) }, nil
 	}
 	g, found, err := tx.AttributeGroup(scope, arn)
@@ -60,6 +63,9 @@ func (s *Service) tagTarget(tx Transaction, arn, action string, requested map[st
 	}
 	if !found {
 		return nil, nil, failure("ResourceNotFoundException", "Resource not found.")
+	}
+	if err := fenceParent(tx.Context(), g.ID, g.ARN, g.CloudFormationClaim); err != nil {
+		return nil, nil, err
 	}
 	return g.Tags, func(tags map[string]string) error { g.Tags = tags; return tx.PutAttributeGroup(g) }, nil
 }

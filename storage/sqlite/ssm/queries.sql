@@ -11,8 +11,8 @@ SELECT * FROM ssm_parameters WHERE partition = ? AND account_id = ? AND region =
 DELETE FROM ssm_parameters WHERE partition = ? AND account_id = ? AND region = ? AND name = ?;
 
 -- name: PutParameter :one
-INSERT INTO ssm_parameters (partition, account_id, region, name, arn, type, tier, data_type, description, allowed_pattern, current_version, tags_present, policies_present, resource_policies_present, incarnation)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO ssm_parameters (partition, account_id, region, name, arn, type, tier, data_type, description, allowed_pattern, current_version, tags_present, policies_present, resource_policies_present, incarnation, cloudformation_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, name) DO UPDATE SET
  arn = excluded.arn, type = excluded.type, tier = excluded.tier, data_type = excluded.data_type, description = excluded.description, allowed_pattern = excluded.allowed_pattern, current_version = excluded.current_version, tags_present = excluded.tags_present, policies_present = excluded.policies_present, resource_policies_present = excluded.resource_policies_present
 RETURNING id;
@@ -34,8 +34,8 @@ SELECT * FROM ssm_resource_policies WHERE parent_id = ? ORDER BY position;
 DELETE FROM ssm_resource_policies WHERE parent_id = ?;
 
 -- name: PutResourcePolicies :one
-INSERT INTO ssm_resource_policies (parent_id, position, policy_id, hash, document, trust_policy, principals_present)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO ssm_resource_policies (parent_id, position, policy_id, hash, document, trust_policy, principals_present, cloudformation_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING id;
 
 -- name: ListResourcePolicyBindings :many

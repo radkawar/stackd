@@ -2,6 +2,8 @@ package iam
 
 import (
 	"context"
+	"maps"
+	"strings"
 	"time"
 
 	"stackd/internal/apievents"
@@ -112,6 +114,11 @@ func (s *Service) appendAPICall(ctx context.Context, at time.Time, result any, a
 		return nil
 	}
 	p := iamAuditProjection(string(op.Name))
+	if owner, trusted := cloudFormationOwner(ctx); trusted && strings.HasPrefix(owner.Owner, "AWS::IAM::ServerCertificate#") {
+		p.Request.Fields = maps.Clone(p.Request.Fields)
+		p.Request.Fields["CertificateBody"] = awsapi.FieldProjection{Mode: awsapi.OmitField}
+		p.Request.Fields["CertificateChain"] = awsapi.FieldProjection{Mode: awsapi.OmitField}
+	}
 	call, err := p.Call(model, op, decoded.Input, result, apiErr)
 	if err != nil {
 		return err

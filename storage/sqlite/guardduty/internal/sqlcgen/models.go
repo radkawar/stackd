@@ -32,6 +32,8 @@ type GuarddutyDetector struct {
 	Updated         time.Time
 	FeaturesPresent bool
 	TagsPresent     bool
+	CfnOwner        string
+	CfnToken        string
 }
 
 type GuarddutyDetectorTag struct {
@@ -66,6 +68,8 @@ type GuarddutyFilter struct {
 	Updated         time.Time
 	CriteriaPresent bool
 	TagsPresent     bool
+	CfnOwner        string
+	CfnToken        string
 }
 
 type GuarddutyFilterCondition struct {
@@ -154,6 +158,8 @@ type GuarddutyIpList struct {
 	Version             int64
 	Due                 time.Time
 	TagsPresent         bool
+	CfnOwner            string
+	CfnToken            string
 }
 
 type GuarddutyIpListTag struct {
@@ -234,6 +240,8 @@ type GuarddutyPublishingDestination struct {
 	Updated        time.Time
 	FailureStarted time.Time
 	TagsPresent    bool
+	CfnOwner       string
+	CfnToken       string
 }
 
 type GuarddutyPublishingDestinationTag struct {

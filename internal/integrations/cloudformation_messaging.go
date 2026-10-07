@@ -26,13 +26,14 @@ const cfnMessagingPolicyTag = "stackd:cloudformation:policy"
 // typed S3, SQS and SNS command owners. No resource state lives in this adapter.
 func CloudFormationMessagingHandlers(commands StepFunctionsCommands) map[string]cloudformation.ResourceHandler {
 	return map[string]cloudformation.ResourceHandler{
-		"AWS::S3::Bucket":        cfnS3Bucket{commands},
-		"AWS::S3::BucketPolicy":  cfnS3BucketPolicy{commands},
-		"AWS::SQS::Queue":        cfnSQSQueue{commands},
-		"AWS::SQS::QueuePolicy":  cfnSQSQueuePolicy{commands},
-		"AWS::SNS::Topic":        cfnSNSTopic{commands},
-		"AWS::SNS::TopicPolicy":  cfnSNSTopicPolicy{commands},
-		"AWS::SNS::Subscription": cfnSNSSubscription{commands},
+		"AWS::S3::Bucket":             cfnS3Bucket{commands},
+		"AWS::S3::BucketPolicy":       cfnS3BucketPolicy{commands},
+		"AWS::SQS::Queue":             cfnSQSQueue{commands},
+		"AWS::SQS::QueuePolicy":       cfnSQSQueuePolicy{commands},
+		"AWS::SNS::Topic":             cfnSNSTopic{commands},
+		"AWS::SNS::TopicPolicy":       cfnSNSTopicPolicy{commands},
+		"AWS::SNS::TopicInlinePolicy": cfnSNSTopicInlinePolicy{commands},
+		"AWS::SNS::Subscription":      cfnSNSSubscription{commands},
 	}
 }
 
@@ -128,7 +129,7 @@ type cfnMessagingTag struct {
 }
 
 func cfnMessagingTags(r cloudformation.ResourceRequest, tags []cfnMessagingTag) (map[string]string, error) {
-	out := make(map[string]string, len(r.Tags)+len(tags)+2)
+	out := make(map[string]string, len(r.Tags)+len(tags))
 	for k, v := range r.Tags {
 		out[k] = v
 	}
@@ -141,12 +142,10 @@ func cfnMessagingTags(r cloudformation.ResourceRequest, tags []cfnMessagingTag) 
 		out[tag.Key] = tag.Value
 	}
 	for k, v := range out {
-		if k == "" || len(k) > 128 || len(v) > 256 || strings.HasPrefix(strings.ToLower(k), "aws:") || strings.HasPrefix(strings.ToLower(k), "stackd:cloudformation:") {
+		if k == "" || len(k) > 128 || len(v) > 256 || strings.HasPrefix(strings.ToLower(k), "aws:") {
 			return nil, fmt.Errorf("invalid or reserved tag %q", k)
 		}
 	}
-	out[cfnMessagingOwnerTag] = cfnMessagingOwner(r)
-	out[cfnMessagingTokenTag] = cfnMessagingHash(r.Token)
 	return out, nil
 }
 func cfnMessagingHash(s string) string {
@@ -155,12 +154,6 @@ func cfnMessagingHash(s string) string {
 }
 func cfnMessagingOwner(r cloudformation.ResourceRequest) string {
 	return cfnMessagingHash(r.StackID + "\x00" + r.LogicalID)
-}
-func cfnMessagingOwned(tags map[string]string, r cloudformation.ResourceRequest) error {
-	if tags[cfnMessagingOwnerTag] != cfnMessagingOwner(r) || tags[cfnMessagingTokenTag] != cfnMessagingHash(r.Token) {
-		return fmt.Errorf("resource already exists and is not owned by this CloudFormation resource incarnation")
-	}
-	return nil
 }
 func cfnMessagingKeys[K ~string, V any](m map[K]V) []K {
 	out := make([]K, 0, len(m))

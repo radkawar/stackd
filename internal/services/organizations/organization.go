@@ -7,6 +7,7 @@ import (
 	api "stackd/internal/awsapi/organizations"
 	"stackd/internal/awsctx"
 	"stackd/internal/awswire"
+	"stackd/internal/services/identitystore"
 )
 
 func (s *Service) registerOrganizationOperations() {
@@ -16,12 +17,18 @@ func (s *Service) registerOrganizationOperations() {
 		if err != nil {
 			return nil, err
 		}
+		if identitystore.CheckCloudFormationOwner(r.Context(), o.organization.CloudFormationOwner) != nil {
+			return nil, failure("AccessDeniedException", "Organization is not owned by this CloudFormation incarnation.")
+		}
 		return &api.DescribeOrganizationOutput{Organization: new(o.organization.api())}, nil
 	})
 	register(s, "DeleteOrganization", func(s *operationState, r *http.Request, _ *api.DeleteOrganizationInput) (*api.DeleteOrganizationOutput, *awswire.Error) {
 		o, err := s.organizationFor(r, true)
 		if err != nil {
 			return nil, err
+		}
+		if identitystore.CheckCloudFormationOwner(r.Context(), o.organization.CloudFormationOwner) != nil {
+			return nil, failure("AccessDeniedException", "Organization is not owned by this CloudFormation incarnation.")
 		}
 		for _, job := range o.creations {
 			if job.State == "IN_PROGRESS" {
@@ -48,7 +55,11 @@ func (s *Service) registerOrganizationOperations() {
 
 func (s *operationState) createOrganization(r *http.Request, in *api.CreateOrganizationInput) (*api.CreateOrganizationOutput, *awswire.Error) {
 	meta := awsctx.FromContext(r.Context())
-	if _, exists := s.memberships[meta.AccountID]; exists {
+	if existingID, exists := s.memberships[meta.AccountID]; exists {
+		existing := s.orgs[existingID]
+		if owner := identitystore.CloudFormationOwner(r.Context()); owner != "" && existing != nil && existing.organization.CloudFormationOwner == owner {
+			return &api.CreateOrganizationOutput{Organization: new(existing.organization.api())}, nil
+		}
 		return nil, failure("AlreadyInOrganizationException", "This account already belongs to an organization.")
 	}
 	featureSet := "ALL"
@@ -71,6 +82,7 @@ func (s *operationState) createOrganization(r *http.Request, in *api.CreateOrgan
 		organization: organization{ID: id, ARN: "arn:" + meta.Partition + ":organizations::" + meta.AccountID + ":organization/" + id, FeatureSet: featureSet, MasterAccountID: meta.AccountID, MasterAccountEmail: email, AvailablePolicyTypes: []policyType{}},
 		accounts:     make(map[string]account), units: make(map[string]organizationalUnit), parents: make(map[string]string), creations: make(map[string]AccountCreationRecord), policies: make(map[string]policy), attachments: make(map[string][]string), tags: make(map[string]map[string]string), services: make(map[string]float64), delegates: make(map[string]map[string]float64),
 	}
+	o.organization.CloudFormationOwner = identitystore.CloudFormationOwner(r.Context())
 	o.organization.MasterAccountARN = o.arn(meta.Partition, "account", meta.AccountID)
 	o.root = root{ID: identifier("r-", 2), Name: "Root", PolicyTypes: []policyType{}}
 	o.root.ARN = o.arn(meta.Partition, "root", o.root.ID)

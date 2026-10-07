@@ -119,6 +119,9 @@ func (s *Service) createStateMachine(tx Transaction, in *api.CreateStateMachineI
 		return nil, err
 	}
 	if lookupErr == nil {
+		if err := cloudFormationCheck(tx.Context(), "StateMachine", previous.CFNOwner); err != nil {
+			return nil, err
+		}
 		current, err := tx.Revision(RevisionKey{Scope: key.Scope, ID: previous.RevisionID})
 		if err != nil {
 			return nil, err
@@ -164,6 +167,7 @@ func (s *Service) createStateMachine(tx Transaction, in *api.CreateStateMachineI
 	}
 	now := s.clock.Now().UTC()
 	machine := MachineRecord{Key: key, ID: uuid.NewString(), RevisionID: uuid.NewString(), Type: typ, Status: "ACTIVE", Created: now, Version: 1, NextVersion: 1, Tags: tags}
+	machine.CFNOwner = cloudFormationClaim(tx.Context(), "StateMachine")
 	revision.Key, revision.Machine, revision.MachineID, revision.Created, revision.Initial = RevisionKey{Scope: key.Scope, ID: machine.RevisionID}, key, machine.ID, now, true
 	if err := dependencies.require(revision); err != nil {
 		return nil, err
@@ -335,6 +339,9 @@ func (s *Service) describeStateMachine(tx Transaction, in *api.DescribeStateMach
 			return nil, machineMissing(raw)
 		}
 		if err != nil {
+			return nil, err
+		}
+		if err := cloudFormationCheck(tx.Context(), "StateMachineVersion", version.CFNOwner); err != nil {
 			return nil, err
 		}
 		revisionID, created = version.RevisionID, version.Created

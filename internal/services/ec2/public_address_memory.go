@@ -26,7 +26,7 @@ func (r memoryReader) PublicIPv4Reservations() ([]string, error) {
 	return out, nil
 }
 func (w memoryWriter) PutPublicAddress(v PublicAddressRecord) error {
-	return putRecord(w.tx, w.s.publicAddresses, v.Key, v, clonePublicAddress)
+	return putClaimed(w.tx, w.s.publicAddresses, v.Key, v, clonePublicAddress)
 }
 func (w memoryWriter) DeletePublicAddress(k ResourceKey) error {
 	return deleteRecord(w.tx, w.s.publicAddresses, k)

@@ -121,19 +121,29 @@ func (s *Service) createAccessEntry(ctx context.Context, tx Transaction, in *api
 	return &api.CreateAccessEntryResponse{AccessEntry: accessAPI(a)}, nil
 }
 func (s *Service) accessForAction(ctx context.Context, tx Reader, name, principal, action string, active bool, conditions map[string][]string) (Cluster, AccessEntry, error) {
-	c, e := tx.Cluster(Key{scopeFor(ctx), name})
-	if e != nil {
-		return c, AccessEntry{}, e
+	key := Key{scopeFor(ctx), name}
+	c, clusterErr := tx.Cluster(key)
+	if clusterErr != nil && !errors.Is(clusterErr, ErrNotFound) {
+		return c, AccessEntry{}, clusterErr
 	}
-	if e = requireAccessAPI(c); e != nil {
-		return c, AccessEntry{}, e
+	a, entryErr := tx.AccessEntry(key, principal)
+	if entryErr != nil && !errors.Is(entryErr, ErrNotFound) {
+		return c, a, entryErr
 	}
-	a, e := tx.AccessEntry(c.Key, principal)
-	if e != nil {
-		return c, a, e
+	if errors.Is(entryErr, ErrNotFound) {
+		a = AccessEntry{Key: key, PrincipalARN: principal, ID: "*"}
 	}
-	if e = s.authorizeResource(ctx, accessARN(a), a.Tags, action, conditions); e != nil {
-		return c, a, e
+	if denied := s.authorizeResource(ctx, accessARN(a), a.Tags, action, conditions); denied != nil {
+		return c, a, denied
+	}
+	if clusterErr != nil {
+		return c, a, clusterErr
+	}
+	if err := requireAccessAPI(c); err != nil {
+		return c, a, err
+	}
+	if entryErr != nil {
+		return c, a, entryErr
 	}
 	if active && c.Status != "ACTIVE" {
 		return c, a, failure("ResourceInUseException", "Cluster is not active.", 409)

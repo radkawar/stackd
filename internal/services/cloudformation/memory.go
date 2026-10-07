@@ -132,6 +132,7 @@ func cloneOperation(v OperationRecord) OperationRecord {
 	for i := range v.Steps {
 		v.Steps[i].Before = cloneResource(v.Steps[i].Before)
 		v.Steps[i].After = cloneResource(v.Steps[i].After)
+		v.Steps[i].Restore = cloneResource(v.Steps[i].Restore)
 	}
 	return v
 }

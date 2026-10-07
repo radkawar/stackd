@@ -11,27 +11,81 @@ import (
 	"stackd/internal/awsapi"
 	api "stackd/internal/awsapi/lambda"
 	"stackd/internal/services/cloudformation"
+	service "stackd/internal/services/lambda"
 )
 
 type cfnLambdaFunction struct{ commands StepFunctionsCommands }
 
+func cfnLambdaFunctionContext(ctx context.Context, r cloudformation.ResourceRequest, create bool) context.Context {
+	if r.CloudControl && !create {
+		return ctx
+	}
+	return service.WithFunctionOwner(ctx, service.FunctionOwner{StackID: r.StackID, LogicalID: r.LogicalID, Token: r.Token})
+}
+
 func (h cfnLambdaFunction) Validate(p cloudformation.Properties) error {
-	if err := cfnComputeProperties(p, "FunctionName", "PackageType", "Code", "Runtime", "Handler", "Role", "Description", "Timeout", "MemorySize", "Environment", "Architectures", "EphemeralStorage", "Layers", "ReservedConcurrentExecutions", "Tags"); err != nil {
+	return h.validate(p, true)
+}
+func (h cfnLambdaFunction) ValidateUpdate(previous, desired cloudformation.Properties) error {
+	if err := h.validate(desired, false); err != nil {
 		return err
 	}
-	if err := cfnComputeRequired(p, "Code", "Runtime", "Handler", "Role"); err != nil {
+	if _, before := previous["DurableConfig"]; before {
+		if _, after := desired["DurableConfig"]; !after {
+			return fmt.Errorf("removing DurableConfig is not supported")
+		}
+	}
+	if _, supplied := desired["Code"]; !supplied && cfnLambdaArchitecture(previous) != cfnLambdaArchitecture(desired) {
+		return fmt.Errorf("changing Architectures requires Code")
+	}
+	return nil
+}
+func cfnLambdaArchitecture(p cloudformation.Properties) string {
+	architectures, _ := cfnComputeStringList(p, "Architectures")
+	if len(architectures) == 0 {
+		return "x86_64"
+	}
+	return architectures[0]
+}
+func (h cfnLambdaFunction) validate(p cloudformation.Properties, creating bool) error {
+	if err := cfnComputeProperties(p, "FunctionName", "PackageType", "Code", "Runtime", "Handler", "Role", "Description", "Timeout", "MemorySize", "Environment", "Architectures", "EphemeralStorage", "Layers", "ReservedConcurrentExecutions", "Tags", "ImageConfig", "VpcConfig", "DeadLetterConfig", "LoggingConfig", "TracingConfig", "CodeSigningConfigArn", "DurableConfig"); err != nil {
 		return err
 	}
-	if err := cfnComputeStrings(p, "FunctionName", "Runtime", "Handler", "Role", "Description"); err != nil {
+	required := []string{"Role"}
+	if creating {
+		required = append(required, "Code")
+	}
+	if err := cfnComputeRequired(p, required...); err != nil {
 		return err
 	}
-	if value, found := p["PackageType"]; found && value != "Zip" {
-		return fmt.Errorf("only Zip Lambda packages are supported")
-	}
-	if _, _, err := cfnLambdaCodeProperties(p); err != nil {
+	if err := cfnComputeStrings(p, "FunctionName", "Runtime", "Handler", "Role", "Description", "PackageType", "CodeSigningConfigArn"); err != nil {
 		return err
 	}
-	for key, allowed := range map[string][]string{"Environment": {"Variables"}, "EphemeralStorage": {"Size"}} {
+	if kind := cfnComputeString(p, "PackageType"); kind != "" && kind != "Zip" && kind != "Image" {
+		return fmt.Errorf("PackageType must be Zip or Image")
+	}
+	if cfnComputeString(p, "PackageType") == "Image" {
+		if _, found := p["Runtime"]; found {
+			return fmt.Errorf("image functions cannot specify Runtime")
+		}
+		if _, found := p["Handler"]; found {
+			return fmt.Errorf("image functions cannot specify Handler")
+		}
+		if _, found := p["Layers"]; found {
+			return fmt.Errorf("image functions cannot specify Layers")
+		}
+		if _, found := p["CodeSigningConfigArn"]; found {
+			return fmt.Errorf("image functions cannot specify CodeSigningConfigArn")
+		}
+	} else if err := cfnComputeRequired(p, "Runtime", "Handler"); err != nil {
+		return err
+	}
+	if _, supplied := p["Code"]; supplied {
+		if _, _, err := cfnLambdaCodeProperties(p); err != nil {
+			return err
+		}
+	}
+	for key, allowed := range map[string][]string{"Environment": {"Variables"}, "EphemeralStorage": {"Size"}, "ImageConfig": {"EntryPoint", "Command", "WorkingDirectory"}, "VpcConfig": {"SubnetIds", "SecurityGroupIds", "Ipv6AllowedForDualStack"}, "DeadLetterConfig": {"TargetArn"}, "LoggingConfig": {"LogGroup", "LogFormat", "ApplicationLogLevel", "SystemLogLevel"}, "TracingConfig": {"Mode"}, "DurableConfig": {"ExecutionTimeout", "RetentionPeriodInDays", "KMSKeyArn"}} {
 		if value, found := p[key]; found {
 			object, ok := cfnComputeObject(value)
 			if !ok {
@@ -40,6 +94,28 @@ func (h cfnLambdaFunction) Validate(p cloudformation.Properties) error {
 			if err := cfnComputeProperties(object, allowed...); err != nil {
 				return fmt.Errorf("%s: %w", key, err)
 			}
+		}
+	}
+	if image, found := cfnComputeObject(p["ImageConfig"]); found {
+		if _, err := cfnComputeStringList(image, "EntryPoint"); err != nil {
+			return err
+		}
+		if _, err := cfnComputeStringList(image, "Command"); err != nil {
+			return err
+		}
+		if err := cfnComputeStrings(image, "WorkingDirectory"); err != nil {
+			return err
+		}
+		if cfnComputeString(p, "PackageType") != "Image" {
+			return fmt.Errorf("ImageConfig requires PackageType Image")
+		}
+	}
+	if vpc, found := cfnComputeObject(p["VpcConfig"]); found {
+		if _, err := cfnComputeStringList(vpc, "SubnetIds"); err != nil {
+			return err
+		}
+		if _, err := cfnComputeStringList(vpc, "SecurityGroupIds"); err != nil {
+			return err
 		}
 	}
 	if _, err := cfnComputeStringList(p, "Layers"); err != nil {
@@ -52,6 +128,11 @@ func (h cfnLambdaFunction) Validate(p cloudformation.Properties) error {
 	if len(architectures) > 1 {
 		return fmt.Errorf("exactly one architecture is supported")
 	}
+	for _, architecture := range architectures {
+		if architecture != "x86_64" && architecture != "arm64" {
+			return fmt.Errorf("architectures must contain x86_64 or arm64")
+		}
+	}
 	_, err = cfnComputeTags(p)
 	return err
 }
@@ -60,11 +141,20 @@ func cfnLambdaCodeProperties(p map[string]any) (map[string]any, string, error) {
 	if !ok {
 		return nil, "", fmt.Errorf("property Code must be an object")
 	}
-	if err := cfnComputeProperties(code, "ZipFile", "S3Bucket", "S3Key", "S3ObjectVersion"); err != nil {
+	if err := cfnComputeProperties(code, "ZipFile", "S3Bucket", "S3Key", "S3ObjectVersion", "ImageUri", "S3ObjectStorageMode"); err != nil {
 		return nil, "", err
 	}
-	if err := cfnComputeStrings(code, "ZipFile", "S3Bucket", "S3Key", "S3ObjectVersion"); err != nil {
+	if err := cfnComputeStrings(code, "ZipFile", "S3Bucket", "S3Key", "S3ObjectVersion", "ImageUri", "S3ObjectStorageMode"); err != nil {
 		return nil, "", err
+	}
+	if cfnComputeString(p, "PackageType") == "Image" {
+		if len(code) != 1 || cfnComputeString(code, "ImageUri") == "" {
+			return nil, "", fmt.Errorf("image Code requires only ImageUri")
+		}
+		return code, "", nil
+	}
+	if _, found := code["ImageUri"]; found {
+		return nil, "", fmt.Errorf("Code.ImageUri requires PackageType Image")
 	}
 	if _, inline := code["ZipFile"]; !inline {
 		if cfnComputeString(code, "S3Bucket") == "" || cfnComputeString(code, "S3Key") == "" {
@@ -102,7 +192,7 @@ func (h cfnLambdaFunction) deploy(ctx context.Context, operation string, p cloud
 	if err != nil {
 		return nil, err
 	}
-	source := cfnComputeCopy(code, "S3Bucket", "S3Key", "S3ObjectVersion")
+	source := cfnComputeCopy(code, "S3Bucket", "S3Key", "S3ObjectVersion", "ImageUri", "S3ObjectStorageMode")
 	var archiveBytes []byte
 	if filename != "" {
 		var buffer bytes.Buffer
@@ -151,7 +241,8 @@ func (h cfnLambdaFunction) deploy(ctx context.Context, operation string, p cloud
 	}
 	out, rejected := h.commands.CallTyped(ctx, "lambda", operation, typed)
 	if rejected != nil {
-		return nil, rejected
+		configuration, _ := out.Output.(*api.FunctionConfiguration)
+		return configuration, rejected
 	}
 	configuration, ok := out.Output.(*api.FunctionConfiguration)
 	if !ok {
@@ -160,10 +251,10 @@ func (h cfnLambdaFunction) deploy(ctx context.Context, operation string, p cloud
 	return configuration, nil
 }
 func (h cfnLambdaFunction) Replacement(a, b cloudformation.Properties) (bool, error) {
-	if err := h.Validate(b); err != nil {
+	if err := h.ValidateUpdate(a, b); err != nil {
 		return false, err
 	}
-	return cfnComputeChanged(a, b, "FunctionName"), nil
+	return cfnComputeChanged(a, b, "FunctionName") || cfnComputeDefault(a, "PackageType", "Zip") != cfnComputeDefault(b, "PackageType", "Zip"), nil
 }
 func cfnLambdaTags(ctx context.Context, c StepFunctionsCommands, arn string) (map[string]string, error) {
 	out, err := cfnComputeCall[api.ListTagsOutput](ctx, c, "lambda", "ListTags", map[string]any{"Resource": arn})
@@ -181,12 +272,27 @@ func cfnLambdaSyncTags(ctx context.Context, c StepFunctionsCommands, r cloudform
 	if err != nil {
 		return err
 	}
-	if err := cfnComputeOwnership(r, current); err != nil {
+	desired, err := cfnComputeTags(r.Properties)
+	if err != nil {
 		return err
 	}
-	desired := cfnComputeOwnedTags(r)
+	// Direct requests preserve deployment phase metadata, not a public tag claim.
+	for key, value := range current {
+		if strings.HasPrefix(key, cfnComputeTagPrefix) {
+			desired[key] = value
+		}
+	}
+	if !r.CloudControl {
+		for key, value := range r.Tags {
+			if _, supplied := desired[key]; !supplied {
+				desired[key] = value
+			}
+		}
+	}
 	for key, value := range cfnLambdaPhaseTags(r) {
-		desired[key] = value
+		if key != cfnComputeTagPrefix+"last-admission" {
+			desired[key] = value
+		}
 	}
 	if removed := cfnComputeRemovedTags(current, desired); len(removed) > 0 {
 		if err := cfnComputeRun(ctx, c, "lambda", "UntagResource", map[string]any{"Resource": arn, "TagKeys": removed}); err != nil {
@@ -196,16 +302,14 @@ func cfnLambdaSyncTags(ctx context.Context, c StepFunctionsCommands, r cloudform
 	return cfnComputeRun(ctx, c, "lambda", "TagResource", map[string]any{"Resource": arn, "Tags": desired})
 }
 func (h cfnLambdaFunction) owned(ctx context.Context, r cloudformation.ResourceRequest, name string) (*api.FunctionConfiguration, map[string]string, error) {
+	ctx = cfnLambdaFunctionContext(ctx, r, false)
 	out, err := cfnComputeCall[api.GetFunctionConfigurationOutput](ctx, h.commands, "lambda", "GetFunctionConfiguration", map[string]any{"FunctionName": name})
 	if err != nil {
 		return nil, nil, err
 	}
 	tags, err := cfnLambdaTags(ctx, h.commands, cfnComputeValue(out.FunctionArn))
 	if err != nil {
-		return nil, nil, err
-	}
-	if err := cfnComputeOwnership(r, tags); err != nil {
-		return nil, nil, err
+		return out, nil, err
 	}
 	return out, tags, nil
 }
@@ -214,9 +318,17 @@ func cfnLambdaResult(function *api.FunctionConfiguration) cloudformation.Resourc
 	return cloudformation.ResourceResult{PhysicalID: name, Ref: name, Attributes: map[string]any{"Arn": cfnComputeValue(function.FunctionArn)}}
 }
 func cfnLambdaConfiguration(p cloudformation.Properties) map[string]any {
-	input := cfnComputeCopy(p, "Runtime", "Handler", "Role")
+	input := cfnComputeCopy(p, "Runtime", "Handler", "Role", "DeadLetterConfig", "LoggingConfig", "TracingConfig", "DurableConfig")
 	for key, fallback := range map[string]any{"Description": "", "Timeout": 3, "MemorySize": 128, "Environment": map[string]any{"Variables": map[string]string{}}, "EphemeralStorage": map[string]any{"Size": 512}, "Layers": []string{}} {
 		input[key] = cfnComputeDefault(p, key, fallback)
+	}
+	input["VpcConfig"] = cfnComputeDefault(p, "VpcConfig", map[string]any{"SubnetIds": []string{}, "SecurityGroupIds": []string{}})
+	input["DeadLetterConfig"] = cfnComputeDefault(p, "DeadLetterConfig", map[string]any{})
+	input["LoggingConfig"] = cfnComputeDefault(p, "LoggingConfig", map[string]any{})
+	input["TracingConfig"] = cfnComputeDefault(p, "TracingConfig", map[string]any{"Mode": "PassThrough"})
+	if cfnComputeString(p, "PackageType") == "Image" {
+		delete(input, "Layers")
+		input["ImageConfig"] = cfnComputeDefault(p, "ImageConfig", map[string]any{})
 	}
 	return input
 }
@@ -226,7 +338,10 @@ func cfnLambdaPhaseTags(r cloudformation.ResourceRequest) map[string]string {
 		return map[string]string{cfnComputeTagPrefix + "mapping": cfnComputeHash(string(body))}
 	}
 	configuration, _ := json.Marshal(cfnLambdaConfiguration(r.Properties))
-	code, _ := json.Marshal(cfnComputeCopy(r.Properties, "Code", "Architectures", "Runtime"))
+	if _, supplied := r.Properties["Code"]; !supplied {
+		return map[string]string{cfnComputeTagPrefix + "configuration": cfnComputeHash(string(configuration))}
+	}
+	code, _ := json.Marshal(cfnComputeCopy(r.Properties, "Code", "Architectures", "Runtime", "PackageType"))
 	codeHash := cfnComputeHash(string(code))
 	// Reserve every lifecycle tag at creation so later phase admission cannot
 	// exceed the owner's tag quota after a deployment was already accepted.
@@ -237,7 +352,14 @@ func cfnLambdaPhaseTags(r cloudformation.ResourceRequest) map[string]string {
 	}
 }
 func cfnLambdaDeploymentTags(r cloudformation.ResourceRequest) map[string]string {
-	tags := cfnComputeOwnedTags(r)
+	tags := make(map[string]string, len(r.Tags)+3)
+	for key, value := range r.Tags {
+		tags[key] = value
+	}
+	public, _ := cfnComputeTags(r.Properties)
+	for key, value := range public {
+		tags[key] = value
+	}
 	for key, value := range cfnLambdaPhaseTags(r) {
 		tags[key] = value
 	}
@@ -253,42 +375,90 @@ func (h cfnLambdaFunction) concurrency(ctx context.Context, r cloudformation.Res
 	return nil
 }
 func (h cfnLambdaFunction) Create(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
-	if err := h.Validate(r.Properties); err != nil {
+	ctx = cfnLambdaFunctionContext(ctx, r, true)
+	// Recovery first: validation/convergence can reject a replay after the
+	// exact native incarnation has already been admitted.
+	name := cfnComputeName(r, "FunctionName", 64)
+	ownedRequest := r
+	ownedRequest.CloudControl = false
+	function, _, err := h.owned(ctx, ownedRequest, name)
+	if err != nil && !cfnComputeMissing(err) {
+		if function != nil {
+			return cfnLambdaResult(function), err
+		}
 		return cloudformation.ResourceResult{}, err
 	}
-	name := cfnComputeName(r, "FunctionName", 64)
-	function, _, err := h.owned(ctx, r, name)
-	if err != nil && !cfnComputeMissing(err) {
-		return cloudformation.ResourceResult{}, err
+	if validation := h.Validate(r.Properties); validation != nil {
+		if function != nil {
+			return cfnLambdaResult(function), validation
+		}
+		return cloudformation.ResourceResult{}, validation
 	}
 	if cfnComputeMissing(err) {
-		input := cfnComputeCopy(r.Properties, "Runtime", "Handler", "Role", "Description", "Timeout", "MemorySize", "Environment", "Architectures", "EphemeralStorage", "Layers")
+		input := cfnComputeCopy(r.Properties, "PackageType", "Runtime", "Handler", "Role", "Description", "Timeout", "MemorySize", "Environment", "Architectures", "EphemeralStorage", "Layers", "ImageConfig", "VpcConfig", "DeadLetterConfig", "LoggingConfig", "TracingConfig", "CodeSigningConfigArn", "DurableConfig")
 		input["FunctionName"] = name
 		input["Tags"] = cfnLambdaDeploymentTags(r)
 		function, err = h.deploy(ctx, "CreateFunction", r.Properties, input)
 		if err != nil {
+			if function != nil {
+				return cfnLambdaResult(function), err
+			}
+			if admitted, _, _ := h.owned(ctx, ownedRequest, name); admitted != nil {
+				return cfnLambdaResult(admitted), err
+			}
 			return cloudformation.ResourceResult{}, err
 		}
 	}
 	return cfnLambdaResult(function), nil
 }
 func (h cfnLambdaFunction) Update(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
-	if err := h.Validate(r.Properties); err != nil {
+	ctx = cfnLambdaFunctionContext(ctx, r, false)
+	if err := h.validate(r.Properties, false); err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
 	function, _, err := h.owned(ctx, r, r.PhysicalID)
 	if err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
+	if err := cfnLambdaLiveTransition(function, r.Properties); err != nil {
+		return cfnLambdaResult(function), err
+	}
 	return cfnLambdaResult(function), nil
+}
+
+func cfnLambdaLiveTransition(function *api.FunctionConfiguration, desired cloudformation.Properties) error {
+	_, enabled := desired["DurableConfig"]
+	if function.DurableConfig != nil && !enabled {
+		return fmt.Errorf("removing DurableConfig is not supported")
+	}
+	if function.DurableConfig == nil && enabled {
+		return fmt.Errorf("DurableConfig must be enabled when the function is created")
+	}
+	if _, supplied := desired["Code"]; !supplied {
+		architecture := "x86_64"
+		if len(function.Architectures) > 0 {
+			architecture = string(function.Architectures[0])
+		}
+		if architecture != cfnLambdaArchitecture(desired) {
+			return fmt.Errorf("changing Architectures requires Code")
+		}
+	}
+	return nil
 }
 
 // Stabilize admits one phase at a time and yields to the shared job driver.
 // Phase hashes are written only after owner admission; a crash before that
 // write repeats the same update after the in-progress deployment completes.
 func (h cfnLambdaFunction) Stabilize(ctx context.Context, r cloudformation.ResourceRequest) (bool, error) {
+	ctx = cfnLambdaFunctionContext(ctx, r, false)
 	function, current, err := h.owned(ctx, r, r.PhysicalID)
 	if err != nil {
+		return false, err
+	}
+	if err := h.validate(r.Properties, false); err != nil {
+		return false, err
+	}
+	if err := cfnLambdaLiveTransition(function, r.Properties); err != nil {
 		return false, err
 	}
 	state, status := cfnComputeValue(function.State), cfnComputeValue(function.LastUpdateStatus)
@@ -297,7 +467,7 @@ func (h cfnLambdaFunction) Stabilize(ctx context.Context, r cloudformation.Resou
 		phase, hash, found := strings.Cut(current[cfnComputeTagPrefix+"last-admission"], ":")
 		// A failed desired deployment is terminal. A distinct rollback intent may
 		// restore the previous configuration/code through the normal owner command.
-		if !found || desired[cfnComputeTagPrefix+phase] == hash {
+		if !found || desired[cfnComputeTagPrefix+phase] == hash || desired[cfnComputeTagPrefix+phase] == "" {
 			return false, fmt.Errorf("lambda deployment failed: %s %s", cfnComputeValue(function.StateReason), cfnComputeValue(function.LastUpdateStatusReason))
 		}
 	}
@@ -305,8 +475,26 @@ func (h cfnLambdaFunction) Stabilize(ctx context.Context, r cloudformation.Resou
 		return false, nil
 	}
 	arn := cfnComputeValue(function.FunctionArn)
+	if _, supplied := r.Properties["CodeSigningConfigArn"]; supplied || r.Previous["CodeSigningConfigArn"] != nil {
+		currentSigning, err := cfnComputeCall[api.GetFunctionCodeSigningConfigOutput](ctx, h.commands, "lambda", "GetFunctionCodeSigningConfig", map[string]any{"FunctionName": r.PhysicalID})
+		if err != nil {
+			return false, err
+		}
+		desiredSigning := cfnComputeString(r.Properties, "CodeSigningConfigArn")
+		if cfnComputeValue(currentSigning.CodeSigningConfigArn) != desiredSigning {
+			if desiredSigning == "" {
+				err = cfnComputeRun(ctx, h.commands, "lambda", "DeleteFunctionCodeSigningConfig", map[string]any{"FunctionName": r.PhysicalID})
+			} else {
+				err = cfnComputeRun(ctx, h.commands, "lambda", "PutFunctionCodeSigningConfig", map[string]any{"FunctionName": r.PhysicalID, "CodeSigningConfigArn": desiredSigning})
+			}
+			return false, err
+		}
+	}
 	for _, phase := range []string{"configuration", "code"} {
 		key := cfnComputeTagPrefix + phase
+		if _, supplied := desired[key]; !supplied {
+			continue
+		}
 		if current[key] == desired[key] {
 			continue
 		}
@@ -332,7 +520,11 @@ func (h cfnLambdaFunction) Stabilize(ctx context.Context, r cloudformation.Resou
 	return true, nil
 }
 func (h cfnLambdaFunction) Delete(ctx context.Context, r cloudformation.ResourceRequest) error {
-	name := cfnComputeName(r, "FunctionName", 64)
+	ctx = cfnLambdaFunctionContext(ctx, r, false)
+	name := r.PhysicalID
+	if name == "" {
+		name = cfnComputeName(r, "FunctionName", 64)
+	}
 	if _, _, err := h.owned(ctx, r, name); err != nil {
 		return cfnComputeAbsent(err)
 	}

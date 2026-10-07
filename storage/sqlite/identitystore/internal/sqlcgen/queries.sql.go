@@ -75,7 +75,7 @@ func (q *Queries) DeleteUser(ctx context.Context, arg DeleteUserParams) error {
 }
 
 const getGroup = `-- name: GetGroup :one
-SELECT store_id, id, display_name, description FROM identitystore_groups WHERE store_id=? AND id=?
+SELECT store_id, id, display_name, description, cloudformation_owner FROM identitystore_groups WHERE store_id=? AND id=?
 `
 
 type GetGroupParams struct {
@@ -91,12 +91,13 @@ func (q *Queries) GetGroup(ctx context.Context, arg GetGroupParams) (Identitysto
 		&i.ID,
 		&i.DisplayName,
 		&i.Description,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
 
 const getGroupByName = `-- name: GetGroupByName :one
-SELECT store_id, id, display_name, description FROM identitystore_groups WHERE store_id=? AND display_name=?
+SELECT store_id, id, display_name, description, cloudformation_owner FROM identitystore_groups WHERE store_id=? AND display_name=?
 `
 
 type GetGroupByNameParams struct {
@@ -112,12 +113,13 @@ func (q *Queries) GetGroupByName(ctx context.Context, arg GetGroupByNameParams) 
 		&i.ID,
 		&i.DisplayName,
 		&i.Description,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
 
 const getMembership = `-- name: GetMembership :one
-SELECT store_id, id, user_id, group_id FROM identitystore_memberships WHERE store_id=? AND id=?
+SELECT store_id, id, user_id, group_id, cloudformation_owner FROM identitystore_memberships WHERE store_id=? AND id=?
 `
 
 type GetMembershipParams struct {
@@ -133,12 +135,13 @@ func (q *Queries) GetMembership(ctx context.Context, arg GetMembershipParams) (I
 		&i.ID,
 		&i.UserID,
 		&i.GroupID,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
 
 const getMembershipFor = `-- name: GetMembershipFor :one
-SELECT store_id, id, user_id, group_id FROM identitystore_memberships WHERE store_id=? AND user_id=? AND group_id=?
+SELECT store_id, id, user_id, group_id, cloudformation_owner FROM identitystore_memberships WHERE store_id=? AND user_id=? AND group_id=?
 `
 
 type GetMembershipForParams struct {
@@ -155,6 +158,7 @@ func (q *Queries) GetMembershipFor(ctx context.Context, arg GetMembershipForPara
 		&i.ID,
 		&i.UserID,
 		&i.GroupID,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
@@ -287,7 +291,7 @@ func (q *Queries) ListEmails(ctx context.Context, arg ListEmailsParams) ([]Ident
 }
 
 const listGroups = `-- name: ListGroups :many
-SELECT store_id, id, display_name, description FROM identitystore_groups WHERE store_id=? ORDER BY id
+SELECT store_id, id, display_name, description, cloudformation_owner FROM identitystore_groups WHERE store_id=? ORDER BY id
 `
 
 func (q *Queries) ListGroups(ctx context.Context, storeID string) ([]IdentitystoreGroup, error) {
@@ -304,6 +308,7 @@ func (q *Queries) ListGroups(ctx context.Context, storeID string) ([]Identitysto
 			&i.ID,
 			&i.DisplayName,
 			&i.Description,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -319,7 +324,7 @@ func (q *Queries) ListGroups(ctx context.Context, storeID string) ([]Identitysto
 }
 
 const listMemberships = `-- name: ListMemberships :many
-SELECT store_id, id, user_id, group_id FROM identitystore_memberships WHERE store_id=?1 AND (user_id=?2 OR ?2='') AND (group_id=?3 OR ?3='') ORDER BY id
+SELECT store_id, id, user_id, group_id, cloudformation_owner FROM identitystore_memberships WHERE store_id=?1 AND (user_id=?2 OR ?2='') AND (group_id=?3 OR ?3='') ORDER BY id
 `
 
 type ListMembershipsParams struct {
@@ -342,6 +347,7 @@ func (q *Queries) ListMemberships(ctx context.Context, arg ListMembershipsParams
 			&i.ID,
 			&i.UserID,
 			&i.GroupID,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -429,15 +435,16 @@ func (q *Queries) PutEmail(ctx context.Context, arg PutEmailParams) error {
 }
 
 const putGroup = `-- name: PutGroup :exec
-INSERT INTO identitystore_groups(store_id,id,display_name,description) VALUES(?,?,?,?)
+INSERT INTO identitystore_groups(store_id,id,display_name,description,cloudformation_owner) VALUES(?,?,?,?,?)
 ON CONFLICT(store_id,id) DO UPDATE SET display_name=excluded.display_name,description=excluded.description
 `
 
 type PutGroupParams struct {
-	StoreID     string
-	ID          string
-	DisplayName string
-	Description string
+	StoreID             string
+	ID                  string
+	DisplayName         string
+	Description         string
+	CloudformationOwner string
 }
 
 func (q *Queries) PutGroup(ctx context.Context, arg PutGroupParams) error {
@@ -446,19 +453,21 @@ func (q *Queries) PutGroup(ctx context.Context, arg PutGroupParams) error {
 		arg.ID,
 		arg.DisplayName,
 		arg.Description,
+		arg.CloudformationOwner,
 	)
 	return err
 }
 
 const putMembership = `-- name: PutMembership :exec
-INSERT INTO identitystore_memberships(store_id,id,user_id,group_id) VALUES(?,?,?,?)
+INSERT INTO identitystore_memberships(store_id,id,user_id,group_id,cloudformation_owner) VALUES(?,?,?,?,?)
 `
 
 type PutMembershipParams struct {
-	StoreID string
-	ID      string
-	UserID  string
-	GroupID string
+	StoreID             string
+	ID                  string
+	UserID              string
+	GroupID             string
+	CloudformationOwner string
 }
 
 func (q *Queries) PutMembership(ctx context.Context, arg PutMembershipParams) error {
@@ -467,6 +476,7 @@ func (q *Queries) PutMembership(ctx context.Context, arg PutMembershipParams) er
 		arg.ID,
 		arg.UserID,
 		arg.GroupID,
+		arg.CloudformationOwner,
 	)
 	return err
 }

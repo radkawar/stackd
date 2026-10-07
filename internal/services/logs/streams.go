@@ -49,12 +49,22 @@ func (s *Service) createLogStream(tx Transaction, in *api.CreateLogStreamRequest
 		return nil, w
 	}
 	k := StreamKey{g.ID, name}
-	if _, err := tx.Stream(k); err == nil {
+	owner, ownerWire := cloudFormationClaim(tx.Context(), "", false)
+	if old, err := tx.Stream(k); err == nil {
+		if _, constrained := tx.Context().Value(cloudFormationOwnerKey{}).(cloudFormationOwner); constrained {
+			if w := cloudFormationDelete(tx.Context(), old.CFNOwner); w != nil {
+				return nil, w
+			}
+			return &api.Unit{}, nil
+		}
 		return nil, failure("ResourceAlreadyExistsException", "The specified log stream already exists.")
 	} else if !errors.Is(err, ErrNotFound) {
 		return nil, wireError(err)
 	}
-	if err := tx.PutStream(StreamRecord{Key: k, ID: uuid.NewString(), Created: s.clock.Now().UnixMilli()}); err != nil {
+	if ownerWire != nil {
+		return nil, ownerWire
+	}
+	if err := tx.PutStream(StreamRecord{Key: k, CFNOwner: owner, ID: uuid.NewString(), Created: s.clock.Now().UnixMilli()}); err != nil {
 		return nil, wireError(err)
 	}
 	return &api.Unit{}, nil
@@ -65,8 +75,12 @@ func (s *Service) deleteLogStream(tx Transaction, in *api.DeleteLogStreamRequest
 		return nil, w
 	}
 	k := StreamKey{g.ID, value(in.LogStreamName)}
-	if _, err := tx.Stream(k); err != nil {
+	old, err := tx.Stream(k)
+	if err != nil {
 		return nil, wireError(err)
+	}
+	if w := cloudFormationDelete(tx.Context(), old.CFNOwner); w != nil {
+		return nil, w
 	}
 	if err := tx.DeleteStream(k); err != nil {
 		return nil, wireError(err)

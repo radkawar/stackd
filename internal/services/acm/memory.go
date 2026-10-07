@@ -64,6 +64,19 @@ func (r memoryReader) Certificate(arn string) (CertificateRecord, error) {
 	}
 	return cloneCertificate(v), nil
 }
+func (r memoryReader) CertificateByOwner(scope Scope, owner string) (CertificateRecord, error) {
+	if e := r.t.Check(false); e != nil {
+		return CertificateRecord{}, e
+	}
+	if owner != "" {
+		for _, v := range r.s.certificates {
+			if v.Scope == scope && v.Owner == owner {
+				return cloneCertificate(v), nil
+			}
+		}
+	}
+	return CertificateRecord{}, ErrNotFound
+}
 func (r memoryReader) Certificates() ([]CertificateRecord, error) {
 	if e := r.t.Check(false); e != nil {
 		return nil, e

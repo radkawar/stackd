@@ -105,7 +105,7 @@ func (w writer) DeleteUser(k d.Key) error {
 	return w.q.DeleteUser(w.ctx, q.DeleteUserParams{StoreID: k.StoreID, ID: k.ID})
 }
 func group(v q.IdentitystoreGroup) d.Group {
-	return d.Group{StoreID: v.StoreID, ID: v.ID, DisplayName: v.DisplayName, Description: v.Description}
+	return d.Group{StoreID: v.StoreID, ID: v.ID, DisplayName: v.DisplayName, Description: v.Description, CloudFormationOwner: v.CloudformationOwner}
 }
 func (r reader) Group(k d.Key) (d.Group, error) {
 	v, e := r.q.GetGroup(r.ctx, q.GetGroupParams{StoreID: k.StoreID, ID: k.ID})
@@ -124,13 +124,13 @@ func (r reader) Groups(store string) ([]d.Group, error) {
 	return out, e
 }
 func (w writer) PutGroup(v d.Group) error {
-	return w.q.PutGroup(w.ctx, q.PutGroupParams{StoreID: v.StoreID, ID: v.ID, DisplayName: v.DisplayName, Description: v.Description})
+	return w.q.PutGroup(w.ctx, q.PutGroupParams{StoreID: v.StoreID, ID: v.ID, DisplayName: v.DisplayName, Description: v.Description, CloudformationOwner: v.CloudFormationOwner})
 }
 func (w writer) DeleteGroup(k d.Key) error {
 	return w.q.DeleteGroup(w.ctx, q.DeleteGroupParams{StoreID: k.StoreID, ID: k.ID})
 }
 func membership(v q.IdentitystoreMembership) d.Membership {
-	return d.Membership{StoreID: v.StoreID, ID: v.ID, UserID: v.UserID, GroupID: v.GroupID}
+	return d.Membership{StoreID: v.StoreID, ID: v.ID, UserID: v.UserID, GroupID: v.GroupID, CloudFormationOwner: v.CloudformationOwner}
 }
 func (r reader) Membership(k d.Key) (d.Membership, error) {
 	v, e := r.q.GetMembership(r.ctx, q.GetMembershipParams{StoreID: k.StoreID, ID: k.ID})
@@ -149,7 +149,7 @@ func (r reader) Memberships(store, user, group string) ([]d.Membership, error) {
 	return out, e
 }
 func (w writer) PutMembership(v d.Membership) error {
-	return w.q.PutMembership(w.ctx, q.PutMembershipParams{StoreID: v.StoreID, ID: v.ID, UserID: v.UserID, GroupID: v.GroupID})
+	return w.q.PutMembership(w.ctx, q.PutMembershipParams{StoreID: v.StoreID, ID: v.ID, UserID: v.UserID, GroupID: v.GroupID, CloudformationOwner: v.CloudFormationOwner})
 }
 func (w writer) DeleteMembership(k d.Key) error {
 	return w.q.DeleteMembership(w.ctx, q.DeleteMembershipParams{StoreID: k.StoreID, ID: k.ID})

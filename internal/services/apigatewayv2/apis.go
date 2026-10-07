@@ -58,6 +58,11 @@ func (s *Service) createAPI(tx Transaction, in *api.CreateApiInput) (*api.Create
 	if err := validateAPI(in); err != nil {
 		return nil, err
 	}
+	if v, found, err := recoverOwnedResource(tx, scopeFor(tx.Context()), tx.APIs); err != nil {
+		return nil, err
+	} else if found {
+		return new(api.CreateApiOutput(s.apiOutput(v))), nil
+	}
 	id, err := controlID()
 	if err != nil {
 		return nil, err

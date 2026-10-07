@@ -35,6 +35,7 @@ type Config struct {
 	Capacity             CapacityBackend
 	CodeSigningAuthority CodeSigningAuthority
 	SourceNetworks       SourceNetworks
+	FunctionNetworks     FunctionNetworks
 	DurableEncryption    DurableEncryption
 	StreamTargets        StreamTargets
 	FilterEncryption     FilterEncryption
@@ -76,6 +77,7 @@ type Service struct {
 	capacity             *capacityKernel
 	codeSigningAuthority CodeSigningAuthority
 	sourceNetworks       SourceNetworks
+	functionNetworks     FunctionNetworks
 	durableEncryption    DurableEncryption
 	logs                 LogProvider
 	targets              OutcomeTargets
@@ -92,10 +94,13 @@ type Service struct {
 	operations           map[string]func(context.Context, any) (any, *awswire.Error)
 	mu                   sync.Mutex
 	startMu              sync.Mutex
-	environments         map[FunctionVersionKey][]*execution
-	inFlight             map[Scope]*concurrencyUsage
-	originMu             sync.RWMutex
-	origins              map[string]*invocationEnvironment
+	// Image staging and ownership snapshots never overlap. The native pin is
+	// created outside transactions and reconciled only after state commits.
+	imageMu      sync.Mutex
+	environments map[FunctionVersionKey][]*execution
+	inFlight     map[Scope]*concurrencyUsage
+	originMu     sync.RWMutex
+	origins      map[string]*invocationEnvironment
 	// Scheduler discovery runs inside a storage snapshot. Lifecycle reads must
 	// not acquire mu: invocation admission holds mu before entering storage.
 	closed   atomic.Bool
@@ -135,6 +140,7 @@ func New(config Config) *Service {
 	s.capacityBackend, s.capacity = config.Capacity, newCapacityKernel(s)
 	s.codeSigningAuthority = config.CodeSigningAuthority
 	s.sourceNetworks = config.SourceNetworks
+	s.functionNetworks = config.FunctionNetworks
 	s.durableEncryption = config.DurableEncryption
 	s.filterEncryption = config.FilterEncryption
 	s.jobs = scheduler.New(config.Clock, eventInvokeConfigJobs{s}, eventSourceMappingJobs{s}, invocationJobs{s}, outcomeJobs{s}, metricJobs{s}, codeArchiveJobs{s}, codeSourceJobs{s}, durableJobs{s}, capacityJobs{s})

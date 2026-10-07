@@ -60,6 +60,7 @@ func (r reader) stream(v sqlcgen.FirehoseStream) (domain.StreamRecord, error) {
 	out := domain.StreamRecord{
 		Key: domain.StreamKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name},
 		ID:  v.ID, Status: v.Status, Version: v.Version, Created: v.Created.UTC(), Updated: timePointer(v.Updated), LifecycleDue: v.LifecycleDue.UTC(), BufferID: v.BufferID,
+		CFNOwner: v.CfnOwner,
 	}
 	destination, err := r.configuration("stream:" + v.ID)
 	if err != nil {
@@ -90,6 +91,7 @@ func (w writer) PutStream(v domain.StreamRecord) error {
 	if err := w.q.PutStream(w.ctx, sqlcgen.PutStreamParams{
 		ID: v.ID, Partition: v.Key.Partition, AccountID: v.Key.AccountID, Region: v.Key.Region, Name: v.Key.Name,
 		Status: v.Status, Version: v.Version, Created: v.Created.UTC(), Updated: nullableTime(v.Updated), LifecycleDue: v.LifecycleDue.UTC(), BufferID: v.BufferID, TagsPresent: v.Tags != nil,
+		CfnOwner: v.CFNOwner,
 	}); err != nil {
 		return err
 	}

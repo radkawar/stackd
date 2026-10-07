@@ -26,18 +26,24 @@ type DocdbCluster struct {
 	Created            int64
 	Due                int64
 	DeletionProtection int64
+	OwnerStackID       string
+	OwnerLogicalID     string
+	OwnerToken         string
 }
 
 type DocdbInstance struct {
-	Partition string
-	AccountID string
-	Region    string
-	Name      string
-	Cluster   string
-	Class     string
-	RuntimeID string
-	Status    string
-	Created   int64
+	Partition      string
+	AccountID      string
+	Region         string
+	Name           string
+	Cluster        string
+	Class          string
+	RuntimeID      string
+	Status         string
+	Created        int64
+	OwnerStackID   string
+	OwnerLogicalID string
+	OwnerToken     string
 }
 
 type DocdbSnapshot struct {
@@ -56,6 +62,9 @@ type DocdbSnapshot struct {
 	Version         int64
 	Created         int64
 	Due             int64
+	OwnerStackID    string
+	OwnerLogicalID  string
+	OwnerToken      string
 }
 
 type DocdbTag struct {

@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"net/url"
 	"slices"
 	"sort"
 	"strings"
@@ -16,7 +17,7 @@ func (s *Service) createUserPoolClient(tx Transaction, in *api.CreateUserPoolCli
 	if err != nil {
 		return nil, err
 	}
-	data, err := clientConfiguration(pool, in)
+	data, err := clientConfiguration(tx, pool, in)
 	if err != nil {
 		return nil, err
 	}
@@ -43,10 +44,9 @@ func (s *Service) createUserPoolClient(tx Transaction, in *api.CreateUserPoolCli
 	return &api.CreateUserPoolClientOutput{UserPoolClient: &data}, nil
 }
 
-// TODO: Comeback — implement OAuth/hosted UI, external identity providers,
-// custom challenges, analytics and secret import before
-// admitting configurations that promise those behaviors.
-func clientConfiguration(pool PoolRecord, in *api.CreateUserPoolClientInput) (api.UserPoolClientType, error) {
+// OAuth configuration is persisted independently of the external authorization
+// endpoints. Configuring a client does not execute a federated sign-in.
+func clientConfiguration(tx Transaction, pool PoolRecord, in *api.CreateUserPoolClientInput) (api.UserPoolClientType, error) {
 	var d api.UserPoolClientType
 	invalid := func(message string) (api.UserPoolClientType, error) {
 		return d, failure("InvalidParameterException", message)
@@ -57,15 +57,25 @@ func clientConfiguration(pool PoolRecord, in *api.CreateUserPoolClientInput) (ap
 	if in.ClientSecret != nil {
 		return invalid("Importing app client secrets is not supported.")
 	}
-	if len(in.AllowedOAuthFlows) > 0 || len(in.AllowedOAuthScopes) > 0 || (in.AllowedOAuthFlowsUserPoolClient != nil && bool(*in.AllowedOAuthFlowsUserPoolClient)) || len(in.CallbackURLs) > 0 || len(in.LogoutURLs) > 0 || in.DefaultRedirectURI != nil {
-		return invalid("OAuth and hosted UI configuration are not supported.")
+	if err := validateClientOAuth(in); err != nil {
+		return d, err
 	}
 	if in.AnalyticsConfiguration != nil || (in.EnablePropagateAdditionalUserContextData != nil && bool(*in.EnablePropagateAdditionalUserContextData)) {
 		return invalid("Analytics and advanced security context propagation are not supported.")
 	}
+	providers := map[string]bool{}
 	for _, provider := range in.SupportedIdentityProviders {
-		if provider != "COGNITO" {
-			return invalid("Federated identity providers are not supported.")
+		name := string(provider)
+		if providers[name] {
+			return invalid("Duplicate identity provider: " + name)
+		}
+		providers[name] = true
+		if name != "COGNITO" {
+			if _, err := tx.Provider(ProviderKey{PoolKey: pool.Key, Name: name}); errors.Is(err, ErrNotFound) {
+				return invalid("Identity provider " + name + " does not exist in this user pool.")
+			} else if err != nil {
+				return d, err
+			}
 		}
 	}
 	rotation := in.RefreshTokenRotation
@@ -180,7 +190,11 @@ func clientConfiguration(pool PoolRecord, in *api.CreateUserPoolClientInput) (ap
 		ClientName: in.ClientName, AccessTokenValidity: in.AccessTokenValidity, IdTokenValidity: in.IdTokenValidity, RefreshTokenValidity: refresh, TokenValidityUnits: units,
 		AuthSessionValidity: in.AuthSessionValidity, EnableTokenRevocation: in.EnableTokenRevocation, ExplicitAuthFlows: in.ExplicitAuthFlows, PreventUserExistenceErrors: in.PreventUserExistenceErrors,
 		ReadAttributes: in.ReadAttributes, WriteAttributes: in.WriteAttributes, SupportedIdentityProviders: in.SupportedIdentityProviders, RefreshTokenRotation: rotation,
-		AllowedOAuthFlowsUserPoolClient: ptr(api.BooleanType(false)), EnablePropagateAdditionalUserContextData: ptr(api.WrappedBooleanType(false)),
+		AllowedOAuthFlows: in.AllowedOAuthFlows, AllowedOAuthScopes: in.AllowedOAuthScopes, CallbackURLs: in.CallbackURLs, LogoutURLs: in.LogoutURLs, DefaultRedirectURI: in.DefaultRedirectURI,
+		AllowedOAuthFlowsUserPoolClient: in.AllowedOAuthFlowsUserPoolClient, EnablePropagateAdditionalUserContextData: ptr(api.WrappedBooleanType(false)),
+	}
+	if d.AllowedOAuthFlowsUserPoolClient == nil {
+		d.AllowedOAuthFlowsUserPoolClient = ptr(api.BooleanType(false))
 	}
 	if d.AuthSessionValidity == nil {
 		d.AuthSessionValidity = ptr(api.AuthSessionValidityType(3))
@@ -189,6 +203,82 @@ func clientConfiguration(pool PoolRecord, in *api.CreateUserPoolClientInput) (ap
 		d.EnableTokenRevocation = ptr(api.WrappedBooleanType(true))
 	}
 	return d, nil
+}
+
+// AWS CreateUserPoolClient defines the configuration contract; authorization
+// endpoint execution is a separate surface and is not synthesized here.
+func validateClientOAuth(in *api.CreateUserPoolClientInput) error {
+	invalid := func(message string) error {
+		return failure("InvalidParameterException", message)
+	}
+	enabled := in.AllowedOAuthFlowsUserPoolClient != nil && bool(*in.AllowedOAuthFlowsUserPoolClient)
+	if !enabled && (len(in.AllowedOAuthFlows) > 0 || len(in.AllowedOAuthScopes) > 0 || len(in.CallbackURLs) > 0 || len(in.LogoutURLs) > 0 || in.DefaultRedirectURI != nil) {
+		return invalid("AllowedOAuthFlowsUserPoolClient must be true to configure OAuth features.")
+	}
+	if len(in.AllowedOAuthFlows) > 3 || len(in.AllowedOAuthScopes) > 50 || len(in.CallbackURLs) > 100 || len(in.LogoutURLs) > 100 {
+		return invalid("OAuth configuration exceeds the permitted list size.")
+	}
+	flows := map[string]bool{}
+	for _, flow := range in.AllowedOAuthFlows {
+		name := string(flow)
+		if flows[name] || (name != "code" && name != "implicit" && name != "client_credentials") {
+			return invalid("Invalid or duplicate OAuth flow: " + name)
+		}
+		flows[name] = true
+	}
+	if flows["client_credentials"] {
+		if len(flows) != 1 {
+			return invalid("client_credentials must be the only allowed OAuth flow.")
+		}
+		if in.GenerateSecret == nil || !bool(*in.GenerateSecret) {
+			return invalid("client_credentials requires a client secret.")
+		}
+	}
+	if (flows["code"] || flows["implicit"]) && len(in.CallbackURLs) == 0 {
+		return invalid("CallbackURLs are required for code and implicit OAuth flows.")
+	}
+	scopes := map[string]bool{}
+	for _, scope := range in.AllowedOAuthScopes {
+		name := string(scope)
+		if scopes[name] {
+			return invalid("Duplicate OAuth scope: " + name)
+		}
+		scopes[name] = true
+		switch name {
+		case "openid", "email", "phone", "profile", "aws.cognito.signin.user.admin":
+			if flows["client_credentials"] {
+				return invalid("client_credentials permits only custom resource server scopes.")
+			}
+		default:
+			// No resource servers exist on the native surface yet, so a custom
+			// scope cannot resolve to a registered resource server.
+			return failure("ScopeDoesNotExistException", "OAuth scope does not exist: "+name)
+		}
+	}
+	if (scopes["email"] || scopes["phone"] || scopes["profile"]) && !scopes["openid"] {
+		return invalid("The email, phone, and profile scopes require openid.")
+	}
+	for _, urls := range []api.CallbackURLsListType{in.CallbackURLs, api.CallbackURLsListType(in.LogoutURLs)} {
+		seen := map[string]bool{}
+		for _, raw := range urls {
+			text := string(raw)
+			u, err := url.Parse(text)
+			if err != nil || len(text) == 0 || len(text) > 1024 || strings.ContainsAny(text, " \t\r\n#") || u.Scheme == "" || u.User != nil || seen[text] {
+				return invalid("Invalid or duplicate redirect URL: " + text)
+			}
+			if (u.Scheme == "https" || u.Scheme == "http") && u.Host == "" {
+				return invalid("Redirect URLs must be absolute.")
+			}
+			if u.Scheme == "http" && u.Hostname() != "localhost" && u.Hostname() != "127.0.0.1" && u.Hostname() != "::1" {
+				return invalid("HTTP redirect URLs are permitted only for localhost loopback addresses.")
+			}
+			seen[text] = true
+		}
+	}
+	if in.DefaultRedirectURI != nil && !slices.Contains(in.CallbackURLs, api.RedirectUrlType(*in.DefaultRedirectURI)) {
+		return invalid("DefaultRedirectURI must be in CallbackURLs.")
+	}
+	return nil
 }
 func validateTokenValidity(n int64, unit, defaultUnit string, min, max int64) error {
 	if unit == "" {
@@ -245,10 +335,13 @@ func (s *Service) updateUserPoolClient(tx Transaction, in *api.UpdateUserPoolCli
 		AllowedOAuthFlows: in.AllowedOAuthFlows, AllowedOAuthScopes: in.AllowedOAuthScopes, AllowedOAuthFlowsUserPoolClient: in.AllowedOAuthFlowsUserPoolClient,
 		AnalyticsConfiguration: in.AnalyticsConfiguration, CallbackURLs: in.CallbackURLs, LogoutURLs: in.LogoutURLs, DefaultRedirectURI: in.DefaultRedirectURI, EnablePropagateAdditionalUserContextData: in.EnablePropagateAdditionalUserContextData,
 	}
+	// A client secret is immutable, but client_credentials admission still
+	// requires it when replacing the mutable configuration.
+	config.GenerateSecret = ptr(api.GenerateSecret(client.Data.ClientSecret != nil))
 	if config.ClientName == nil {
 		config.ClientName = client.Data.ClientName
 	}
-	data, err := clientConfiguration(pool, &config)
+	data, err := clientConfiguration(tx, pool, &config)
 	if err != nil {
 		return nil, err
 	}

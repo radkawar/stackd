@@ -190,6 +190,12 @@ func (s *Service) changeTags(ctx context.Context, tx Transaction, action string,
 }
 func resourceTags(tx Transaction, k ResourceKey, kind string) (api.TagList, func(api.TagList) error, error) {
 	switch kind {
+	case "natgateway":
+		v, err := tx.NatGateway(k)
+		return v.Data.Tags, func(t api.TagList) error { v.Data.Tags = t; return tx.PutNatGateway(v) }, err
+	case "vpc-endpoint":
+		v, err := tx.VPCEndpoint(k)
+		return v.Data.Tags, func(t api.TagList) error { v.Data.Tags = t; return tx.PutVPCEndpoint(v) }, err
 	case "launch-template":
 		v, err := tx.LaunchTemplate(k)
 		return v.Data.Tags, func(tags api.TagList) error { v.Data.Tags = tags; return tx.PutLaunchTemplate(v) }, err
@@ -260,6 +266,20 @@ func (s *Service) describeTags(ctx context.Context, tx Transaction, in *api.Desc
 		}
 	}
 	scope := scopeFor(ctx)
+	nats, err := tx.NatGateways(scope)
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range nats {
+		add(v.Key.ID, "natgateway", v.Data.Tags)
+	}
+	endpoints, err := tx.VPCEndpoints(scope)
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range endpoints {
+		add(v.Key.ID, "vpc-endpoint", v.Data.Tags)
+	}
 	templates, err := tx.LaunchTemplates(scope)
 	if err != nil {
 		return nil, err

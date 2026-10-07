@@ -48,7 +48,7 @@ func (r reader) DataSources(k domain.Key) ([]domain.DataSourceRecord, error) {
 			readString(&c.DbClusterIdentifier, v.RdsCluster)
 			readString(&c.Schema, v.RdsSchema)
 		}
-		out = append(out, domain.DataSourceRecord{API: k, DataSource: d})
+		out = append(out, domain.DataSourceRecord{API: k, DataSource: d, Ownership: v.Ownership})
 	}
 	return out, nil
 }
@@ -58,6 +58,7 @@ func (r writer) PutDataSource(p domain.DataSourceRecord) error {
 	}
 	d := p.DataSource
 	v := sqlcgen.PutDataSourceParams{ApiID: p.API.ID, Name: val(d.Name), Arn: val(d.DataSourceArn), Kind: val(d.Type), Description: str(d.Description), RoleArn: str(d.ServiceRoleArn), Metrics: str(d.MetricsConfig)}
+	v.Ownership = p.Ownership
 	if d.LambdaConfig != nil {
 		v.LambdaArn = str(d.LambdaConfig.LambdaFunctionArn)
 	}
@@ -108,7 +109,7 @@ func (r reader) Functions(k domain.Key) ([]domain.FunctionRecord, error) {
 			readString(&f.Runtime.Name, v.RuntimeName)
 			readString(&f.Runtime.RuntimeVersion, v.RuntimeVersion)
 		}
-		out = append(out, domain.FunctionRecord{API: k, Function: f})
+		out = append(out, domain.FunctionRecord{API: k, Function: f, Ownership: v.Ownership})
 	}
 	return out, nil
 }
@@ -121,6 +122,7 @@ func (r writer) PutFunction(p domain.FunctionRecord) error {
 	}
 	f := p.Function
 	v := sqlcgen.PutFunctionParams{ApiID: p.API.ID, FunctionID: val(f.FunctionId), Arn: val(f.FunctionArn), Name: val(f.Name), SourceName: val(f.DataSourceName), Description: str(f.Description), Code: str(f.Code), FunctionVersion: str(f.FunctionVersion), RequestTemplate: str(f.RequestMappingTemplate), ResponseTemplate: str(f.ResponseMappingTemplate), MaxBatchSize: number(f.MaxBatchSize)}
+	v.Ownership = p.Ownership
 	if f.Runtime != nil {
 		v.RuntimeName = str(f.Runtime.Name)
 		v.RuntimeVersion = str(f.Runtime.RuntimeVersion)
@@ -165,7 +167,7 @@ func (r reader) Resolvers(k domain.Key) ([]domain.ResolverRecord, error) {
 		if v.Kind == "PIPELINE" {
 			x.PipelineConfig = &api.PipelineConfig{Functions: byField[[2]string{v.TypeName, v.FieldName}]}
 		}
-		out = append(out, domain.ResolverRecord{API: k, Resolver: x})
+		out = append(out, domain.ResolverRecord{API: k, Resolver: x, Ownership: v.Ownership})
 	}
 	return out, nil
 }
@@ -178,6 +180,7 @@ func (r writer) PutResolver(p domain.ResolverRecord) error {
 	}
 	x := p.Resolver
 	v := sqlcgen.PutResolverParams{ApiID: p.API.ID, TypeName: val(x.TypeName), FieldName: val(x.FieldName), Arn: val(x.ResolverArn), Kind: val(x.Kind), SourceName: str(x.DataSourceName), Code: str(x.Code), RequestTemplate: str(x.RequestMappingTemplate), ResponseTemplate: str(x.ResponseMappingTemplate), MaxBatchSize: number(x.MaxBatchSize), Metrics: str(x.MetricsConfig)}
+	v.Ownership = p.Ownership
 	if x.Runtime != nil {
 		v.RuntimeName = str(x.Runtime.Name)
 		v.RuntimeVersion = str(x.Runtime.RuntimeVersion)
@@ -213,7 +216,7 @@ func (r reader) APIKeys(k domain.Key) ([]domain.APIKeyRecord, error) {
 		expires, deletes := api.Long(v.Expires), api.Long(v.Deletes)
 		key.Expires = &expires
 		key.Deletes = &deletes
-		out = append(out, domain.APIKeyRecord{API: k, Key: key})
+		out = append(out, domain.APIKeyRecord{API: k, Key: key, Ownership: v.Ownership})
 	}
 	return out, nil
 }
@@ -221,5 +224,5 @@ func (r writer) PutAPIKey(p domain.APIKeyRecord) error {
 	if _, e := r.API(p.API); e != nil {
 		return e
 	}
-	return r.q.PutAPIKey(r.ctx, sqlcgen.PutAPIKeyParams{ApiID: p.API.ID, KeyID: val(p.Key.Id), Description: str(p.Key.Description), Expires: number(p.Key.Expires).Int64, Deletes: number(p.Key.Deletes).Int64})
+	return r.q.PutAPIKey(r.ctx, sqlcgen.PutAPIKeyParams{ApiID: p.API.ID, KeyID: val(p.Key.Id), Description: str(p.Key.Description), Expires: number(p.Key.Expires).Int64, Deletes: number(p.Key.Deletes).Int64, Ownership: p.Ownership})
 }

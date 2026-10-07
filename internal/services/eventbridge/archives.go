@@ -53,6 +53,9 @@ func readArchive(r Reader, key ArchiveKey) (ArchiveRecord, error) {
 	if errors.Is(err, ErrNotFound) {
 		return ArchiveRecord{}, archiveNotFound(key)
 	}
+	if err == nil {
+		err = cloudFormationCheck(r.Context(), "Archive", archive.CFNOwner)
+	}
 	return archive, err
 }
 
@@ -94,6 +97,7 @@ func (s *Service) createArchive(ctx context.Context, in *api.CreateArchiveInput)
 	}
 	archive := ArchiveRecord{Key: ArchiveKey{Scope: scopeFor(ctx), Name: value(in.ArchiveName)}, ID: identifier(), Source: source,
 		Description: value(in.Description), KmsKeyIdentifier: value(in.KmsKeyIdentifier), State: "ENABLED", Version: 1}
+	archive.CFNOwner = cloudFormationClaim(ctx, "Archive")
 	if in.RetentionDays != nil {
 		archive.RetentionDays = int32(*in.RetentionDays)
 	}

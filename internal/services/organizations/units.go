@@ -18,7 +18,7 @@ func (s *Service) registerUnitOperations() {
 			return nil, err
 		}
 		unit, ok := o.units[inputString(in.OrganizationalUnitId)]
-		if !ok {
+		if !ok || !claimVisible(r, unit.CloudFormationOwner) {
 			return nil, failure("OrganizationalUnitNotFoundException", "The organizational unit does not exist.")
 		}
 		return &api.DescribeOrganizationalUnitOutput{OrganizationalUnit: new(o.unitAPI(unit))}, nil
@@ -28,8 +28,12 @@ func (s *Service) registerUnitOperations() {
 		if err != nil {
 			return nil, err
 		}
-		if _, ok := o.units[inputString(in.OrganizationalUnitId)]; !ok {
+		unit, ok := o.units[inputString(in.OrganizationalUnitId)]
+		if !ok {
 			return nil, failure("OrganizationalUnitNotFoundException", "The organizational unit does not exist.")
+		}
+		if err := claimMutation(r, unit.CloudFormationOwner); err != nil {
+			return nil, err
 		}
 		for _, parent := range o.parents {
 			if parent == inputString(in.OrganizationalUnitId) {
@@ -55,6 +59,20 @@ func (s *operationState) createUnit(r *http.Request, in *api.CreateOrganizationa
 	if !o.parentExists(inputString(in.ParentId)) {
 		return nil, failure("ParentNotFoundException", "The parent does not exist.")
 	}
+	// A controller replay of the same incarnation observes its committed unit,
+	// even after a native rename; it never adopts a same-name sibling.
+	owner := cloudFormationClaim(r)
+	if owner != "" {
+		for id, unit := range o.units {
+			if unit.CloudFormationOwner != owner {
+				continue
+			}
+			if o.parents[id] != inputString(in.ParentId) {
+				return nil, failure("DuplicateOrganizationalUnitException", "This CloudFormation incarnation already owns another organizational unit.")
+			}
+			return &api.CreateOrganizationalUnitOutput{OrganizationalUnit: new(o.unitAPI(unit))}, nil
+		}
+	}
 	for id, unit := range o.units {
 		if o.parents[id] == inputString(in.ParentId) && unit.Name == inputString(in.Name) {
 			return nil, failure("DuplicateOrganizationalUnitException", "A sibling organizational unit has this name.")
@@ -75,7 +93,7 @@ func (s *operationState) createUnit(r *http.Request, in *api.CreateOrganizationa
 		return nil, err
 	}
 	id := s.createdResourceID
-	unit := organizationalUnit{ID: id, ARN: o.arn(awsctx.FromContext(r.Context()).Partition, "ou", id), Name: inputString(in.Name)}
+	unit := organizationalUnit{ID: id, ARN: o.arn(awsctx.FromContext(r.Context()).Partition, "ou", id), Name: inputString(in.Name), CloudFormationOwner: owner}
 	o.units[id] = unit
 	o.parents[id] = inputString(in.ParentId)
 	o.tags[id] = tags
@@ -91,6 +109,9 @@ func (s *operationState) updateUnit(r *http.Request, in *api.UpdateOrganizationa
 	unit, ok := o.units[inputString(in.OrganizationalUnitId)]
 	if !ok {
 		return nil, failure("OrganizationalUnitNotFoundException", "The organizational unit does not exist.")
+	}
+	if err := claimMutation(r, unit.CloudFormationOwner); err != nil {
+		return nil, err
 	}
 	if in.Name != nil && strings.TrimSpace(string(*in.Name)) != "" {
 		for id, sibling := range o.units {
@@ -114,7 +135,7 @@ func (s *operationState) listUnits(r *http.Request, in *api.ListOrganizationalUn
 	}
 	items := make([]api.OrganizationalUnit, 0)
 	for id, unit := range o.units {
-		if o.parents[id] == inputString(in.ParentId) {
+		if o.parents[id] == inputString(in.ParentId) && claimVisible(r, unit.CloudFormationOwner) {
 			items = append(items, o.unitAPI(unit))
 		}
 	}

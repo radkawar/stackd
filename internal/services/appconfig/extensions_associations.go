@@ -88,7 +88,7 @@ func (s *Service) createExtensionAssociation(tx Transaction, in *api.CreateExten
 	if err != nil {
 		return nil, err
 	}
-	row := Association{Scope: scope, ID: newID(), ExtensionID: extension.ID, ExtensionARN: extension.ARN, ExtensionVersion: extension.Version, ResourceARN: resource, Parameters: parameters}
+	row := Association{Scope: scope, ID: newID(), ExtensionID: extension.ID, ExtensionARN: extension.ARN, ExtensionVersion: extension.Version, ResourceARN: resource, Parameters: parameters, Ownership: cloudFormationClaim(tx.Context(), "extensionassociation")}
 	row.ARN = associationARN(scope, row.ID)
 	tags := extensionTags(in.Tags)
 	if err = s.authorizeTagsOnCreate(tx.Context(), row.ARN, tags); err != nil {
@@ -107,7 +107,7 @@ func (s *Service) getExtensionAssociation(tx Transaction, in *api.GetExtensionAs
 	if err != nil {
 		return nil, err
 	}
-	if err = s.extensionAuthorize(tx, "GetExtensionAssociation", row.ARN); err != nil {
+	if err = s.authorizeResource(tx, scopeFor(tx.Context()), "GetExtensionAssociation", row.ARN, row.Ownership); err != nil {
 		return nil, err
 	}
 	return associationOutput(row), nil
@@ -118,7 +118,7 @@ func (s *Service) updateExtensionAssociation(tx Transaction, in *api.UpdateExten
 	if err != nil {
 		return nil, err
 	}
-	if err = s.extensionAuthorize(tx, "UpdateExtensionAssociation", row.ARN); err != nil {
+	if err = s.authorizeResource(tx, scopeFor(tx.Context()), "UpdateExtensionAssociation", row.ARN, row.Ownership); err != nil {
 		return nil, err
 	}
 	if in.Parameters != nil {
@@ -142,7 +142,7 @@ func (s *Service) deleteExtensionAssociation(tx Transaction, in *api.DeleteExten
 	if err != nil {
 		return nil, err
 	}
-	if err = s.extensionAuthorize(tx, "DeleteExtensionAssociation", row.ARN); err != nil {
+	if err = s.authorizeResource(tx, scopeFor(tx.Context()), "DeleteExtensionAssociation", row.ARN, row.Ownership); err != nil {
 		return nil, err
 	}
 	if err = tx.DeleteAssociation(scope, row.ID); err != nil {

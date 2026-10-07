@@ -35,7 +35,7 @@ func (q *Queries) DeleteFunctionURL(ctx context.Context, arg DeleteFunctionURLPa
 }
 
 const getFunctionURL = `-- name: GetFunctionURL :one
-SELECT "partition", account, region, function_name, pending, deployment_version, qualifier, id, created, modified, applies_at, auth_type, invoke_mode, cors_present, allow_credentials, allow_headers, allow_methods, allow_origins, expose_headers, max_age, effective_auth_type, effective_invoke_mode, effective_cors_present, effective_allow_credentials, effective_allow_headers, effective_allow_methods, effective_allow_origins, effective_expose_headers, effective_max_age FROM lambda_function_urls WHERE partition=? AND account=? AND region=? AND function_name=? AND qualifier=?
+SELECT "partition", account, region, function_name, pending, deployment_version, qualifier, id, created, modified, applies_at, auth_type, invoke_mode, cors_present, allow_credentials, allow_headers, allow_methods, allow_origins, expose_headers, max_age, effective_auth_type, effective_invoke_mode, effective_cors_present, effective_allow_credentials, effective_allow_headers, effective_allow_methods, effective_allow_origins, effective_expose_headers, effective_max_age, owner_stack_id, owner_logical_id, owner_token FROM lambda_function_urls WHERE partition=? AND account=? AND region=? AND function_name=? AND qualifier=?
 `
 
 type GetFunctionURLParams struct {
@@ -85,12 +85,15 @@ func (q *Queries) GetFunctionURL(ctx context.Context, arg GetFunctionURLParams) 
 		&i.EffectiveAllowOrigins,
 		&i.EffectiveExposeHeaders,
 		&i.EffectiveMaxAge,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
 
 const getFunctionURLByID = `-- name: GetFunctionURLByID :one
-SELECT "partition", account, region, function_name, pending, deployment_version, qualifier, id, created, modified, applies_at, auth_type, invoke_mode, cors_present, allow_credentials, allow_headers, allow_methods, allow_origins, expose_headers, max_age, effective_auth_type, effective_invoke_mode, effective_cors_present, effective_allow_credentials, effective_allow_headers, effective_allow_methods, effective_allow_origins, effective_expose_headers, effective_max_age FROM lambda_function_urls WHERE id=?
+SELECT "partition", account, region, function_name, pending, deployment_version, qualifier, id, created, modified, applies_at, auth_type, invoke_mode, cors_present, allow_credentials, allow_headers, allow_methods, allow_origins, expose_headers, max_age, effective_auth_type, effective_invoke_mode, effective_cors_present, effective_allow_credentials, effective_allow_headers, effective_allow_methods, effective_allow_origins, effective_expose_headers, effective_max_age, owner_stack_id, owner_logical_id, owner_token FROM lambda_function_urls WHERE id=?
 `
 
 func (q *Queries) GetFunctionURLByID(ctx context.Context, id string) (LambdaFunctionUrl, error) {
@@ -126,12 +129,15 @@ func (q *Queries) GetFunctionURLByID(ctx context.Context, id string) (LambdaFunc
 		&i.EffectiveAllowOrigins,
 		&i.EffectiveExposeHeaders,
 		&i.EffectiveMaxAge,
+		&i.OwnerStackID,
+		&i.OwnerLogicalID,
+		&i.OwnerToken,
 	)
 	return i, err
 }
 
 const listFunctionURLs = `-- name: ListFunctionURLs :many
-SELECT "partition", account, region, function_name, pending, deployment_version, qualifier, id, created, modified, applies_at, auth_type, invoke_mode, cors_present, allow_credentials, allow_headers, allow_methods, allow_origins, expose_headers, max_age, effective_auth_type, effective_invoke_mode, effective_cors_present, effective_allow_credentials, effective_allow_headers, effective_allow_methods, effective_allow_origins, effective_expose_headers, effective_max_age FROM lambda_function_urls WHERE partition=? AND account=? AND region=? AND function_name=? ORDER BY qualifier
+SELECT "partition", account, region, function_name, pending, deployment_version, qualifier, id, created, modified, applies_at, auth_type, invoke_mode, cors_present, allow_credentials, allow_headers, allow_methods, allow_origins, expose_headers, max_age, effective_auth_type, effective_invoke_mode, effective_cors_present, effective_allow_credentials, effective_allow_headers, effective_allow_methods, effective_allow_origins, effective_expose_headers, effective_max_age, owner_stack_id, owner_logical_id, owner_token FROM lambda_function_urls WHERE partition=? AND account=? AND region=? AND function_name=? ORDER BY qualifier
 `
 
 type ListFunctionURLsParams struct {
@@ -185,6 +191,9 @@ func (q *Queries) ListFunctionURLs(ctx context.Context, arg ListFunctionURLsPara
 			&i.EffectiveAllowOrigins,
 			&i.EffectiveExposeHeaders,
 			&i.EffectiveMaxAge,
+			&i.OwnerStackID,
+			&i.OwnerLogicalID,
+			&i.OwnerToken,
 		); err != nil {
 			return nil, err
 		}
@@ -200,8 +209,8 @@ func (q *Queries) ListFunctionURLs(ctx context.Context, arg ListFunctionURLsPara
 }
 
 const putFunctionURL = `-- name: PutFunctionURL :exec
-INSERT INTO lambda_function_urls(partition,account,region,function_name,qualifier,id,created,modified,applies_at,auth_type,invoke_mode,cors_present,allow_credentials,allow_headers,allow_methods,allow_origins,expose_headers,max_age,effective_auth_type,effective_invoke_mode,effective_cors_present,effective_allow_credentials,effective_allow_headers,effective_allow_methods,effective_allow_origins,effective_expose_headers,effective_max_age)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(partition,account,region,function_name,qualifier) DO UPDATE SET id=excluded.id,created=excluded.created,modified=excluded.modified,applies_at=excluded.applies_at,auth_type=excluded.auth_type,invoke_mode=excluded.invoke_mode,cors_present=excluded.cors_present,allow_credentials=excluded.allow_credentials,allow_headers=excluded.allow_headers,allow_methods=excluded.allow_methods,allow_origins=excluded.allow_origins,expose_headers=excluded.expose_headers,max_age=excluded.max_age,effective_auth_type=excluded.effective_auth_type,effective_invoke_mode=excluded.effective_invoke_mode,effective_cors_present=excluded.effective_cors_present,effective_allow_credentials=excluded.effective_allow_credentials,effective_allow_headers=excluded.effective_allow_headers,effective_allow_methods=excluded.effective_allow_methods,effective_allow_origins=excluded.effective_allow_origins,effective_expose_headers=excluded.effective_expose_headers,effective_max_age=excluded.effective_max_age
+INSERT INTO lambda_function_urls(partition,account,region,function_name,qualifier,id,created,modified,applies_at,auth_type,invoke_mode,cors_present,allow_credentials,allow_headers,allow_methods,allow_origins,expose_headers,max_age,effective_auth_type,effective_invoke_mode,effective_cors_present,effective_allow_credentials,effective_allow_headers,effective_allow_methods,effective_allow_origins,effective_expose_headers,effective_max_age,owner_stack_id,owner_logical_id,owner_token)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(partition,account,region,function_name,qualifier) DO UPDATE SET id=excluded.id,created=excluded.created,modified=excluded.modified,applies_at=excluded.applies_at,auth_type=excluded.auth_type,invoke_mode=excluded.invoke_mode,cors_present=excluded.cors_present,allow_credentials=excluded.allow_credentials,allow_headers=excluded.allow_headers,allow_methods=excluded.allow_methods,allow_origins=excluded.allow_origins,expose_headers=excluded.expose_headers,max_age=excluded.max_age,effective_auth_type=excluded.effective_auth_type,effective_invoke_mode=excluded.effective_invoke_mode,effective_cors_present=excluded.effective_cors_present,effective_allow_credentials=excluded.effective_allow_credentials,effective_allow_headers=excluded.effective_allow_headers,effective_allow_methods=excluded.effective_allow_methods,effective_allow_origins=excluded.effective_allow_origins,effective_expose_headers=excluded.effective_expose_headers,effective_max_age=excluded.effective_max_age,owner_stack_id=excluded.owner_stack_id,owner_logical_id=excluded.owner_logical_id,owner_token=excluded.owner_token
 `
 
 type PutFunctionURLParams struct {
@@ -232,6 +241,9 @@ type PutFunctionURLParams struct {
 	EffectiveAllowOrigins     sql.NullString
 	EffectiveExposeHeaders    sql.NullString
 	EffectiveMaxAge           sql.NullInt64
+	OwnerStackID              string
+	OwnerLogicalID            string
+	OwnerToken                string
 }
 
 func (q *Queries) PutFunctionURL(ctx context.Context, arg PutFunctionURLParams) error {
@@ -263,6 +275,9 @@ func (q *Queries) PutFunctionURL(ctx context.Context, arg PutFunctionURLParams) 
 		arg.EffectiveAllowOrigins,
 		arg.EffectiveExposeHeaders,
 		arg.EffectiveMaxAge,
+		arg.OwnerStackID,
+		arg.OwnerLogicalID,
+		arg.OwnerToken,
 	)
 	return err
 }

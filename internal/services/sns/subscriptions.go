@@ -120,6 +120,9 @@ func (s *Service) subscribe(ctx context.Context, in *api.SubscribeInput) (out *a
 		if err := s.authorize(tx, "Subscribe", key.ARN(), topic.Tags, conditions, topic.Policy); err != nil {
 			return err
 		}
+		if err := checkCloudFormationTopicClaim(tx.Context(), topic); err != nil {
+			return err
+		}
 		if protocol == "firehose" && endpointOwner != caller.AccountID {
 			return failure("AuthorizationError", "The account "+caller.AccountID+" is not the owner of the endpoint "+endpoint, 403)
 		}
@@ -207,6 +210,12 @@ func (s *Service) authorizeSubscription(r Reader, action string, sub Subscriptio
 	topic, err := r.Topic(sub.Key.Topic)
 	if err != nil && !errors.Is(err, ErrNotFound) {
 		return err
+	}
+	if err := checkCloudFormationTopicClaim(r.Context(), topic); err != nil {
+		return err
+	}
+	if _, managed := r.Context().Value(cloudFormationTopicContextKey{}).(CloudFormationTopicClaim); managed && sub.TopicID != topic.ID {
+		return failure("InvalidParameter", "Subscription belongs to another topic incarnation")
 	}
 	conditions := make(map[string][]string, len(topic.Tags))
 	for key, v := range topic.Tags {
@@ -381,6 +390,9 @@ func (s *Service) listSubscriptionsByTopic(ctx context.Context, in *api.ListSubs
 			return err
 		}
 		if err := s.authorize(tx, "ListSubscriptionsByTopic", key.ARN(), topic.Tags, nil, topic.Policy); err != nil {
+			return err
+		}
+		if err := checkCloudFormationTopicClaim(tx.Context(), topic); err != nil {
 			return err
 		}
 		collection := key.ARN() + "/ListSubscriptionsByTopic/" + scopeFor(ctx).AccountID + "/" + topic.ID

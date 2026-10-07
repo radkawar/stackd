@@ -122,6 +122,7 @@ func (s *Service) create(ctx context.Context, t Transaction, in *api.CreatePipeI
 	p := PipeRecord{
 		Key:           Key{scopeFor(ctx), value(in.Name)},
 		ID:            uuid.NewString(),
+		CFNOwner:      cloudFormationConfiguration(ctx).Owner,
 		Version:       1,
 		Description:   value(in.Description),
 		RoleARN:       value(in.RoleArn),
@@ -211,7 +212,9 @@ func (s *Service) update(ctx context.Context, t Transaction, in *api.UpdatePipeI
 	}
 	if in.EnrichmentParameters != nil {
 		p.EnrichmentTemplate = value(in.EnrichmentParameters.InputTemplate)
-		if in.EnrichmentParameters.HttpParameters != nil {
+		// CloudFormation supplies complete desired parameters; native callers
+		// retain omitted HTTP configuration under UpdatePipe partial semantics.
+		if in.EnrichmentParameters.HttpParameters != nil || cloudFormationConfiguration(ctx).ReplaceEnrichment {
 			p.EnrichmentHTTP = cloneEnrichmentHTTP(in.EnrichmentParameters.HttpParameters)
 		}
 	}
@@ -221,7 +224,7 @@ func (s *Service) update(ctx context.Context, t Transaction, in *api.UpdatePipeI
 	if in.DesiredState != nil {
 		p.Desired = value(in.DesiredState)
 	}
-	if in.SourceParameters != nil {
+	if in.SourceParameters != nil && !cloudFormationConfiguration(ctx).ReplaceSource {
 		old := sourceParameters(p.Source)
 		if q := in.SourceParameters.ManagedStreamingKafkaParameters; q != nil && q.Credentials != nil && old.ManagedStreamingKafkaParameters != nil {
 			old.ManagedStreamingKafkaParameters.Credentials = nil
@@ -237,6 +240,12 @@ func (s *Service) update(ctx context.Context, t Transaction, in *api.UpdatePipeI
 			return nil, e
 		}
 		p.Source, e = sourceSettings(p.SourceARN, old)
+		if e != nil {
+			return nil, e
+		}
+	}
+	if cfn := cloudFormationConfiguration(ctx); cfn.ReplaceSource {
+		p.Source, e = sourceSettings(p.SourceARN, cfn.Source)
 		if e != nil {
 			return nil, e
 		}

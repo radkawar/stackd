@@ -86,6 +86,10 @@ func (r reader) snapshot(v sqlcgen.EbsSnapshot) (domain.SnapshotRecord, error) {
 	for i, share := range shares {
 		out.Shares[i] = domain.SnapshotShare{AccountID: share.RecipientAccountID, Granted: share.Granted, Readable: share.Readable}
 	}
+	out.CloudFormationOwner, err = r.cloudFormationClaim(out.Key.Scope, out.Key.ID)
+	if err != nil {
+		return domain.SnapshotRecord{}, err
+	}
 	return out, nil
 }
 
@@ -192,6 +196,9 @@ func (w writer) PutSnapshot(v domain.SnapshotRecord) error {
 		params.BlocksWorkAt = nullableTime(v.Volume.BlocksWorkAt)
 	}
 	if err := w.q.PutSnapshot(w.ctx, params); err != nil {
+		return err
+	}
+	if err := w.putCloudFormationClaim(v.Key.Scope, v.Key.ID, v.CloudFormationOwner); err != nil {
 		return err
 	}
 	if err := w.q.DeleteInitialTags(w.ctx, sqlcgen.DeleteInitialTagsParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, SnapshotID: k.ID}); err != nil {

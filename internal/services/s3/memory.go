@@ -340,7 +340,7 @@ func (w memoryWriter) PutBucket(v BucketRecord) error {
 		return err
 	}
 	if current, exists := (*w.state)[v.Key]; exists {
-		v.Incarnation = current.Incarnation
+		v.Incarnation, v.CloudFormationOwner = current.Incarnation, current.CloudFormationOwner
 	}
 	if v.ACL == nil {
 		v.ACL = DefaultACL(v.Key.Partition, v.AccountID)

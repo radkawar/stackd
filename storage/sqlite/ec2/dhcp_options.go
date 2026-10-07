@@ -45,6 +45,7 @@ func (r reader) DHCPOptionsSets(scope domain.Scope) ([]domain.DHCPOptionsRecord,
 func (r reader) dhcpOptions(row sqlcgen.Ec2DhcpOption) (domain.DHCPOptionsRecord, error) {
 	k := domain.ResourceKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.ResourceID}
 	out := domain.DHCPOptionsRecord{Key: k, Data: api.DhcpOptions{DhcpOptionsId: stringPointer[api.String](row.DhcpOptionsID), OwnerId: stringPointer[api.String](row.OwnerID)}}
+	out.CloudFormationOwner = cloudFormationOwner(row.CloudformationResourceType, row.CloudformationOwner)
 	if row.TagsPresent {
 		tags, err := r.q.ListDhcpOptionsTags(r.ctx, sqlcgen.ListDhcpOptionsTagsParams{Partition: k.Scope.Partition, AccountID: k.Scope.AccountID, Region: k.Scope.Region, ResourceID: k.ID})
 		if err != nil {

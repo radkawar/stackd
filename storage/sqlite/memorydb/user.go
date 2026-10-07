@@ -6,7 +6,7 @@ import (
 )
 
 func (r reader) readUser(row sqlcgen.MemorydbUser) (domain.User, error) {
-	v := domain.User{Key: domain.Key{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Kind: "user", Name: row.Name}, AccessString: row.AccessString, Authentication: row.Authentication, Status: row.Status}
+	v := domain.User{Key: domain.Key{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Kind: "user", Name: row.Name}, AccessString: row.AccessString, Authentication: row.Authentication, Status: row.Status, CloudFormationOwner: row.CloudformationOwner}
 	var e error
 	v.Tags, e = r.tags(row.Arn)
 	if e != nil {
@@ -40,7 +40,7 @@ func (r reader) Users(sc domain.Scope) ([]domain.User, error) {
 	return out, nil
 }
 func (w writer) PutUser(v domain.User) error {
-	if e := w.q.PutUser(w.ctx, sqlcgen.PutUserParams{Arn: v.Key.ARN(), Partition: v.Key.Partition, AccountID: v.Key.AccountID, Region: v.Key.Region, Name: v.Key.Name, AccessString: v.AccessString, Authentication: v.Authentication, Status: v.Status}); e != nil {
+	if e := w.q.PutUser(w.ctx, sqlcgen.PutUserParams{Arn: v.Key.ARN(), Partition: v.Key.Partition, AccountID: v.Key.AccountID, Region: v.Key.Region, Name: v.Key.Name, AccessString: v.AccessString, Authentication: v.Authentication, Status: v.Status, CloudformationOwner: v.CloudFormationOwner}); e != nil {
 		return e
 	}
 	if e := w.putTags(v.Key.ARN(), v.Tags); e != nil {

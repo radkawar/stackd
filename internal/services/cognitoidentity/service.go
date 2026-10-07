@@ -116,9 +116,16 @@ func register[I, O any](s *Service, action string, fn func(Transaction, *I) (*O,
 		ctx = context.WithValue(ctx, auditKey{}, &auditScope{})
 		var out *O
 		err = s.repository.Attempt(ctx, func(tx Transaction) error {
-			var e error
-			out, e = fn(tx, in)
+			replay, e := s.ownedCommand(tx, action, in)
 			if e != nil {
+				return e
+			}
+			if replay != nil {
+				var ok bool
+				if out, ok = replay.(*O); !ok {
+					return failure("InternalErrorException", "Invalid owned command replay.")
+				}
+			} else if out, e = fn(tx, in); e != nil {
 				return e
 			}
 			return s.record(tx.Context(), action, in, out, nil)

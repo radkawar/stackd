@@ -43,6 +43,9 @@ func (r reader) decodeStack(row sqlcgen.CloudformationStack) (domain.StackRecord
 	out.Template = row.Template
 	out.RoleARN = row.RoleArn
 	out.OperationID = row.OperationID
+	out.NestedOwner = row.NestedOwner
+	out.ParentID = row.ParentID
+	out.RootID = row.RootID
 	out.Created = row.Created.UTC()
 	out.Updated = row.Updated.UTC()
 	if row.Deleted.Valid {
@@ -124,6 +127,9 @@ func encodeStack(v domain.StackRecord) (sqlcgen.PutStackParams, error) {
 	p.Template = v.Template
 	p.RoleArn = v.RoleARN
 	p.OperationID = v.OperationID
+	p.NestedOwner = v.NestedOwner
+	p.ParentID = v.ParentID
+	p.RootID = v.RootID
 	p.Created = v.Created.UTC()
 	p.Updated = v.Updated.UTC()
 	p.Deleted = nullableTime(v.Deleted)

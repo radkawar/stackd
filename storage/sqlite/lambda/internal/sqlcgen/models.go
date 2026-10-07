@@ -84,6 +84,9 @@ type LambdaCapacityProvider struct {
 	SystemLogLevel    string
 	PropagateExplicit bool
 	Modified          time.Time
+	OwnerStackID      string
+	OwnerLogicalID    string
+	OwnerToken        string
 }
 
 type LambdaCapacityProviderMember struct {
@@ -131,13 +134,16 @@ type LambdaCodeArchive struct {
 }
 
 type LambdaCodeSigningConfig struct {
-	Partition   string
-	Account     string
-	Region      string
-	ID          string
-	Description string
-	Policy      string
-	Modified    time.Time
+	Partition      string
+	Account        string
+	Region         string
+	ID             string
+	Description    string
+	Policy         string
+	Modified       time.Time
+	OwnerStackID   string
+	OwnerLogicalID string
+	OwnerToken     string
 }
 
 type LambdaCodeSigningKey struct {
@@ -309,6 +315,9 @@ type LambdaEventInvokeConfig struct {
 	OnFailureArn           string
 	EffectiveOnSuccessArn  string
 	EffectiveOnFailureArn  string
+	OwnerStackID           string
+	OwnerLogicalID         string
+	OwnerToken             string
 }
 
 type LambdaEventSourceFilterEncryption struct {
@@ -355,6 +364,9 @@ type LambdaEventSourceMapping struct {
 	StreamTumblingWindowSeconds      sql.NullInt64
 	StreamOnFailure                  sql.NullString
 	StreamStartingPositionTimestamp  sql.NullTime
+	OwnerStackID                     string
+	OwnerLogicalID                   string
+	OwnerToken                       string
 }
 
 type LambdaEventSourceMappingFilter struct {
@@ -460,6 +472,27 @@ type LambdaFunctionDurableConfig struct {
 	KmsKeyArn        sql.NullString
 }
 
+type LambdaFunctionImage struct {
+	Partition        string
+	Account          string
+	Region           string
+	FunctionName     string
+	Pending          bool
+	Version          int64
+	ImageUri         string
+	ImageID          string
+	ResolvedImageUri string
+	ImageSize        int64
+	Entrypoint       string
+	Command          string
+	Environment      string
+	WorkingDirectory string
+	ImageConfig      string
+	PinReference     string
+	PinLease         string
+	PinImageID       string
+}
+
 type LambdaFunctionLayer struct {
 	Partition                string
 	Account                  string
@@ -477,6 +510,41 @@ type LambdaFunctionLayer struct {
 	CodeSize                 int64
 	SigningProfileVersionArn string
 	SigningJobArn            string
+}
+
+type LambdaFunctionNetwork struct {
+	Partition    string
+	Account      string
+	Region       string
+	FunctionName string
+	Pending      bool
+	Version      int64
+	Incarnation  string
+	VpcID        string
+}
+
+type LambdaFunctionNetworkMember struct {
+	Partition    string
+	Account      string
+	Region       string
+	FunctionName string
+	Pending      bool
+	Version      int64
+	Kind         string
+	Position     int64
+	ResourceID   string
+}
+
+type LambdaFunctionOwner struct {
+	Partition    string
+	Account      string
+	Region       string
+	FunctionName string
+	Pending      bool
+	Version      int64
+	StackID      string
+	LogicalID    string
+	Token        string
 }
 
 type LambdaFunctionPolicy struct {
@@ -558,6 +626,9 @@ type LambdaFunctionUrl struct {
 	EffectiveAllowOrigins     sql.NullString
 	EffectiveExposeHeaders    sql.NullString
 	EffectiveMaxAge           sql.NullInt64
+	OwnerStackID              string
+	OwnerLogicalID            string
+	OwnerToken                string
 }
 
 type LambdaFunctionVariable struct {

@@ -43,6 +43,9 @@ func (s *Service) updateAccount(tx Transaction, in *api.UpdateAccountRequest) (*
 	if err != nil {
 		return nil, err
 	}
+	previousRole := row.CloudWatchRoleARN
+	binding, _ := tx.Context().Value(ownershipContextKey{}).(*ownershipContext)
+	releasing := binding != nil && binding.Kind == "Account" && binding.Release
 	changed := false
 	for _, patch := range in.PatchOperations {
 		if value(patch.Path) != "/cloudwatchRoleArn" {
@@ -53,7 +56,10 @@ func (s *Service) updateAccount(tx Transaction, in *api.UpdateAccountRequest) (*
 		}
 		changed = true
 	}
-	if changed && row.CloudWatchRoleARN != "" {
+	if releasing && row.CloudWatchRoleARN != previousRole {
+		return nil, bad("Releasing account ownership cannot change its logging role")
+	}
+	if changed && row.CloudWatchRoleARN != "" && !releasing {
 		if s.logs == nil {
 			return nil, unsupported("CloudWatch logging role admission")
 		}

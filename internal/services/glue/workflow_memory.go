@@ -94,6 +94,9 @@ func (w memoryWriter) PutWorkflow(v WorkflowRecord) error {
 	if err := w.tx.Check(true); err != nil {
 		return err
 	}
+	if old, ok := w.s.workflows[v.Key]; ok {
+		v.CFNOwner = old.CFNOwner
+	}
 	w.s.workflows[v.Key] = cloneWorkflowRecord(v)
 	return nil
 }
@@ -131,6 +134,9 @@ func (r memoryReader) Triggers(scope Scope) ([]TriggerRecord, error) {
 func (w memoryWriter) PutTrigger(v TriggerRecord) error {
 	if err := w.tx.Check(true); err != nil {
 		return err
+	}
+	if old, ok := w.s.triggers[v.Key]; ok {
+		v.CFNOwner = old.CFNOwner
 	}
 	w.s.triggers[v.Key] = cloneTriggerRecord(v)
 	return nil

@@ -20,6 +20,8 @@ type RecordSet struct {
 	Weight                 int64
 	MultiValue             bool
 	Alias                  *AliasTarget
+	// Owner is an internal CloudFormation incarnation claim, absent from the public API.
+	Owner string
 }
 type Zone struct {
 	Scope

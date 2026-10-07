@@ -45,6 +45,13 @@ func (r reader) Trail(k domain.TrailKey) (domain.TrailRecord, error) {
 	}
 	return r.trail(v)
 }
+func (r reader) TrailByOwner(partition, region, name, owner string) (domain.TrailRecord, error) {
+	v, err := r.q.GetTrailByOwner(r.ctx, sqlcgen.GetTrailByOwnerParams{Partition: partition, Region: region, Name: name, CfnOwner: owner})
+	if err != nil {
+		return domain.TrailRecord{}, notFound(err)
+	}
+	return r.trail(v)
+}
 func (r reader) Trails(partition, accountID string) ([]domain.TrailRecord, error) {
 	rows, err := r.q.ListTrails(r.ctx, sqlcgen.ListTrailsParams{Partition: partition, AccountID: accountID})
 	if err != nil {
@@ -77,6 +84,7 @@ func (r reader) trail(row sqlcgen.CloudtrailTrail) (domain.TrailRecord, error) {
 	v.KMSKeyID = row.KmsKeyID
 	v.SNSTopicName = row.SnsTopicName
 	v.OrganizationID = row.OrganizationID
+	v.CFNOwner = row.CfnOwner
 	tags, err := r.q.ListTags(r.ctx, row.ID)
 	if err != nil {
 		return domain.TrailRecord{}, err
@@ -159,6 +167,9 @@ func (w writer) PutTrail(v domain.TrailRecord) error {
 	if err == nil && old.ID != v.ID {
 		return errors.New("CloudTrail trail identity is immutable")
 	}
+	if err == nil && old.CfnOwner != v.CFNOwner {
+		return errors.New("CloudTrail trail ownership is immutable")
+	}
 	if err == nil && (old.LogsGroupArn != v.LogsGroupARN || old.LogsRoleArn != v.LogsRoleARN) {
 		if err := w.q.DeleteDestinationDeliveries(w.ctx, sqlcgen.DeleteDestinationDeliveriesParams{TrailID: v.ID, Destination: string(domain.DestinationLogs)}); err != nil {
 			return err
@@ -168,7 +179,7 @@ func (w writer) PutTrail(v domain.TrailRecord) error {
 		}
 	}
 	if err := w.q.PutTrail(w.ctx, sqlcgen.PutTrailParams{Partition: v.Key.Partition, AccountID: v.Key.AccountID, Region: v.Key.Region, Name: v.Key.Name,
-		ID: v.ID, OrganizationID: v.OrganizationID, Bucket: v.Bucket, Prefix: v.Prefix, KmsKeyID: v.KMSKeyID, SnsTopicName: v.SNSTopicName, LogsGroupArn: v.LogsGroupARN, LogsRoleArn: v.LogsRoleARN, IncludeGlobal: v.IncludeGlobal, MultiRegion: v.MultiRegion, RecursiveLogging: v.RecursiveLogging, Logging: v.Logging, LogFileValidation: v.LogFileValidation,
+		ID: v.ID, CfnOwner: v.CFNOwner, OrganizationID: v.OrganizationID, Bucket: v.Bucket, Prefix: v.Prefix, KmsKeyID: v.KMSKeyID, SnsTopicName: v.SNSTopicName, LogsGroupArn: v.LogsGroupARN, LogsRoleArn: v.LogsRoleARN, IncludeGlobal: v.IncludeGlobal, MultiRegion: v.MultiRegion, RecursiveLogging: v.RecursiveLogging, Logging: v.Logging, LogFileValidation: v.LogFileValidation,
 		Created: v.Created, Modified: v.Modified, Started: v.Started, Stopped: v.Stopped, StopAfter: v.StopAfter}); err != nil {
 		return err
 	}

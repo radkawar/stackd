@@ -134,7 +134,7 @@ func (q *Queries) GetFindingExport(ctx context.Context, arg GetFindingExportPara
 }
 
 const getPublishingDestination = `-- name: GetPublishingDestination :one
-SELECT "partition", account_id, region, detector_id, id, arn, type, client_token, destination_arn, kms_key_arn, status, version, created, updated, failure_started, tags_present FROM guardduty_publishing_destinations WHERE partition=? AND account_id=? AND region=? AND detector_id=? AND id=?
+SELECT "partition", account_id, region, detector_id, id, arn, type, client_token, destination_arn, kms_key_arn, status, version, created, updated, failure_started, tags_present, cfn_owner, cfn_token FROM guardduty_publishing_destinations WHERE partition=? AND account_id=? AND region=? AND detector_id=? AND id=?
 `
 
 type GetPublishingDestinationParams struct {
@@ -171,6 +171,8 @@ func (q *Queries) GetPublishingDestination(ctx context.Context, arg GetPublishin
 		&i.Updated,
 		&i.FailureStarted,
 		&i.TagsPresent,
+		&i.CfnOwner,
+		&i.CfnToken,
 	)
 	return i, err
 }
@@ -265,7 +267,7 @@ func (q *Queries) ListPublishingDestinationTags(ctx context.Context, arn string)
 }
 
 const listPublishingDestinations = `-- name: ListPublishingDestinations :many
-SELECT "partition", account_id, region, detector_id, id, arn, type, client_token, destination_arn, kms_key_arn, status, version, created, updated, failure_started, tags_present FROM guardduty_publishing_destinations WHERE partition=? AND account_id=? AND region=? AND detector_id=? ORDER BY id
+SELECT "partition", account_id, region, detector_id, id, arn, type, client_token, destination_arn, kms_key_arn, status, version, created, updated, failure_started, tags_present, cfn_owner, cfn_token FROM guardduty_publishing_destinations WHERE partition=? AND account_id=? AND region=? AND detector_id=? ORDER BY id
 `
 
 type ListPublishingDestinationsParams struct {
@@ -306,6 +308,8 @@ func (q *Queries) ListPublishingDestinations(ctx context.Context, arg ListPublis
 			&i.Updated,
 			&i.FailureStarted,
 			&i.TagsPresent,
+			&i.CfnOwner,
+			&i.CfnToken,
 		); err != nil {
 			return nil, err
 		}
@@ -407,12 +411,14 @@ func (q *Queries) PutFindingExport(ctx context.Context, arg PutFindingExportPara
 }
 
 const putPublishingDestination = `-- name: PutPublishingDestination :exec
-INSERT INTO guardduty_publishing_destinations (partition,account_id,region,detector_id,id,arn,type,client_token,destination_arn,kms_key_arn,status,version,created,updated,failure_started,tags_present)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+INSERT INTO guardduty_publishing_destinations (cfn_owner,cfn_token,partition,account_id,region,detector_id,id,arn,type,client_token,destination_arn,kms_key_arn,status,version,created,updated,failure_started,tags_present)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(partition,account_id,region,detector_id,id) DO UPDATE SET arn=excluded.arn,type=excluded.type,client_token=excluded.client_token,destination_arn=excluded.destination_arn,kms_key_arn=excluded.kms_key_arn,status=excluded.status,version=excluded.version,created=excluded.created,updated=excluded.updated,failure_started=excluded.failure_started,tags_present=excluded.tags_present
 `
 
 type PutPublishingDestinationParams struct {
+	CfnOwner       string
+	CfnToken       string
 	Partition      string
 	AccountID      string
 	Region         string
@@ -433,6 +439,8 @@ type PutPublishingDestinationParams struct {
 
 func (q *Queries) PutPublishingDestination(ctx context.Context, arg PutPublishingDestinationParams) error {
 	_, err := q.db.ExecContext(ctx, putPublishingDestination,
+		arg.CfnOwner,
+		arg.CfnToken,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,

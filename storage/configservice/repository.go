@@ -7,6 +7,7 @@ import (
 )
 
 type (
+	CloudFormationOwnership  = domain.CloudFormationOwnership
 	Repository               = domain.Repository
 	Reader                   = domain.Reader
 	Transaction              = domain.Transaction

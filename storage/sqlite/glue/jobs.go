@@ -36,6 +36,7 @@ func jobSQLBool(v bool) int64 {
 
 func (r reader) decodeJob(v sqlcgen.GlueJob) (domain.JobRecord, error) {
 	out := domain.JobRecord{Key: domain.ResourceKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name}}
+	out.CFNOwner = v.CfnOwner
 	out.Description = v.Description
 	out.Role = v.Role
 	out.Command = v.Command
@@ -78,6 +79,7 @@ func (w writer) PutJob(v domain.JobRecord) error {
 		return err
 	}
 	if err := w.q.PutGlueJob(w.ctx, sqlcgen.PutGlueJobParams{Partition: v.Key.Partition, AccountID: v.Key.AccountID, Region: v.Key.Region, Name: v.Key.Name,
+		CfnOwner:                v.CFNOwner,
 		Description:             v.Description,
 		Role:                    v.Role,
 		Command:                 v.Command,

@@ -69,7 +69,7 @@ class Proof:
         self.log=(self.state/f'controller-{self.starts}.log').open('wb')
         env={k:v for k,v in os.environ.items() if not k.startswith('AWS_')}
         env['AWS_EC2_METADATA_DISABLED']='true'
-        self.process=subprocess.Popen([str(Path(self.args.binary).resolve()),'-listen',f'0.0.0.0:{self.port}','-public-endpoint',self.endpoint,'-database',str(self.state/'runtime.sqlite'),'-docker-host',self.args.docker_host,'-lambda-telemetry-directory',self.args.telemetry_directory,'-compute-endpoint',f'http://host.docker.internal:{self.port}','-lambda-keep-alive','0'],stdout=self.log,stderr=self.log,env=env)
+        self.process=subprocess.Popen([str(Path(self.args.binary).resolve()),'-listen',f'0.0.0.0:{self.port}','-public-endpoint',self.endpoint,'-database',str(self.state/'runtime.sqlite'),'-docker-host',self.args.docker_host,'-lambda-runtime','-lambda-telemetry-directory',self.args.telemetry_directory,'-compute-endpoint',f'http://host.docker.internal:{self.port}','-lambda-keep-alive','0'],stdout=self.log,stderr=self.log,env=env)
         def ready():
             require(self.process.poll() is None,'controller exited')
             try:

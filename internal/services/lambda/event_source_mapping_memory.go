@@ -2,6 +2,7 @@ package lambda
 
 import (
 	"cmp"
+	"errors"
 	"maps"
 	"slices"
 
@@ -84,6 +85,13 @@ func (w memoryWriter) PutEventSourceMapping(v EventSourceMappingRecord) error {
 		return err
 	}
 	return w.repository.mappings.Update(w.Context(), func(rows *map[EventSourceMappingKey]EventSourceMappingRecord, _ *memory.Transaction) error {
+		if v.Owner != (MappingOwner{}) {
+			for key, current := range *rows {
+				if key != v.Key && key.Scope == v.Key.Scope && current.Owner == v.Owner {
+					return errors.New("event source mapping owner already has an admission")
+				}
+			}
+		}
 		if previous, ok := (*rows)[v.Key]; ok {
 			v.LastProcessingResult = previous.LastProcessingResult
 		}

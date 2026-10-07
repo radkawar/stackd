@@ -55,9 +55,11 @@ func (r reader) topic(v sqlcgen.SnsTopic) (domain.TopicRecord, error) {
 		ID:  v.ID, Created: v.Created, Updated: v.Updated, DisplayName: v.DisplayName,
 		SignatureVersion: v.SignatureVersion, Policy: authorization.BoundPolicy{Document: v.Policy}, Tags: make(map[string]string, len(tags)),
 		FIFO: v.Fifo, ContentBasedDeduplication: v.ContentBasedDeduplication, FifoThroughputScope: v.FifoThroughputScope, Sequence: uint64(v.Sequence),
-		KmsMasterKeyID: v.KmsMasterKeyID,
-		DeliveryPolicy: v.DeliveryPolicy,
-		TracingConfig:  v.TracingConfig,
+		KmsMasterKeyID:  v.KmsMasterKeyID,
+		DeliveryPolicy:  v.DeliveryPolicy,
+		TracingConfig:   v.TracingConfig,
+		CreationOwner:   domain.TopicCreationOwner{Owner: v.CfnTopicOwner, Token: v.CfnTopicToken},
+		PolicyOwnership: domain.PolicyOwnership{Owner: v.CfnPolicyOwner, Identifier: v.CfnPolicyIdentifier, Type: v.CfnPolicyType},
 	}
 	archive, err := r.q.GetTopicArchive(r.ctx, v.ID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -89,7 +91,7 @@ func (r reader) topic(v sqlcgen.SnsTopic) (domain.TopicRecord, error) {
 
 func (w writer) PutTopic(v domain.TopicRecord) error {
 	k := v.Key
-	if err := w.q.PutTopic(w.ctx, sqlcgen.PutTopicParams{ID: v.ID, Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, Created: v.Created.UTC(), Updated: v.Updated.UTC(), DisplayName: v.DisplayName, SignatureVersion: v.SignatureVersion, Policy: v.Policy.Document, Fifo: v.FIFO, ContentBasedDeduplication: v.ContentBasedDeduplication, FifoThroughputScope: v.FifoThroughputScope, Sequence: int64(v.Sequence), KmsMasterKeyID: v.KmsMasterKeyID, DeliveryPolicy: v.DeliveryPolicy, TracingConfig: v.TracingConfig}); err != nil {
+	if err := w.q.PutTopic(w.ctx, sqlcgen.PutTopicParams{ID: v.ID, Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, Created: v.Created.UTC(), Updated: v.Updated.UTC(), DisplayName: v.DisplayName, SignatureVersion: v.SignatureVersion, Policy: v.Policy.Document, Fifo: v.FIFO, ContentBasedDeduplication: v.ContentBasedDeduplication, FifoThroughputScope: v.FifoThroughputScope, Sequence: int64(v.Sequence), KmsMasterKeyID: v.KmsMasterKeyID, DeliveryPolicy: v.DeliveryPolicy, TracingConfig: v.TracingConfig, CfnTopicOwner: v.CreationOwner.Owner, CfnTopicToken: v.CreationOwner.Token, CfnPolicyOwner: v.PolicyOwnership.Owner, CfnPolicyIdentifier: v.PolicyOwnership.Identifier, CfnPolicyType: v.PolicyOwnership.Type}); err != nil {
 		return err
 	}
 	if err := w.q.DeleteTopicTags(w.ctx, v.ID); err != nil {

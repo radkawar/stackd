@@ -1,6 +1,6 @@
 -- name: PutIPList :exec
-INSERT INTO guardduty_ip_lists (partition, account_id, region, detector_id, kind, id, arn, name, format, location, expected_bucket_owner, client_token, status, version, due, tags_present)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO guardduty_ip_lists (cfn_owner, cfn_token, partition, account_id, region, detector_id, kind, id, arn, name, format, location, expected_bucket_owner, client_token, status, version, due, tags_present)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, detector_id, kind, id) DO UPDATE SET arn=excluded.arn, name=excluded.name, format=excluded.format, location=excluded.location, expected_bucket_owner=excluded.expected_bucket_owner, client_token=excluded.client_token, status=excluded.status, version=excluded.version, due=excluded.due, tags_present=excluded.tags_present;
 
 -- name: GetIPList :one

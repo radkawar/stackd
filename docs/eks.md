@@ -7,6 +7,32 @@ claim of complete EKS behavior. EKS and EKS Auth wire contracts are generated fr
 the pinned AWS SDK Smithy checkout. The EKS Auth provider resolves pod-bound
 credentials through the current EKS, IAM and STS owners, not fixed credentials.
 
+## Private CloudFormation resource identity
+
+The registered Cluster, Nodegroup, Addon, FargateProfile, AccessEntry and
+PodIdentityAssociation adapters use EKS-owned private creation receipts, admitted
+in the same transaction as a genuinely new native row. Receipt identity includes
+the exact partition/account/Region, deployment incarnation and native random
+resource ID. Recovery observes that exact ID under current native Describe IAM;
+every stack mutation evaluates current native IAM before its transaction-local
+incarnation fence. Public tags, including marker-shaped customer keys, neither
+grant nor revoke ownership, and adapters emit no ownership tags.
+
+Ordinary native and Cloud Control mutations retain the surviving row's private
+claim. Native deletion invalidates it; a same-name replacement cannot inherit
+the claim, even when creation times coincide. Immutable receipts remain retained
+to prevent an old deployment incarnation from creating a second resource.
+SQLite migration 393 stores typed receipts and performs no public-marker
+backfill. Existing unclaimed resources are not imported on replay.
+
+Private admission does not synthesize readiness or remove runtime prerequisites.
+Cluster, managed-worker, add-on and Fargate effects retain their existing native
+runtime/dependency requirements and still execute outside repository callbacks.
+Deterministic control-state tests are not real Kubernetes/guest proof.
+EKSAnywhereSubscription and IdentityProviderConfig remain unregistered here;
+this cutover adds no speculative lifecycle implementation for them.
+
+
 ## Explicit runtime selection
 
 The built-in adapter requires operator-installed **k3d v5.8.3**, Docker, and the

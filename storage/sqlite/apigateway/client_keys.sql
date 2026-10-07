@@ -8,8 +8,8 @@ SELECT * FROM apigateway_client_keys WHERE partition = ? AND account_id = ? AND 
 SELECT * FROM apigateway_client_keys WHERE partition = ? AND account_id = ? AND region = ? ORDER BY client_key_id;
 
 -- name: PutClientKey :exec
-INSERT INTO apigateway_client_keys (partition, account_id, region, client_key_id, name, description, customer_id, value, enabled, created, updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, client_key_id) DO UPDATE SET name = excluded.name, description = excluded.description, customer_id = excluded.customer_id, value = excluded.value, enabled = excluded.enabled, created = excluded.created, updated = excluded.updated;
+INSERT INTO apigateway_client_keys (partition, account_id, region, client_key_id, name, description, customer_id, value, enabled, created, updated, cfn_stack_id, cfn_logical_id, cfn_incarnation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, client_key_id) DO UPDATE SET name = excluded.name, description = excluded.description, customer_id = excluded.customer_id, value = excluded.value, enabled = excluded.enabled, created = excluded.created, updated = excluded.updated, cfn_stack_id = excluded.cfn_stack_id, cfn_logical_id = excluded.cfn_logical_id, cfn_incarnation = excluded.cfn_incarnation;
 
 -- name: DeleteClientKey :exec
 DELETE FROM apigateway_client_keys WHERE partition = ? AND account_id = ? AND region = ? AND client_key_id = ?;

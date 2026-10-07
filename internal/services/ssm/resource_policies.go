@@ -57,6 +57,18 @@ func (s *Service) putResourcePolicy(tx Transaction, in *api.PutResourcePolicyReq
 			return nil, failure("ResourcePolicyConflictException", "The policy hash does not match the current policy version.")
 		}
 	}
+	claim, claimed := cloudFormationPolicyOwner(tx.Context())
+	if claimed {
+		if id == "" {
+			// A retried incarnation recovers only the policy it committed.
+			if owned := slices.IndexFunc(p.ResourcePolicies, func(policy ResourcePolicy) bool { return policy.CloudFormationOwner == claim }); owned >= 0 {
+				existing := p.ResourcePolicies[owned]
+				return &api.PutResourcePolicyResponse{PolicyId: new(api.PolicyId(existing.ID)), PolicyHash: new(api.PolicyHash(existing.Hash))}, nil
+			}
+		} else if p.ResourcePolicies[index].CloudFormationOwner != claim {
+			return nil, cloudFormationPolicyConflict()
+		}
+	}
 	document := value(in.Policy)
 	if len(document) > 1024 {
 		return nil, failure("ResourcePolicyLimitExceededException", "A resource policy cannot exceed 1024 bytes.")
@@ -74,8 +86,13 @@ func (s *Service) putResourcePolicy(tx Transaction, in *api.PutResourcePolicyReq
 	digest := sha256.Sum256([]byte(document))
 	policy := ResourcePolicy{ID: id, Hash: hex.EncodeToString(digest[:]), Policy: bound}
 	if index < 0 {
+		if claimed {
+			policy.CloudFormationOwner = claim
+		}
 		p.ResourcePolicies = append(p.ResourcePolicies, policy)
 	} else {
+		// Public updates keep the incarnation that created the policy.
+		policy.CloudFormationOwner = p.ResourcePolicies[index].CloudFormationOwner
 		p.ResourcePolicies[index] = policy
 	}
 	if err := tx.PutParameter(p); err != nil {
@@ -94,7 +111,9 @@ func (s *Service) getResourcePolicies(tx Transaction, in *api.GetResourcePolicie
 	if err != nil {
 		return nil, err
 	}
-	if sharing, ok := s.sharing.(ManagedParameterPolicies); ok {
+	if claim, claimed := cloudFormationPolicyOwner(tx.Context()); claimed {
+		p.ResourcePolicies = slices.DeleteFunc(slices.Clone(p.ResourcePolicies), func(policy ResourcePolicy) bool { return policy.CloudFormationOwner != claim })
+	} else if sharing, ok := s.sharing.(ManagedParameterPolicies); ok {
 		managed, err := sharing.ManagedPolicies(tx.Context(), SharedParameter{ARN: p.ARN})
 		if err != nil {
 			return nil, err
@@ -141,6 +160,9 @@ func (s *Service) deleteResourcePolicy(tx Transaction, in *api.DeleteResourcePol
 	}
 	if value(in.PolicyHash) != p.ResourcePolicies[index].Hash {
 		return nil, failure("ResourcePolicyConflictException", "The policy hash does not match the current policy version.")
+	}
+	if claim, claimed := cloudFormationPolicyOwner(tx.Context()); claimed && p.ResourcePolicies[index].CloudFormationOwner != claim {
+		return nil, cloudFormationPolicyConflict()
 	}
 	p.ResourcePolicies = slices.Delete(p.ResourcePolicies, index, index+1)
 	if err := tx.PutParameter(p); err != nil {

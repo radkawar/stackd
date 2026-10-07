@@ -149,7 +149,7 @@ func register[I, O any](s *Service, action string, fn func(context.Context, Tran
 		var out *O
 		err = s.repository.Attempt(ctx, func(tx Transaction) error {
 			var e error
-			out, e = fn(tx.Context(), tx, in)
+			out, e = fn(tx.Context(), bindCloudFormationOwner(tx), in)
 			if e != nil {
 				return e
 			}

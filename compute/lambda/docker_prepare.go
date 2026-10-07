@@ -41,13 +41,19 @@ func (d *DockerExecutor) Prepare(ctx context.Context, spec Specification) (Envir
 		return nil, fmt.Errorf("unsupported Lambda architecture %q", spec.Architecture)
 	}
 	image, ok := d.config.Images[RuntimePlatform{Runtime: spec.Runtime, Architecture: spec.Architecture}]
+	if spec.Image != nil {
+		image, ok = spec.Image.ID, true
+		if spec.Image.PinReference != "" {
+			image = spec.Image.PinReference
+		}
+	}
 	if !ok {
 		return nil, fmt.Errorf("lambda runtime %q architecture %q is not configured for Docker execution", spec.Runtime, spec.Architecture)
 	}
 	if spec.Timeout <= 0 || spec.Timeout > 900*time.Second || spec.MemoryMB < 128 || spec.MemoryMB > 10240 || spec.EphemeralMB < 512 || spec.EphemeralMB > 10240 {
 		return nil, fmt.Errorf("invalid Lambda timeout, memory or ephemeral-storage limits")
 	}
-	if spec.Handler == "" || strings.ContainsAny(spec.Handler, "\x00\r\n") {
+	if spec.Image == nil && (spec.Handler == "" || strings.ContainsAny(spec.Handler, "\x00\r\n")) {
 		return nil, fmt.Errorf("lambda handler is required and must not contain control characters")
 	}
 	if spec.Credentials.AccessKeyID == "" || spec.Credentials.SecretAccessKey == "" || spec.Credentials.SessionToken == "" {
@@ -68,12 +74,12 @@ func (d *DockerExecutor) Prepare(ctx context.Context, spec Specification) (Envir
 		}
 	}
 	var directories HotReloadDirectories
-	if version == "$LATEST" {
+	if version == "$LATEST" && spec.Image == nil {
 		directories = d.config.HotReload[strings.TrimSuffix(spec.FunctionARN, ":$LATEST")]
 	}
 	var archive, layers *os.File
 	var err error
-	if directories.Code == "" {
+	if directories.Code == "" && spec.Image == nil {
 		archive, err = codeArchive(ctx, spec.Code)
 		if err != nil {
 			return nil, err
@@ -98,38 +104,56 @@ func (d *DockerExecutor) Prepare(ctx context.Context, spec Specification) (Envir
 		ID           string `json:"Id"`
 		OS           string `json:"Os"`
 		Architecture string
-		Config       struct{ Entrypoint []string }
+		Config       struct {
+			Entrypoint []string
+			Labels     map[string]string
+		}
 	}
 	// API 1.41 inspects the locally stored image, not a requested manifest-list
-	// platform. Verify its actual platform, then create by that exact image ID.
+	// platform. The owned alias keeps its manifest reachable across tag rebuilds;
+	// verify its actual native config identity before creating an environment.
 	if err := d.engine.JSON(startupCtx, "GET", "/images/"+url.PathEscape(image)+"/json", nil, &imageInfo); err != nil {
 		return nil, fmt.Errorf("lambda image %s is unavailable locally (automatic pull is disabled): %w", image, err)
 	}
 	if imageInfo.OS != "linux" || imageInfo.Architecture != architecture {
 		return nil, fmt.Errorf("lambda image platform %s/%s does not match linux/%s", imageInfo.OS, imageInfo.Architecture, architecture)
 	}
-	if len(imageInfo.Config.Entrypoint) != 1 || imageInfo.Config.Entrypoint[0] != "/lambda-entrypoint.sh" {
-		return nil, fmt.Errorf("lambda image must provide the official /lambda-entrypoint.sh entrypoint")
+	if spec.Image == nil && (len(imageInfo.Config.Entrypoint) != 1 || imageInfo.Config.Entrypoint[0] != "/lambda-entrypoint.sh") {
+		return nil, fmt.Errorf("lambda ZIP runtime image must provide the official /lambda-entrypoint.sh entrypoint")
+	}
+	workingDirectory := "/var/task"
+	if spec.Image != nil {
+		expected := spec.Image.ID
+		if spec.Image.PinReference != "" {
+			expected = spec.Image.PinImageID
+			owned, err := d.imagePinLabels(imageInfo.Config.Labels)
+			if err != nil || owned.ID != spec.Image.ID || owned.PinLease != spec.Image.PinLease || owned.PinReference != spec.Image.PinReference {
+				return nil, fmt.Errorf("lambda image retention ownership changed after deployment admission")
+			}
+		}
+		if imageInfo.ID != expected {
+			return nil, fmt.Errorf("lambda image identity changed after deployment admission")
+		}
+		if _, directory, err := imageCommand(spec.Image, spec.ImageConfig); err != nil {
+			return nil, err
+		} else {
+			workingDirectory = directory
+		}
+	}
+	if spec.Image == nil || spec.Image.PinReference == "" {
+		image = imageInfo.ID
 	}
 	var random [24]byte
 	if _, err := rand.Read(random[:]); err != nil {
 		return nil, err
 	}
 	identity := "stackd-lambda-" + hex.EncodeToString(random[:])
-	hostname := identity + ".runtime.internal"
-	gateway := "host-gateway"
-	if d.config.CallbackHost != "" {
-		addresses, err := net.DefaultResolver.LookupIPAddr(startupCtx, d.config.CallbackHost)
-		if err != nil || len(addresses) == 0 {
-			return nil, fmt.Errorf("resolving Lambda callback host %q: %w", d.config.CallbackHost, err)
-		}
-		gateway = addresses[0].IP.String()
-		for _, address := range addresses {
-			if address.IP.To4() != nil {
-				gateway = address.IP.String()
-				break
-			}
-		}
+	hostname, extraHosts, err := callbackNetwork(startupCtx, identity, d.config.CallbackHost)
+	if err != nil {
+		return nil, err
+	}
+	if spec.FunctionNetwork != nil {
+		hostname = identity + ".runtime.internal"
 	}
 	listener, err := (&net.ListenConfig{}).Listen(startupCtx, "tcp", d.config.ListenAddress)
 	if err != nil {
@@ -208,10 +232,10 @@ func (d *DockerExecutor) Prepare(ctx context.Context, spec Specification) (Envir
 	// The installer keeps /tmp and the network namespace across process resets.
 	// It does not own subscription data. The runtime's PID 1 owns those bytes
 	// under the same memory cgroup as the real function and extension processes.
-	stageConfig := docker.ContainerConfig{Image: imageInfo.ID, Entrypoint: []string{"/bin/sleep"}, Cmd: []string{"infinity"}, User: "993:993", Labels: labels, HostConfig: docker.ContainerHostConfig{
+	stageConfig := docker.ContainerConfig{Image: image, Entrypoint: []string{"/bin/sleep"}, Cmd: []string{"infinity"}, User: "993:993", Labels: labels, HostConfig: docker.ContainerHostConfig{
 		ReadonlyRootfs: true, Memory: 256 << 20, MemorySwap: 256 << 20, CPUPeriod: 100000, CPUQuota: 100000, PidsLimit: 256,
 		CapDrop: []string{"ALL"}, SecurityOpt: []string{"no-new-privileges:true"}, LogConfig: docker.ContainerLogConfig{Type: "none"},
-		ExtraHosts: []string{hostname + ":" + gateway, "host.docker.internal:" + gateway, "sandbox.localdomain:127.0.0.1"},
+		ExtraHosts: extraHosts,
 		Mounts: []docker.ContainerMount{
 			{Type: "volume", Source: e.tmpVolume, Target: "/tmp", VolumeOptions: docker.ContainerVolumeOptions{NoCopy: true, Labels: labels}},
 			{Type: "volume", Source: e.helperVolume, Target: "/stackd", VolumeOptions: docker.ContainerVolumeOptions{NoCopy: true, Labels: labels}},
@@ -222,6 +246,21 @@ func (d *DockerExecutor) Prepare(ctx context.Context, spec Specification) (Envir
 	}
 	if layers != nil {
 		stageConfig.HostConfig.Mounts = append(stageConfig.HostConfig.Mounts, docker.ContainerMount{Type: "volume", Source: e.layerVolume, Target: "/opt", VolumeOptions: docker.ContainerVolumeOptions{NoCopy: true, Labels: labels}})
+	}
+	if spec.FunctionNetwork != nil {
+		foundCallback := false
+		for _, host := range stageConfig.HostConfig.ExtraHosts {
+			if strings.HasPrefix(host, hostname+":") {
+				foundCallback = true
+				break
+			}
+		}
+		if !foundCallback {
+			stageConfig.HostConfig.ExtraHosts = append(stageConfig.HostConfig.ExtraHosts, hostname+":host-gateway")
+		}
+		if err := spec.FunctionNetwork.Configure(startupCtx, &stageConfig, net.JoinHostPort(d.config.CallbackHost, port)); err != nil {
+			return failed(err)
+		}
 	}
 	e.staging = identity + "-code"
 	if err := d.engine.JSON(startupCtx, "POST", "/containers/create?name="+identity+"-code&platform="+url.QueryEscape(e.platform), stageConfig, &staging); err != nil {
@@ -244,13 +283,33 @@ func (d *DockerExecutor) Prepare(ctx context.Context, spec Specification) (Envir
 	if err := d.engine.JSON(startupCtx, "POST", "/containers/"+url.PathEscape(e.staging)+"/start", nil, nil); err != nil {
 		return failed(fmt.Errorf("starting Lambda temporary-storage keeper: %w", err))
 	}
+	if spec.FunctionNetwork != nil {
+		if err := spec.FunctionNetwork.Attach(startupCtx, e.staging); err != nil {
+			return failed(err)
+		}
+	}
 	go e.watchKeeper(e.staging)
 	variables := make(map[string]string, len(spec.Variables)+16)
+	if spec.Image != nil {
+		for _, pair := range spec.Image.Environment {
+			if key, value, found := strings.Cut(pair, "="); found {
+				variables[key] = value
+			}
+		}
+	}
+	if spec.FunctionNetwork != nil {
+		for key, value := range spec.FunctionNetwork.EndpointVariables() {
+			variables[key] = value
+		}
+	}
 	for key, value := range spec.Variables {
 		if key == "" || strings.ContainsAny(key, "=\x00") || strings.ContainsRune(value, '\x00') {
 			return failed(fmt.Errorf("invalid Lambda environment variable %q", key))
 		}
 		variables[key] = value
+	}
+	if spec.Image == nil {
+		variables["_HANDLER"] = spec.Handler
 	}
 	for key, value := range map[string]string{
 		"AWS_LAMBDA_RUNTIME_API": e.host, "AWS_ACCESS_KEY_ID": spec.Credentials.AccessKeyID,
@@ -258,9 +317,12 @@ func (d *DockerExecutor) Prepare(ctx context.Context, spec Specification) (Envir
 		"AWS_REGION": arn[3], "AWS_DEFAULT_REGION": arn[3], "AWS_LAMBDA_FUNCTION_NAME": spec.FunctionName,
 		"AWS_LAMBDA_FUNCTION_VERSION": version, "AWS_LAMBDA_FUNCTION_MEMORY_SIZE": strconv.Itoa(spec.MemoryMB),
 		"AWS_LAMBDA_LOG_GROUP_NAME": "/aws/lambda/" + spec.FunctionName, "AWS_LAMBDA_LOG_STREAM_NAME": identity,
-		"AWS_EXECUTION_ENV": "AWS_Lambda_" + spec.Runtime, "AWS_LAMBDA_INITIALIZATION_TYPE": string(e.initializationType()),
+		"AWS_LAMBDA_INITIALIZATION_TYPE": string(e.initializationType()),
 	} {
 		variables[key] = value
+	}
+	if spec.Runtime != "" {
+		variables["AWS_EXECUTION_ENV"] = "AWS_Lambda_" + spec.Runtime
 	}
 	// These are runtime-owned controls, never inherited from customer variables.
 	delete(variables, "_LAMBDA_TELEMETRY_LOG_FD")
@@ -309,7 +371,7 @@ func (d *DockerExecutor) Prepare(ctx context.Context, spec Specification) (Envir
 		mounts = append(mounts, docker.ContainerMount{Type: "bind", Source: directories.Layers, Target: "/opt", ReadOnly: true})
 	}
 	memory := int64(spec.MemoryMB) << 20
-	e.runtimeConfig = docker.ContainerConfig{Image: imageInfo.ID, Entrypoint: []string{"/stackd/telemetry-buffer"}, Cmd: []string{"http://" + e.host + e.telemetry.remote.path}, Env: environment, WorkingDir: "/var/task", User: "993:993", Labels: labels, HostConfig: docker.ContainerHostConfig{
+	e.runtimeConfig = docker.ContainerConfig{Image: image, Entrypoint: []string{"/stackd/telemetry-buffer"}, Cmd: []string{"http://" + e.host + e.telemetry.remote.path}, Env: environment, WorkingDir: workingDirectory, User: "993:993", Labels: labels, HostConfig: docker.ContainerHostConfig{
 		ReadonlyRootfs: true, Memory: memory, MemorySwap: memory, CPUPeriod: 100000, CPUQuota: int64(spec.MemoryMB) * 100000 / 1769, PidsLimit: 1024,
 		CapDrop: []string{"ALL"}, SecurityOpt: []string{"no-new-privileges:true"}, NetworkMode: "container:" + e.staging,
 		Mounts:    mounts,

@@ -47,6 +47,7 @@ type MqBroker struct {
 	LogAuditOffset         int64
 	LogDeliveryError       string
 	LogDue                 time.Time
+	Ownership              string
 }
 
 type MqBrokerConfiguration struct {
@@ -93,6 +94,7 @@ type MqConfiguration struct {
 	EngineVersion          string
 	AuthenticationStrategy string
 	Created                time.Time
+	Ownership              string
 }
 
 type MqConfigurationRevision struct {

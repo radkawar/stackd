@@ -33,7 +33,7 @@ func (r reader) Instances(scope domain.Scope) ([]domain.Instance, error) {
 }
 
 func (r reader) instance(row sqlcgen.IdentitycenterInstance) (domain.Instance, error) {
-	v := domain.Instance{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ARN: row.Arn, StoreID: row.StoreID, Name: row.Name, ClientToken: row.ClientToken, Created: row.Created.UTC()}
+	v := domain.Instance{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ARN: row.Arn, StoreID: row.StoreID, Name: row.Name, ClientToken: row.ClientToken, Created: row.Created.UTC(), CloudFormationOwner: row.CloudformationOwner}
 	tags, err := r.q.ListInstanceTags(r.ctx, row.Arn)
 	if err != nil {
 		return domain.Instance{}, err
@@ -46,7 +46,7 @@ func (r reader) instance(row sqlcgen.IdentitycenterInstance) (domain.Instance, e
 }
 
 func (w writer) PutInstance(v domain.Instance) error {
-	if err := w.q.PutInstance(w.ctx, sqlcgen.PutInstanceParams{Arn: v.ARN, Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, StoreID: v.StoreID, Name: v.Name, ClientToken: v.ClientToken, Created: v.Created.UTC()}); err != nil {
+	if err := w.q.PutInstance(w.ctx, sqlcgen.PutInstanceParams{Arn: v.ARN, Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, StoreID: v.StoreID, Name: v.Name, ClientToken: v.ClientToken, Created: v.Created.UTC(), CloudformationOwner: v.CloudFormationOwner}); err != nil {
 		return err
 	}
 	if err := w.q.DeleteInstanceTags(w.ctx, v.ARN); err != nil {
@@ -86,7 +86,7 @@ func (r reader) PermissionSets(instance string) ([]domain.PermissionSet, error) 
 }
 
 func (r reader) permissionSet(row sqlcgen.IdentitycenterPermissionSet) (domain.PermissionSet, error) {
-	v := domain.PermissionSet{InstanceARN: row.InstanceArn, ARN: row.Arn, Name: row.Name, Description: row.Description, RelayState: row.RelayState, InlinePolicy: row.InlinePolicy, Duration: time.Duration(row.DurationNs), Created: row.Created.UTC(), BoundaryARN: row.BoundaryArn, Boundary: domain.PolicyReference{Name: row.BoundaryName, Path: row.BoundaryPath}}
+	v := domain.PermissionSet{InstanceARN: row.InstanceArn, ARN: row.Arn, Name: row.Name, Description: row.Description, RelayState: row.RelayState, InlinePolicy: row.InlinePolicy, Duration: time.Duration(row.DurationNs), Created: row.Created.UTC(), BoundaryARN: row.BoundaryArn, Boundary: domain.PolicyReference{Name: row.BoundaryName, Path: row.BoundaryPath}, CloudFormationOwner: row.CloudformationOwner}
 	tags, err := r.q.ListPermissionSetTags(r.ctx, row.Arn)
 	if err != nil {
 		return domain.PermissionSet{}, err
@@ -115,7 +115,7 @@ func (r reader) permissionSet(row sqlcgen.IdentitycenterPermissionSet) (domain.P
 }
 
 func (w writer) PutPermissionSet(v domain.PermissionSet) error {
-	if err := w.q.PutPermissionSet(w.ctx, sqlcgen.PutPermissionSetParams{Arn: v.ARN, InstanceArn: v.InstanceARN, Name: v.Name, Description: v.Description, RelayState: v.RelayState, InlinePolicy: v.InlinePolicy, DurationNs: int64(v.Duration), Created: v.Created.UTC(), BoundaryArn: v.BoundaryARN, BoundaryName: v.Boundary.Name, BoundaryPath: v.Boundary.Path}); err != nil {
+	if err := w.q.PutPermissionSet(w.ctx, sqlcgen.PutPermissionSetParams{Arn: v.ARN, InstanceArn: v.InstanceARN, Name: v.Name, Description: v.Description, RelayState: v.RelayState, InlinePolicy: v.InlinePolicy, DurationNs: int64(v.Duration), Created: v.Created.UTC(), BoundaryArn: v.BoundaryARN, BoundaryName: v.Boundary.Name, BoundaryPath: v.Boundary.Path, CloudformationOwner: v.CloudFormationOwner}); err != nil {
 		return err
 	}
 	if err := w.q.DeletePermissionSetTags(w.ctx, v.ARN); err != nil {

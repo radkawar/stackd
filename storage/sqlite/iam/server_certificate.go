@@ -19,6 +19,7 @@ func (r reader) ServerCertificate(scope domain.Scope, key string) (domain.Server
 		return result, err
 	}
 	var record domain.ServerCertificateRecord
+	record.CloudFormationOwner = row.CfnOwner
 	record.ID = row.ID
 	record.Name = row.Name
 	record.Path = row.Path
@@ -62,7 +63,7 @@ func (w writer) PutServerCertificate(scope domain.Scope, record domain.ServerCer
 	if _, err := w.q.DeleteServerCertificate(w.ctx, sqlcgen.DeleteServerCertificateParams{Partition: scope.Partition, Account: scope.AccountID, ResourceKey: strings.ToLower(record.Name)}); err != nil {
 		return err
 	}
-	if err := w.q.InsertServerCertificate(w.ctx, sqlcgen.InsertServerCertificateParams{Partition: scope.Partition, Account: scope.AccountID, ResourceKey: strings.ToLower(record.Name), ID: record.ID, Name: record.Name, Path: record.Path, Arn: record.ARN, Body: record.Body, Chain: record.Chain, PrivateKey: record.PrivateKey, UploadDate: record.UploadDate, Expiration: record.Expiration, TaggingInvalid: record.TaggingInvalid}); err != nil {
+	if err := w.q.InsertServerCertificate(w.ctx, sqlcgen.InsertServerCertificateParams{CfnOwner: record.CloudFormationOwner, Partition: scope.Partition, Account: scope.AccountID, ResourceKey: strings.ToLower(record.Name), ID: record.ID, Name: record.Name, Path: record.Path, Arn: record.ARN, Body: record.Body, Chain: record.Chain, PrivateKey: record.PrivateKey, UploadDate: record.UploadDate, Expiration: record.Expiration, TaggingInvalid: record.TaggingInvalid}); err != nil {
 		return err
 	}
 	if err := w.writeServerCertificateTags(scope.Partition, scope.AccountID, strings.ToLower(record.Name), record.Tags); err != nil {

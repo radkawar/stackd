@@ -60,7 +60,7 @@ func (r reader) AllDetectors() ([]domain.Detector, error) {
 	return out, nil
 }
 func (r reader) detector(row sqlcgen.GuarddutyDetector) (domain.Detector, error) {
-	v := domain.Detector{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.ID, ARN: row.Arn, Status: row.Status, Frequency: row.Frequency, ServiceRole: row.ServiceRole, ClientToken: row.ClientToken, Created: row.Created, Updated: row.Updated}
+	v := domain.Detector{CFNOwnership: domain.CloudFormationOwnership{Owner: row.CfnOwner, Token: row.CfnToken}, Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.ID, ARN: row.Arn, Status: row.Status, Frequency: row.Frequency, ServiceRole: row.ServiceRole, ClientToken: row.ClientToken, Created: row.Created, Updated: row.Updated}
 	if row.TagsPresent {
 		v.Tags = map[string]string{}
 	}
@@ -98,7 +98,7 @@ func (r reader) detector(row sqlcgen.GuarddutyDetector) (domain.Detector, error)
 	return v, nil
 }
 func (w writer) PutDetector(v domain.Detector) error {
-	err := w.q.PutDetector(w.ctx, sqlcgen.PutDetectorParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, ID: v.ID, Arn: v.ARN, Status: v.Status, Frequency: v.Frequency, ServiceRole: v.ServiceRole, ClientToken: v.ClientToken, Created: v.Created, Updated: v.Updated, FeaturesPresent: v.Features != nil, TagsPresent: v.Tags != nil})
+	err := w.q.PutDetector(w.ctx, sqlcgen.PutDetectorParams{CfnOwner: v.CFNOwnership.Owner, CfnToken: v.CFNOwnership.Token, Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, ID: v.ID, Arn: v.ARN, Status: v.Status, Frequency: v.Frequency, ServiceRole: v.ServiceRole, ClientToken: v.ClientToken, Created: v.Created, Updated: v.Updated, FeaturesPresent: v.Features != nil, TagsPresent: v.Tags != nil})
 	if err != nil {
 		return err
 	}

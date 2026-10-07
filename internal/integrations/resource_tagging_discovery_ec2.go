@@ -72,6 +72,24 @@ func (r ResourceTaggingResources) listTaggingEC2(ctx context.Context, scope tagg
 		for _, row := range gateways {
 			appendResource("internet-gateway", row.Key.ID, row.Data.Tags)
 		}
+		natGateways, err := tx.NatGateways(sc)
+		if err != nil {
+			return err
+		}
+		for _, row := range natGateways {
+			if resourceTaggingText(row.Data.State) != "deleted" {
+				appendResource("natgateway", row.Key.ID, row.Data.Tags)
+			}
+		}
+		endpoints, err := tx.VPCEndpoints(sc)
+		if err != nil {
+			return err
+		}
+		for _, row := range endpoints {
+			if resourceTaggingText(row.Data.State) != "deleted" {
+				appendResource("vpc-endpoint", row.Key.ID, row.Data.Tags)
+			}
+		}
 		interfaces, err := tx.NetworkInterfaces(sc)
 		if err != nil {
 			return err

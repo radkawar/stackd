@@ -9,6 +9,7 @@ import (
 
 func rowAPI(row sqlcgen.Apigatewayv2Api) (domain.APIRecord, error) {
 	out := domain.APIRecord{Key: domain.APIKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.ID}, Name: row.Name, Description: row.Description, Version: row.Version, Disabled: row.Disabled != 0, Created: row.CreatedAt.UTC(), ProtocolType: row.ProtocolType, RouteSelectionExpression: row.RouteSelectionExpression}
+	out.Owner = domain.ResourceOwner{StackID: row.OwnerStackID, LogicalID: row.OwnerLogicalID, Token: row.OwnerToken}
 	if err := decode(row.Tags, &out.Tags); err != nil {
 		return out, err
 	}
@@ -41,7 +42,7 @@ func (w writer) PutAPI(v domain.APIRecord) error {
 	if err != nil {
 		return err
 	}
-	return w.q.PutAPI(w.ctx, sqlcgen.PutAPIParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ID: k.ID, Name: v.Name, Description: v.Description, Version: v.Version, Disabled: integer(v.Disabled), CreatedAt: v.Created.UTC(), Tags: tags, ProtocolType: v.ProtocolType, RouteSelectionExpression: v.RouteSelectionExpression})
+	return w.q.PutAPI(w.ctx, sqlcgen.PutAPIParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ID: k.ID, Name: v.Name, Description: v.Description, Version: v.Version, Disabled: integer(v.Disabled), CreatedAt: v.Created.UTC(), Tags: tags, ProtocolType: v.ProtocolType, RouteSelectionExpression: v.RouteSelectionExpression, OwnerStackID: v.Owner.StackID, OwnerLogicalID: v.Owner.LogicalID, OwnerToken: v.Owner.Token})
 }
 func (w writer) DeleteAPI(k domain.APIKey) error {
 	return w.q.DeleteAPI(w.ctx, sqlcgen.DeleteAPIParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ID: k.ID})
@@ -49,6 +50,7 @@ func (w writer) DeleteAPI(k domain.APIKey) error {
 
 func rowIntegration(row sqlcgen.Apigatewayv2Integration) (domain.IntegrationRecord, error) {
 	out := domain.IntegrationRecord{Key: domain.ResourceKey{APIKey: domain.APIKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.GatewayID}, ID: row.ID}, Description: row.Description, URI: row.Uri, PayloadVersion: row.PayloadVersion, TimeoutMillis: int32(row.TimeoutMillis), PassthroughBehavior: row.PassthroughBehavior}
+	out.Owner = domain.ResourceOwner{StackID: row.OwnerStackID, LogicalID: row.OwnerLogicalID, Token: row.OwnerToken}
 	out.CredentialsARN = row.CredentialsArn
 	return out, nil
 }
@@ -75,7 +77,7 @@ func (r reader) Integrations(k domain.APIKey) ([]domain.IntegrationRecord, error
 }
 func (w writer) PutIntegration(v domain.IntegrationRecord) error {
 	k := v.Key
-	return w.q.PutIntegration(w.ctx, sqlcgen.PutIntegrationParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, GatewayID: k.APIKey.ID, ID: k.ID, Description: v.Description, Uri: v.URI, PayloadVersion: v.PayloadVersion, TimeoutMillis: int64(v.TimeoutMillis), PassthroughBehavior: v.PassthroughBehavior, CredentialsArn: v.CredentialsARN})
+	return w.q.PutIntegration(w.ctx, sqlcgen.PutIntegrationParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, GatewayID: k.APIKey.ID, ID: k.ID, Description: v.Description, Uri: v.URI, PayloadVersion: v.PayloadVersion, TimeoutMillis: int64(v.TimeoutMillis), PassthroughBehavior: v.PassthroughBehavior, CredentialsArn: v.CredentialsARN, OwnerStackID: v.Owner.StackID, OwnerLogicalID: v.Owner.LogicalID, OwnerToken: v.Owner.Token})
 }
 func (w writer) DeleteIntegration(k domain.ResourceKey) error {
 	return w.q.DeleteIntegration(w.ctx, sqlcgen.DeleteIntegrationParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, GatewayID: k.APIKey.ID, ID: k.ID})
@@ -83,6 +85,7 @@ func (w writer) DeleteIntegration(k domain.ResourceKey) error {
 
 func rowAuthorizer(row sqlcgen.Apigatewayv2Authorizer) (domain.AuthorizerRecord, error) {
 	out := domain.AuthorizerRecord{Key: domain.ResourceKey{APIKey: domain.APIKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.GatewayID}, ID: row.ID}, Name: row.Name, Issuer: row.Issuer}
+	out.Owner = domain.ResourceOwner{StackID: row.OwnerStackID, LogicalID: row.OwnerLogicalID, Token: row.OwnerToken}
 	if err := decode(row.Audiences, &out.Audiences); err != nil {
 		return out, err
 	}
@@ -123,6 +126,7 @@ func (w writer) PutAuthorizer(v domain.AuthorizerRecord) error {
 		return err
 	}
 	params := sqlcgen.PutAuthorizerParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, GatewayID: k.APIKey.ID, ID: k.ID, Name: v.Name, Issuer: v.Issuer, Audiences: audiences, AuthorizerType: "JWT", IdentitySources: []byte("[]")}
+	params.OwnerStackID, params.OwnerLogicalID, params.OwnerToken = v.Owner.StackID, v.Owner.LogicalID, v.Owner.Token
 	if auth := v.LambdaAuthorizer; auth != nil {
 		params.AuthorizerType, params.Uri, params.FunctionArn, params.PayloadVersion = auth.Type, v.URI, auth.FunctionARN, auth.PayloadVersion
 		params.CredentialsArn = auth.CredentialsARN
@@ -141,6 +145,7 @@ func (w writer) DeleteAuthorizer(k domain.ResourceKey) error {
 
 func rowRoute(row sqlcgen.Apigatewayv2Route) (domain.RouteRecord, error) {
 	out := domain.RouteRecord{Key: domain.ResourceKey{APIKey: domain.APIKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.GatewayID}, ID: row.ID}, RouteKey: row.RouteKey, Target: row.Target, AuthorizationType: row.AuthorizationType, AuthorizerID: row.AuthorizerID, OperationName: row.OperationName, RouteResponseSelectionExpression: row.RouteResponseSelectionExpression}
+	out.Owner = domain.ResourceOwner{StackID: row.OwnerStackID, LogicalID: row.OwnerLogicalID, Token: row.OwnerToken}
 	if err := decode(row.Scopes, &out.Scopes); err != nil {
 		return out, err
 	}
@@ -173,7 +178,7 @@ func (w writer) PutRoute(v domain.RouteRecord) error {
 	if err != nil {
 		return err
 	}
-	return w.q.PutRoute(w.ctx, sqlcgen.PutRouteParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, GatewayID: k.APIKey.ID, ID: k.ID, RouteKey: v.RouteKey, Target: v.Target, AuthorizationType: v.AuthorizationType, AuthorizerID: v.AuthorizerID, OperationName: v.OperationName, Scopes: scopes, RouteResponseSelectionExpression: v.RouteResponseSelectionExpression})
+	return w.q.PutRoute(w.ctx, sqlcgen.PutRouteParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, GatewayID: k.APIKey.ID, ID: k.ID, RouteKey: v.RouteKey, Target: v.Target, AuthorizationType: v.AuthorizationType, AuthorizerID: v.AuthorizerID, OperationName: v.OperationName, Scopes: scopes, RouteResponseSelectionExpression: v.RouteResponseSelectionExpression, OwnerStackID: v.Owner.StackID, OwnerLogicalID: v.Owner.LogicalID, OwnerToken: v.Owner.Token})
 }
 func (w writer) DeleteRoute(k domain.ResourceKey) error {
 	return w.q.DeleteRoute(w.ctx, sqlcgen.DeleteRouteParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, GatewayID: k.APIKey.ID, ID: k.ID})
@@ -181,6 +186,7 @@ func (w writer) DeleteRoute(k domain.ResourceKey) error {
 
 func (r reader) stage(row sqlcgen.Apigatewayv2Stage) (domain.StageRecord, error) {
 	out := domain.StageRecord{Key: domain.ResourceKey{APIKey: domain.APIKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.GatewayID}, ID: row.ID}, Description: row.Description, DeploymentID: row.DeploymentID, LastDeploymentStatusMessage: row.LastDeploymentStatusMessage, AutoDeploy: row.AutoDeploy != 0, Created: row.CreatedAt.UTC(), Updated: row.UpdatedAt.UTC(), DefaultRouteSettings: domain.RouteSettings{DetailedMetricsEnabled: new(row.DetailedMetrics), LoggingLevel: row.LoggingLevel, DataTraceEnabled: new(row.DataTrace)}, AccessLogSettings: apigatewayexec.AccessLogSettings{DestinationARN: row.AccessLogDestinationArn, Format: row.AccessLogFormat}}
+	out.Owner = domain.ResourceOwner{StackID: row.OwnerStackID, LogicalID: row.OwnerLogicalID, Token: row.OwnerToken}
 	if err := decode(row.Variables, &out.Variables); err != nil {
 		return out, err
 	}
@@ -235,7 +241,9 @@ func (w writer) PutStage(v domain.StageRecord) error {
 	if err != nil {
 		return err
 	}
-	if err := w.q.PutStage(w.ctx, sqlcgen.PutStageParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, GatewayID: k.APIKey.ID, ID: k.ID, Description: v.Description, DeploymentID: v.DeploymentID, LastDeploymentStatusMessage: v.LastDeploymentStatusMessage, AutoDeploy: integer(v.AutoDeploy), CreatedAt: v.Created.UTC(), UpdatedAt: v.Updated.UTC(), Variables: variables, Tags: tags, DetailedMetrics: v.DefaultRouteSettings.DetailedMetricsEnabled != nil && *v.DefaultRouteSettings.DetailedMetricsEnabled, LoggingLevel: v.DefaultRouteSettings.LoggingLevel, DataTrace: v.DefaultRouteSettings.DataTraceEnabled != nil && *v.DefaultRouteSettings.DataTraceEnabled, AccessLogDestinationArn: v.AccessLogSettings.DestinationARN, AccessLogFormat: v.AccessLogSettings.Format}); err != nil {
+	params := sqlcgen.PutStageParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, GatewayID: k.APIKey.ID, ID: k.ID, Description: v.Description, DeploymentID: v.DeploymentID, LastDeploymentStatusMessage: v.LastDeploymentStatusMessage, AutoDeploy: integer(v.AutoDeploy), CreatedAt: v.Created.UTC(), UpdatedAt: v.Updated.UTC(), Variables: variables, Tags: tags, DetailedMetrics: v.DefaultRouteSettings.DetailedMetricsEnabled != nil && *v.DefaultRouteSettings.DetailedMetricsEnabled, LoggingLevel: v.DefaultRouteSettings.LoggingLevel, DataTrace: v.DefaultRouteSettings.DataTraceEnabled != nil && *v.DefaultRouteSettings.DataTraceEnabled, AccessLogDestinationArn: v.AccessLogSettings.DestinationARN, AccessLogFormat: v.AccessLogSettings.Format}
+	params.OwnerStackID, params.OwnerLogicalID, params.OwnerToken = v.Owner.StackID, v.Owner.LogicalID, v.Owner.Token
+	if err := w.q.PutStage(w.ctx, params); err != nil {
 		return err
 	}
 	if err := w.q.DeleteRouteSettings(w.ctx, sqlcgen.DeleteRouteSettingsParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, GatewayID: k.APIKey.ID, Stage: k.ID}); err != nil {
@@ -261,6 +269,7 @@ func (w writer) DeleteStage(k domain.ResourceKey) error {
 
 func rowDeployment(row sqlcgen.Apigatewayv2Deployment) (domain.DeploymentRecord, error) {
 	out := domain.DeploymentRecord{Key: domain.ResourceKey{APIKey: domain.APIKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.GatewayID}, ID: row.ID}, Description: row.Description, AutoDeployed: row.AutoDeployed != 0, Created: row.CreatedAt.UTC(), RouteSelectionExpression: row.RouteSelectionExpression}
+	out.Owner = domain.ResourceOwner{StackID: row.OwnerStackID, LogicalID: row.OwnerLogicalID, Token: row.OwnerToken}
 	return out, nil
 }
 func (r reader) Deployment(k domain.ResourceKey) (domain.DeploymentRecord, error) {
@@ -286,7 +295,7 @@ func (r reader) Deployments(k domain.APIKey) ([]domain.DeploymentRecord, error) 
 }
 func (w writer) PutDeployment(v domain.DeploymentRecord) error {
 	k := v.Key
-	return w.q.PutDeployment(w.ctx, sqlcgen.PutDeploymentParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, GatewayID: k.APIKey.ID, ID: k.ID, Description: v.Description, AutoDeployed: integer(v.AutoDeployed), CreatedAt: v.Created.UTC(), RouteSelectionExpression: v.RouteSelectionExpression})
+	return w.q.PutDeployment(w.ctx, sqlcgen.PutDeploymentParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, GatewayID: k.APIKey.ID, ID: k.ID, Description: v.Description, AutoDeployed: integer(v.AutoDeployed), CreatedAt: v.Created.UTC(), RouteSelectionExpression: v.RouteSelectionExpression, OwnerStackID: v.Owner.StackID, OwnerLogicalID: v.Owner.LogicalID, OwnerToken: v.Owner.Token})
 }
 func (w writer) DeleteDeployment(k domain.ResourceKey) error {
 	return w.q.DeleteDeployment(w.ctx, sqlcgen.DeleteDeploymentParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, GatewayID: k.APIKey.ID, ID: k.ID})

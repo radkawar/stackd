@@ -64,7 +64,6 @@ class Application:
         command = [str(Path(self.args.binary).resolve()), "-listen", f"127.0.0.1:{self.port}",
             "-database", str(self.database), "-docker-host", self.args.docker_host, "-valkey-runtime",
             "-valkey-tls-cert", str(self.cert), "-valkey-tls-key", str(self.key),
-            "-lambda-telemetry-directory", self.args.telemetry_directory,
             "-compute-endpoint", f"http://host.docker.internal:{self.port}"]
         self.controller.start(command, self.endpoint, environment=self.env, timeout=90)
 
@@ -349,7 +348,6 @@ def main():
     parser.add_argument("--binary", required=True)
     parser.add_argument("--state-directory", required=True)
     parser.add_argument("--docker-host", default="unix:///var/run/docker.sock")
-    parser.add_argument("--telemetry-directory", default="/home/r/dev/minor/stackd/bin")
     app = Application(parser.parse_args())
     try:
         app.start()

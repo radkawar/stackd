@@ -36,6 +36,7 @@ func (w writer) DeletePreparedStatement(key domain.StatementKey) error {
 
 func (r reader) preparedStatement(row *sqlcgen.AthenaPreparedStatement) (domain.PreparedStatementRecord, error) {
 	var out domain.PreparedStatementRecord
+	out.CFNOwner = row.CfnOwner
 	out.Key.WorkGroup.Scope.Partition = row.KeyWorkGroupScopePartition
 	out.Key.WorkGroup.Scope.AccountID = row.KeyWorkGroupScopeAccountID
 	out.Key.WorkGroup.Scope.Region = row.KeyWorkGroupScopeRegion
@@ -51,6 +52,7 @@ func (r reader) preparedStatement(row *sqlcgen.AthenaPreparedStatement) (domain.
 
 func (w writer) PutPreparedStatement(v domain.PreparedStatementRecord) error {
 	var p sqlcgen.PutPreparedStatementParams
+	p.CfnOwner = v.CFNOwner
 	p.KeyWorkGroupScopePartition = v.Key.WorkGroup.Scope.Partition
 	p.KeyWorkGroupScopeAccountID = v.Key.WorkGroup.Scope.AccountID
 	p.KeyWorkGroupScopeRegion = v.Key.WorkGroup.Scope.Region

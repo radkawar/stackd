@@ -32,6 +32,8 @@ type QueueTag struct{ Key, Value string }
 type QueueRecord struct {
 	Key                       QueueKey
 	ID                        string
+	CreationOwner             string
+	PolicyOwner               string
 	Configuration             QueueConfiguration
 	Tags                      []QueueTag
 	Created, Modified, Purged time.Time

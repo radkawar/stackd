@@ -236,6 +236,45 @@ func (s *Service) permission(r Reader, instance, arn, action string) (Instance, 
 	}
 	return i, p, nil
 }
+
+// Instances and permission sets carry a private CloudFormation incarnation
+// claim. Public tags never establish ownership. Controller observers see a
+// foreign row as absent; controller mutations are denied in the same
+// transaction as their IAM authorization. Requests without trusted controller
+// provenance remain ordinary IAM requests.
+func claimCheck(ctx context.Context, stored, action string) error {
+	owner := identitystore.CloudFormationOwner(ctx)
+	if owner == "" || owner == stored {
+		return nil
+	}
+	if strings.HasPrefix(action, "Describe") || strings.HasPrefix(action, "Get") || strings.HasPrefix(action, "List") {
+		return ErrNotFound
+	}
+	return failure("AccessDeniedException", "The resource is not owned by this CloudFormation incarnation.", 400)
+}
+func (s *Service) ownedInstance(r Reader, arn, action string) (Instance, error) {
+	v, e := s.instance(r, arn, action)
+	if e != nil {
+		return v, e
+	}
+	if e = claimCheck(r.Context(), v.CloudFormationOwner, action); e != nil {
+		return Instance{}, e
+	}
+	return v, nil
+}
+
+// ownedPermission serves permission-set operations. Assignment operations use
+// permission directly because assignments carry their own incarnation claim.
+func (s *Service) ownedPermission(r Reader, instance, arn, action string) (Instance, PermissionSet, error) {
+	i, p, e := s.permission(r, instance, arn, action)
+	if e != nil {
+		return i, p, e
+	}
+	if e = claimCheck(r.Context(), p.CloudFormationOwner, action); e != nil {
+		return i, PermissionSet{}, e
+	}
+	return i, p, nil
+}
 func failure(code, message string, status int) *awswire.Error {
 	return &awswire.Error{Code: code, Message: message, StatusCode: status}
 }

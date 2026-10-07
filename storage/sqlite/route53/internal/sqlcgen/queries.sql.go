@@ -67,7 +67,7 @@ func (q *Queries) GetZone(ctx context.Context, id string) (Route53Zone, error) {
 }
 
 const listRecordSets = `-- name: ListRecordSets :many
-SELECT zone_id, name, type, identifier, ttl, weighted, weight, multi_value, alias_zone_id, alias_dns_name FROM route53_record_sets WHERE zone_id=? ORDER BY name,type,identifier
+SELECT zone_id, name, type, identifier, ttl, weighted, weight, multi_value, alias_zone_id, alias_dns_name, cfn_owner FROM route53_record_sets WHERE zone_id=? ORDER BY name,type,identifier
 `
 
 func (q *Queries) ListRecordSets(ctx context.Context, zoneID string) ([]Route53RecordSet, error) {
@@ -90,6 +90,7 @@ func (q *Queries) ListRecordSets(ctx context.Context, zoneID string) ([]Route53R
 			&i.MultiValue,
 			&i.AliasZoneID,
 			&i.AliasDnsName,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -201,7 +202,7 @@ func (q *Queries) PutChange(ctx context.Context, arg PutChangeParams) error {
 }
 
 const putRecordSet = `-- name: PutRecordSet :exec
-INSERT INTO route53_record_sets(zone_id,name,type,identifier,ttl,weighted,weight,multi_value,alias_zone_id,alias_dns_name) VALUES(?,?,?,?,?,?,?,?,?,?)
+INSERT INTO route53_record_sets(zone_id,name,type,identifier,ttl,weighted,weight,multi_value,alias_zone_id,alias_dns_name,cfn_owner) VALUES(?,?,?,?,?,?,?,?,?,?,?)
 `
 
 type PutRecordSetParams struct {
@@ -215,6 +216,7 @@ type PutRecordSetParams struct {
 	MultiValue   bool
 	AliasZoneID  string
 	AliasDnsName string
+	CfnOwner     string
 }
 
 func (q *Queries) PutRecordSet(ctx context.Context, arg PutRecordSetParams) error {
@@ -229,6 +231,7 @@ func (q *Queries) PutRecordSet(ctx context.Context, arg PutRecordSetParams) erro
 		arg.MultiValue,
 		arg.AliasZoneID,
 		arg.AliasDnsName,
+		arg.CfnOwner,
 	)
 	return err
 }

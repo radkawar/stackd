@@ -28,16 +28,20 @@ type Identity struct {
 	ConfigurationSet    string
 	Tags                map[string]string
 	Policies            map[string]authorization.BoundPolicy
+	Owner               string
 }
 type Template struct {
 	Key                 ResourceKey
 	Subject, Text, HTML string
 	Created             time.Time
+	// Owner is an internal CloudFormation incarnation claim, absent from the public API.
+	Owner string
 }
 type ConfigurationSet struct {
 	Key            ResourceKey
 	SendingEnabled bool
 	Tags           map[string]string
+	Owner          string
 }
 type Account struct {
 	Scope          Scope

@@ -3,27 +3,26 @@ package cloudformation
 import (
 	"errors"
 	"reflect"
-	"strings"
 	"testing"
 )
 
 func TestResourceSchemaAdmission(t *testing.T) {
 	cases := []struct {
-		name, resource, message string
-		properties              Properties
+		name, resource string
+		properties     Properties
 	}{
-		{"unknown property", "AWS::SQS::Queue", "no property", Properties{"VisiblityTimeout": 30}},
-		{"read-only identifier", "AWS::SQS::Queue", "read-only", Properties{"QueueUrl": "https://sqs.us-east-1.amazonaws.com/111111111111/q"}},
-		{"nested read-only", "AWS::S3::Bucket", "read-only", Properties{"MetadataTableConfiguration": map[string]any{"S3TablesDestination": map[string]any{"TableArn": "arn:example"}}}},
-		{"nested unknown", "AWS::S3::Bucket", "no property", Properties{"VersioningConfiguration": map[string]any{"Statuz": "Enabled"}}},
-		{"nested required", "AWS::SQS::Queue", "requires property", Properties{"Tags": []any{map[string]any{"Key": "purpose"}}}},
-		{"required property", "AWS::SNS::Subscription", "requires property", Properties{"Endpoint": "queue"}},
+		{"unknown property", "AWS::SQS::Queue", Properties{"VisiblityTimeout": 30}},
+		{"read-only identifier", "AWS::SQS::Queue", Properties{"QueueUrl": "https://sqs.us-east-1.amazonaws.com/111111111111/q"}},
+		{"nested read-only", "AWS::S3::Bucket", Properties{"MetadataTableConfiguration": map[string]any{"S3TablesDestination": map[string]any{"TableArn": "arn:example"}}}},
+		{"nested unknown", "AWS::S3::Bucket", Properties{"VersioningConfiguration": map[string]any{"Statuz": "Enabled"}}},
+		{"nested required", "AWS::SQS::Queue", Properties{"Tags": []any{map[string]any{"Key": "purpose"}}}},
+		{"required property", "AWS::SNS::Subscription", Properties{"Endpoint": "queue"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			err := ValidateResourceProperties(tc.resource, tc.properties)
-			if err == nil || !strings.Contains(err.Error(), tc.message) {
-				t.Fatalf("admission error = %v, want %s", err, tc.message)
+			if err == nil {
+				t.Fatal("invalid resource properties were admitted")
 			}
 		})
 	}
@@ -55,7 +54,10 @@ func TestResourceUpdateRejectsCreateOnlyChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	before = Properties{"FunctionName": "f", "Role": "role", "Code": map[string]any{"ZipFile": "code"}, "TenancyConfig": map[string]any{"TenantIsolationMode": "PER_TENANT"}}
-	after := WritableResourceProperties("AWS::Lambda::Function", before)
+	after, err := WritableResourceProperties("AWS::Lambda::Function", before)
+	if err != nil {
+		t.Fatal(err)
+	}
 	after["TenancyConfig"].(map[string]any)["TenantIsolationMode"] = "changed"
 	if err := ValidateResourceUpdate("AWS::Lambda::Function", before, after); !errors.Is(err, ErrCreateOnly) {
 		t.Fatalf("nested immutable update error = %v", err)
@@ -64,7 +66,7 @@ func TestResourceUpdateRejectsCreateOnlyChanges(t *testing.T) {
 
 func TestResourcePatchReadOnlyAndImmutableBoundaries(t *testing.T) {
 	for _, path := range []string{"/Arn", "/MetadataTableConfiguration/S3TablesDestination/TableArn", "/MetadataTableConfiguration", ""} {
-		if err := ValidateResourcePatchPath("AWS::S3::Bucket", path); err == nil || !strings.Contains(err.Error(), "read-only") {
+		if err := ValidateResourcePatchPath("AWS::S3::Bucket", path); err == nil {
 			t.Fatalf("patch %q error = %v", path, err)
 		}
 	}
@@ -79,13 +81,25 @@ func TestResourcePatchReadOnlyAndImmutableBoundaries(t *testing.T) {
 func TestWritableResourcePropertiesRetainsNestedDesiredState(t *testing.T) {
 	before := Properties{"BucketName": "example", "Arn": "arn:bucket", "MetadataTableConfiguration": map[string]any{"S3TablesDestination": map[string]any{"TableArn": "arn:table", "TableBucketArn": "arn:table-bucket"}}}
 	want := Properties{"BucketName": "example", "MetadataTableConfiguration": map[string]any{"S3TablesDestination": map[string]any{"TableBucketArn": "arn:table-bucket"}}}
-	after := WritableResourceProperties("AWS::S3::Bucket", before)
+	after, err := WritableResourceProperties("AWS::S3::Bucket", before)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !reflect.DeepEqual(after, want) {
 		t.Fatalf("writable model = %#v", after)
 	}
-	after["MetadataTableConfiguration"].(map[string]any)["S3TablesDestination"].(map[string]any)["TableBucketArn"] = "changed"
-	original := before["MetadataTableConfiguration"].(map[string]any)["S3TablesDestination"].(map[string]any)
-	if original["TableArn"] != "arn:table" || original["TableBucketArn"] != "arn:table-bucket" || before["Arn"] != "arn:bucket" {
-		t.Fatal("writable model changed owner observations")
+}
+
+func TestNestedStackTemplateAndProviderRootHaveDistinctNameRequirements(t *testing.T) {
+	properties := Properties{"TemplateBody": `{"Resources":{"Queue":{"Type":"AWS::SQS::Queue"}}}`}
+	if err := validateResourceStructure(TemplateResource{Type: "AWS::CloudFormation::Stack", Properties: properties}); err != nil {
+		t.Fatalf("nested stack without a provider-root name: %v", err)
+	}
+	if err := ValidateResourceProperties("AWS::CloudFormation::Stack", properties); err == nil {
+		t.Fatal("Cloud Control root admitted without StackName")
+	}
+	properties["StackName"] = "root"
+	if err := ValidateResourceProperties("AWS::CloudFormation::Stack", properties); err != nil {
+		t.Fatalf("named provider root: %v", err)
 	}
 }

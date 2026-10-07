@@ -27,7 +27,7 @@ SELECT * FROM identitystore_groups WHERE store_id=? AND display_name=?;
 -- name: ListGroups :many
 SELECT * FROM identitystore_groups WHERE store_id=? ORDER BY id;
 -- name: PutGroup :exec
-INSERT INTO identitystore_groups(store_id,id,display_name,description) VALUES(?,?,?,?)
+INSERT INTO identitystore_groups(store_id,id,display_name,description,cloudformation_owner) VALUES(?,?,?,?,?)
 ON CONFLICT(store_id,id) DO UPDATE SET display_name=excluded.display_name,description=excluded.description;
 -- name: DeleteGroup :exec
 DELETE FROM identitystore_groups WHERE store_id=? AND id=?;
@@ -38,7 +38,7 @@ SELECT * FROM identitystore_memberships WHERE store_id=? AND user_id=? AND group
 -- name: ListMemberships :many
 SELECT * FROM identitystore_memberships WHERE store_id=sqlc.arg(store_id) AND (user_id=sqlc.arg(user_id) OR sqlc.arg(user_id)='') AND (group_id=sqlc.arg(group_id) OR sqlc.arg(group_id)='') ORDER BY id;
 -- name: PutMembership :exec
-INSERT INTO identitystore_memberships(store_id,id,user_id,group_id) VALUES(?,?,?,?);
+INSERT INTO identitystore_memberships(store_id,id,user_id,group_id,cloudformation_owner) VALUES(?,?,?,?,?);
 -- name: DeleteMembership :exec
 DELETE FROM identitystore_memberships WHERE store_id=? AND id=?;
 -- name: DeleteStore :exec

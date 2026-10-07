@@ -12,6 +12,7 @@ import (
 
 func connection(v sqlcgen.EventbridgeConnection) domain.ConnectionRecord {
 	out := domain.ConnectionRecord{Key: domain.ConnectionKey{Scope: domain.Scope{Partition: v.Partition, Account: v.Account, Region: v.Region}, Name: v.Name}, ID: v.ID, Description: v.Description, AuthorizationType: v.AuthorizationType, State: v.State, StateReason: v.StateReason, SecretARN: v.SecretArn, KmsKeyIdentifier: v.KmsKeyIdentifier, Username: v.Username, APIKeyName: v.ApiKeyName, ClientID: v.ClientID, AuthorizationEndpoint: v.AuthorizationEndpoint, OAuthMethod: v.OauthMethod, HasAuth: v.HasAuth, HasInvocation: v.HasInvocation, HasOAuthHTTP: v.HasOauthHttp, Created: v.Created, Modified: v.Modified, Version: uint64(v.Version)}
+	out.CFNOwner = v.CfnOwner
 	if v.LastAuthorized.Valid {
 		out.LastAuthorized = v.LastAuthorized.Time
 	}
@@ -75,7 +76,7 @@ func (r reader) NextConnectionJob() (domain.ConnectionRecord, bool, error) {
 	return item, err == nil, err
 }
 func (w writer) PutConnection(v domain.ConnectionRecord) error {
-	err := w.q.PutConnection(w.ctx, sqlcgen.PutConnectionParams{Partition: v.Key.Partition, Account: v.Key.Account, Region: v.Key.Region, Name: v.Key.Name, ID: v.ID, Description: v.Description, AuthorizationType: v.AuthorizationType, State: v.State, StateReason: v.StateReason, SecretArn: v.SecretARN, KmsKeyIdentifier: v.KmsKeyIdentifier, Username: v.Username, ApiKeyName: v.APIKeyName, ClientID: v.ClientID, AuthorizationEndpoint: v.AuthorizationEndpoint, OauthMethod: v.OAuthMethod, HasAuth: v.HasAuth, HasInvocation: v.HasInvocation, HasOauthHttp: v.HasOAuthHTTP, Created: v.Created, Modified: v.Modified, LastAuthorized: sql.NullTime{Time: v.LastAuthorized, Valid: !v.LastAuthorized.IsZero()}, DueSeconds: archiveOptionalSeconds(v.Due), DueNanos: int64(v.Due.Nanosecond()), Version: sqlite.Uint64(v.Version)})
+	err := w.q.PutConnection(w.ctx, sqlcgen.PutConnectionParams{Partition: v.Key.Partition, Account: v.Key.Account, Region: v.Key.Region, Name: v.Key.Name, ID: v.ID, CfnOwner: v.CFNOwner, Description: v.Description, AuthorizationType: v.AuthorizationType, State: v.State, StateReason: v.StateReason, SecretArn: v.SecretARN, KmsKeyIdentifier: v.KmsKeyIdentifier, Username: v.Username, ApiKeyName: v.APIKeyName, ClientID: v.ClientID, AuthorizationEndpoint: v.AuthorizationEndpoint, OauthMethod: v.OAuthMethod, HasAuth: v.HasAuth, HasInvocation: v.HasInvocation, HasOauthHttp: v.HasOAuthHTTP, Created: v.Created, Modified: v.Modified, LastAuthorized: sql.NullTime{Time: v.LastAuthorized, Valid: !v.LastAuthorized.IsZero()}, DueSeconds: archiveOptionalSeconds(v.Due), DueNanos: int64(v.Due.Nanosecond()), Version: sqlite.Uint64(v.Version)})
 	if err != nil {
 		return err
 	}

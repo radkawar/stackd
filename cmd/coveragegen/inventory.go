@@ -3,13 +3,14 @@ package main
 // Inventory describes a target, not a conformance result. A registered operation
 // is only partial, even when every target operation of its service is registered.
 type Inventory struct {
-	Source               Source       `json:"source"`
-	Target               string       `json:"target"`
-	Interpretation       string       `json:"interpretation"`
-	Evidence             []string     `json:"evidence"`
-	Totals               Totals       `json:"totals"`
-	Services             []Service    `json:"services"`
-	AdditionalRegistered []Registered `json:"additional_registered"`
+	Source               Source                  `json:"source"`
+	Target               string                  `json:"target"`
+	Interpretation       string                  `json:"interpretation"`
+	Evidence             []string                `json:"evidence"`
+	Totals               Totals                  `json:"totals"`
+	Services             []Service               `json:"services"`
+	AdditionalRegistered []Registered            `json:"additional_registered"`
+	CloudFormation       CloudFormationInventory `json:"cloudformation"`
 }
 
 type Source struct {
@@ -54,6 +55,20 @@ type Registered struct {
 type ExtraOperation struct {
 	Name   string `json:"name"`
 	Status string `json:"status"`
+}
+
+// CloudFormationInventory records native adapter registration, not conformance.
+// The schema digest identifies the official registry facts used for type names.
+type CloudFormationInventory struct {
+	SchemaSource   string                   `json:"schema_source"`
+	SchemaSHA256   string                   `json:"schema_sha256"`
+	Interpretation string                   `json:"interpretation"`
+	Resources      []CloudFormationResource `json:"resources"`
+}
+
+type CloudFormationResource struct {
+	TypeName string `json:"type_name"`
+	Adapter  string `json:"adapter"`
 }
 
 // Keep evidence in the existing semantic audits, rather than copying their

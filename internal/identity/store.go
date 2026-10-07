@@ -98,6 +98,9 @@ func (s *Store) resolve(reader Reader, key string, instant time.Time) (Credentia
 	if err != nil {
 		return Credential{}, err
 	}
+	if r.Status == Expired {
+		return Credential{}, ErrExpired
+	}
 	if r.Status != Active {
 		return Credential{}, ErrInactive
 	}

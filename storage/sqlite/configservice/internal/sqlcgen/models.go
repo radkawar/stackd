@@ -5,6 +5,7 @@
 package sqlcgen
 
 import (
+	"database/sql"
 	"time"
 )
 
@@ -17,6 +18,8 @@ type ConfigAggregationAuthorization struct {
 	AuthorizedRegion    string
 	ARN                 string
 	CreatedAt           time.Time
+	CfnOwner            string
+	CfnToken            string
 }
 
 type ConfigAggregator struct {
@@ -28,6 +31,8 @@ type ConfigAggregator struct {
 	ARN       string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	CfnOwner  string
+	CfnToken  string
 }
 
 type ConfigAggregatorSource struct {
@@ -54,6 +59,8 @@ type ConfigChannel struct {
 	Status       string
 	ErrorCode    string
 	ErrorMessage string
+	CfnOwner     string
+	CfnToken     string
 }
 
 type ConfigDelivery struct {
@@ -145,22 +152,26 @@ type ConfigItemTag struct {
 }
 
 type ConfigRecorder struct {
-	RowID            int64
-	Partition        string
-	AccountID        string
-	Region           string
-	Name             string
-	ARN              string
-	RoleARN          string
-	AllSupported     bool
-	IncludeGlobal    bool
-	Recording        bool
-	LastStart        time.Time
-	LastStop         time.Time
-	LastStatusChange time.Time
-	LastStatus       string
-	LastErrorCode    string
-	LastErrorMessage string
+	RowID              int64
+	Partition          string
+	AccountID          string
+	Region             string
+	Name               string
+	ARN                string
+	RoleARN            string
+	AllSupported       bool
+	IncludeGlobal      bool
+	Recording          bool
+	LastStart          time.Time
+	LastStop           time.Time
+	LastStatusChange   time.Time
+	LastStatus         string
+	LastErrorCode      string
+	LastErrorMessage   string
+	CfnOwner           string
+	CfnToken           string
+	CfnStartOnCreate   bool
+	CfnStartedOnCreate sql.NullBool
 }
 
 type ConfigRecorderType struct {
@@ -190,6 +201,8 @@ type ConfigRule struct {
 	LastReevaluation  time.Time
 	ErrorCode         string
 	ErrorMessage      string
+	CfnOwner          string
+	CfnToken          string
 }
 
 type ConfigRuleMessage struct {

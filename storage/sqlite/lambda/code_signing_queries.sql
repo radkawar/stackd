@@ -3,8 +3,8 @@ SELECT * FROM lambda_code_signing_configs WHERE partition=? AND account=? AND re
 -- name: ListCodeSigningConfigs :many
 SELECT * FROM lambda_code_signing_configs WHERE partition=? AND account=? AND region=? ORDER BY id;
 -- name: PutCodeSigningConfig :exec
-INSERT INTO lambda_code_signing_configs(partition,account,region,id,description,policy,modified) VALUES(?,?,?,?,?,?,?)
-ON CONFLICT(partition,account,region,id) DO UPDATE SET description=excluded.description,policy=excluded.policy,modified=excluded.modified;
+INSERT INTO lambda_code_signing_configs(partition,account,region,id,description,policy,modified,owner_stack_id,owner_logical_id,owner_token) VALUES(?,?,?,?,?,?,?,?,?,?)
+ON CONFLICT(partition,account,region,id) DO UPDATE SET description=excluded.description,policy=excluded.policy,modified=excluded.modified,owner_stack_id=excluded.owner_stack_id,owner_logical_id=excluded.owner_logical_id,owner_token=excluded.owner_token;
 -- name: DeleteCodeSigningConfig :exec
 DELETE FROM lambda_code_signing_configs WHERE partition=? AND account=? AND region=? AND id=?;
 -- name: GetCodeSigningPublishers :many

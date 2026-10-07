@@ -9,11 +9,12 @@ import (
 )
 
 type IdentitycenterAssignment struct {
-	InstanceArn      string
-	PermissionSetArn string
-	AccountID        string
-	PrincipalType    string
-	PrincipalID      string
+	InstanceArn         string
+	PermissionSetArn    string
+	AccountID           string
+	PrincipalType       string
+	PrincipalID         string
+	CloudformationOwner string
 }
 
 type IdentitycenterAuthorization struct {
@@ -83,14 +84,15 @@ type IdentitycenterDevice struct {
 }
 
 type IdentitycenterInstance struct {
-	Arn         string
-	Partition   string
-	AccountID   string
-	Region      string
-	StoreID     string
-	Name        string
-	ClientToken string
-	Created     time.Time
+	Arn                 string
+	Partition           string
+	AccountID           string
+	Region              string
+	StoreID             string
+	Name                string
+	ClientToken         string
+	Created             time.Time
+	CloudformationOwner string
 }
 
 type IdentitycenterInstanceTag struct {
@@ -117,17 +119,18 @@ type IdentitycenterOperation struct {
 }
 
 type IdentitycenterPermissionSet struct {
-	Arn          string
-	InstanceArn  string
-	Name         string
-	Description  string
-	RelayState   string
-	InlinePolicy string
-	DurationNs   int64
-	Created      time.Time
-	BoundaryArn  string
-	BoundaryName string
-	BoundaryPath string
+	Arn                 string
+	InstanceArn         string
+	Name                string
+	Description         string
+	RelayState          string
+	InlinePolicy        string
+	DurationNs          int64
+	Created             time.Time
+	BoundaryArn         string
+	BoundaryName        string
+	BoundaryPath        string
+	CloudformationOwner string
 }
 
 type IdentitycenterPermissionSetTag struct {

@@ -18,6 +18,7 @@ func (r reader) ManagedPolicy(scope domain.Scope, key string) (domain.ManagedPol
 		return result, err
 	}
 	var record domain.ManagedPolicy
+	record.CloudFormationOwner = row.CfnOwner
 	record.PolicyName = row.PolicyName
 	record.PolicyId = row.PolicyID
 	record.Arn = row.Arn
@@ -70,7 +71,7 @@ func (w writer) PutManagedPolicy(scope domain.Scope, record domain.ManagedPolicy
 	if _, err := w.q.DeleteManagedPolicy(w.ctx, sqlcgen.DeleteManagedPolicyParams{Partition: scope.Partition, Account: scope.AccountID, ResourceKey: record.Arn}); err != nil {
 		return err
 	}
-	if err := w.q.InsertManagedPolicy(w.ctx, sqlcgen.InsertManagedPolicyParams{Partition: scope.Partition, Account: scope.AccountID, ResourceKey: record.Arn, PolicyName: record.PolicyName, PolicyID: record.PolicyId, Arn: record.Arn, Path: record.Path, DefaultVersionID: record.DefaultVersionId, Description: record.Description, AttachmentCount: int64(record.AttachmentCount), PermissionsBoundaryUsageCount: int64(record.PermissionsBoundaryUsageCount), NextVersion: int64(record.NextVersion), IsAttachable: record.IsAttachable, CreateDate: record.CreateDate, UpdateDate: record.UpdateDate}); err != nil {
+	if err := w.q.InsertManagedPolicy(w.ctx, sqlcgen.InsertManagedPolicyParams{CfnOwner: record.CloudFormationOwner, Partition: scope.Partition, Account: scope.AccountID, ResourceKey: record.Arn, PolicyName: record.PolicyName, PolicyID: record.PolicyId, Arn: record.Arn, Path: record.Path, DefaultVersionID: record.DefaultVersionId, Description: record.Description, AttachmentCount: int64(record.AttachmentCount), PermissionsBoundaryUsageCount: int64(record.PermissionsBoundaryUsageCount), NextVersion: int64(record.NextVersion), IsAttachable: record.IsAttachable, CreateDate: record.CreateDate, UpdateDate: record.UpdateDate}); err != nil {
 		return err
 	}
 	if err := w.writeManagedPolicyTags(scope.Partition, scope.AccountID, record.Arn, record.Tags); err != nil {

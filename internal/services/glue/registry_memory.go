@@ -170,12 +170,18 @@ func (w memoryWriter) PutRegistry(v RegistryRecord) error {
 	if err := w.tx.Check(true); err != nil {
 		return err
 	}
+	if old, ok := w.s.registries[v.Key]; ok {
+		v.CFNOwner = old.CFNOwner
+	}
 	w.s.registries[v.Key] = cloneRegistry(v)
 	return nil
 }
 func (w memoryWriter) PutSchema(v SchemaRecord) error {
 	if err := w.tx.Check(true); err != nil {
 		return err
+	}
+	if old, ok := w.s.schemas[v.Key]; ok {
+		v.CFNOwner = old.CFNOwner
 	}
 	w.s.schemas[v.Key] = cloneSchema(v)
 	return nil

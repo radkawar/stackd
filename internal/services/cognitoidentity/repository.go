@@ -30,6 +30,9 @@ type PoolRecord struct {
 	Roles                              api.RolesMap
 	Mappings                           api.RoleMappingMap
 	PrincipalTagMaps                   map[string]PrincipalTagMap
+	// Owner is the private CloudFormation incarnation that created the pool;
+	// zero for pools created directly. It is never projected by the API.
+	Owner ResourceOwner
 }
 
 // PrincipalTagMap binds principal tag keys to verified ID-token claim names.
@@ -51,6 +54,8 @@ type Reader interface {
 	Pool(PoolKey) (PoolRecord, error)
 	PoolByID(partition, region, id string) (PoolRecord, error)
 	Pools(Scope) ([]PoolRecord, error)
+	// PoolByOwner returns the pool created by one exact incarnation in a scope.
+	PoolByOwner(Scope, ResourceOwner) (PoolRecord, error)
 	Identity(partition, region, id string) (IdentityRecord, error)
 	IdentityByLogin(PoolKey, Login) (IdentityRecord, error)
 	Identities(PoolKey) ([]IdentityRecord, error)

@@ -21,7 +21,7 @@ func (s *Service) authorize(r Reader, action string, secret SecretRecord, condit
 	if rejected := s.authorizer.Authorize(r.Context(), request); rejected != nil {
 		return wireError(rejected)
 	}
-	return nil
+	return cloudFormationFence(r.Context(), action, secret)
 }
 
 func (s *Service) authorizationRequest(action string, secret SecretRecord, conditions map[string][]string) authorization.Request {

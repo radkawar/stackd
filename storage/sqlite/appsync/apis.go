@@ -9,6 +9,8 @@ import (
 
 func (r reader) decodeAPI(v sqlcgen.AppsyncApi) (domain.APIRecord, error) {
 	p := domain.APIRecord{Key: domain.Key{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, ID: v.ApiID}, Schema: v.SchemaDefinition, SchemaStatus: v.SchemaStatus, SchemaDetails: v.SchemaDetails}
+	p.SchemaOwnership = v.SchemaOwnership
+	p.Ownership = v.Ownership
 	a := &p.API
 	text(&a.ApiId, v.ApiID)
 	text(&a.Arn, p.Key.ARN())
@@ -80,6 +82,8 @@ func (r writer) PutAPI(p domain.APIRecord) error {
 		details = []byte{}
 	}
 	v := sqlcgen.AppsyncApi{Partition: p.Key.Partition, AccountID: p.Key.AccountID, Region: p.Key.Region, ApiID: p.Key.ID, Name: val(a.Name), AuthType: val(a.AuthenticationType), ApiType: val(a.ApiType), Visibility: val(a.Visibility), Introspection: val(a.IntrospectionConfig), Owner: val(a.Owner), OwnerContact: str(a.OwnerContact), QueryDepthLimit: number(a.QueryDepthLimit), ResolverCountLimit: number(a.ResolverCountLimit), XrayEnabled: boolean(a.XrayEnabled), GraphqlUri: string(a.Uris["GRAPHQL"]), RealtimeUri: string(a.Uris["REALTIME"]), SchemaDefinition: p.Schema, SchemaStatus: p.SchemaStatus, SchemaDetails: details}
+	v.SchemaOwnership = p.SchemaOwnership
+	v.Ownership = p.Ownership
 	if e := r.q.PutAPI(r.ctx, sqlcgen.PutAPIParams(v)); e != nil {
 		return e
 	}

@@ -17,6 +17,7 @@ type LogsDestination struct {
 	RoleArn      string
 	AccessPolicy string
 	Created      int64
+	CfnOwner     string
 }
 
 type LogsDestinationTag struct {
@@ -48,6 +49,7 @@ type LogsGroup struct {
 	Created       int64
 	Sequence      int64
 	RetentionDays int64
+	CfnOwner      string
 }
 
 type LogsMetricFilter struct {
@@ -62,6 +64,7 @@ type LogsMetricFilter struct {
 	ApplyOnTransformedLogs int64
 	FieldSelection         string
 	Created                int64
+	CfnOwner               string
 }
 
 type LogsMetricFilterDimension struct {
@@ -88,6 +91,7 @@ type LogsResourcePolicy struct {
 	Document    string
 	Updated     int64
 	Revision    int64
+	CfnOwner    string
 }
 
 type LogsStream struct {
@@ -99,6 +103,7 @@ type LogsStream struct {
 	LastEvent     int64
 	LastIngestion int64
 	EventCount    int64
+	CfnOwner      string
 }
 
 type LogsSubscription struct {
@@ -116,6 +121,7 @@ type LogsSubscription struct {
 	TargetArn              string
 	RoleSourceArn          string
 	SenderRoleArn          string
+	CfnOwner               string
 }
 
 type LogsSubscriptionDelivery struct {

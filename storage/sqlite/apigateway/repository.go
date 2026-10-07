@@ -44,6 +44,7 @@ func apiKey(partition, account, region, id string) domain.APIKey {
 }
 func (r reader) api(v sqlcgen.ApigatewayApi) (domain.APIRecord, error) {
 	out := domain.APIRecord{Key: domain.APIKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, ID: v.ApiID}, Name: v.Name, Description: v.Description, Version: v.Version, RootResourceID: v.RootResourceID, Created: v.Created, Disabled: v.Disabled, EffectiveDisabled: v.EffectiveDisabled}
+	out.Ownership = domain.Ownership{StackID: v.CfnStackID, LogicalID: v.CfnLogicalID, Incarnation: v.CfnIncarnation}
 	out.APIKeySource = v.ApiKeySource
 	{
 		rows, err := r.q.ListAPITags(r.ctx, sqlcgen.ListAPITagsParams{Partition: out.Key.Partition, AccountID: out.Key.AccountID, Region: out.Key.Region, ApiID: out.Key.ID})
@@ -81,7 +82,7 @@ func (r reader) APIs(k domain.Scope) ([]domain.APIRecord, error) {
 }
 func (w writer) PutAPI(v domain.APIRecord) error {
 	k := v.Key
-	if err := w.q.PutAPI(w.ctx, sqlcgen.PutAPIParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, Name: v.Name, Description: v.Description, Version: v.Version, RootResourceID: v.RootResourceID, Created: v.Created, Disabled: v.Disabled, EffectiveDisabled: v.EffectiveDisabled, ApiKeySource: v.APIKeySource}); err != nil {
+	if err := w.q.PutAPI(w.ctx, sqlcgen.PutAPIParams{CfnStackID: v.Ownership.StackID, CfnLogicalID: v.Ownership.LogicalID, CfnIncarnation: v.Ownership.Incarnation, Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, Name: v.Name, Description: v.Description, Version: v.Version, RootResourceID: v.RootResourceID, Created: v.Created, Disabled: v.Disabled, EffectiveDisabled: v.EffectiveDisabled, ApiKeySource: v.APIKeySource}); err != nil {
 		return err
 	}
 	if err := w.q.DeleteAPITags(w.ctx, sqlcgen.DeleteAPITagsParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID}); err != nil {
@@ -99,6 +100,7 @@ func (w writer) DeleteAPI(k domain.APIKey) error {
 }
 func (r reader) resource(v sqlcgen.ApigatewayResource) (domain.ResourceRecord, error) {
 	out := domain.ResourceRecord{Key: domain.ResourceKey{APIKey: apiKey(v.Partition, v.AccountID, v.Region, v.ApiID), ResourceID: v.ResourceID}, ParentID: v.ParentID, PathPart: v.PathPart, Path: v.Path}
+	out.Ownership = domain.Ownership{StackID: v.CfnStackID, LogicalID: v.CfnLogicalID, Incarnation: v.CfnIncarnation}
 	return out, nil
 }
 func (r reader) Resource(k domain.ResourceKey) (domain.ResourceRecord, error) {
@@ -125,7 +127,7 @@ func (r reader) Resources(k domain.APIKey) ([]domain.ResourceRecord, error) {
 }
 func (w writer) PutResource(v domain.ResourceRecord) error {
 	k := v.Key
-	if err := w.q.PutResource(w.ctx, sqlcgen.PutResourceParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, ResourceID: k.ResourceID, ParentID: v.ParentID, PathPart: v.PathPart, Path: v.Path}); err != nil {
+	if err := w.q.PutResource(w.ctx, sqlcgen.PutResourceParams{CfnStackID: v.Ownership.StackID, CfnLogicalID: v.Ownership.LogicalID, CfnIncarnation: v.Ownership.Incarnation, Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, ResourceID: k.ResourceID, ParentID: v.ParentID, PathPart: v.PathPart, Path: v.Path}); err != nil {
 		return err
 	}
 	return nil
@@ -135,6 +137,7 @@ func (w writer) DeleteResource(k domain.ResourceKey) error {
 }
 func (r reader) method(v sqlcgen.ApigatewayMethod) (domain.MethodRecord, error) {
 	out := domain.MethodRecord{Key: domain.MethodKey{ResourceKey: domain.ResourceKey{APIKey: apiKey(v.Partition, v.AccountID, v.Region, v.ApiID), ResourceID: v.ResourceID}, HTTPMethod: v.HttpMethod}, AuthorizationType: v.AuthorizationType, AuthorizerID: v.AuthorizerID, OperationName: v.OperationName}
+	out.Ownership = domain.Ownership{StackID: v.CfnStackID, LogicalID: v.CfnLogicalID, Incarnation: v.CfnIncarnation}
 	out.APIKeyRequired = v.ApiKeyRequired
 	{
 		rows, err := r.q.ListMethodScopes(r.ctx, sqlcgen.ListMethodScopesParams{Partition: out.Key.Partition, AccountID: out.Key.AccountID, Region: out.Key.Region, ApiID: out.Key.ID, ResourceID: out.Key.ResourceID, HttpMethod: out.Key.HTTPMethod})
@@ -172,7 +175,7 @@ func (r reader) Methods(k domain.APIKey) ([]domain.MethodRecord, error) {
 }
 func (w writer) PutMethod(v domain.MethodRecord) error {
 	k := v.Key
-	if err := w.q.PutMethod(w.ctx, sqlcgen.PutMethodParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, ResourceID: k.ResourceID, HttpMethod: k.HTTPMethod, AuthorizationType: v.AuthorizationType, AuthorizerID: v.AuthorizerID, OperationName: v.OperationName, ApiKeyRequired: v.APIKeyRequired}); err != nil {
+	if err := w.q.PutMethod(w.ctx, sqlcgen.PutMethodParams{CfnStackID: v.Ownership.StackID, CfnLogicalID: v.Ownership.LogicalID, CfnIncarnation: v.Ownership.Incarnation, Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, ResourceID: k.ResourceID, HttpMethod: k.HTTPMethod, AuthorizationType: v.AuthorizationType, AuthorizerID: v.AuthorizerID, OperationName: v.OperationName, ApiKeyRequired: v.APIKeyRequired}); err != nil {
 		return err
 	}
 	if err := w.q.DeleteMethodScopes(w.ctx, sqlcgen.DeleteMethodScopesParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, ResourceID: k.ResourceID, HttpMethod: k.HTTPMethod}); err != nil {
@@ -212,6 +215,7 @@ func (w writer) DeleteIntegration(k domain.MethodKey) error {
 }
 func (r reader) authorizer(v sqlcgen.ApigatewayAuthorizer) (domain.AuthorizerRecord, error) {
 	out := domain.AuthorizerRecord{Key: domain.AuthorizerKey{APIKey: apiKey(v.Partition, v.AccountID, v.Region, v.ApiID), AuthorizerID: v.AuthorizerID}, Name: v.Name, AuthType: v.AuthType}
+	out.Ownership = domain.Ownership{StackID: v.CfnStackID, LogicalID: v.CfnLogicalID, Incarnation: v.CfnIncarnation}
 	out.URI = v.AuthorizerUri
 	if v.AuthorizerType != "COGNITO_USER_POOLS" {
 		out.LambdaAuthorizer = &apigatewayexec.LambdaAuthorizer{ID: v.AuthorizerID, Type: v.AuthorizerType, FunctionARN: v.FunctionArn, CredentialsARN: v.CredentialsArn, PayloadVersion: "1.0", ValidationExpression: v.ValidationExpression, TTLSeconds: int32(v.TtlSeconds)}
@@ -260,6 +264,7 @@ func (r reader) Authorizers(k domain.APIKey) ([]domain.AuthorizerRecord, error) 
 func (w writer) PutAuthorizer(v domain.AuthorizerRecord) error {
 	k := v.Key
 	params := sqlcgen.PutAuthorizerParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, AuthorizerID: k.AuthorizerID, Name: v.Name, AuthType: v.AuthType, AuthorizerType: "COGNITO_USER_POOLS", AuthorizerUri: v.URI}
+	params.CfnStackID, params.CfnLogicalID, params.CfnIncarnation = v.Ownership.StackID, v.Ownership.LogicalID, v.Ownership.Incarnation
 	if a := v.LambdaAuthorizer; a != nil {
 		params.AuthorizerType, params.FunctionArn, params.ValidationExpression, params.TtlSeconds = a.Type, a.FunctionARN, a.ValidationExpression, int64(a.TTLSeconds)
 		params.CredentialsArn = a.CredentialsARN
@@ -292,6 +297,7 @@ func (w writer) DeleteAuthorizer(k domain.AuthorizerKey) error {
 }
 func (r reader) deployment(v sqlcgen.ApigatewayDeployment) (domain.DeploymentRecord, error) {
 	out := domain.DeploymentRecord{Key: domain.DeploymentKey{APIKey: apiKey(v.Partition, v.AccountID, v.Region, v.ApiID), DeploymentID: v.DeploymentID}, Description: v.Description, Created: v.Created}
+	out.Ownership = domain.Ownership{StackID: v.CfnStackID, LogicalID: v.CfnLogicalID, Incarnation: v.CfnIncarnation}
 	out.APIKeySource = v.ApiKeySource
 	resources, err := r.q.ListDeploymentResources(r.ctx, sqlcgen.ListDeploymentResourcesParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, ApiID: v.ApiID, DeploymentID: v.DeploymentID})
 	if err != nil {
@@ -362,7 +368,7 @@ func (r reader) Deployments(k domain.APIKey) ([]domain.DeploymentRecord, error) 
 }
 func (w writer) PutDeployment(v domain.DeploymentRecord) error {
 	k := v.Key
-	if err := w.q.PutDeployment(w.ctx, sqlcgen.PutDeploymentParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, DeploymentID: k.DeploymentID, Description: v.Description, Created: v.Created, ApiKeySource: v.APIKeySource}); err != nil {
+	if err := w.q.PutDeployment(w.ctx, sqlcgen.PutDeploymentParams{CfnStackID: v.Ownership.StackID, CfnLogicalID: v.Ownership.LogicalID, CfnIncarnation: v.Ownership.Incarnation, Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, DeploymentID: k.DeploymentID, Description: v.Description, Created: v.Created, ApiKeySource: v.APIKeySource}); err != nil {
 		return err
 	}
 	if err := w.q.DeleteDeploymentResources(w.ctx, sqlcgen.DeleteDeploymentResourcesParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, DeploymentID: k.DeploymentID}); err != nil {
@@ -412,6 +418,8 @@ func (w writer) DeleteDeployment(k domain.DeploymentKey) error {
 }
 func (r reader) stage(v sqlcgen.ApigatewayStage) (domain.StageRecord, error) {
 	out := domain.StageRecord{Key: domain.StageKey{APIKey: apiKey(v.Partition, v.AccountID, v.Region, v.ApiID), Name: v.Name}, DeploymentID: v.DeploymentID, Description: v.Description, Created: v.Created, Updated: v.Updated}
+	out.Ownership = domain.Ownership{StackID: v.CfnStackID, LogicalID: v.CfnLogicalID, Incarnation: v.CfnIncarnation}
+	out.Incarnation = uint64(v.Incarnation)
 	out.AccessLogs = apigatewayexec.AccessLogSettings{DestinationARN: v.AccessLogDestinationArn, Format: v.AccessLogFormat}
 	{
 		rows, err := r.q.ListStageTags(r.ctx, sqlcgen.ListStageTagsParams{Partition: out.Key.Partition, AccountID: out.Key.AccountID, Region: out.Key.Region, ApiID: out.Key.ID, Name: out.Key.Name})
@@ -467,7 +475,7 @@ func (r reader) Stages(k domain.APIKey) ([]domain.StageRecord, error) {
 }
 func (w writer) PutStage(v domain.StageRecord) error {
 	k := v.Key
-	if err := w.q.PutStage(w.ctx, sqlcgen.PutStageParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, Name: k.Name, DeploymentID: v.DeploymentID, Description: v.Description, Created: v.Created, Updated: v.Updated, AccessLogDestinationArn: v.AccessLogs.DestinationARN, AccessLogFormat: v.AccessLogs.Format}); err != nil {
+	if err := w.q.PutStage(w.ctx, sqlcgen.PutStageParams{Incarnation: int64(v.Incarnation), CfnStackID: v.Ownership.StackID, CfnLogicalID: v.Ownership.LogicalID, CfnIncarnation: v.Ownership.Incarnation, Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, Name: k.Name, DeploymentID: v.DeploymentID, Description: v.Description, Created: v.Created, Updated: v.Updated, AccessLogDestinationArn: v.AccessLogs.DestinationARN, AccessLogFormat: v.AccessLogs.Format}); err != nil {
 		return err
 	}
 	if err := w.q.DeleteStageTags(w.ctx, sqlcgen.DeleteStageTagsParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, Name: k.Name}); err != nil {

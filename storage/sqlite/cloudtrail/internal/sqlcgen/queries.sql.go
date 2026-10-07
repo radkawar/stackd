@@ -260,7 +260,7 @@ func (q *Queries) GetDigestStream(ctx context.Context, id string) (CloudtrailDig
 }
 
 const getTrail = `-- name: GetTrail :one
-SELECT "partition", account_id, region, name, id, bucket, prefix, include_global, multi_region, recursive_logging, logging, created, modified, started, stopped, stop_after, logs_group_arn, logs_role_arn, kms_key_id, sns_topic_name, organization_id, log_file_validation FROM cloudtrail_trails WHERE partition=? AND account_id=? AND region=? AND name=?
+SELECT "partition", account_id, region, name, id, bucket, prefix, include_global, multi_region, recursive_logging, logging, created, modified, started, stopped, stop_after, logs_group_arn, logs_role_arn, kms_key_id, sns_topic_name, organization_id, log_file_validation, cfn_owner FROM cloudtrail_trails WHERE partition=? AND account_id=? AND region=? AND name=?
 `
 
 type GetTrailParams struct {
@@ -301,12 +301,13 @@ func (q *Queries) GetTrail(ctx context.Context, arg GetTrailParams) (CloudtrailT
 		&i.SnsTopicName,
 		&i.OrganizationID,
 		&i.LogFileValidation,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const getTrailByID = `-- name: GetTrailByID :one
-SELECT "partition", account_id, region, name, id, bucket, prefix, include_global, multi_region, recursive_logging, logging, created, modified, started, stopped, stop_after, logs_group_arn, logs_role_arn, kms_key_id, sns_topic_name, organization_id, log_file_validation FROM cloudtrail_trails WHERE id=?
+SELECT "partition", account_id, region, name, id, bucket, prefix, include_global, multi_region, recursive_logging, logging, created, modified, started, stopped, stop_after, logs_group_arn, logs_role_arn, kms_key_id, sns_topic_name, organization_id, log_file_validation, cfn_owner FROM cloudtrail_trails WHERE id=?
 `
 
 func (q *Queries) GetTrailByID(ctx context.Context, id string) (CloudtrailTrail, error) {
@@ -335,6 +336,54 @@ func (q *Queries) GetTrailByID(ctx context.Context, id string) (CloudtrailTrail,
 		&i.SnsTopicName,
 		&i.OrganizationID,
 		&i.LogFileValidation,
+		&i.CfnOwner,
+	)
+	return i, err
+}
+
+const getTrailByOwner = `-- name: GetTrailByOwner :one
+SELECT "partition", account_id, region, name, id, bucket, prefix, include_global, multi_region, recursive_logging, logging, created, modified, started, stopped, stop_after, logs_group_arn, logs_role_arn, kms_key_id, sns_topic_name, organization_id, log_file_validation, cfn_owner FROM cloudtrail_trails WHERE partition=? AND region=? AND name=? AND cfn_owner=? AND cfn_owner<>''
+`
+
+type GetTrailByOwnerParams struct {
+	Partition string
+	Region    string
+	Name      string
+	CfnOwner  string
+}
+
+func (q *Queries) GetTrailByOwner(ctx context.Context, arg GetTrailByOwnerParams) (CloudtrailTrail, error) {
+	row := q.db.QueryRowContext(ctx, getTrailByOwner,
+		arg.Partition,
+		arg.Region,
+		arg.Name,
+		arg.CfnOwner,
+	)
+	var i CloudtrailTrail
+	err := row.Scan(
+		&i.Partition,
+		&i.AccountID,
+		&i.Region,
+		&i.Name,
+		&i.ID,
+		&i.Bucket,
+		&i.Prefix,
+		&i.IncludeGlobal,
+		&i.MultiRegion,
+		&i.RecursiveLogging,
+		&i.Logging,
+		&i.Created,
+		&i.Modified,
+		&i.Started,
+		&i.Stopped,
+		&i.StopAfter,
+		&i.LogsGroupArn,
+		&i.LogsRoleArn,
+		&i.KmsKeyID,
+		&i.SnsTopicName,
+		&i.OrganizationID,
+		&i.LogFileValidation,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -784,7 +833,7 @@ func (q *Queries) ListTests(ctx context.Context, trailID string) ([]CloudtrailTe
 }
 
 const listTrails = `-- name: ListTrails :many
-SELECT "partition", account_id, region, name, id, bucket, prefix, include_global, multi_region, recursive_logging, logging, created, modified, started, stopped, stop_after, logs_group_arn, logs_role_arn, kms_key_id, sns_topic_name, organization_id, log_file_validation FROM cloudtrail_trails WHERE partition=? AND account_id=? ORDER BY region, name
+SELECT "partition", account_id, region, name, id, bucket, prefix, include_global, multi_region, recursive_logging, logging, created, modified, started, stopped, stop_after, logs_group_arn, logs_role_arn, kms_key_id, sns_topic_name, organization_id, log_file_validation, cfn_owner FROM cloudtrail_trails WHERE partition=? AND account_id=? ORDER BY region, name
 `
 
 type ListTrailsParams struct {
@@ -824,6 +873,7 @@ func (q *Queries) ListTrails(ctx context.Context, arg ListTrailsParams) ([]Cloud
 			&i.SnsTopicName,
 			&i.OrganizationID,
 			&i.LogFileValidation,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -1346,8 +1396,8 @@ func (q *Queries) PutTestValue(ctx context.Context, arg PutTestValueParams) erro
 }
 
 const putTrail = `-- name: PutTrail :exec
-INSERT INTO cloudtrail_trails(partition, account_id, region, name, id, bucket, prefix, include_global, multi_region, recursive_logging, logging, created, modified, started, stopped, stop_after, logs_group_arn, logs_role_arn, kms_key_id, sns_topic_name, organization_id, log_file_validation)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO cloudtrail_trails(partition, account_id, region, name, id, bucket, prefix, include_global, multi_region, recursive_logging, logging, created, modified, started, stopped, stop_after, logs_group_arn, logs_role_arn, kms_key_id, sns_topic_name, organization_id, log_file_validation, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, name) DO UPDATE SET
 bucket=excluded.bucket, prefix=excluded.prefix, include_global=excluded.include_global, multi_region=excluded.multi_region,
 recursive_logging=excluded.recursive_logging, logging=excluded.logging, created=excluded.created, modified=excluded.modified, started=excluded.started, stopped=excluded.stopped, stop_after=excluded.stop_after,
@@ -1377,6 +1427,7 @@ type PutTrailParams struct {
 	SnsTopicName      string
 	OrganizationID    string
 	LogFileValidation bool
+	CfnOwner          string
 }
 
 func (q *Queries) PutTrail(ctx context.Context, arg PutTrailParams) error {
@@ -1403,6 +1454,7 @@ func (q *Queries) PutTrail(ctx context.Context, arg PutTrailParams) error {
 		arg.SnsTopicName,
 		arg.OrganizationID,
 		arg.LogFileValidation,
+		arg.CfnOwner,
 	)
 	return err
 }

@@ -8,9 +8,17 @@ import (
 
 	api "stackd/internal/awsapi/lambda"
 	"stackd/internal/services/cloudformation"
+	service "stackd/internal/services/lambda"
 )
 
 type cfnLambdaMapping struct{ commands StepFunctionsCommands }
+
+func cfnLambdaMappingContext(ctx context.Context, r cloudformation.ResourceRequest, create bool) context.Context {
+	if r.CloudControl && !create {
+		return ctx
+	}
+	return service.WithMappingOwner(ctx, service.MappingOwner{StackID: r.StackID, LogicalID: r.LogicalID, Token: r.Token}, r.PhysicalID)
+}
 
 func (h cfnLambdaMapping) Validate(p cloudformation.Properties) error {
 	if err := cfnComputeProperties(p, "FunctionName", "EventSourceArn", "BatchSize", "Enabled", "MaximumBatchingWindowInSeconds", "FunctionResponseTypes", "ScalingConfig", "Tags", "StartingPosition", "StartingPositionTimestamp", "ParallelizationFactor", "MaximumRetryAttempts", "MaximumRecordAgeInSeconds", "BisectBatchOnFunctionError", "TumblingWindowInSeconds", "DestinationConfig", "FilterCriteria", "MetricsConfig", "KmsKeyArn", "SelfManagedEventSource", "SelfManagedKafkaEventSourceConfig", "AmazonManagedKafkaEventSourceConfig", "Topics", "SourceAccessConfigurations", "DocumentDBEventSourceConfig", "Queues"); err != nil {
@@ -83,15 +91,8 @@ func (h cfnLambdaMapping) ReplacementPlan(a, b cloudformation.Properties) (strin
 	return "False", nil
 }
 func (h cfnLambdaMapping) owned(ctx context.Context, r cloudformation.ResourceRequest, id string) (*api.EventSourceMappingConfiguration, error) {
-	out, err := cfnComputeCall[api.GetEventSourceMappingOutput](ctx, h.commands, "lambda", "GetEventSourceMapping", map[string]any{"UUID": id})
+	out, err := cfnComputeCall[api.GetEventSourceMappingOutput](cfnLambdaMappingContext(ctx, r, false), h.commands, "lambda", "GetEventSourceMapping", map[string]any{"UUID": id})
 	if err != nil {
-		return nil, err
-	}
-	tags, err := cfnLambdaTags(ctx, h.commands, cfnComputeValue(out.EventSourceMappingArn))
-	if err != nil {
-		return nil, err
-	}
-	if err := cfnComputeOwnership(r, tags); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -104,9 +105,13 @@ func (h cfnLambdaMapping) find(ctx context.Context, r cloudformation.ResourceReq
 	if r.PhysicalID != "" {
 		return h.owned(ctx, r, r.PhysicalID)
 	}
+	if r.CloudControl {
+		return nil, fmt.Errorf("a mapping identifier is required")
+	}
+	ctx = cfnLambdaMappingContext(ctx, r, false)
 	marker := ""
 	for {
-		input := cfnComputeCopy(r.Properties, "EventSourceArn")
+		input := map[string]any{}
 		if marker != "" {
 			input["Marker"] = marker
 		}
@@ -115,13 +120,7 @@ func (h cfnLambdaMapping) find(ctx context.Context, r cloudformation.ResourceReq
 			return nil, err
 		}
 		for _, mapping := range out.EventSourceMappings {
-			tags, err := cfnLambdaTags(ctx, h.commands, cfnComputeValue(mapping.EventSourceMappingArn))
-			if err != nil {
-				return nil, err
-			}
-			if cfnComputeOwnership(r, tags) == nil {
-				return &mapping, nil
-			}
+			return h.owned(ctx, r, cfnComputeValue(mapping.UUID))
 		}
 		marker = cfnComputeValue(out.NextMarker)
 		if marker == "" {
@@ -136,33 +135,27 @@ func (h cfnLambdaMapping) Create(ctx context.Context, r cloudformation.ResourceR
 	if err := cloudformation.ValidateResourceStringLengths(r.Type, r.Properties); err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
-	mapping, err := h.find(ctx, r)
-	if err != nil {
-		return cloudformation.ResourceResult{}, err
+	input := cfnLambdaMappingCreateInput(r.Properties)
+	if cfnLambdaMappingKafkaConfig(r.Properties) != "" {
+		input["StartingPosition"] = cfnComputeDefault(r.Properties, "StartingPosition", "TRIM_HORIZON")
 	}
-	if mapping == nil {
-		input := cfnLambdaMappingCreateInput(r.Properties)
-		if cfnLambdaMappingKafkaConfig(r.Properties) != "" {
-			input["StartingPosition"] = cfnComputeDefault(r.Properties, "StartingPosition", "TRIM_HORIZON")
+	if source, present := cfnComputeObject(r.Properties["SelfManagedEventSource"]); present {
+		endpoints, _ := cfnComputeObject(source["Endpoints"])
+		input["SelfManagedEventSource"] = map[string]any{
+			"Endpoints": map[string]any{"KAFKA_BOOTSTRAP_SERVERS": endpoints["KafkaBootstrapServers"]},
 		}
-		if source, present := cfnComputeObject(r.Properties["SelfManagedEventSource"]); present {
-			endpoints, _ := cfnComputeObject(source["Endpoints"])
-			input["SelfManagedEventSource"] = map[string]any{
-				"Endpoints": map[string]any{"KAFKA_BOOTSTRAP_SERVERS": endpoints["KafkaBootstrapServers"]},
-			}
-		}
-		if value, present := input["StartingPositionTimestamp"]; present {
-			timestamp, err := cfnLambdaMappingTimestamp(value)
-			if err != nil {
-				return cloudformation.ResourceResult{}, err
-			}
-			input["StartingPositionTimestamp"] = timestamp
-		}
-		input["Tags"] = cfnLambdaDeploymentTags(r)
-		mapping, err = cfnComputeCall[api.CreateEventSourceMappingOutput](ctx, h.commands, "lambda", "CreateEventSourceMapping", input)
+	}
+	if value, present := input["StartingPositionTimestamp"]; present {
+		timestamp, err := cfnLambdaMappingTimestamp(value)
 		if err != nil {
 			return cloudformation.ResourceResult{}, err
 		}
+		input["StartingPositionTimestamp"] = timestamp
+	}
+	input["Tags"] = cfnLambdaDeploymentTags(r)
+	mapping, err := cfnComputeCall[api.CreateEventSourceMappingOutput](cfnLambdaMappingContext(ctx, r, true), h.commands, "lambda", "CreateEventSourceMapping", input)
+	if err != nil {
+		return cloudformation.ResourceResult{}, err
 	}
 	return cfnLambdaMappingResult(mapping), nil
 }
@@ -186,6 +179,7 @@ func (h cfnLambdaMapping) Update(ctx context.Context, r cloudformation.ResourceR
 	return cfnLambdaMappingResult(mapping), nil
 }
 func (h cfnLambdaMapping) Stabilize(ctx context.Context, r cloudformation.ResourceRequest) (bool, error) {
+	ctx = cfnLambdaMappingContext(ctx, r, false)
 	mapping, err := h.owned(ctx, r, r.PhysicalID)
 	if err != nil {
 		return false, err
@@ -227,6 +221,7 @@ func (h cfnLambdaMapping) StabilizeDeletion(ctx context.Context, r cloudformatio
 	return mapping == nil, nil
 }
 func (h cfnLambdaMapping) Delete(ctx context.Context, r cloudformation.ResourceRequest) error {
+	ctx = cfnLambdaMappingContext(ctx, r, false)
 	mapping, err := h.find(ctx, r)
 	if err != nil {
 		return cfnComputeAbsent(err)

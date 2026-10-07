@@ -116,6 +116,12 @@ func (s *operationState) authorizationPlan(r *http.Request, action string, input
 	if o != nil && action == "CreateAccount" {
 		s.createdResourceID, _ = s.nextAccountID()
 		createdARN = o.arn(m.Partition, "account", s.createdResourceID)
+		for _, job := range o.creations {
+			if cloudFormationClaim(r) != "" && job.CloudFormationOwner == cloudFormationClaim(r) && job.RequestRegion == m.Region {
+				createdARN = o.arn(m.Partition, "account", job.AccountID)
+				break
+			}
+		}
 	}
 	if action == "DescribeEffectivePolicy" && o != nil && ids[0] == m.AccountID {
 		plan[0].ResourceAccountGrant = true

@@ -142,7 +142,7 @@ func (q *Queries) DeleteTaskDefinitionCompatibilities(ctx context.Context, arg D
 }
 
 const getCluster = `-- name: GetCluster :one
-SELECT "partition", account_id, region, name, cluster_arn, cluster_name, status, active_services_count, pending_tasks_count, registered_container_instances_count, running_tasks_count, attachments_status, attachments, configuration, default_capacity_provider_strategy, service_connect_defaults, settings, statistics, capacity_providers_present, created, updated FROM ecs_clusters WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
+SELECT "partition", account_id, region, name, cluster_arn, cluster_name, status, active_services_count, pending_tasks_count, registered_container_instances_count, running_tasks_count, attachments_status, attachments, configuration, default_capacity_provider_strategy, service_connect_defaults, settings, statistics, capacity_providers_present, created, updated, ownership FROM ecs_clusters WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
 `
 
 type GetClusterParams struct {
@@ -182,6 +182,7 @@ func (q *Queries) GetCluster(ctx context.Context, arg GetClusterParams) (EcsClus
 		&i.CapacityProvidersPresent,
 		&i.Created,
 		&i.Updated,
+		&i.Ownership,
 	)
 	return i, err
 }
@@ -245,7 +246,7 @@ func (q *Queries) GetTagSet(ctx context.Context, arg GetTagSetParams) (bool, err
 }
 
 const getTaskDefinition = `-- name: GetTaskDefinition :one
-SELECT "partition", account_id, region, family, revision, task_definition_arn, task_family, task_revision, status, cpu, memory, network_mode, ipc_mode, pid_mode, execution_role_arn, task_role_arn, registered_by, registered_at, deregistered_at, delete_requested_at, enable_fault_injection, container_definitions, ephemeral_storage, inference_accelerators, placement_constraints, proxy_configuration, requires_attributes, runtime_platform, volumes, compatibilities_present, requires_compatibilities_present FROM ecs_task_definitions WHERE partition = ? AND account_id = ? AND region = ? AND family = ? AND revision = ?
+SELECT "partition", account_id, region, family, revision, task_definition_arn, task_family, task_revision, status, cpu, memory, network_mode, ipc_mode, pid_mode, execution_role_arn, task_role_arn, registered_by, registered_at, deregistered_at, delete_requested_at, enable_fault_injection, container_definitions, ephemeral_storage, inference_accelerators, placement_constraints, proxy_configuration, requires_attributes, runtime_platform, volumes, compatibilities_present, requires_compatibilities_present, ownership FROM ecs_task_definitions WHERE partition = ? AND account_id = ? AND region = ? AND family = ? AND revision = ?
 `
 
 type GetTaskDefinitionParams struct {
@@ -297,6 +298,7 @@ func (q *Queries) GetTaskDefinition(ctx context.Context, arg GetTaskDefinitionPa
 		&i.Volumes,
 		&i.CompatibilitiesPresent,
 		&i.RequiresCompatibilitiesPresent,
+		&i.Ownership,
 	)
 	return i, err
 }
@@ -428,7 +430,7 @@ func (q *Queries) ListClusterCreateTags(ctx context.Context, arg ListClusterCrea
 }
 
 const listClusters = `-- name: ListClusters :many
-SELECT "partition", account_id, region, name, cluster_arn, cluster_name, status, active_services_count, pending_tasks_count, registered_container_instances_count, running_tasks_count, attachments_status, attachments, configuration, default_capacity_provider_strategy, service_connect_defaults, settings, statistics, capacity_providers_present, created, updated FROM ecs_clusters
+SELECT "partition", account_id, region, name, cluster_arn, cluster_name, status, active_services_count, pending_tasks_count, registered_container_instances_count, running_tasks_count, attachments_status, attachments, configuration, default_capacity_provider_strategy, service_connect_defaults, settings, statistics, capacity_providers_present, created, updated, ownership FROM ecs_clusters
 WHERE partition = ?1 AND account_id = ?2 AND region = ?3
  AND name > CAST(?4 AS TEXT)
  AND (CAST(?5 AS INTEGER) <> 0 OR status = 'ACTIVE')
@@ -482,6 +484,7 @@ func (q *Queries) ListClusters(ctx context.Context, arg ListClustersParams) ([]E
 			&i.CapacityProvidersPresent,
 			&i.Created,
 			&i.Updated,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -586,7 +589,7 @@ func (q *Queries) ListTaskDefinitionCompatibilities(ctx context.Context, arg Lis
 
 const listTaskDefinitions = `-- name: ListTaskDefinitions :many
 WITH ordering AS (SELECT CAST(?8 AS INTEGER) AS reverse)
-SELECT ecs_task_definitions."partition", ecs_task_definitions.account_id, ecs_task_definitions.region, ecs_task_definitions.family, ecs_task_definitions.revision, ecs_task_definitions.task_definition_arn, ecs_task_definitions.task_family, ecs_task_definitions.task_revision, ecs_task_definitions.status, ecs_task_definitions.cpu, ecs_task_definitions.memory, ecs_task_definitions.network_mode, ecs_task_definitions.ipc_mode, ecs_task_definitions.pid_mode, ecs_task_definitions.execution_role_arn, ecs_task_definitions.task_role_arn, ecs_task_definitions.registered_by, ecs_task_definitions.registered_at, ecs_task_definitions.deregistered_at, ecs_task_definitions.delete_requested_at, ecs_task_definitions.enable_fault_injection, ecs_task_definitions.container_definitions, ecs_task_definitions.ephemeral_storage, ecs_task_definitions.inference_accelerators, ecs_task_definitions.placement_constraints, ecs_task_definitions.proxy_configuration, ecs_task_definitions.requires_attributes, ecs_task_definitions.runtime_platform, ecs_task_definitions.volumes, ecs_task_definitions.compatibilities_present, ecs_task_definitions.requires_compatibilities_present FROM ecs_task_definitions CROSS JOIN ordering
+SELECT ecs_task_definitions."partition", ecs_task_definitions.account_id, ecs_task_definitions.region, ecs_task_definitions.family, ecs_task_definitions.revision, ecs_task_definitions.task_definition_arn, ecs_task_definitions.task_family, ecs_task_definitions.task_revision, ecs_task_definitions.status, ecs_task_definitions.cpu, ecs_task_definitions.memory, ecs_task_definitions.network_mode, ecs_task_definitions.ipc_mode, ecs_task_definitions.pid_mode, ecs_task_definitions.execution_role_arn, ecs_task_definitions.task_role_arn, ecs_task_definitions.registered_by, ecs_task_definitions.registered_at, ecs_task_definitions.deregistered_at, ecs_task_definitions.delete_requested_at, ecs_task_definitions.enable_fault_injection, ecs_task_definitions.container_definitions, ecs_task_definitions.ephemeral_storage, ecs_task_definitions.inference_accelerators, ecs_task_definitions.placement_constraints, ecs_task_definitions.proxy_configuration, ecs_task_definitions.requires_attributes, ecs_task_definitions.runtime_platform, ecs_task_definitions.volumes, ecs_task_definitions.compatibilities_present, ecs_task_definitions.requires_compatibilities_present, ecs_task_definitions.ownership FROM ecs_task_definitions CROSS JOIN ordering
 WHERE partition = ?1 AND account_id = ?2 AND region = ?3
  AND (CAST(?4 AS TEXT) = '' OR family = CAST(?4 AS TEXT))
  AND substr(family, 1, length(CAST(?5 AS TEXT))) = CAST(?5 AS TEXT)
@@ -670,6 +673,7 @@ func (q *Queries) ListTaskDefinitions(ctx context.Context, arg ListTaskDefinitio
 			&i.Volumes,
 			&i.CompatibilitiesPresent,
 			&i.RequiresCompatibilitiesPresent,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -713,12 +717,14 @@ func (q *Queries) NextTaskDefinitionRevision(ctx context.Context, arg NextTaskDe
 
 const putCluster = `-- name: PutCluster :exec
 INSERT INTO ecs_clusters (
+ ownership,
  partition, account_id, region, name, cluster_arn, cluster_name, status,
  active_services_count, pending_tasks_count, registered_container_instances_count, running_tasks_count,
  attachments_status, attachments, configuration, default_capacity_provider_strategy,
  service_connect_defaults, settings, statistics, capacity_providers_present, created, updated
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, name) DO UPDATE SET
+ ownership = excluded.ownership,
  cluster_arn = excluded.cluster_arn, cluster_name = excluded.cluster_name, status = excluded.status,
  active_services_count = excluded.active_services_count, pending_tasks_count = excluded.pending_tasks_count,
  registered_container_instances_count = excluded.registered_container_instances_count,
@@ -731,6 +737,7 @@ ON CONFLICT(partition, account_id, region, name) DO UPDATE SET
 `
 
 type PutClusterParams struct {
+	Ownership                         string
 	Partition                         string
 	AccountID                         string
 	Region                            string
@@ -756,6 +763,7 @@ type PutClusterParams struct {
 
 func (q *Queries) PutCluster(ctx context.Context, arg PutClusterParams) error {
 	_, err := q.db.ExecContext(ctx, putCluster,
+		arg.Ownership,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -932,14 +940,16 @@ func (q *Queries) PutTagSet(ctx context.Context, arg PutTagSetParams) error {
 
 const putTaskDefinition = `-- name: PutTaskDefinition :exec
 INSERT INTO ecs_task_definitions (
+ ownership,
  partition, account_id, region, family, revision, task_definition_arn, task_family, task_revision, status,
  cpu, memory, network_mode, ipc_mode, pid_mode, execution_role_arn, task_role_arn, registered_by,
  registered_at, deregistered_at, delete_requested_at, enable_fault_injection,
  container_definitions, ephemeral_storage, inference_accelerators, placement_constraints,
  proxy_configuration, requires_attributes, runtime_platform, volumes,
  compatibilities_present, requires_compatibilities_present
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, family, revision) DO UPDATE SET
+ ownership = excluded.ownership,
  task_definition_arn = excluded.task_definition_arn, task_family = excluded.task_family,
  task_revision = excluded.task_revision, status = excluded.status, cpu = excluded.cpu, memory = excluded.memory,
  network_mode = excluded.network_mode, ipc_mode = excluded.ipc_mode, pid_mode = excluded.pid_mode,
@@ -955,6 +965,7 @@ ON CONFLICT(partition, account_id, region, family, revision) DO UPDATE SET
 `
 
 type PutTaskDefinitionParams struct {
+	Ownership                      string
 	Partition                      string
 	AccountID                      string
 	Region                         string
@@ -990,6 +1001,7 @@ type PutTaskDefinitionParams struct {
 
 func (q *Queries) PutTaskDefinition(ctx context.Context, arg PutTaskDefinitionParams) error {
 	_, err := q.db.ExecContext(ctx, putTaskDefinition,
+		arg.Ownership,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,

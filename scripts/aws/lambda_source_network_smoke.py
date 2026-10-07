@@ -27,6 +27,8 @@ TOOLKIT_IMAGE = 'nicolaka/netshoot@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1f
 
 
 class SourceNetworkProof(LambdaProof):
+    runtime_selectors = ()
+
     def __init__(self, args):
         super().__init__(args)
         self.ec2 = self.client('ec2')

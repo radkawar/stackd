@@ -5,29 +5,30 @@
 package sqlcgen
 
 type ElasticacheCluster struct {
-	Partition       string
-	AccountID       string
-	Region          string
-	Kind            string
-	Name            string
-	Engine          string
-	EngineVersion   string
-	NodeType        string
-	Description     string
-	ParameterGroup  string
-	UserGroup       string
-	RuntimeID       string
-	Status          string
-	Operation       string
-	RestoreSnapshot string
-	Shards          int64
-	Replicas        int64
-	ClusterMode     int64
-	TlsEnabled      int64
-	MemoryBytes     int64
-	Version         int64
-	Created         int64
-	Due             int64
+	Partition           string
+	AccountID           string
+	Region              string
+	Kind                string
+	Name                string
+	Engine              string
+	EngineVersion       string
+	NodeType            string
+	Description         string
+	ParameterGroup      string
+	UserGroup           string
+	RuntimeID           string
+	Status              string
+	Operation           string
+	RestoreSnapshot     string
+	Shards              int64
+	Replicas            int64
+	ClusterMode         int64
+	TlsEnabled          int64
+	MemoryBytes         int64
+	Version             int64
+	Created             int64
+	Due                 int64
+	CloudformationOwner string
 }
 
 type ElasticacheMember struct {
@@ -64,13 +65,14 @@ type ElasticacheParameter struct {
 }
 
 type ElasticacheParameterGroup struct {
-	Partition   string
-	AccountID   string
-	Region      string
-	Kind        string
-	Name        string
-	Family      string
-	Description string
+	Partition           string
+	AccountID           string
+	Region              string
+	Kind                string
+	Name                string
+	Family              string
+	Description         string
+	CloudformationOwner string
 }
 
 type ElasticachePasswordHash struct {
@@ -121,13 +123,14 @@ type ElasticacheSubnet struct {
 }
 
 type ElasticacheSubnetGroup struct {
-	Partition   string
-	AccountID   string
-	Region      string
-	Kind        string
-	Name        string
-	Description string
-	VpcID       string
+	Partition           string
+	AccountID           string
+	Region              string
+	Kind                string
+	Name                string
+	Description         string
+	VpcID               string
+	CloudformationOwner string
 }
 
 type ElasticacheTag struct {
@@ -141,24 +144,26 @@ type ElasticacheTag struct {
 }
 
 type ElasticacheUser struct {
-	Partition    string
-	AccountID    string
-	Region       string
-	Kind         string
-	Name         string
-	UserName     string
-	Engine       string
-	AccessString string
-	Status       string
-	NoPassword   int64
+	Partition           string
+	AccountID           string
+	Region              string
+	Kind                string
+	Name                string
+	UserName            string
+	Engine              string
+	AccessString        string
+	Status              string
+	NoPassword          int64
+	CloudformationOwner string
 }
 
 type ElasticacheUserGroup struct {
-	Partition string
-	AccountID string
-	Region    string
-	Kind      string
-	Name      string
-	Engine    string
-	Status    string
+	Partition           string
+	AccountID           string
+	Region              string
+	Kind                string
+	Name                string
+	Engine              string
+	Status              string
+	CloudformationOwner string
 }

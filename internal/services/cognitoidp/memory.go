@@ -18,6 +18,8 @@ type attributeIndex struct {
 
 type memoryState struct {
 	pools      map[PoolKey]PoolRecord
+	ownership  map[OwnershipKey]OwnershipRecord
+	providers  map[ProviderKey]ProviderRecord
 	poolIDs    map[regionalID]PoolKey
 	keys       map[PoolKey]PoolSigningKeys
 	clients    map[ClientKey]ClientRecord
@@ -37,6 +39,7 @@ type MemoryRepository struct{ store *memory.Store[memoryState] }
 
 func NewMemoryRepository(domain *memory.Domain) *MemoryRepository {
 	initial := memoryState{
+		ownership: map[OwnershipKey]OwnershipRecord{}, providers: map[ProviderKey]ProviderRecord{},
 		pools: map[PoolKey]PoolRecord{}, poolIDs: map[regionalID]PoolKey{}, keys: map[PoolKey]PoolSigningKeys{},
 		clients: map[ClientKey]ClientRecord{}, clientIDs: map[regionalID]ClientKey{}, users: map[UserKey]UserRecord{},
 		attributes: map[attributeIndex]map[UserKey]struct{}{}, challenges: map[ChallengeKey]ChallengeRecord{},
@@ -47,6 +50,7 @@ func NewMemoryRepository(domain *memory.Domain) *MemoryRepository {
 	}
 	return &MemoryRepository{store: memory.New(domain, initial, func(s memoryState) memoryState {
 		s.pools, s.poolIDs, s.keys = maps.Clone(s.pools), maps.Clone(s.poolIDs), maps.Clone(s.keys)
+		s.ownership, s.providers = maps.Clone(s.ownership), maps.Clone(s.providers)
 		s.clients, s.clientIDs, s.users = maps.Clone(s.clients), maps.Clone(s.clientIDs), maps.Clone(s.users)
 		s.attributes, s.challenges = maps.Clone(s.attributes), maps.Clone(s.challenges)
 		s.sessions, s.refreshes = maps.Clone(s.sessions), maps.Clone(s.refreshes)
@@ -341,6 +345,9 @@ func (w memoryWriter) DeleteUser(k UserKey) error {
 	w.removeAttributes(w.s.users[k])
 	w.removeUserGroups(k)
 	delete(w.s.users, k)
+	w.releaseOwners(k.PoolKey, func(v OwnershipRecord) bool {
+		return v.Key.Kind == OwnerKindUser && v.PhysicalID == k.Username || v.Key.Kind == OwnerKindMembership && v.MemberUser == k.Username
+	})
 	for key, v := range w.s.challenges {
 		if key.PoolKey == k.PoolKey && v.Username == k.Username {
 			delete(w.s.challenges, key)
@@ -360,6 +367,9 @@ func (w memoryWriter) DeleteClient(k ClientKey) error {
 	delete(w.s.clients, k)
 	delete(w.s.clientIDs, regionalID{k.Partition, k.Region, k.ID})
 	delete(w.s.refreshes, k)
+	w.releaseOwners(k.PoolKey, func(v OwnershipRecord) bool {
+		return (v.Key.Kind == OwnerKindClient || v.Key.Kind == OwnerKindClientToken) && v.PhysicalID == k.ID
+	})
 	for key, v := range w.s.challenges {
 		if key.PoolKey == k.PoolKey && v.ClientID == k.ID {
 			delete(w.s.challenges, key)
@@ -379,6 +389,12 @@ func (w memoryWriter) DeletePool(k PoolKey) error {
 	delete(w.s.pools, k)
 	delete(w.s.poolIDs, regionalID{k.Partition, k.Region, k.ID})
 	delete(w.s.keys, k)
+	w.releaseOwners(k, func(OwnershipRecord) bool { return true })
+	for key := range w.s.providers {
+		if key.PoolKey == k {
+			delete(w.s.providers, key)
+		}
+	}
 	for key := range w.s.clients {
 		if key.PoolKey == k {
 			delete(w.s.clients, key)

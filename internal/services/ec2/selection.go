@@ -44,6 +44,9 @@ func canonicalCIDR(raw string) (string, error) {
 	return p.Masked().String(), nil
 }
 func missing(kind, id string) error {
+	if kind == "natgateway" || kind == "vpc-endpoint" {
+		return networkOwnerMissing(kind, id)
+	}
 	if kind == "launch-template" {
 		return launchTemplateMissing(id, "")
 	}
@@ -66,6 +69,10 @@ func missing(kind, id string) error {
 }
 func resourceKind(id string) string {
 	switch {
+	case strings.HasPrefix(id, "nat-"):
+		return "natgateway"
+	case strings.HasPrefix(id, "vpce-"):
+		return "vpc-endpoint"
 	case strings.HasPrefix(id, "lt-"):
 		return "launch-template"
 	case strings.HasPrefix(id, "eipalloc-"):
@@ -100,6 +107,10 @@ func resourceKind(id string) string {
 func allowedFilters(op string) map[string]bool {
 	fields := ""
 	switch op {
+	case "DescribeNatGateways":
+		fields = "nat-gateway-id subnet-id vpc-id state connectivity-type nat-gateway-address.allocation-id nat-gateway-address.private-ip nat-gateway-address.public-ip"
+	case "DescribeVpcEndpoints":
+		fields = "vpc-endpoint-id vpc-id service-name vpc-endpoint-type state subnet-id route-table-id group-id owner-id"
 	case "DescribeLaunchTemplates":
 		fields = "create-time launch-template-name"
 	case "DescribeLaunchTemplateVersions":
@@ -257,6 +268,12 @@ func selectPageItems(ctx context.Context, op string, ids []string, filters api.F
 		}
 	}
 	kind := map[string]string{"DescribeVpcs": "vpc", "DescribeSubnets": "subnet", "DescribeSecurityGroups": "security-group", "DescribeSecurityGroupRules": "security-group-rule", "DescribeRouteTables": "route-table", "DescribeInternetGateways": "internet-gateway", "DescribeNetworkInterfaces": "network-interface", "DescribeNetworkAcls": "network-acl", "DescribeDhcpOptions": "dhcp-options"}[op]
+	if op == "DescribeNatGateways" {
+		kind = "natgateway"
+	}
+	if op == "DescribeVpcEndpoints" {
+		kind = "vpc-endpoint"
+	}
 	if op == "DescribeInstances" || op == "DescribeInstanceStatus" || op == "DescribeInstanceCreditSpecifications" {
 		kind = "instance"
 	}

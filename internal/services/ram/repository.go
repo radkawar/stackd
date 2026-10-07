@@ -43,21 +43,30 @@ type Share struct {
 	Resources                               []ResourceAssociation
 	Principals                              []PrincipalAssociation
 	Permissions                             []PermissionAssociation
+	// CloudFormationOwner is private controller provenance fixed at creation.
+	// It is never derived from or exposed through public tags.
+	CloudFormationOwner string
 }
+
+// Association CloudFormationOwner fields record the exact controller incarnation
+// that admitted a live edge; empty is the unowned direct-API scope.
 type ResourceAssociation struct {
 	ResourceIdentity
-	Status           string
-	Created, Updated time.Time
-	StatusMessage    string
+	Status              string
+	Created, Updated    time.Time
+	StatusMessage       string
+	CloudFormationOwner string
 }
 type PrincipalAssociation struct {
 	Principal, PrincipalID, Status, InvitationARN string
 	Organization                                  bool
 	Created, Updated                              time.Time
+	CloudFormationOwner                           string
 }
 type PermissionAssociation struct {
-	ARN, ResourceType string
-	Version           int32
+	ARN, ResourceType   string
+	Version             int32
+	CloudFormationOwner string
 }
 type Invitation struct {
 	Scope
@@ -72,6 +81,8 @@ type Permission struct {
 	Created, Updated                                  time.Time
 	Tags                                              map[string]string
 	Versions                                          []PermissionVersion
+	// Private controller provenance admitted with this native object's lifetime.
+	CloudFormationOwner, ObjectID string
 }
 type PermissionVersion struct {
 	Version          int32
@@ -91,8 +102,9 @@ type Replacement struct {
 }
 type Receipt struct {
 	Scope
-	Operation, Token, Hash, ARN string
-	Version                     int32
+	Operation, Token, Hash, ARN   string
+	Version                       int32
+	CloudFormationOwner, ObjectID string
 }
 type Reader interface {
 	Context() context.Context

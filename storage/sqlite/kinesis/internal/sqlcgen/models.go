@@ -32,6 +32,9 @@ type KinesisConsumer struct {
 	Status            sql.NullString
 	StreamArn         sql.NullString
 	DeleteAt          time.Time
+	OwnerStackID      string
+	OwnerLogicalID    string
+	OwnerToken        string
 }
 
 type KinesisEncryptionUpdate struct {
@@ -130,6 +133,9 @@ type KinesisPolicy struct {
 	EffectiveTrustPolicy       bool
 	EffectivePrincipalsPresent bool
 	PublishAt                  time.Time
+	OwnerStackID               string
+	OwnerLogicalID             string
+	OwnerToken                 string
 }
 
 type KinesisPolicyPrincipal struct {
@@ -199,6 +205,9 @@ type KinesisStream struct {
 	MonitoringPresent        bool
 	ShardUpdatesPresent      bool
 	EncryptionUpdatesPresent bool
+	OwnerStackID             string
+	OwnerLogicalID           string
+	OwnerToken               string
 }
 
 type KinesisTag struct {

@@ -27,22 +27,23 @@ type OrgAvailablePolicyType struct {
 }
 
 type OrgCreation struct {
-	Partition     string
-	OrgID         string
-	Position      int64
-	ID            string
-	AccountID     string
-	AccountName   string
-	Email         string
-	RoleName      string
-	State         string
-	FailureReason string
-	RequestedAt   time.Time
-	Due           time.Time
-	CompletedAt   time.Time
-	RequestID     string
-	RequestRegion string
-	ActorArn      string
+	Partition           string
+	OrgID               string
+	Position            int64
+	ID                  string
+	AccountID           string
+	AccountName         string
+	Email               string
+	RoleName            string
+	State               string
+	FailureReason       string
+	RequestedAt         time.Time
+	Due                 time.Time
+	CompletedAt         time.Time
+	RequestID           string
+	RequestRegion       string
+	ActorArn            string
+	CloudformationOwner string
 }
 
 type OrgCreationTag struct {
@@ -135,17 +136,19 @@ type OrgHandshakeTag struct {
 }
 
 type OrgMember struct {
-	Partition       string
-	OrgID           string
-	Position        int64
-	ID              string
-	Arn             string
-	Name            string
-	Email           string
-	Status          string
-	State           string
-	JoinedMethod    string
-	JoinedTimestamp float64
+	Partition            string
+	OrgID                string
+	Position             int64
+	ID                   string
+	Arn                  string
+	Name                 string
+	Email                string
+	Status               string
+	State                string
+	JoinedMethod         string
+	JoinedTimestamp      float64
+	CloudformationOwner  string
+	CloudformationRegion string
 }
 
 type OrgOrganization struct {
@@ -162,6 +165,7 @@ type OrgOrganization struct {
 	RootName              string
 	CredentialsManagement bool
 	RootSessions          bool
+	CloudformationOwner   string
 }
 
 type OrgParent struct {
@@ -179,37 +183,41 @@ type OrgPartition struct {
 }
 
 type OrgPolicy struct {
-	Partition   string
-	OrgID       string
-	Position    int64
-	ID          string
-	Arn         string
-	Name        string
-	Description string
-	Type        string
-	Content     string
-	AwsManaged  bool
+	Partition           string
+	OrgID               string
+	Position            int64
+	ID                  string
+	Arn                 string
+	Name                string
+	Description         string
+	Type                string
+	Content             string
+	AwsManaged          bool
+	CloudformationOwner string
 }
 
 type OrgRegistry struct {
-	Partition       string
-	Position        int64
-	ID              string
-	Arn             string
-	Name            string
-	Email           string
-	Status          string
-	State           string
-	JoinedMethod    string
-	JoinedTimestamp float64
+	Partition            string
+	Position             int64
+	ID                   string
+	Arn                  string
+	Name                 string
+	Email                string
+	Status               string
+	State                string
+	JoinedMethod         string
+	JoinedTimestamp      float64
+	CloudformationOwner  string
+	CloudformationRegion string
 }
 
 type OrgResourcePolicy struct {
-	Partition string
-	OrgID     string
-	ID        string
-	Arn       string
-	Content   string
+	Partition           string
+	OrgID               string
+	ID                  string
+	Arn                 string
+	Content             string
+	CloudformationOwner string
 }
 
 type OrgRootPolicyType struct {
@@ -238,10 +246,11 @@ type OrgTag struct {
 }
 
 type OrgUnit struct {
-	Partition string
-	OrgID     string
-	Position  int64
-	ID        string
-	Arn       string
-	Name      string
+	Partition           string
+	OrgID               string
+	Position            int64
+	ID                  string
+	Arn                 string
+	Name                string
+	CloudformationOwner string
 }

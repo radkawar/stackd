@@ -19,11 +19,12 @@ type memoryState struct {
 	authorizers      map[AuthorizerKey]AuthorizerRecord
 	deployments      map[DeploymentKey]DeploymentRecord
 	stages           map[StageKey]StageRecord
+	stageSequence    map[Scope]uint64
 	authorizerCache  map[AuthorizerCacheKey]AuthorizerCacheRecord
 	clientKeys       map[ClientKey]ClientKeyRecord
 	clientKeyValues  map[clientKeyValue]ClientKey
 	usagePlans       map[PlanKey]UsagePlanRecord
-	usageMemberships map[ClientKey]map[PlanKey]time.Time
+	usageMemberships map[ClientKey]map[PlanKey]UsagePlanMembership
 	usageDays        map[ClientKey]map[PlanKey]map[time.Time]int64
 	metricSamples    map[MetricPublicationKey]map[metricSampleKey]int64
 }
@@ -32,11 +33,12 @@ type MemoryRepository struct{ store *memory.Store[memoryState] }
 func NewMemoryRepository(domain *memory.Domain) *MemoryRepository {
 	initial := memoryState{apis: map[APIKey]APIRecord{}, resources: map[ResourceKey]ResourceRecord{}, methods: map[MethodKey]MethodRecord{}, integrations: map[MethodKey]IntegrationRecord{}, authorizers: map[AuthorizerKey]AuthorizerRecord{}, deployments: map[DeploymentKey]DeploymentRecord{}, stages: map[StageKey]StageRecord{}}
 	initial.accounts = map[Scope]AccountRecord{}
+	initial.stageSequence = map[Scope]uint64{}
 	initial.authorizerCache = map[AuthorizerCacheKey]AuthorizerCacheRecord{}
 	initial.clientKeys = map[ClientKey]ClientKeyRecord{}
 	initial.clientKeyValues = map[clientKeyValue]ClientKey{}
 	initial.usagePlans = map[PlanKey]UsagePlanRecord{}
-	initial.usageMemberships = map[ClientKey]map[PlanKey]time.Time{}
+	initial.usageMemberships = map[ClientKey]map[PlanKey]UsagePlanMembership{}
 	initial.usageDays = map[ClientKey]map[PlanKey]map[time.Time]int64{}
 	initial.metricSamples = map[MetricPublicationKey]map[metricSampleKey]int64{}
 	return &MemoryRepository{store: memory.New(domain, initial, func(s memoryState) memoryState {
@@ -48,6 +50,7 @@ func NewMemoryRepository(domain *memory.Domain) *MemoryRepository {
 		s.authorizers = maps.Clone(s.authorizers)
 		s.deployments = maps.Clone(s.deployments)
 		s.stages = maps.Clone(s.stages)
+		s.stageSequence = maps.Clone(s.stageSequence)
 		s.authorizerCache = maps.Clone(s.authorizerCache)
 		s.clientKeys = maps.Clone(s.clientKeys)
 		s.clientKeyValues = maps.Clone(s.clientKeyValues)

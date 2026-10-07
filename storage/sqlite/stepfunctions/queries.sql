@@ -5,8 +5,8 @@ SELECT * FROM stepfunctions_machines WHERE partition = ? AND account_id = ? AND 
 -- name: CountMachines :one
 SELECT COUNT(*) FROM stepfunctions_machines WHERE partition = ? AND account_id = ? AND region = ?;
 -- name: PutMachine :exec
-INSERT INTO stepfunctions_machines (partition, account_id, region, name, id, revision_id, type, status, created, version, delete_at, next_version, first_version_description)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO stepfunctions_machines (partition, account_id, region, name, id, revision_id, type, status, created, version, delete_at, next_version, first_version_description, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, name) DO UPDATE SET id = excluded.id, revision_id = excluded.revision_id, type = excluded.type, status = excluded.status, created = excluded.created, version = excluded.version, delete_at = excluded.delete_at, next_version = excluded.next_version, first_version_description = excluded.first_version_description;
 -- name: DeleteMachine :execrows
 DELETE FROM stepfunctions_machines WHERE partition = ? AND account_id = ? AND region = ? AND name = ?;
@@ -35,9 +35,9 @@ SELECT * FROM stepfunctions_versions WHERE partition = ? AND account_id = ? AND 
 -- name: ListVersions :many
 SELECT * FROM stepfunctions_versions WHERE partition = ? AND account_id = ? AND region = ? AND machine_name = ? AND machine_id = ? ORDER BY number DESC;
 -- name: PutVersion :exec
-INSERT INTO stepfunctions_versions (partition, account_id, region, machine_name, machine_id, number, revision_id, created, description)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, machine_name, machine_id, number) DO UPDATE SET revision_id = excluded.revision_id, created = excluded.created, description = excluded.description;
+INSERT INTO stepfunctions_versions (partition, account_id, region, machine_name, machine_id, number, revision_id, created, description, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, machine_name, machine_id, number) DO UPDATE SET revision_id = excluded.revision_id, created = excluded.created, description = excluded.description, cfn_owner = excluded.cfn_owner;
 -- name: DeleteVersion :execrows
 DELETE FROM stepfunctions_versions WHERE partition = ? AND account_id = ? AND region = ? AND machine_name = ? AND machine_id = ? AND number = ?;
 
@@ -46,9 +46,9 @@ SELECT * FROM stepfunctions_aliases WHERE partition = ? AND account_id = ? AND r
 -- name: ListAliases :many
 SELECT * FROM stepfunctions_aliases WHERE partition = ? AND account_id = ? AND region = ? AND machine_name = ? AND machine_id = ? ORDER BY name;
 -- name: PutAlias :exec
-INSERT INTO stepfunctions_aliases (partition, account_id, region, machine_name, machine_id, name, description, created, updated)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, machine_name, machine_id, name) DO UPDATE SET description = excluded.description, created = excluded.created, updated = excluded.updated;
+INSERT INTO stepfunctions_aliases (partition, account_id, region, machine_name, machine_id, name, description, created, updated, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, machine_name, machine_id, name) DO UPDATE SET description = excluded.description, created = excluded.created, updated = excluded.updated, cfn_owner = excluded.cfn_owner;
 -- name: DeleteAlias :execrows
 DELETE FROM stepfunctions_aliases WHERE partition = ? AND account_id = ? AND region = ? AND machine_name = ? AND machine_id = ? AND name = ?;
 -- name: ListAliasRoutes :many
@@ -65,7 +65,7 @@ SELECT * FROM stepfunctions_activities WHERE partition = ? AND account_id = ? AN
 -- name: CountActivities :one
 SELECT COUNT(*) FROM stepfunctions_activities WHERE partition = ? AND account_id = ? AND region = ?;
 -- name: PutActivity :exec
-INSERT INTO stepfunctions_activities (partition, account_id, region, name, id, created, encryption_type, kms_key_arn, data_key_reuse_seconds) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO stepfunctions_activities (partition, account_id, region, name, id, created, encryption_type, kms_key_arn, data_key_reuse_seconds, cfn_owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, name) DO UPDATE SET id = excluded.id, created = excluded.created, encryption_type = excluded.encryption_type, kms_key_arn = excluded.kms_key_arn, data_key_reuse_seconds = excluded.data_key_reuse_seconds;
 -- name: DeleteActivity :execrows
 DELETE FROM stepfunctions_activities WHERE partition = ? AND account_id = ? AND region = ? AND name = ?;

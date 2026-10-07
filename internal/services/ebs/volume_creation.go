@@ -183,6 +183,9 @@ func (s *Service) CreateVolume(ctx context.Context, in *api.CreateVolumeRequest,
 				if prior.Status == api.VolumeStateDeleting || prior.Status == api.VolumeStateDeleted {
 					return ec2Failure("IdempotentParameterMismatch", "The client token '"+token+"' is associated with resource '"+prior.Key.ID+"' which has already been deleted. Please use a different client token.")
 				}
+				if err := admitVolumeOwner(tx, &prior, true); err != nil {
+					return err
+				}
 				out = volumeCreationProjection(prior, source)
 				return nil
 			}
@@ -260,6 +263,9 @@ func (s *Service) CreateVolume(ctx context.Context, in *api.CreateVolumeRequest,
 				Source: source.Key, SourceWrappedKey: material.SourceWrappedKey,
 				ReuseSourceCiphertext: material.ReuseSourceCiphertext, RetireGrant: true,
 			}
+		}
+		if err := admitVolumeOwner(tx, &destination, false); err != nil {
+			return err
 		}
 		if err := tx.PutVolume(destination); err != nil {
 			return err

@@ -30,7 +30,7 @@ func (s *Service) VerifyIdentityToken(ctx context.Context, poolID, clientID, raw
 	var claims map[string]any
 	err = s.repository.View(ctx, func(r Reader) error {
 		m := awsctx.FromContext(r.Context())
-		pool, e := r.PoolByID(m.Partition, m.Region, poolID)
+		pool, e := r.PoolByID(m.Partition, publicPoolRegion(r.Context(), poolID), poolID)
 		if errors.Is(e, ErrNotFound) {
 			return invalid()
 		}

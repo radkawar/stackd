@@ -136,6 +136,11 @@ func (s *Service) createCapacityProvider(ctx context.Context, in *api.CreateCapa
 		return nil, capacityParameter("Capacity providers must be created in the current account.")
 	}
 	v := CapacityProviderRecord{Key: key, Generation: uuid.NewString(), State: "Pending", Architecture: "x86_64", ScalingMode: "Auto", MaxVCPUs: 400, TargetCPU: 50, Modified: s.clock.Now().UTC(), Tags: map[string]string{}}
+	owner, _, err := additionalOwnerFor(ctx)
+	if err != nil {
+		return nil, wireError(err)
+	}
+	v.Owner = owner
 	if in.PermissionsConfig == nil || value(in.PermissionsConfig.CapacityProviderOperatorRoleArn) == "" || in.VpcConfig == nil || len(in.VpcConfig.SubnetIds) == 0 {
 		return nil, capacityParameter("PermissionsConfig and VpcConfig subnets are required.")
 	}
@@ -183,14 +188,21 @@ func (s *Service) createCapacityProvider(ctx context.Context, in *api.CreateCapa
 	if rejected := s.authorize(ctx, "CreateCapacityProvider", key.ARN(), nil, v.Tags, nil); rejected != nil {
 		return nil, rejected
 	}
-	if s.capacityBackend == nil {
-		return nil, unsupported("A real managed EC2 guest backend is required.")
-	}
 	v.State = "Active"
 	out := &api.CreateCapacityProviderResponse{CapacityProvider: capacityOutput(v)}
 	err = s.repository.Update(ctx, func(tx Transaction) error {
-		if _, err := tx.CapacityProvider(key); err == nil {
-			return failure("ResourceConflictException", "Capacity provider already exists.", 409)
+		if current, err := tx.CapacityProvider(key); err == nil {
+			if owner == (AdditionalOwner{}) {
+				return failure("ResourceConflictException", "Capacity provider already exists.", 409)
+			}
+			if rejected := s.authorizeCapacity(tx.Context(), "CreateCapacityProvider", current); rejected != nil {
+				return rejected
+			}
+			if err := requireAdditionalOwner(tx.Context(), current.Owner); err != nil {
+				return err
+			}
+			out.CapacityProvider = capacityOutput(current)
+			return s.recordCall(tx.Context(), "CreateCapacityProvider", in, out, nil)
 		} else if !errors.Is(err, ErrNotFound) {
 			return err
 		}
@@ -203,6 +215,9 @@ func (s *Service) createCapacityProvider(ctx context.Context, in *api.CreateCapa
 		}
 		if rejected := s.authorize(tx.Context(), "CreateCapacityProvider", key.ARN(), nil, v.Tags, nil); rejected != nil {
 			return rejected
+		}
+		if s.capacityBackend == nil {
+			return unsupported("A real managed EC2 guest backend is required.")
 		}
 		if err := s.capacityBackend.Validate(tx.Context(), v); err != nil {
 			return err
@@ -232,7 +247,7 @@ func (s *Service) getCapacityProvider(ctx context.Context, in *api.GetCapacityPr
 		if rejected := s.authorizeCapacity(r.Context(), "GetCapacityProvider", v); rejected != nil {
 			return rejected
 		}
-		return nil
+		return requireAdditionalOwner(r.Context(), v.Owner)
 	})
 	if err != nil {
 		return nil, wireError(err)
@@ -252,6 +267,9 @@ func (s *Service) updateCapacityProvider(ctx context.Context, in *api.UpdateCapa
 		}
 		if rejected := s.authorizeCapacity(tx.Context(), "UpdateCapacityProvider", v); rejected != nil {
 			return rejected
+		}
+		if err := requireAdditionalOwner(tx.Context(), v.Owner); err != nil {
+			return err
 		}
 		if v.State != "Active" {
 			return failure("ResourceConflictException", "Capacity provider is not active.", 409)
@@ -313,6 +331,9 @@ func (s *Service) deleteCapacityProvider(ctx context.Context, in *api.DeleteCapa
 		}
 		if rejected := s.authorizeCapacity(tx.Context(), "DeleteCapacityProvider", v); rejected != nil {
 			return rejected
+		}
+		if err := requireAdditionalOwner(tx.Context(), v.Owner); err != nil {
+			return err
 		}
 		versions, err := capacityVersions(tx, key)
 		if err != nil {

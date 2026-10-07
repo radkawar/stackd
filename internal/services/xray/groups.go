@@ -118,16 +118,31 @@ func (s *Service) createGroup(tx Transaction, in *api.CreateGroupRequest) (*api.
 	if !validGroupName(name) {
 		return nil, failure("InvalidRequestException", "Invalid group name")
 	}
-	var random [32]byte
-	if _, err := rand.Read(random[:]); err != nil {
+	scope := scopeFor(tx.Context())
+	rows, err := tx.Groups(scope)
+	if err != nil {
 		return nil, err
 	}
-	key := GroupKey{Scope: scopeFor(tx.Context()), Name: name, ID: base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(random[:])}
+	key := GroupKey{Scope: scope, Name: name}
+	var currentTags map[string]string
+	for _, row := range rows {
+		if row.Key.Name == name {
+			key, currentTags = row.Key, row.Tags
+			break
+		}
+	}
+	if key.ID == "" && !cloudFormationRecovering(tx.Context()) {
+		var random [32]byte
+		if _, err := rand.Read(random[:]); err != nil {
+			return nil, err
+		}
+		key.ID = base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(random[:])
+	}
 	tags, err := validateTags(in.Tags)
 	if err != nil {
 		return nil, err
 	}
-	request := authorization.Request{Action: "xray:CreateGroup", ResourceARN: key.ARN(), Context: tagContext(nil, tags, nil), ContextTypes: map[string]string{"aws:TagKeys": "stringList"}}
+	request := authorization.Request{Action: "xray:CreateGroup", ResourceARN: key.ARN(), Context: tagContext(currentTags, tags, nil), ContextTypes: map[string]string{"aws:TagKeys": "stringList"}}
 	if err := s.authorizeResource(tx, request); err != nil {
 		return nil, err
 	}
@@ -143,18 +158,27 @@ func (s *Service) createGroup(tx Transaction, in *api.CreateGroupRequest) (*api.
 	if err := validateGroupInsights(in.InsightsConfiguration); err != nil {
 		return nil, err
 	}
-	rows, err := tx.Groups(key.Scope)
-	if err != nil {
-		return nil, err
-	}
 	count := 1
 	for _, row := range rows {
 		if row.Key.Name == name {
-			return nil, failure("InvalidRequestException", name+" already exists")
+			if _, ok := tx.Context().Value(cloudFormationOwnerKey{}).(cloudFormationOwner); !ok {
+				return nil, failure("InvalidRequestException", name+" already exists")
+			}
+			if _, err := cloudFormationClaim(tx.Context(), row.CFNOwner, true); err != nil {
+				return nil, err
+			}
+			return &api.CreateGroupResult{Group: groupOutput(row)}, nil
 		}
 		if row.Key.Name != "Default" {
 			count++
 		}
+	}
+	if cloudFormationRecovering(tx.Context()) {
+		return nil, failure("ResourceNotFoundException", "Group not found", 404)
+	}
+	claim, err := cloudFormationClaim(tx.Context(), "", false)
+	if err != nil {
+		return nil, err
 	}
 	if count >= groupLimit {
 		return nil, failure("InvalidRequestException", "The maximum number of groups has been reached")
@@ -162,7 +186,7 @@ func (s *Service) createGroup(tx Transaction, in *api.CreateGroupRequest) (*api.
 	if strings.TrimSpace(value(in.FilterExpression)) == "" {
 		return nil, failure("InvalidRequestException", "Filter Expression is empty")
 	}
-	row := GroupRecord{Key: key, FilterExpression: value(in.FilterExpression), Version: 1, Tags: tags}
+	row := GroupRecord{Key: key, FilterExpression: value(in.FilterExpression), Version: 1, Tags: tags, CFNOwner: claim}
 	if _, err := compileTraceFilter(row.FilterExpression, groupExpressions(append(rows, row))); err != nil {
 		return nil, err
 	}
@@ -182,6 +206,9 @@ func (s *Service) updateGroup(tx Transaction, in *api.UpdateGroupRequest) (*api.
 	}
 	if err != nil {
 		return nil, failure("InvalidRequestException", "Group not found")
+	}
+	if _, err := cloudFormationClaim(tx.Context(), row.CFNOwner, true); err != nil {
+		return nil, err
 	}
 	if err := validateGroupInsights(in.InsightsConfiguration); err != nil {
 		return nil, err
@@ -221,6 +248,9 @@ func (s *Service) deleteGroup(tx Transaction, in *api.DeleteGroupRequest) (*api.
 	}
 	if err != nil {
 		return nil, failure("InvalidRequestException", "Group not found")
+	}
+	if _, err := cloudFormationClaim(tx.Context(), row.CFNOwner, true); err != nil {
+		return nil, err
 	}
 	if row.Key.Name == "Default" {
 		return nil, failure("InvalidRequestException", "The Default group cannot be deleted")

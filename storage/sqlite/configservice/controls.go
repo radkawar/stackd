@@ -8,7 +8,8 @@ import (
 )
 
 func (r reader) loadRecorder(v sqlcgen.ConfigRecorder) (domain.Recorder, error) {
-	out := domain.Recorder{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name, ARN: v.ARN, RoleARN: v.RoleARN, AllSupported: v.AllSupported, IncludeGlobal: v.IncludeGlobal, Recording: v.Recording, LastStart: v.LastStart, LastStop: v.LastStop, LastStatusChange: v.LastStatusChange, LastStatus: v.LastStatus, LastErrorCode: v.LastErrorCode, LastErrorMessage: v.LastErrorMessage}
+	out := domain.Recorder{StartOnCreate: v.CfnStartOnCreate, CFNOwnership: domain.CloudFormationOwnership{Owner: v.CfnOwner, Token: v.CfnToken}, Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name, ARN: v.ARN, RoleARN: v.RoleARN, AllSupported: v.AllSupported, IncludeGlobal: v.IncludeGlobal, Recording: v.Recording, LastStart: v.LastStart, LastStop: v.LastStop, LastStatusChange: v.LastStatusChange, LastStatus: v.LastStatus, LastErrorCode: v.LastErrorCode, LastErrorMessage: v.LastErrorMessage}
+	out.StartedOnCreate, out.StartedOnCreateKnown = v.CfnStartedOnCreate.Bool, v.CfnStartedOnCreate.Valid
 	types, err := r.q.ListRecorderTypes(r.ctx, v.RowID)
 	if err != nil {
 		return out, err
@@ -36,7 +37,8 @@ func (r reader) Recorder(s domain.Scope) (domain.Recorder, bool, error) {
 }
 
 func (w writer) PutRecorder(v domain.Recorder) error {
-	id, err := w.q.PutRecorder(w.ctx, sqlcgen.PutRecorderParams{Partition: v.Scope.Partition, AccountID: v.Scope.AccountID, Region: v.Scope.Region, Name: v.Name, ARN: v.ARN, RoleARN: v.RoleARN, AllSupported: v.AllSupported, IncludeGlobal: v.IncludeGlobal, Recording: v.Recording, LastStart: v.LastStart, LastStop: v.LastStop, LastStatusChange: v.LastStatusChange, LastStatus: v.LastStatus, LastErrorCode: v.LastErrorCode, LastErrorMessage: v.LastErrorMessage})
+	// Creation settings are immutable: the upsert preserves the originally admitted value.
+	id, err := w.q.PutRecorder(w.ctx, sqlcgen.PutRecorderParams{CfnStartedOnCreate: sql.NullBool{Bool: v.StartedOnCreate, Valid: v.StartedOnCreateKnown}, CfnStartOnCreate: v.StartOnCreate, CfnOwner: v.CFNOwnership.Owner, CfnToken: v.CFNOwnership.Token, Partition: v.Scope.Partition, AccountID: v.Scope.AccountID, Region: v.Scope.Region, Name: v.Name, ARN: v.ARN, RoleARN: v.RoleARN, AllSupported: v.AllSupported, IncludeGlobal: v.IncludeGlobal, Recording: v.Recording, LastStart: v.LastStart, LastStop: v.LastStop, LastStatusChange: v.LastStatusChange, LastStatus: v.LastStatus, LastErrorCode: v.LastErrorCode, LastErrorMessage: v.LastErrorMessage})
 	if err != nil {
 		return err
 	}
@@ -61,7 +63,7 @@ func (w writer) DeleteRecorder(s domain.Scope) error {
 }
 
 func (r reader) loadChannel(v sqlcgen.ConfigChannel) (domain.Channel, error) {
-	out := domain.Channel{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name, Bucket: v.Bucket, Prefix: v.Prefix, KMSKeyARN: v.KMSKeyARN, TopicARN: v.TopicARN, Frequency: v.Frequency, LastAttempt: v.LastAttempt, LastSuccess: v.LastSuccess, NextDelivery: v.NextDelivery, Status: v.Status, ErrorCode: v.ErrorCode, ErrorMessage: v.ErrorMessage}
+	out := domain.Channel{CFNOwnership: domain.CloudFormationOwnership{Owner: v.CfnOwner, Token: v.CfnToken}, Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name, Bucket: v.Bucket, Prefix: v.Prefix, KMSKeyARN: v.KMSKeyARN, TopicARN: v.TopicARN, Frequency: v.Frequency, LastAttempt: v.LastAttempt, LastSuccess: v.LastSuccess, NextDelivery: v.NextDelivery, Status: v.Status, ErrorCode: v.ErrorCode, ErrorMessage: v.ErrorMessage}
 	return out, nil
 }
 
@@ -78,7 +80,7 @@ func (r reader) Channel(s domain.Scope) (domain.Channel, bool, error) {
 }
 
 func (w writer) PutChannel(v domain.Channel) error {
-	return w.q.PutChannel(w.ctx, sqlcgen.PutChannelParams{Partition: v.Scope.Partition, AccountID: v.Scope.AccountID, Region: v.Scope.Region, Name: v.Name, Bucket: v.Bucket, Prefix: v.Prefix, KMSKeyARN: v.KMSKeyARN, TopicARN: v.TopicARN, Frequency: v.Frequency, LastAttempt: v.LastAttempt, LastSuccess: v.LastSuccess, NextDelivery: v.NextDelivery, Status: v.Status, ErrorCode: v.ErrorCode, ErrorMessage: v.ErrorMessage})
+	return w.q.PutChannel(w.ctx, sqlcgen.PutChannelParams{CfnOwner: v.CFNOwnership.Owner, CfnToken: v.CFNOwnership.Token, Partition: v.Scope.Partition, AccountID: v.Scope.AccountID, Region: v.Scope.Region, Name: v.Name, Bucket: v.Bucket, Prefix: v.Prefix, KMSKeyARN: v.KMSKeyARN, TopicARN: v.TopicARN, Frequency: v.Frequency, LastAttempt: v.LastAttempt, LastSuccess: v.LastSuccess, NextDelivery: v.NextDelivery, Status: v.Status, ErrorCode: v.ErrorCode, ErrorMessage: v.ErrorMessage})
 }
 
 func (w writer) DeleteChannel(s domain.Scope) error {

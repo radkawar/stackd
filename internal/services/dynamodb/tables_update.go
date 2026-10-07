@@ -8,7 +8,12 @@ import (
 	api "stackd/internal/awsapi/dynamodb"
 )
 
+// updateTable admits only transitions the native engine can complete; even an
+// on-demand maximum change mirrors capacity the engine must enforce.
 func (s *Service) updateTable(ctx context.Context, tx Transaction, table TableRecord, in *api.UpdateTableInput) (*TableRecord, error) {
+	if err := s.requireEngine(); err != nil {
+		return nil, err
+	}
 	if in.GlobalTableSettingsReplicationMode != nil || in.GlobalTableWitnessUpdates != nil || in.MultiRegionConsistency != nil && value(in.MultiRegionConsistency) != "EVENTUAL" {
 		// TODO: Comeback implement MRSC and multi-account global tables
 		// with their distinct consistency, witness and authorization contracts.
@@ -26,6 +31,9 @@ func (s *Service) updateTable(ctx context.Context, tx Transaction, table TableRe
 // updateTableSettings is the shared regional admission path for ordinary table
 // changes and settings propagated by the global-table owner.
 func (s *Service) updateTableSettings(ctx context.Context, tx Transaction, table TableRecord, in *api.UpdateTableInput) (*TableRecord, error) {
+	if err := checkResourceOwner(ctx, tx, table.Key); err != nil {
+		return nil, err
+	}
 	var err error
 	if err = transitionAvailable(table); err != nil {
 		return nil, err

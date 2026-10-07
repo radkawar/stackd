@@ -64,6 +64,13 @@ func prepareStreamLane(mapping EventSourceMappingRecord, lane *StreamLane, readC
 	if !lane.WindowStart.IsZero() && lane.WindowEnd.Before(due) {
 		due = lane.WindowEnd
 	}
+	if settings.MaximumRecordAge >= 0 {
+		if expires := lane.Records[0].CreatedAt.Add(settings.MaximumRecordAge); expires.Before(due) {
+			// Record age runs from source arrival, not capture or dispatch.
+			// A longer batching window must not defer the expiry decision.
+			due = expires
+		}
+	}
 	if count < mapping.Settings.BatchSize && count == len(lane.Records) && !readComplete && now.Before(due) {
 		return false
 	}

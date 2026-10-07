@@ -42,6 +42,15 @@ func (s *Service) getTrail(ctx context.Context, in *api.GetTrailInput) (*api.Get
 	err := s.repository.View(ctx, func(r Reader) error {
 		trail, err := s.resolveTrail(r, value(in.Name))
 		if err != nil {
+			if owner, ok := r.Context().Value(cloudFormationOwnerKey{}).(cloudFormationOwner); ok && errors.Is(err, ErrNotFound) {
+				key, wire := keyFor(r.Context(), value(in.Name))
+				if wire != nil {
+					return wire
+				}
+				if wire := s.authorize(r, "GetTrail", TrailRecord{Key: key, CFNOwner: owner.Marker}, nil); wire != nil {
+					return wire
+				}
+			}
 			return err
 		}
 		if wire := s.authorize(r, "GetTrail", trail, nil); wire != nil {

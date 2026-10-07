@@ -110,7 +110,7 @@ func (q *Queries) DeleteGroupTags(ctx context.Context, arg DeleteGroupTagsParams
 }
 
 const getGroup = `-- name: GetGroup :one
-SELECT "partition", account_id, region, id, name, filter_expression, version FROM xray_groups WHERE partition = ? AND account_id = ? AND region = ? AND id = ? AND name = ?
+SELECT "partition", account_id, region, id, name, filter_expression, version, cfn_owner FROM xray_groups WHERE partition = ? AND account_id = ? AND region = ? AND id = ? AND name = ?
 `
 
 type GetGroupParams struct {
@@ -138,6 +138,7 @@ func (q *Queries) GetGroup(ctx context.Context, arg GetGroupParams) (XrayGroup, 
 		&i.Name,
 		&i.FilterExpression,
 		&i.Version,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -219,7 +220,7 @@ func (q *Queries) ListGroupTags(ctx context.Context, arg ListGroupTagsParams) ([
 }
 
 const listGroups = `-- name: ListGroups :many
-SELECT "partition", account_id, region, id, name, filter_expression, version FROM xray_groups WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
+SELECT "partition", account_id, region, id, name, filter_expression, version, cfn_owner FROM xray_groups WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
 `
 
 type ListGroupsParams struct {
@@ -245,6 +246,7 @@ func (q *Queries) ListGroups(ctx context.Context, arg ListGroupsParams) ([]XrayG
 			&i.Name,
 			&i.FilterExpression,
 			&i.Version,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -471,10 +473,10 @@ func (q *Queries) ListSelectedTraces(ctx context.Context, arg ListSelectedTraces
 }
 
 const putGroup = `-- name: PutGroup :exec
-INSERT INTO xray_groups (partition, account_id, region, id, name, filter_expression, version)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO xray_groups (partition, account_id, region, id, name, filter_expression, version, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, id) DO UPDATE SET
- filter_expression = excluded.filter_expression, version = excluded.version
+ filter_expression = excluded.filter_expression, version = excluded.version, cfn_owner = excluded.cfn_owner
 `
 
 type PutGroupParams struct {
@@ -485,6 +487,7 @@ type PutGroupParams struct {
 	Name             string
 	FilterExpression string
 	Version          int64
+	CfnOwner         string
 }
 
 func (q *Queries) PutGroup(ctx context.Context, arg PutGroupParams) error {
@@ -496,6 +499,7 @@ func (q *Queries) PutGroup(ctx context.Context, arg PutGroupParams) error {
 		arg.Name,
 		arg.FilterExpression,
 		arg.Version,
+		arg.CfnOwner,
 	)
 	return err
 }

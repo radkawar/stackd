@@ -2,13 +2,15 @@
 SELECT * FROM cloudtrail_trails WHERE partition=? AND account_id=? AND region=? AND name=?;
 -- name: GetTrailByID :one
 SELECT * FROM cloudtrail_trails WHERE id=?;
+-- name: GetTrailByOwner :one
+SELECT * FROM cloudtrail_trails WHERE partition=? AND region=? AND name=? AND cfn_owner=? AND cfn_owner<>'';
 -- name: ListTrails :many
 SELECT * FROM cloudtrail_trails WHERE partition=? AND account_id=? ORDER BY region, name;
 -- name: FindOrganizationTrail :one
 SELECT id FROM cloudtrail_trails WHERE partition=? AND organization_id<>'' LIMIT 1;
 -- name: PutTrail :exec
-INSERT INTO cloudtrail_trails(partition, account_id, region, name, id, bucket, prefix, include_global, multi_region, recursive_logging, logging, created, modified, started, stopped, stop_after, logs_group_arn, logs_role_arn, kms_key_id, sns_topic_name, organization_id, log_file_validation)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO cloudtrail_trails(partition, account_id, region, name, id, bucket, prefix, include_global, multi_region, recursive_logging, logging, created, modified, started, stopped, stop_after, logs_group_arn, logs_role_arn, kms_key_id, sns_topic_name, organization_id, log_file_validation, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, name) DO UPDATE SET
 bucket=excluded.bucket, prefix=excluded.prefix, include_global=excluded.include_global, multi_region=excluded.multi_region,
 recursive_logging=excluded.recursive_logging, logging=excluded.logging, created=excluded.created, modified=excluded.modified, started=excluded.started, stopped=excluded.stopped, stop_after=excluded.stop_after,

@@ -52,6 +52,11 @@ func (h cfnSQSQueue) Read(ctx context.Context, r cloudformation.ResourceRequest)
 	if err != nil {
 		return nil, err
 	}
+	if !r.CloudControl {
+		if err := h.owns(ctx, r, queueURL); err != nil {
+			return nil, err
+		}
+	}
 	out, err := cfnMessagingCall[api.GetQueueAttributesOutput](ctx, h.commands, "sqs", "GetQueueAttributes", &api.GetQueueAttributesInput{QueueUrl: new(api.String(queueURL)), AttributeNames: api.AttributeNameList{"All"}})
 	if err != nil {
 		return nil, err

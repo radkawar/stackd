@@ -8,6 +8,8 @@ type Record struct {
 	Credential Credential
 	Status     Status
 	LastUsed   LastUsed
+	// CloudFormationOwner is trusted incarnation metadata, never credential material.
+	CloudFormationOwner string
 }
 
 // Reader is a consistent snapshot. FindPrincipal includes sessions issued for

@@ -28,23 +28,27 @@ type StatementKey struct {
 }
 
 type WorkGroupRecord struct {
-	Key  ResourceKey
-	Data api.WorkGroup
-	Tags map[string]string
+	CFNOwner string
+	Key      ResourceKey
+	Data     api.WorkGroup
+	Tags     map[string]string
 }
 type CatalogRecord struct {
-	Key  ResourceKey
-	Data api.DataCatalog
-	Tags map[string]string
+	CFNOwner string
+	Key      ResourceKey
+	Data     api.DataCatalog
+	Tags     map[string]string
 }
 type NamedQueryRecord struct {
+	CFNOwner           string
 	Key                ResourceKey
 	Data               api.NamedQuery
 	Token, Fingerprint string
 }
 type PreparedStatementRecord struct {
-	Key  StatementKey
-	Data api.PreparedStatement
+	CFNOwner string
+	Key      StatementKey
+	Data     api.PreparedStatement
 }
 
 // QueryRecord retains public execution metadata, not result rows. S3 remains

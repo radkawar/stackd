@@ -60,6 +60,7 @@ type StreamMappingSettings struct {
 
 type EventSourceMappingRecord struct {
 	Key                          EventSourceMappingKey
+	Owner                        MappingOwner
 	Function                     FunctionReference
 	EventSourceARN               string
 	Version                      uint64

@@ -123,7 +123,7 @@ func registerOperation[I, O any](s *Service, operations map[string]func(context.
 		var out *O
 		e = s.repository.Attempt(ctx, func(tx Transaction) error {
 			var e error
-			out, e = fn(tx, in)
+			out, e = fn(bindCloudFormationOwnership(tx), in)
 			if e != nil {
 				return e
 			}

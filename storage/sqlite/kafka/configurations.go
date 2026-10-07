@@ -29,6 +29,7 @@ func (r reader) Configurations(sc domain.Scope) ([]domain.ConfigurationRecord, e
 }
 func (r reader) configuration(row sqlcgen.MskConfiguration) (domain.ConfigurationRecord, error) {
 	v := domain.ConfigurationRecord{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ARN: row.Arn, Name: row.Name, Description: row.Description, Created: readTime(row.Created), LatestRevision: row.LatestRevision}
+	v.OwnerStackID, v.OwnerLogicalID, v.OwnerToken = row.OwnerStackID, row.OwnerLogicalID, row.OwnerToken
 	versions, e := r.q.ListConfigurationVersions(r.ctx, v.ARN)
 	if e != nil {
 		return v, e
@@ -39,7 +40,7 @@ func (r reader) configuration(row sqlcgen.MskConfiguration) (domain.Configuratio
 	return v, nil
 }
 func (w writer) PutConfiguration(v domain.ConfigurationRecord) error {
-	e := w.q.PutConfiguration(w.ctx, sqlcgen.PutConfigurationParams{Arn: v.ARN, Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, Name: v.Name, Description: v.Description, Created: timeValue(v.Created), LatestRevision: v.LatestRevision})
+	e := w.q.PutConfiguration(w.ctx, sqlcgen.PutConfigurationParams{Arn: v.ARN, Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, Name: v.Name, Description: v.Description, Created: timeValue(v.Created), LatestRevision: v.LatestRevision, OwnerStackID: v.OwnerStackID, OwnerLogicalID: v.OwnerLogicalID, OwnerToken: v.OwnerToken})
 	if e != nil {
 		return e
 	}

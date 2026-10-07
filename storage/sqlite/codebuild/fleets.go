@@ -46,7 +46,8 @@ func (r reader) AllFleets() ([]domain.FleetRecord, error) {
 
 func (r reader) fleet(row sqlcgen.CodebuildFleet) (domain.FleetRecord, error) {
 	out := domain.FleetRecord{
-		Key: domain.FleetKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Name: row.FleetName},
+		Key:       domain.FleetKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Name: row.FleetName},
+		Ownership: row.Ownership,
 		Data: api.Fleet{
 			Arn: stringPointer[api.NonEmptyString](row.Arn), Name: stringPointer[api.FleetName](row.Name), Id: stringPointer[api.NonEmptyString](row.FleetID),
 			BaseCapacity: integerPointer[api.FleetCapacity](row.BaseCapacity), ComputeType: stringPointer[api.ComputeType](row.ComputeType),
@@ -79,7 +80,8 @@ func (w writer) PutFleet(v domain.FleetRecord) error {
 	k, d := v.Key, v.Data
 	row := sqlcgen.PutFleetParams{
 		Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, FleetName: k.Name,
-		Arn: nullableString(d.Arn), Name: nullableString(d.Name), FleetID: nullableString(d.Id), BaseCapacity: nullableInteger(d.BaseCapacity),
+		Ownership: v.Ownership,
+		Arn:       nullableString(d.Arn), Name: nullableString(d.Name), FleetID: nullableString(d.Id), BaseCapacity: nullableInteger(d.BaseCapacity),
 		ComputeType: nullableString(d.ComputeType), Created: nullableTime(d.Created), EnvironmentType: nullableString(d.EnvironmentType),
 		FleetServiceRole: nullableString(d.FleetServiceRole), ImageID: nullableString(d.ImageId), LastModified: nullableTime(d.LastModified),
 		OverflowBehavior: nullableString(d.OverflowBehavior), TagsPresent: d.Tags != nil,

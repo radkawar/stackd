@@ -427,7 +427,7 @@ func (q *Queries) DeleteWorkGroupTags(ctx context.Context, parentID int64) error
 }
 
 const getCatalog = `-- name: GetCatalog :one
-SELECT id, key_scope_partition, key_scope_account_id, key_scope_region, key_name, data_connection_type, data_description, data_error, data_name, data_parameters_present, data_status, data_type, tags_present FROM athena_catalogs WHERE key_scope_partition = ?1 AND key_scope_account_id = ?2 AND key_scope_region = ?3 AND key_name = ?4
+SELECT id, key_scope_partition, key_scope_account_id, key_scope_region, key_name, data_connection_type, data_description, data_error, data_name, data_parameters_present, data_status, data_type, tags_present, cfn_owner FROM athena_catalogs WHERE key_scope_partition = ?1 AND key_scope_account_id = ?2 AND key_scope_region = ?3 AND key_name = ?4
 `
 
 type GetCatalogParams struct {
@@ -459,6 +459,7 @@ func (q *Queries) GetCatalog(ctx context.Context, arg GetCatalogParams) (AthenaC
 		&i.DataStatus,
 		&i.DataType,
 		&i.TagsPresent,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -466,7 +467,7 @@ func (q *Queries) GetCatalog(ctx context.Context, arg GetCatalogParams) (AthenaC
 const getNamedQuery = `-- name: GetNamedQuery :one
 ;
 
-SELECT id, key_scope_partition, key_scope_account_id, key_scope_region, key_name, data_database, data_description, data_name, data_named_query_id, data_query_string, data_work_group, token, fingerprint FROM athena_named_queries WHERE key_scope_partition = ?1 AND key_scope_account_id = ?2 AND key_scope_region = ?3 AND key_name = ?4
+SELECT id, key_scope_partition, key_scope_account_id, key_scope_region, key_name, data_database, data_description, data_name, data_named_query_id, data_query_string, data_work_group, token, fingerprint, cfn_owner FROM athena_named_queries WHERE key_scope_partition = ?1 AND key_scope_account_id = ?2 AND key_scope_region = ?3 AND key_name = ?4
 `
 
 type GetNamedQueryParams struct {
@@ -498,12 +499,13 @@ func (q *Queries) GetNamedQuery(ctx context.Context, arg GetNamedQueryParams) (A
 		&i.DataWorkGroup,
 		&i.Token,
 		&i.Fingerprint,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const getNamedQueryByToken = `-- name: GetNamedQueryByToken :one
-SELECT id, key_scope_partition, key_scope_account_id, key_scope_region, key_name, data_database, data_description, data_name, data_named_query_id, data_query_string, data_work_group, token, fingerprint FROM athena_named_queries WHERE key_scope_partition = ?1 AND key_scope_account_id = ?2 AND key_scope_region = ?3 AND token = ?4 AND token <> ''
+SELECT id, key_scope_partition, key_scope_account_id, key_scope_region, key_name, data_database, data_description, data_name, data_named_query_id, data_query_string, data_work_group, token, fingerprint, cfn_owner FROM athena_named_queries WHERE key_scope_partition = ?1 AND key_scope_account_id = ?2 AND key_scope_region = ?3 AND token = ?4 AND token <> ''
 `
 
 type GetNamedQueryByTokenParams struct {
@@ -535,6 +537,7 @@ func (q *Queries) GetNamedQueryByToken(ctx context.Context, arg GetNamedQueryByT
 		&i.DataWorkGroup,
 		&i.Token,
 		&i.Fingerprint,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -542,7 +545,7 @@ func (q *Queries) GetNamedQueryByToken(ctx context.Context, arg GetNamedQueryByT
 const getPreparedStatement = `-- name: GetPreparedStatement :one
 ;
 
-SELECT id, key_work_group_scope_partition, key_work_group_scope_account_id, key_work_group_scope_region, key_work_group_name, key_name, data_description, data_last_modified_time, data_query_statement, data_statement_name, data_work_group_name FROM athena_prepared_statements WHERE key_work_group_scope_partition = ?1 AND key_work_group_scope_account_id = ?2 AND key_work_group_scope_region = ?3 AND key_work_group_name = ?4 AND key_name = ?5
+SELECT id, key_work_group_scope_partition, key_work_group_scope_account_id, key_work_group_scope_region, key_work_group_name, key_name, data_description, data_last_modified_time, data_query_statement, data_statement_name, data_work_group_name, cfn_owner FROM athena_prepared_statements WHERE key_work_group_scope_partition = ?1 AND key_work_group_scope_account_id = ?2 AND key_work_group_scope_region = ?3 AND key_work_group_name = ?4 AND key_name = ?5
 `
 
 type GetPreparedStatementParams struct {
@@ -574,6 +577,7 @@ func (q *Queries) GetPreparedStatement(ctx context.Context, arg GetPreparedState
 		&i.DataQueryStatement,
 		&i.DataStatementName,
 		&i.DataWorkGroupName,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -845,7 +849,7 @@ func (q *Queries) GetQueryByToken(ctx context.Context, arg GetQueryByTokenParams
 }
 
 const getWorkGroup = `-- name: GetWorkGroup :one
-SELECT id, key_scope_partition, key_scope_account_id, key_scope_region, key_name, data_configuration_present, data_configuration_additional_configuration, data_configuration_bytes_scanned_cutoff_per_query, data_configuration_customer_content_encryption_configuration_present, data_configuration_customer_content_encryption_configuration_kms_key, data_configuration_enable_minimum_encryption_configuration, data_configuration_enforce_work_group_configuration, data_configuration_engine_configuration_present, data_configuration_engine_configuration_additional_configs_present, data_configuration_engine_configuration_classifications_present, data_configuration_engine_configuration_coordinator_dpu_size, data_configuration_engine_configuration_default_executor_dpu_size, data_configuration_engine_configuration_max_concurrent_dpus, data_configuration_engine_configuration_spark_properties_present, data_configuration_engine_version_present, data_configuration_engine_version_effective_engine_version, data_configuration_engine_version_selected_engine_version, data_configuration_execution_role, data_configuration_identity_center_configuration_present, data_configuration_identity_center_configuration_enable_identity_center, data_configuration_identity_center_configuration_identity_center_instance_arn, data_configuration_managed_query_results_configuration_present, data_configuration_managed_query_results_configuration_enabled, data_configuration_managed_query_results_configuration_encryption_configuration_present, data_configuration_managed_query_results_configuration_encryption_configuration_kms_key, data_configuration_monitoring_configuration_present, data_configuration_monitoring_configuration_cloud_watch_logging_configuration_present, data_configuration_monitoring_configuration_cloud_watch_logging_configuration_enabled, data_configuration_monitoring_configuration_cloud_watch_logging_configuration_log_group, data_configuration_monitoring_configuration_cloud_watch_logging_configuration_log_stream_name_prefix, data_configuration_monitoring_configuration_cloud_watch_logging_configuration_log_types_present, data_configuration_monitoring_configuration_managed_logging_configuration_present, data_configuration_monitoring_configuration_managed_logging_configuration_enabled, data_configuration_monitoring_configuration_managed_logging_configuration_kms_key, data_configuration_monitoring_configuration_s3_logging_configuration_present, data_configuration_monitoring_configuration_s3_logging_configuration_enabled, data_configuration_monitoring_configuration_s3_logging_configuration_kms_key, data_configuration_monitoring_configuration_s3_logging_configuration_log_location, data_configuration_publish_cloud_watch_metrics_enabled, data_configuration_query_results_s3_access_grants_configuration_present, data_configuration_query_results_s3_access_grants_configuration_authentication_type, data_configuration_query_results_s3_access_grants_configuration_create_user_level_prefix, data_configuration_query_results_s3_access_grants_configuration_enable_s3_access_grants, data_configuration_requester_pays_enabled, data_configuration_result_configuration_present, data_configuration_result_configuration_acl_configuration_present, data_configuration_result_configuration_acl_configuration_s3_acl_option, data_configuration_result_configuration_encryption_configuration_present, data_configuration_result_configuration_encryption_configuration_encryption_option, data_configuration_result_configuration_encryption_configuration_kms_key, data_configuration_result_configuration_expected_bucket_owner, data_configuration_result_configuration_output_location, data_creation_time, data_description, data_identity_center_application_arn, data_name, data_state, tags_present FROM athena_work_groups WHERE key_scope_partition = ?1 AND key_scope_account_id = ?2 AND key_scope_region = ?3 AND key_name = ?4
+SELECT id, key_scope_partition, key_scope_account_id, key_scope_region, key_name, data_configuration_present, data_configuration_additional_configuration, data_configuration_bytes_scanned_cutoff_per_query, data_configuration_customer_content_encryption_configuration_present, data_configuration_customer_content_encryption_configuration_kms_key, data_configuration_enable_minimum_encryption_configuration, data_configuration_enforce_work_group_configuration, data_configuration_engine_configuration_present, data_configuration_engine_configuration_additional_configs_present, data_configuration_engine_configuration_classifications_present, data_configuration_engine_configuration_coordinator_dpu_size, data_configuration_engine_configuration_default_executor_dpu_size, data_configuration_engine_configuration_max_concurrent_dpus, data_configuration_engine_configuration_spark_properties_present, data_configuration_engine_version_present, data_configuration_engine_version_effective_engine_version, data_configuration_engine_version_selected_engine_version, data_configuration_execution_role, data_configuration_identity_center_configuration_present, data_configuration_identity_center_configuration_enable_identity_center, data_configuration_identity_center_configuration_identity_center_instance_arn, data_configuration_managed_query_results_configuration_present, data_configuration_managed_query_results_configuration_enabled, data_configuration_managed_query_results_configuration_encryption_configuration_present, data_configuration_managed_query_results_configuration_encryption_configuration_kms_key, data_configuration_monitoring_configuration_present, data_configuration_monitoring_configuration_cloud_watch_logging_configuration_present, data_configuration_monitoring_configuration_cloud_watch_logging_configuration_enabled, data_configuration_monitoring_configuration_cloud_watch_logging_configuration_log_group, data_configuration_monitoring_configuration_cloud_watch_logging_configuration_log_stream_name_prefix, data_configuration_monitoring_configuration_cloud_watch_logging_configuration_log_types_present, data_configuration_monitoring_configuration_managed_logging_configuration_present, data_configuration_monitoring_configuration_managed_logging_configuration_enabled, data_configuration_monitoring_configuration_managed_logging_configuration_kms_key, data_configuration_monitoring_configuration_s3_logging_configuration_present, data_configuration_monitoring_configuration_s3_logging_configuration_enabled, data_configuration_monitoring_configuration_s3_logging_configuration_kms_key, data_configuration_monitoring_configuration_s3_logging_configuration_log_location, data_configuration_publish_cloud_watch_metrics_enabled, data_configuration_query_results_s3_access_grants_configuration_present, data_configuration_query_results_s3_access_grants_configuration_authentication_type, data_configuration_query_results_s3_access_grants_configuration_create_user_level_prefix, data_configuration_query_results_s3_access_grants_configuration_enable_s3_access_grants, data_configuration_requester_pays_enabled, data_configuration_result_configuration_present, data_configuration_result_configuration_acl_configuration_present, data_configuration_result_configuration_acl_configuration_s3_acl_option, data_configuration_result_configuration_encryption_configuration_present, data_configuration_result_configuration_encryption_configuration_encryption_option, data_configuration_result_configuration_encryption_configuration_kms_key, data_configuration_result_configuration_expected_bucket_owner, data_configuration_result_configuration_output_location, data_creation_time, data_description, data_identity_center_application_arn, data_name, data_state, tags_present, cfn_owner FROM athena_work_groups WHERE key_scope_partition = ?1 AND key_scope_account_id = ?2 AND key_scope_region = ?3 AND key_name = ?4
 `
 
 type GetWorkGroupParams struct {
@@ -927,6 +931,7 @@ func (q *Queries) GetWorkGroup(ctx context.Context, arg GetWorkGroupParams) (Ath
 		&i.DataName,
 		&i.DataState,
 		&i.TagsPresent,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -1000,7 +1005,7 @@ func (q *Queries) ListCatalogTags(ctx context.Context, parentID int64) ([]Athena
 }
 
 const listCatalogs = `-- name: ListCatalogs :many
-SELECT id, key_scope_partition, key_scope_account_id, key_scope_region, key_name, data_connection_type, data_description, data_error, data_name, data_parameters_present, data_status, data_type, tags_present FROM athena_catalogs WHERE key_scope_partition = ?1 AND key_scope_account_id = ?2 AND key_scope_region = ?3 AND key_name > ?4 ORDER BY key_name LIMIT ?5
+SELECT id, key_scope_partition, key_scope_account_id, key_scope_region, key_name, data_connection_type, data_description, data_error, data_name, data_parameters_present, data_status, data_type, tags_present, cfn_owner FROM athena_catalogs WHERE key_scope_partition = ?1 AND key_scope_account_id = ?2 AND key_scope_region = ?3 AND key_name > ?4 ORDER BY key_name LIMIT ?5
 `
 
 type ListCatalogsParams struct {
@@ -1040,6 +1045,7 @@ func (q *Queries) ListCatalogs(ctx context.Context, arg ListCatalogsParams) ([]A
 			&i.DataStatus,
 			&i.DataType,
 			&i.TagsPresent,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -1055,7 +1061,7 @@ func (q *Queries) ListCatalogs(ctx context.Context, arg ListCatalogsParams) ([]A
 }
 
 const listNamedQuerys = `-- name: ListNamedQuerys :many
-SELECT id, key_scope_partition, key_scope_account_id, key_scope_region, key_name, data_database, data_description, data_name, data_named_query_id, data_query_string, data_work_group, token, fingerprint FROM athena_named_queries WHERE key_scope_partition = ?1 AND key_scope_account_id = ?2 AND key_scope_region = ?3 AND key_name > ?4 AND (CAST(?5 AS TEXT) = '' OR data_work_group = ?5) ORDER BY key_name LIMIT ?6
+SELECT id, key_scope_partition, key_scope_account_id, key_scope_region, key_name, data_database, data_description, data_name, data_named_query_id, data_query_string, data_work_group, token, fingerprint, cfn_owner FROM athena_named_queries WHERE key_scope_partition = ?1 AND key_scope_account_id = ?2 AND key_scope_region = ?3 AND key_name > ?4 AND (CAST(?5 AS TEXT) = '' OR data_work_group = ?5) ORDER BY key_name LIMIT ?6
 `
 
 type ListNamedQuerysParams struct {
@@ -1097,6 +1103,7 @@ func (q *Queries) ListNamedQuerys(ctx context.Context, arg ListNamedQuerysParams
 			&i.DataWorkGroup,
 			&i.Token,
 			&i.Fingerprint,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -1112,7 +1119,7 @@ func (q *Queries) ListNamedQuerys(ctx context.Context, arg ListNamedQuerysParams
 }
 
 const listPreparedStatements = `-- name: ListPreparedStatements :many
-SELECT id, key_work_group_scope_partition, key_work_group_scope_account_id, key_work_group_scope_region, key_work_group_name, key_name, data_description, data_last_modified_time, data_query_statement, data_statement_name, data_work_group_name FROM athena_prepared_statements WHERE key_work_group_scope_partition = ?1 AND key_work_group_scope_account_id = ?2 AND key_work_group_scope_region = ?3 AND key_name > ?4 AND key_work_group_name = ?5 ORDER BY key_name LIMIT ?6
+SELECT id, key_work_group_scope_partition, key_work_group_scope_account_id, key_work_group_scope_region, key_work_group_name, key_name, data_description, data_last_modified_time, data_query_statement, data_statement_name, data_work_group_name, cfn_owner FROM athena_prepared_statements WHERE key_work_group_scope_partition = ?1 AND key_work_group_scope_account_id = ?2 AND key_work_group_scope_region = ?3 AND key_name > ?4 AND key_work_group_name = ?5 ORDER BY key_name LIMIT ?6
 `
 
 type ListPreparedStatementsParams struct {
@@ -1152,6 +1159,7 @@ func (q *Queries) ListPreparedStatements(ctx context.Context, arg ListPreparedSt
 			&i.DataQueryStatement,
 			&i.DataStatementName,
 			&i.DataWorkGroupName,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -1902,7 +1910,7 @@ func (q *Queries) ListWorkGroupTags(ctx context.Context, parentID int64) ([]Athe
 }
 
 const listWorkGroups = `-- name: ListWorkGroups :many
-SELECT id, key_scope_partition, key_scope_account_id, key_scope_region, key_name, data_configuration_present, data_configuration_additional_configuration, data_configuration_bytes_scanned_cutoff_per_query, data_configuration_customer_content_encryption_configuration_present, data_configuration_customer_content_encryption_configuration_kms_key, data_configuration_enable_minimum_encryption_configuration, data_configuration_enforce_work_group_configuration, data_configuration_engine_configuration_present, data_configuration_engine_configuration_additional_configs_present, data_configuration_engine_configuration_classifications_present, data_configuration_engine_configuration_coordinator_dpu_size, data_configuration_engine_configuration_default_executor_dpu_size, data_configuration_engine_configuration_max_concurrent_dpus, data_configuration_engine_configuration_spark_properties_present, data_configuration_engine_version_present, data_configuration_engine_version_effective_engine_version, data_configuration_engine_version_selected_engine_version, data_configuration_execution_role, data_configuration_identity_center_configuration_present, data_configuration_identity_center_configuration_enable_identity_center, data_configuration_identity_center_configuration_identity_center_instance_arn, data_configuration_managed_query_results_configuration_present, data_configuration_managed_query_results_configuration_enabled, data_configuration_managed_query_results_configuration_encryption_configuration_present, data_configuration_managed_query_results_configuration_encryption_configuration_kms_key, data_configuration_monitoring_configuration_present, data_configuration_monitoring_configuration_cloud_watch_logging_configuration_present, data_configuration_monitoring_configuration_cloud_watch_logging_configuration_enabled, data_configuration_monitoring_configuration_cloud_watch_logging_configuration_log_group, data_configuration_monitoring_configuration_cloud_watch_logging_configuration_log_stream_name_prefix, data_configuration_monitoring_configuration_cloud_watch_logging_configuration_log_types_present, data_configuration_monitoring_configuration_managed_logging_configuration_present, data_configuration_monitoring_configuration_managed_logging_configuration_enabled, data_configuration_monitoring_configuration_managed_logging_configuration_kms_key, data_configuration_monitoring_configuration_s3_logging_configuration_present, data_configuration_monitoring_configuration_s3_logging_configuration_enabled, data_configuration_monitoring_configuration_s3_logging_configuration_kms_key, data_configuration_monitoring_configuration_s3_logging_configuration_log_location, data_configuration_publish_cloud_watch_metrics_enabled, data_configuration_query_results_s3_access_grants_configuration_present, data_configuration_query_results_s3_access_grants_configuration_authentication_type, data_configuration_query_results_s3_access_grants_configuration_create_user_level_prefix, data_configuration_query_results_s3_access_grants_configuration_enable_s3_access_grants, data_configuration_requester_pays_enabled, data_configuration_result_configuration_present, data_configuration_result_configuration_acl_configuration_present, data_configuration_result_configuration_acl_configuration_s3_acl_option, data_configuration_result_configuration_encryption_configuration_present, data_configuration_result_configuration_encryption_configuration_encryption_option, data_configuration_result_configuration_encryption_configuration_kms_key, data_configuration_result_configuration_expected_bucket_owner, data_configuration_result_configuration_output_location, data_creation_time, data_description, data_identity_center_application_arn, data_name, data_state, tags_present FROM athena_work_groups WHERE key_scope_partition = ?1 AND key_scope_account_id = ?2 AND key_scope_region = ?3 AND key_name > ?4 ORDER BY key_name LIMIT ?5
+SELECT id, key_scope_partition, key_scope_account_id, key_scope_region, key_name, data_configuration_present, data_configuration_additional_configuration, data_configuration_bytes_scanned_cutoff_per_query, data_configuration_customer_content_encryption_configuration_present, data_configuration_customer_content_encryption_configuration_kms_key, data_configuration_enable_minimum_encryption_configuration, data_configuration_enforce_work_group_configuration, data_configuration_engine_configuration_present, data_configuration_engine_configuration_additional_configs_present, data_configuration_engine_configuration_classifications_present, data_configuration_engine_configuration_coordinator_dpu_size, data_configuration_engine_configuration_default_executor_dpu_size, data_configuration_engine_configuration_max_concurrent_dpus, data_configuration_engine_configuration_spark_properties_present, data_configuration_engine_version_present, data_configuration_engine_version_effective_engine_version, data_configuration_engine_version_selected_engine_version, data_configuration_execution_role, data_configuration_identity_center_configuration_present, data_configuration_identity_center_configuration_enable_identity_center, data_configuration_identity_center_configuration_identity_center_instance_arn, data_configuration_managed_query_results_configuration_present, data_configuration_managed_query_results_configuration_enabled, data_configuration_managed_query_results_configuration_encryption_configuration_present, data_configuration_managed_query_results_configuration_encryption_configuration_kms_key, data_configuration_monitoring_configuration_present, data_configuration_monitoring_configuration_cloud_watch_logging_configuration_present, data_configuration_monitoring_configuration_cloud_watch_logging_configuration_enabled, data_configuration_monitoring_configuration_cloud_watch_logging_configuration_log_group, data_configuration_monitoring_configuration_cloud_watch_logging_configuration_log_stream_name_prefix, data_configuration_monitoring_configuration_cloud_watch_logging_configuration_log_types_present, data_configuration_monitoring_configuration_managed_logging_configuration_present, data_configuration_monitoring_configuration_managed_logging_configuration_enabled, data_configuration_monitoring_configuration_managed_logging_configuration_kms_key, data_configuration_monitoring_configuration_s3_logging_configuration_present, data_configuration_monitoring_configuration_s3_logging_configuration_enabled, data_configuration_monitoring_configuration_s3_logging_configuration_kms_key, data_configuration_monitoring_configuration_s3_logging_configuration_log_location, data_configuration_publish_cloud_watch_metrics_enabled, data_configuration_query_results_s3_access_grants_configuration_present, data_configuration_query_results_s3_access_grants_configuration_authentication_type, data_configuration_query_results_s3_access_grants_configuration_create_user_level_prefix, data_configuration_query_results_s3_access_grants_configuration_enable_s3_access_grants, data_configuration_requester_pays_enabled, data_configuration_result_configuration_present, data_configuration_result_configuration_acl_configuration_present, data_configuration_result_configuration_acl_configuration_s3_acl_option, data_configuration_result_configuration_encryption_configuration_present, data_configuration_result_configuration_encryption_configuration_encryption_option, data_configuration_result_configuration_encryption_configuration_kms_key, data_configuration_result_configuration_expected_bucket_owner, data_configuration_result_configuration_output_location, data_creation_time, data_description, data_identity_center_application_arn, data_name, data_state, tags_present, cfn_owner FROM athena_work_groups WHERE key_scope_partition = ?1 AND key_scope_account_id = ?2 AND key_scope_region = ?3 AND key_name > ?4 ORDER BY key_name LIMIT ?5
 `
 
 type ListWorkGroupsParams struct {
@@ -1992,6 +2000,7 @@ func (q *Queries) ListWorkGroups(ctx context.Context, arg ListWorkGroupsParams) 
 			&i.DataName,
 			&i.DataState,
 			&i.TagsPresent,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -2129,6 +2138,7 @@ func (q *Queries) NextQuery(ctx context.Context) (AthenaQuery, error) {
 
 const putCatalog = `-- name: PutCatalog :one
 INSERT INTO athena_catalogs (
+    cfn_owner,
     key_scope_partition,
     key_scope_account_id,
     key_scope_region,
@@ -2153,7 +2163,8 @@ INSERT INTO athena_catalogs (
     ?9,
     ?10,
     ?11,
-    ?12
+    ?12,
+    ?13
 ) ON CONFLICT (key_scope_partition, key_scope_account_id, key_scope_region, key_name) DO UPDATE SET
     data_connection_type = excluded.data_connection_type,
     data_description = excluded.data_description,
@@ -2167,6 +2178,7 @@ RETURNING id
 `
 
 type PutCatalogParams struct {
+	CfnOwner              string
 	KeyScopePartition     string
 	KeyScopeAccountID     string
 	KeyScopeRegion        string
@@ -2183,6 +2195,7 @@ type PutCatalogParams struct {
 
 func (q *Queries) PutCatalog(ctx context.Context, arg PutCatalogParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, putCatalog,
+		arg.CfnOwner,
 		arg.KeyScopePartition,
 		arg.KeyScopeAccountID,
 		arg.KeyScopeRegion,
@@ -2249,6 +2262,7 @@ func (q *Queries) PutCatalogTags(ctx context.Context, arg PutCatalogTagsParams) 
 
 const putNamedQuery = `-- name: PutNamedQuery :exec
 INSERT INTO athena_named_queries (
+    cfn_owner,
     key_scope_partition,
     key_scope_account_id,
     key_scope_region,
@@ -2273,7 +2287,8 @@ INSERT INTO athena_named_queries (
     ?9,
     ?10,
     ?11,
-    ?12
+    ?12,
+    ?13
 ) ON CONFLICT (key_scope_partition, key_scope_account_id, key_scope_region, key_name) DO UPDATE SET
     data_database = excluded.data_database,
     data_description = excluded.data_description,
@@ -2286,6 +2301,7 @@ INSERT INTO athena_named_queries (
 `
 
 type PutNamedQueryParams struct {
+	CfnOwner          string
 	KeyScopePartition string
 	KeyScopeAccountID string
 	KeyScopeRegion    string
@@ -2302,6 +2318,7 @@ type PutNamedQueryParams struct {
 
 func (q *Queries) PutNamedQuery(ctx context.Context, arg PutNamedQueryParams) error {
 	_, err := q.db.ExecContext(ctx, putNamedQuery,
+		arg.CfnOwner,
 		arg.KeyScopePartition,
 		arg.KeyScopeAccountID,
 		arg.KeyScopeRegion,
@@ -2320,6 +2337,7 @@ func (q *Queries) PutNamedQuery(ctx context.Context, arg PutNamedQueryParams) er
 
 const putPreparedStatement = `-- name: PutPreparedStatement :exec
 INSERT INTO athena_prepared_statements (
+    cfn_owner,
     key_work_group_scope_partition,
     key_work_group_scope_account_id,
     key_work_group_scope_region,
@@ -2340,7 +2358,8 @@ INSERT INTO athena_prepared_statements (
     ?7,
     ?8,
     ?9,
-    ?10
+    ?10,
+    ?11
 ) ON CONFLICT (key_work_group_scope_partition, key_work_group_scope_account_id, key_work_group_scope_region, key_work_group_name, key_name) DO UPDATE SET
     data_description = excluded.data_description,
     data_last_modified_time = excluded.data_last_modified_time,
@@ -2350,6 +2369,7 @@ INSERT INTO athena_prepared_statements (
 `
 
 type PutPreparedStatementParams struct {
+	CfnOwner                   string
 	KeyWorkGroupScopePartition string
 	KeyWorkGroupScopeAccountID string
 	KeyWorkGroupScopeRegion    string
@@ -2364,6 +2384,7 @@ type PutPreparedStatementParams struct {
 
 func (q *Queries) PutPreparedStatement(ctx context.Context, arg PutPreparedStatementParams) error {
 	_, err := q.db.ExecContext(ctx, putPreparedStatement,
+		arg.CfnOwner,
 		arg.KeyWorkGroupScopePartition,
 		arg.KeyWorkGroupScopeAccountID,
 		arg.KeyWorkGroupScopeRegion,
@@ -3207,6 +3228,7 @@ func (q *Queries) PutQueryDataExecutionParameters(ctx context.Context, arg PutQu
 
 const putWorkGroup = `-- name: PutWorkGroup :one
 INSERT INTO athena_work_groups (
+    cfn_owner,
     key_scope_partition,
     key_scope_account_id,
     key_scope_region,
@@ -3331,7 +3353,8 @@ INSERT INTO athena_work_groups (
     ?59,
     ?60,
     ?61,
-    ?62
+    ?62,
+    ?63
 ) ON CONFLICT (key_scope_partition, key_scope_account_id, key_scope_region, key_name) DO UPDATE SET
     data_configuration_present = excluded.data_configuration_present,
     data_configuration_additional_configuration = excluded.data_configuration_additional_configuration,
@@ -3395,6 +3418,7 @@ RETURNING id
 `
 
 type PutWorkGroupParams struct {
+	CfnOwner                                                                                  string
 	KeyScopePartition                                                                         string
 	KeyScopeAccountID                                                                         string
 	KeyScopeRegion                                                                            string
@@ -3461,6 +3485,7 @@ type PutWorkGroupParams struct {
 
 func (q *Queries) PutWorkGroup(ctx context.Context, arg PutWorkGroupParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, putWorkGroup,
+		arg.CfnOwner,
 		arg.KeyScopePartition,
 		arg.KeyScopeAccountID,
 		arg.KeyScopeRegion,

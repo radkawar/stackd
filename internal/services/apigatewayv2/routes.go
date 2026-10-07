@@ -177,6 +177,11 @@ func (s *Service) createRoute(tx Transaction, in *api.CreateRouteInput) (*api.Cr
 	if err != nil {
 		return nil, err
 	}
+	if v, found, err := recoverOwnedResource(tx, owner.Key, tx.Routes); err != nil {
+		return nil, err
+	} else if found {
+		return new(api.CreateRouteOutput(routeOutput(v))), nil
+	}
 	id, err := controlID()
 	if err != nil {
 		return nil, err

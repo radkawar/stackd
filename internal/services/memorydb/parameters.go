@@ -104,8 +104,12 @@ func (s *Service) updateParameterGroup(ctx context.Context, tx Transaction, in *
 	if strings.HasPrefix(v.Key.Name, "default.") {
 		return nil, invalid("Default parameter groups cannot be modified.")
 	}
-	if len(in.ParameterNameValues) == 0 {
+	replace, _ := ctx.Value(cloudFormationParameterReplacementKey{}).(bool)
+	if !replace && len(in.ParameterNameValues) == 0 {
 		return nil, invalid("At least one parameter is required.")
+	}
+	if replace {
+		v.Parameters = map[string]string{}
 	}
 	seen := map[string]bool{}
 	for _, p := range in.ParameterNameValues {
@@ -215,7 +219,11 @@ func (s *Service) describeParameters(ctx context.Context, tx Transaction, in *ap
 		return nil, e
 	}
 	rows := []api.Parameter{}
+	controllerProjection, _ := ctx.Value(cloudFormationParameterReplacementKey{}).(bool)
 	for _, name := range slices.Sorted(maps.Keys(parameterDefaults)) {
+		if _, explicit := v.Parameters[name]; controllerProjection && !explicit {
+			continue
+		}
 		val := parameterDefaults[name]
 		if x, ok := v.Parameters[name]; ok {
 			val = x

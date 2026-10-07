@@ -28,14 +28,14 @@ func (r reader) Instances() ([]domain.Instance, error) {
 	return out, nil
 }
 func (r reader) instance(row sqlcgen.DocdbInstance) (domain.Instance, error) {
-	v := domain.Instance{Key: domain.Key{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Kind: "db", Name: row.Name}, Cluster: row.Cluster, Class: row.Class, RuntimeID: row.RuntimeID, Status: row.Status, Created: readTime(row.Created)}
+	v := domain.Instance{Key: domain.Key{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Kind: "db", Name: row.Name}, Owner: domain.CloudFormationOwner{StackID: row.OwnerStackID, LogicalID: row.OwnerLogicalID, Token: row.OwnerToken}, Cluster: row.Cluster, Class: row.Class, RuntimeID: row.RuntimeID, Status: row.Status, Created: readTime(row.Created)}
 	var e error
 	v.Tags, e = r.tags(v.Key)
 	return v, e
 }
 func (w writer) PutInstance(v domain.Instance) error {
 	k := v.Key
-	if e := w.q.PutInstance(w.ctx, sqlcgen.PutInstanceParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Name: k.Name, Cluster: v.Cluster, Class: v.Class, RuntimeID: v.RuntimeID, Status: v.Status, Created: timeValue(v.Created)}); e != nil {
+	if e := w.q.PutInstance(w.ctx, sqlcgen.PutInstanceParams{Partition: k.Partition, OwnerStackID: v.Owner.StackID, OwnerLogicalID: v.Owner.LogicalID, OwnerToken: v.Owner.Token, AccountID: k.AccountID, Region: k.Region, Name: k.Name, Cluster: v.Cluster, Class: v.Class, RuntimeID: v.RuntimeID, Status: v.Status, Created: timeValue(v.Created)}); e != nil {
 		return e
 	}
 	return w.putTags(k, v.Tags)

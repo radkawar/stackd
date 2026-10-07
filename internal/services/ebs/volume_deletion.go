@@ -35,6 +35,9 @@ func (s *Service) DeleteVolume(ctx context.Context, in *api.DeleteVolumeRequest)
 		if err := ec2DryRun(in.DryRun); err != nil {
 			return err
 		}
+		if err := volumeMutationFence(tx.Context(), v); err != nil {
+			return err
+		}
 		attachments, err := s.volumeAttachments(tx.Context(), v)
 		if err != nil {
 			return err

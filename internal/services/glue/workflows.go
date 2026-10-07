@@ -69,7 +69,7 @@ func (s *Service) createWorkflow(ctx context.Context, tx Transaction, in *api.Cr
 	if in.Description != nil {
 		w.Description = new(api.GenericString(*in.Description))
 	}
-	if err = tx.PutWorkflow(WorkflowRecord{key, w, tags}); err != nil {
+	if err = tx.PutWorkflow(WorkflowRecord{Key: key, Workflow: w, Tags: tags}); err != nil {
 		return nil, err
 	}
 	return &api.CreateWorkflowOutput{Name: in.Name}, nil

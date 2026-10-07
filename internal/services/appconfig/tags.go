@@ -28,7 +28,7 @@ func registerTags(s *Service) {
 		if err != nil {
 			return nil, err
 		}
-		if err = s.authorize(tx.Context(), "ListTagsForResource", resource, tags); err != nil {
+		if err = s.authorizeClaimed(tx, "ListTagsForResource", resource, tags); err != nil {
 			return nil, err
 		}
 		out := &api.ResourceTags{Tags: api.TagMap{}}
@@ -47,7 +47,7 @@ func registerTags(s *Service) {
 		if err != nil {
 			return nil, err
 		}
-		if err = s.authorize(tx.Context(), "TagResource", resource, tags); err != nil {
+		if err = s.authorizeClaimed(tx, "TagResource", resource, tags); err != nil {
 			return nil, err
 		}
 		tags = maps.Clone(tags)
@@ -78,7 +78,7 @@ func registerTags(s *Service) {
 		if err != nil {
 			return nil, err
 		}
-		if err = s.authorize(tx.Context(), "UntagResource", resource, tags); err != nil {
+		if err = s.authorizeClaimed(tx, "UntagResource", resource, tags); err != nil {
 			return nil, err
 		}
 		tags = maps.Clone(tags)

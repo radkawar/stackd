@@ -3,6 +3,7 @@ package organizations
 
 type organization struct {
 	ID                   string
+	CloudFormationOwner  string
 	ARN                  string
 	FeatureSet           string
 	MasterAccountID      string
@@ -20,21 +21,26 @@ type root struct {
 	PolicyTypes []policyType
 }
 
+// CloudFormationOwner is trusted private incarnation metadata. Public tags
+// and API projections never carry it.
 type organizationalUnit struct {
-	ID   string
-	ARN  string
-	Name string
+	ID                  string
+	ARN                 string
+	Name                string
+	CloudFormationOwner string
 }
 
 type account struct {
-	ID              string
-	ARN             string
-	Name            string
-	Email           string
-	Status          string
-	State           string
-	JoinedMethod    string
-	JoinedTimestamp float64
+	ID                   string
+	ARN                  string
+	Name                 string
+	Email                string
+	Status               string
+	State                string
+	JoinedMethod         string
+	JoinedTimestamp      float64
+	CloudFormationOwner  string
+	CloudFormationRegion string
 }
 
 type policySummary struct {
@@ -49,6 +55,8 @@ type policySummary struct {
 type policy struct {
 	Content       string
 	PolicySummary policySummary
+	// CloudFormationOwner is trusted private incarnation metadata.
+	CloudFormationOwner string
 }
 
 type orgState struct {

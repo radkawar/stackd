@@ -7,32 +7,33 @@ import (
 )
 
 type (
-	Repository            = domain.Repository
-	Reader                = domain.Reader
-	Transaction           = domain.Transaction
-	Scope                 = domain.Scope
-	SnapshotKey           = domain.SnapshotKey
-	SnapshotRecord        = domain.SnapshotRecord
-	SnapshotCopy          = domain.SnapshotCopy
-	SnapshotVolume        = domain.SnapshotVolume
-	VolumeKey             = domain.VolumeKey
-	VolumeRecord          = domain.VolumeRecord
-	VolumeCreation        = domain.VolumeCreation
-	VolumeConfiguration   = domain.VolumeConfiguration
-	VolumeModification    = domain.VolumeModification
-	VolumeBlockKey        = domain.VolumeBlockKey
-	VolumeBlockInfo       = domain.VolumeBlockInfo
-	VolumeBlockRecord     = domain.VolumeBlockRecord
-	SnapshotCounts        = domain.SnapshotCounts
-	SnapshotShare         = domain.SnapshotShare
-	SnapshotTag           = domain.SnapshotTag
-	SnapshotPublicAccess  = domain.SnapshotPublicAccess
-	SharedTagsKey         = domain.SharedTagsKey
-	BlockKey              = domain.BlockKey
-	BlockInfo             = domain.BlockInfo
-	BlockRecord           = domain.BlockRecord
-	BlockEncryptionOrigin = domain.BlockEncryptionOrigin
-	EncryptionDefault     = domain.EncryptionDefault
+	Repository                = domain.Repository
+	Reader                    = domain.Reader
+	Transaction               = domain.Transaction
+	Scope                     = domain.Scope
+	SnapshotKey               = domain.SnapshotKey
+	SnapshotRecord            = domain.SnapshotRecord
+	SnapshotCopy              = domain.SnapshotCopy
+	SnapshotVolume            = domain.SnapshotVolume
+	VolumeKey                 = domain.VolumeKey
+	VolumeRecord              = domain.VolumeRecord
+	VolumeCreation            = domain.VolumeCreation
+	VolumeConfiguration       = domain.VolumeConfiguration
+	VolumeModification        = domain.VolumeModification
+	VolumeBlockKey            = domain.VolumeBlockKey
+	VolumeBlockInfo           = domain.VolumeBlockInfo
+	VolumeBlockRecord         = domain.VolumeBlockRecord
+	SnapshotCounts            = domain.SnapshotCounts
+	SnapshotShare             = domain.SnapshotShare
+	SnapshotTag               = domain.SnapshotTag
+	SnapshotPublicAccess      = domain.SnapshotPublicAccess
+	SharedTagsKey             = domain.SharedTagsKey
+	BlockKey                  = domain.BlockKey
+	BlockInfo                 = domain.BlockInfo
+	BlockRecord               = domain.BlockRecord
+	BlockEncryptionOrigin     = domain.BlockEncryptionOrigin
+	EncryptionDefault         = domain.EncryptionDefault
+	CloudFormationCreationKey = domain.CloudFormationCreationKey
 )
 
 var ErrNotFound = domain.ErrNotFound

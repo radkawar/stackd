@@ -19,6 +19,17 @@ not evidence of semantic completeness.
 publication admission, filtering, signing, retries, dead-letter transitions,
 service metrics and feedback selection. Its repository interface is implemented
 by the shared memory transaction domain and service-owned SQLC tables in SQLite.
+
+CloudFormation topic creation and both topic-policy resource types commit private
+typed ownership with the actual native topic incarnation. Customer tags, names and
+policy documents cannot establish or restore that authority. Exact-token recovery
+uses authorized native observations; topic updates, tags, inline subscription work
+and deletion recheck the private incarnation inside native transactions alongside
+current IAM. Topic and policy claims survive memory-owner restart and SQLite reopen
+and are never exposed by native responses or Cloud Control models. Cloud Control
+CREATE also claims ownership; its subsequent direct read/update/delete retains
+normal native IAM access. Native policy writes relinquish the separate policy claim,
+and direct Cloud Control policy deletion does not require ownership tags.
 Publications retain only the protocol variants needed by matching subscriptions
 or an enabled FIFO archive: the native message ID is shared, while
 `(message ID, protocol)` identifies retained body variants.

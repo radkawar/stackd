@@ -141,6 +141,9 @@ func (s *Service) respondInvitation(tx Transaction, arn, token, op string, input
 				if accept {
 					p.Status = "ASSOCIATED"
 				}
+				if !accept {
+					p.CloudFormationOwner = ""
+				}
 				p.Updated = i.Updated
 			}
 		}

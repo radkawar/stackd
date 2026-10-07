@@ -21,6 +21,7 @@ func (r reader) CodeSigningConfig(k domain.CodeSigningConfigKey) (domain.CodeSig
 
 func (r reader) codeSigningConfig(row sqlcgen.LambdaCodeSigningConfig) (domain.CodeSigningConfigRecord, error) {
 	v := domain.CodeSigningConfigRecord{Key: domain.CodeSigningConfigKey{Scope: domain.Scope{Partition: row.Partition, Account: row.Account, Region: row.Region}, ID: row.ID}, Description: row.Description, Policy: row.Policy, Modified: row.Modified, Tags: map[string]string{}}
+	v.Owner = domain.AdditionalOwner{StackID: row.OwnerStackID, LogicalID: row.OwnerLogicalID, Token: row.OwnerToken}
 	var err error
 	v.Publishers, err = r.q.GetCodeSigningPublishers(r.ctx, sqlcgen.GetCodeSigningPublishersParams{Partition: row.Partition, Account: row.Account, Region: row.Region, ConfigID: row.ID})
 	if err != nil {
@@ -74,7 +75,7 @@ func (r reader) FunctionsByCodeSigningConfig(k domain.CodeSigningConfigKey) ([]d
 
 func (w writer) PutCodeSigningConfig(v domain.CodeSigningConfigRecord) error {
 	k := v.Key
-	if err := w.q.PutCodeSigningConfig(w.ctx, sqlcgen.PutCodeSigningConfigParams{Partition: k.Partition, Account: k.Account, Region: k.Region, ID: k.ID, Description: v.Description, Policy: v.Policy, Modified: v.Modified}); err != nil {
+	if err := w.q.PutCodeSigningConfig(w.ctx, sqlcgen.PutCodeSigningConfigParams{Partition: k.Partition, Account: k.Account, Region: k.Region, ID: k.ID, Description: v.Description, Policy: v.Policy, Modified: v.Modified, OwnerStackID: v.Owner.StackID, OwnerLogicalID: v.Owner.LogicalID, OwnerToken: v.Owner.Token}); err != nil {
 		return err
 	}
 	if err := w.q.DeleteCodeSigningPublishers(w.ctx, sqlcgen.DeleteCodeSigningPublishersParams{Partition: k.Partition, Account: k.Account, Region: k.Region, ConfigID: k.ID}); err != nil {

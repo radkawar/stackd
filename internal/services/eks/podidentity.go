@@ -160,6 +160,19 @@ func (s *Service) createPodIdentityAssociation(ctx context.Context, tx Transacti
 		return nil, failure("ResourceInUseException", "A pod identity association already exists for this service account.", 409)
 	}
 	a := PodIdentityAssociation{Key: key, ClusterID: c.ID, ID: "a-" + strings.ReplaceAll(uuid.NewString(), "-", "")[:17], Namespace: value(in.Namespace), ServiceAccount: value(in.ServiceAccount), RoleARN: value(in.RoleArn), TargetRoleARN: value(in.TargetRoleArn), Policy: value(in.Policy), Tags: tagsFromAPI(in.Tags), ClientToken: token, Created: s.clock.Now(), Modified: s.clock.Now()}
+	for {
+		collision := false
+		for _, old := range all {
+			if old.ID == a.ID {
+				collision = true
+				break
+			}
+		}
+		if !collision {
+			break
+		}
+		a.ID = "a-" + strings.ReplaceAll(uuid.NewString(), "-", "")[:17]
+	}
 	if in.DisableSessionTags != nil {
 		a.DisableSessionTags = bool(*in.DisableSessionTags)
 	}
@@ -173,16 +186,25 @@ func (s *Service) createPodIdentityAssociation(ctx context.Context, tx Transacti
 }
 func (s *Service) podIdentityForAction(ctx context.Context, tx Reader, name, id, action string, active bool) (PodIdentityAssociation, error) {
 	key := Key{scopeFor(ctx), name}
-	c, err := tx.Cluster(key)
-	if err != nil {
-		return PodIdentityAssociation{}, err
+	c, clusterErr := tx.Cluster(key)
+	if clusterErr != nil && !errors.Is(clusterErr, ErrNotFound) {
+		return PodIdentityAssociation{}, clusterErr
 	}
-	a, err := tx.PodIdentityAssociation(key, id)
-	if err != nil {
-		return a, err
+	a, associationErr := tx.PodIdentityAssociation(key, id)
+	if associationErr != nil && !errors.Is(associationErr, ErrNotFound) {
+		return a, associationErr
 	}
-	if err = s.authorizeResource(ctx, a.ARN(), a.Tags, action, nil); err != nil {
-		return a, err
+	if errors.Is(associationErr, ErrNotFound) {
+		a = PodIdentityAssociation{Key: key, ID: id}
+	}
+	if denied := s.authorizeResource(ctx, a.ARN(), a.Tags, action, nil); denied != nil {
+		return a, denied
+	}
+	if clusterErr != nil {
+		return a, clusterErr
+	}
+	if associationErr != nil {
+		return a, associationErr
 	}
 	if a.ClusterID != c.ID {
 		return a, ErrNotFound

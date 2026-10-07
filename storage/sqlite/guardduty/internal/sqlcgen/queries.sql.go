@@ -12,7 +12,7 @@ import (
 )
 
 const allDetectors = `-- name: AllDetectors :many
-SELECT "partition", account_id, region, id, arn, status, frequency, service_role, client_token, created, updated, features_present, tags_present FROM guardduty_detectors ORDER BY arn
+SELECT "partition", account_id, region, id, arn, status, frequency, service_role, client_token, created, updated, features_present, tags_present, cfn_owner, cfn_token FROM guardduty_detectors ORDER BY arn
 `
 
 func (q *Queries) AllDetectors(ctx context.Context) ([]GuarddutyDetector, error) {
@@ -38,6 +38,8 @@ func (q *Queries) AllDetectors(ctx context.Context) ([]GuarddutyDetector, error)
 			&i.Updated,
 			&i.FeaturesPresent,
 			&i.TagsPresent,
+			&i.CfnOwner,
+			&i.CfnToken,
 		); err != nil {
 			return nil, err
 		}
@@ -202,7 +204,7 @@ func (q *Queries) DeleteObservationThreatLists(ctx context.Context, arg DeleteOb
 }
 
 const getDetector = `-- name: GetDetector :one
-SELECT "partition", account_id, region, id, arn, status, frequency, service_role, client_token, created, updated, features_present, tags_present FROM guardduty_detectors WHERE partition=? AND account_id=? AND region=? AND id=?
+SELECT "partition", account_id, region, id, arn, status, frequency, service_role, client_token, created, updated, features_present, tags_present, cfn_owner, cfn_token FROM guardduty_detectors WHERE partition=? AND account_id=? AND region=? AND id=?
 `
 
 type GetDetectorParams struct {
@@ -234,12 +236,14 @@ func (q *Queries) GetDetector(ctx context.Context, arg GetDetectorParams) (Guard
 		&i.Updated,
 		&i.FeaturesPresent,
 		&i.TagsPresent,
+		&i.CfnOwner,
+		&i.CfnToken,
 	)
 	return i, err
 }
 
 const getFilter = `-- name: GetFilter :one
-SELECT "partition", account_id, region, detector_id, name, arn, "action", description, client_token, description_set, rank, version, created, updated, criteria_present, tags_present FROM guardduty_filters WHERE partition=? AND account_id=? AND region=? AND detector_id=? AND name=?
+SELECT "partition", account_id, region, detector_id, name, arn, "action", description, client_token, description_set, rank, version, created, updated, criteria_present, tags_present, cfn_owner, cfn_token FROM guardduty_filters WHERE partition=? AND account_id=? AND region=? AND detector_id=? AND name=?
 `
 
 type GetFilterParams struct {
@@ -276,6 +280,8 @@ func (q *Queries) GetFilter(ctx context.Context, arg GetFilterParams) (Guardduty
 		&i.Updated,
 		&i.CriteriaPresent,
 		&i.TagsPresent,
+		&i.CfnOwner,
+		&i.CfnToken,
 	)
 	return i, err
 }
@@ -610,7 +616,7 @@ func (q *Queries) ListFilterTags(ctx context.Context, arn string) ([]GuarddutyFi
 }
 
 const listFilters = `-- name: ListFilters :many
-SELECT "partition", account_id, region, detector_id, name, arn, "action", description, client_token, description_set, rank, version, created, updated, criteria_present, tags_present FROM guardduty_filters WHERE partition=? AND account_id=? AND region=? AND detector_id=? ORDER BY name
+SELECT "partition", account_id, region, detector_id, name, arn, "action", description, client_token, description_set, rank, version, created, updated, criteria_present, tags_present, cfn_owner, cfn_token FROM guardduty_filters WHERE partition=? AND account_id=? AND region=? AND detector_id=? ORDER BY name
 `
 
 type ListFiltersParams struct {
@@ -651,6 +657,8 @@ func (q *Queries) ListFilters(ctx context.Context, arg ListFiltersParams) ([]Gua
 			&i.Updated,
 			&i.CriteriaPresent,
 			&i.TagsPresent,
+			&i.CfnOwner,
+			&i.CfnToken,
 		); err != nil {
 			return nil, err
 		}
@@ -853,11 +861,13 @@ func (q *Queries) PutAdditionalFeature(ctx context.Context, arg PutAdditionalFea
 }
 
 const putDetector = `-- name: PutDetector :exec
-INSERT INTO guardduty_detectors (partition, account_id, region, id, arn, status, frequency, service_role, client_token, created, updated, features_present, tags_present) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO guardduty_detectors (cfn_owner, cfn_token, partition, account_id, region, id, arn, status, frequency, service_role, client_token, created, updated, features_present, tags_present) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, id) DO UPDATE SET arn=excluded.arn, status=excluded.status, frequency=excluded.frequency, service_role=excluded.service_role, client_token=excluded.client_token, created=excluded.created, updated=excluded.updated, features_present=excluded.features_present, tags_present=excluded.tags_present
 `
 
 type PutDetectorParams struct {
+	CfnOwner        string
+	CfnToken        string
 	Partition       string
 	AccountID       string
 	Region          string
@@ -875,6 +885,8 @@ type PutDetectorParams struct {
 
 func (q *Queries) PutDetector(ctx context.Context, arg PutDetectorParams) error {
 	_, err := q.db.ExecContext(ctx, putDetector,
+		arg.CfnOwner,
+		arg.CfnToken,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -935,11 +947,13 @@ func (q *Queries) PutFeature(ctx context.Context, arg PutFeatureParams) error {
 }
 
 const putFilter = `-- name: PutFilter :exec
-INSERT INTO guardduty_filters (partition, account_id, region, detector_id, name, arn, action, description, client_token, description_set, rank, version, created, updated, criteria_present, tags_present) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO guardduty_filters (cfn_owner, cfn_token, partition, account_id, region, detector_id, name, arn, action, description, client_token, description_set, rank, version, created, updated, criteria_present, tags_present) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, detector_id, name) DO UPDATE SET arn=excluded.arn, action=excluded.action, description=excluded.description, client_token=excluded.client_token, description_set=excluded.description_set, rank=excluded.rank, version=excluded.version, created=excluded.created, updated=excluded.updated, criteria_present=excluded.criteria_present, tags_present=excluded.tags_present
 `
 
 type PutFilterParams struct {
+	CfnOwner        string
+	CfnToken        string
 	Partition       string
 	AccountID       string
 	Region          string
@@ -960,6 +974,8 @@ type PutFilterParams struct {
 
 func (q *Queries) PutFilter(ctx context.Context, arg PutFilterParams) error {
 	_, err := q.db.ExecContext(ctx, putFilter,
+		arg.CfnOwner,
+		arg.CfnToken,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,

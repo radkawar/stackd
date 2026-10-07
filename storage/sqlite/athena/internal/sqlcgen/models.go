@@ -23,6 +23,7 @@ type AthenaCatalog struct {
 	DataStatus            sql.NullString
 	DataType              sql.NullString
 	TagsPresent           bool
+	CfnOwner              string
 }
 
 type AthenaCatalogsDataParameter struct {
@@ -53,6 +54,7 @@ type AthenaNamedQuery struct {
 	DataWorkGroup     sql.NullString
 	Token             string
 	Fingerprint       string
+	CfnOwner          string
 }
 
 type AthenaPreparedStatement struct {
@@ -67,6 +69,7 @@ type AthenaPreparedStatement struct {
 	DataQueryStatement         sql.NullString
 	DataStatementName          sql.NullString
 	DataWorkGroupName          sql.NullString
+	CfnOwner                   string
 }
 
 type AthenaQueriesCallerCalledVium struct {
@@ -324,6 +327,7 @@ type AthenaWorkGroup struct {
 	DataName                                                                                  sql.NullString
 	DataState                                                                                 sql.NullString
 	TagsPresent                                                                               bool
+	CfnOwner                                                                                  string
 }
 
 type AthenaWorkGroupsDataConfigurationEngineConfigurationAdditionalConfig struct {

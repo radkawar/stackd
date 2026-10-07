@@ -3,8 +3,8 @@ SELECT * FROM guardduty_publishing_destinations WHERE partition=? AND account_id
 -- name: ListPublishingDestinations :many
 SELECT * FROM guardduty_publishing_destinations WHERE partition=? AND account_id=? AND region=? AND detector_id=? ORDER BY id;
 -- name: PutPublishingDestination :exec
-INSERT INTO guardduty_publishing_destinations (partition,account_id,region,detector_id,id,arn,type,client_token,destination_arn,kms_key_arn,status,version,created,updated,failure_started,tags_present)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+INSERT INTO guardduty_publishing_destinations (cfn_owner,cfn_token,partition,account_id,region,detector_id,id,arn,type,client_token,destination_arn,kms_key_arn,status,version,created,updated,failure_started,tags_present)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(partition,account_id,region,detector_id,id) DO UPDATE SET arn=excluded.arn,type=excluded.type,client_token=excluded.client_token,destination_arn=excluded.destination_arn,kms_key_arn=excluded.kms_key_arn,status=excluded.status,version=excluded.version,created=excluded.created,updated=excluded.updated,failure_started=excluded.failure_started,tags_present=excluded.tags_present;
 -- name: DeletePublishingDestination :exec
 DELETE FROM guardduty_publishing_destinations WHERE partition=? AND account_id=? AND region=? AND detector_id=? AND id=?;

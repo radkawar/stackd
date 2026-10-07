@@ -154,7 +154,7 @@ func (s *Service) updatePartitionRecord(tx Transaction, table TableRecord, old a
 	}
 	partition := partitionDescription(table.Key, input)
 	partition.CreationTime = record.Partition.CreationTime
-	updated := PartitionRecord{Key: next, Partition: partition}
+	updated := PartitionRecord{CFNOwner: record.CFNOwner, Key: next, Partition: partition}
 	if err := updatePartitionStatistics(tx, table, key, updated); err != nil {
 		return err
 	}

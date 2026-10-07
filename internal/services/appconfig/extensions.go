@@ -141,7 +141,7 @@ func (s *Service) extensionAuthorize(r Reader, action, resource string) error {
 	if err != nil {
 		return err
 	}
-	return s.authorize(r.Context(), action, resource, tags)
+	return s.authorizeClaimed(r, action, resource, tags)
 }
 func (s *Service) extensionPassRoles(ctx context.Context, actions []ExtensionAction) error {
 	for _, action := range actions {
@@ -167,7 +167,7 @@ func (s *Service) createExtension(tx Transaction, in *api.CreateExtensionInput) 
 	if err != nil {
 		return nil, err
 	}
-	row := Extension{Scope: scope, ID: newID(), Name: value(in.Name), Description: value(in.Description), Version: 1}
+	row := Extension{Scope: scope, ID: newID(), Name: value(in.Name), Description: value(in.Description), Version: 1, Ownership: cloudFormationClaim(tx.Context(), "extension")}
 	row.Parameters, err = extensionParameters(in.Parameters)
 	if err != nil {
 		return nil, err
@@ -195,6 +195,11 @@ func (s *Service) createExtension(tx Transaction, in *api.CreateExtensionInput) 
 		return nil, err
 	}
 	if latest.ID != "" && in.LatestVersionNumber == nil {
+		if owner, owned, err := cloudFormationOwnership(tx.Context()); err != nil {
+			return nil, err
+		} else if owned && latest.Ownership != owner {
+			return nil, failure("BadRequestException", cloudFormationMismatch)
+		}
 		if latest.Description == row.Description && slices.Equal(latest.Actions, row.Actions) && slices.Equal(latest.Parameters, row.Parameters) {
 			if err = s.authorizeTagsOnCreate(tx.Context(), latest.ARN, tags); err != nil {
 				return nil, err
@@ -222,7 +227,7 @@ func (s *Service) getExtension(tx Transaction, in *api.GetExtensionInput) (*api.
 	if err != nil {
 		return nil, err
 	}
-	if err = s.extensionAuthorize(tx, "GetExtension", row.ARN); err != nil {
+	if err = s.authorizeResource(tx, scopeFor(tx.Context()), "GetExtension", row.ARN, row.Ownership); err != nil {
 		return nil, err
 	}
 	return extensionOutput(row), nil
@@ -233,7 +238,7 @@ func (s *Service) updateExtension(tx Transaction, in *api.UpdateExtensionInput) 
 	if err != nil {
 		return nil, err
 	}
-	if err = s.extensionAuthorize(tx, "UpdateExtension", row.ARN); err != nil {
+	if err = s.authorizeResource(tx, scopeFor(tx.Context()), "UpdateExtension", row.ARN, row.Ownership); err != nil {
 		return nil, err
 	}
 	if in.Description != nil {
@@ -265,7 +270,7 @@ func (s *Service) deleteExtension(tx Transaction, in *api.DeleteExtensionInput) 
 	if err != nil {
 		return nil, err
 	}
-	if err = s.extensionAuthorize(tx, "DeleteExtension", row.ARN); err != nil {
+	if err = s.authorizeResource(tx, scopeFor(tx.Context()), "DeleteExtension", row.ARN, row.Ownership); err != nil {
 		return nil, err
 	}
 	associations, err := tx.Associations(scope)

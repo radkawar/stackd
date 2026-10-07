@@ -59,6 +59,7 @@ func (s *Service) invokeSourceBatch(ctx context.Context, mapping EventSourceMapp
 		}
 		admitted = true
 		slot = s.invocationExecutionLocked(FunctionVersionKey{FunctionKey: mapping.Function.FunctionKey, Version: function.Version}, mapping.Function)
+		slot.image = function.Image
 		return nil
 	})
 	var wire *awswire.Error

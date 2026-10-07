@@ -32,6 +32,9 @@ func (s *Service) createDetector(tx Transaction, in *api.CreateDetectorInput) (*
 	for _, v := range rows {
 		if v.Scope == sc {
 			if token := value(in.ClientToken); token != "" && token == v.ClientToken {
+				if err := checkCloudFormationOwnership(ctx, v.CFNOwnership); err != nil {
+					return nil, err
+				}
 				out := &api.CreateDetectorOutput{}
 				text(&out.DetectorId, v.ID)
 				return out, nil
@@ -45,6 +48,7 @@ func (s *Service) createDetector(tx Transaction, in *api.CreateDetectorInput) (*
 	now := s.clock.Now().UTC()
 	id := newID()
 	v := Detector{Scope: sc, ID: id, ARN: detectorARN(sc, id), Status: "DISABLED", Frequency: "SIX_HOURS", ClientToken: value(in.ClientToken), Created: now, Updated: now, Tags: tags}
+	v.CFNOwnership = creationOwnership(ctx)
 	if bool(*in.Enable) {
 		v.Status = "ENABLED"
 	}

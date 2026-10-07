@@ -9,8 +9,7 @@ import (
 )
 
 func (r reader) group(row sqlcgen.AsgGroup) (domain.GroupRecord, error) {
-	out := domain.GroupRecord{
-		Key:                   groupKey(row.Partition, row.AccountID, row.Region, row.Name),
+	out := domain.GroupRecord{Ownership: row.Ownership, Key: groupKey(row.Partition, row.AccountID, row.Region, row.Name),
 		ID:                    row.NativeID,
 		OriginEventID:         row.OriginEventID,
 		Deleting:              row.Deleting,
@@ -19,8 +18,7 @@ func (r reader) group(row sqlcgen.AsgGroup) (domain.GroupRecord, error) {
 		PendingInstanceWarmup: intPointer[int32](row.PendingInstanceWarmup),
 		MetricAt:              row.MetricAt.Time,
 		Version:               uint64(row.Version),
-		ScaleUpVersion:        uint64(row.ScaleUpVersion),
-	}
+		ScaleUpVersion:        uint64(row.ScaleUpVersion)}
 	out.Data.AutoScalingGroupARN = stringPointer[api.ResourceName](row.DataAutoScalingGroupArn)
 	out.Data.AutoScalingGroupName = stringPointer[api.XmlStringMaxLen255](row.DataAutoScalingGroupName)
 	if row.HasDataAvailabilityZoneDistribution {
@@ -194,8 +192,7 @@ func (w writer) PutGroup(v domain.GroupRecord) error {
 	if v.Data.Operator != nil {
 		return fmt.Errorf("autoscaling storage: unsupported Operator configuration")
 	}
-	p := sqlcgen.PutGroupParams{
-		Partition:             v.Key.Partition,
+	p := sqlcgen.PutGroupParams{Ownership: v.Ownership, Partition: v.Key.Partition,
 		AccountID:             v.Key.AccountID,
 		Region:                v.Key.Region,
 		Name:                  v.Key.Name,
@@ -207,8 +204,7 @@ func (w writer) PutGroup(v domain.GroupRecord) error {
 		PendingInstanceWarmup: nullableInt(v.PendingInstanceWarmup),
 		MetricAt:              deadline(v.MetricAt),
 		Version:               sqlite.Uint64(v.Version),
-		ScaleUpVersion:        sqlite.Uint64(v.ScaleUpVersion),
-	}
+		ScaleUpVersion:        sqlite.Uint64(v.ScaleUpVersion)}
 	p.DataAutoScalingGroupArn = nullableString(v.Data.AutoScalingGroupARN)
 	p.DataAutoScalingGroupName = nullableString(v.Data.AutoScalingGroupName)
 	p.HasDataAvailabilityZoneDistribution = v.Data.AvailabilityZoneDistribution != nil

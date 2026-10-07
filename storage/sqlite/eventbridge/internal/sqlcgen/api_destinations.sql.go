@@ -35,7 +35,7 @@ func (q *Queries) DeleteAPIDestination(ctx context.Context, arg DeleteAPIDestina
 }
 
 const getAPIDestination = `-- name: GetAPIDestination :one
-SELECT "partition", account, region, name, id, description, connection_arn, endpoint, method, rate, created, modified, rate_window, rate_count, version FROM eventbridge_api_destinations WHERE partition=? AND account=? AND region=? AND name=?
+SELECT "partition", account, region, name, id, description, connection_arn, endpoint, method, rate, created, modified, rate_window, rate_count, version, cfn_owner FROM eventbridge_api_destinations WHERE partition=? AND account=? AND region=? AND name=?
 `
 
 type GetAPIDestinationParams struct {
@@ -69,12 +69,13 @@ func (q *Queries) GetAPIDestination(ctx context.Context, arg GetAPIDestinationPa
 		&i.RateWindow,
 		&i.RateCount,
 		&i.Version,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const listAPIDestinations = `-- name: ListAPIDestinations :many
-SELECT "partition", account, region, name, id, description, connection_arn, endpoint, method, rate, created, modified, rate_window, rate_count, version FROM eventbridge_api_destinations WHERE partition=? AND account=? AND region=? ORDER BY name
+SELECT "partition", account, region, name, id, description, connection_arn, endpoint, method, rate, created, modified, rate_window, rate_count, version, cfn_owner FROM eventbridge_api_destinations WHERE partition=? AND account=? AND region=? ORDER BY name
 `
 
 type ListAPIDestinationsParams struct {
@@ -108,6 +109,7 @@ func (q *Queries) ListAPIDestinations(ctx context.Context, arg ListAPIDestinatio
 			&i.RateWindow,
 			&i.RateCount,
 			&i.Version,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -123,9 +125,9 @@ func (q *Queries) ListAPIDestinations(ctx context.Context, arg ListAPIDestinatio
 }
 
 const putAPIDestination = `-- name: PutAPIDestination :exec
-INSERT INTO eventbridge_api_destinations(partition,account,region,name,id,description,connection_arn,endpoint,method,rate,created,modified,rate_window,rate_count,version)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-ON CONFLICT(partition,account,region,name) DO UPDATE SET id=excluded.id,description=excluded.description,connection_arn=excluded.connection_arn,endpoint=excluded.endpoint,method=excluded.method,rate=excluded.rate,created=excluded.created,modified=excluded.modified,rate_window=excluded.rate_window,rate_count=excluded.rate_count,version=excluded.version
+INSERT INTO eventbridge_api_destinations(partition,account,region,name,id,description,connection_arn,endpoint,method,rate,created,modified,rate_window,rate_count,version,cfn_owner)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+ON CONFLICT(partition,account,region,name) DO UPDATE SET id=excluded.id,description=excluded.description,connection_arn=excluded.connection_arn,endpoint=excluded.endpoint,method=excluded.method,rate=excluded.rate,created=excluded.created,modified=excluded.modified,rate_window=excluded.rate_window,rate_count=excluded.rate_count,version=excluded.version,cfn_owner=excluded.cfn_owner
 `
 
 type PutAPIDestinationParams struct {
@@ -144,6 +146,7 @@ type PutAPIDestinationParams struct {
 	RateWindow    sql.NullTime
 	RateCount     int64
 	Version       sqlite.Uint64
+	CfnOwner      string
 }
 
 func (q *Queries) PutAPIDestination(ctx context.Context, arg PutAPIDestinationParams) error {
@@ -163,6 +166,7 @@ func (q *Queries) PutAPIDestination(ctx context.Context, arg PutAPIDestinationPa
 		arg.RateWindow,
 		arg.RateCount,
 		arg.Version,
+		arg.CfnOwner,
 	)
 	return err
 }

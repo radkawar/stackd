@@ -31,6 +31,9 @@ type MskCluster struct {
 	Capem                        []byte
 	PolicyDocument               string
 	PolicyVersion                int64
+	OwnerStackID                 string
+	OwnerLogicalID               string
+	OwnerToken                   string
 }
 
 type MskClusterBroker struct {
@@ -59,6 +62,9 @@ type MskConfiguration struct {
 	Description    string
 	Created        int64
 	LatestRevision int64
+	OwnerStackID   string
+	OwnerLogicalID string
+	OwnerToken     string
 }
 
 type MskConfigurationVersion struct {

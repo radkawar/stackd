@@ -77,7 +77,7 @@ func (s *Service) createSecurityConfiguration(ctx context.Context, tx Transactio
 		return nil, err
 	}
 	now := workflowTime(s.clock.Now())
-	if err := tx.PutSecurityConfiguration(SecurityConfigurationRecord{key, api.SecurityConfiguration{Name: in.Name, CreatedTimeStamp: now, EncryptionConfiguration: in.EncryptionConfiguration}}); err != nil {
+	if err := tx.PutSecurityConfiguration(SecurityConfigurationRecord{Key: key, Configuration: api.SecurityConfiguration{Name: in.Name, CreatedTimeStamp: now, EncryptionConfiguration: in.EncryptionConfiguration}}); err != nil {
 		return nil, err
 	}
 	return &api.CreateSecurityConfigurationOutput{Name: in.Name, CreatedTimestamp: now}, nil

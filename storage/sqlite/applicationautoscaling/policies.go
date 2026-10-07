@@ -30,10 +30,9 @@ func (r reader) Policies(q domain.PolicyQuery) ([]domain.PolicyRecord, error) {
 	return out, nil
 }
 func (r reader) policy(row sqlcgen.AasPolicy) (domain.PolicyRecord, error) {
-	out := domain.PolicyRecord{Key: domain.PolicyKey{TargetKey: targetKey(row.Partition, row.AccountID, row.Region, row.Namespace, row.ResourceID, row.Dimension), Name: row.Name}, ManagedActionID: row.ManagedActionID, LastScaleAt: row.LastScaleAt, LastScaleFrom: int32(row.LastScaleFrom), LastScaleTo: int32(row.LastScaleTo),
+	out := domain.PolicyRecord{Ownership: row.Ownership, Key: domain.PolicyKey{TargetKey: targetKey(row.Partition, row.AccountID, row.Region, row.Namespace, row.ResourceID, row.Dimension), Name: row.Name}, ManagedActionID: row.ManagedActionID, LastScaleAt: row.LastScaleAt, LastScaleFrom: int32(row.LastScaleFrom), LastScaleTo: int32(row.LastScaleTo),
 		PendingActivityID: row.PendingActivityID,
-		Data:              api.ScalingPolicy{CreationTime: timePointer(row.CreationTime), PolicyARN: stringPointer[api.ResourceIdMaxLen1600](row.PolicyArn), PolicyName: stringPointer[api.PolicyName](row.PolicyName), PolicyType: stringPointer[api.PolicyType](row.PolicyType), ResourceId: stringPointer[api.ResourceIdMaxLen1600](row.DataResourceID), ScalableDimension: stringPointer[api.ScalableDimension](row.DataDimension), ServiceNamespace: stringPointer[api.ServiceNamespace](row.DataNamespace)},
-	}
+		Data:              api.ScalingPolicy{CreationTime: timePointer(row.CreationTime), PolicyARN: stringPointer[api.ResourceIdMaxLen1600](row.PolicyArn), PolicyName: stringPointer[api.PolicyName](row.PolicyName), PolicyType: stringPointer[api.PolicyType](row.PolicyType), ResourceId: stringPointer[api.ResourceIdMaxLen1600](row.DataResourceID), ScalableDimension: stringPointer[api.ScalableDimension](row.DataDimension), ServiceNamespace: stringPointer[api.ServiceNamespace](row.DataNamespace)}}
 	if row.HasAlarms {
 		rows, err := r.q.ListPolicyAlarms(r.ctx, row.PolicyPk)
 		if err != nil {

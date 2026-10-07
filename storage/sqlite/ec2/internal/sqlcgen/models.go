@@ -39,14 +39,16 @@ type Ec2DhcpDefault struct {
 }
 
 type Ec2DhcpOption struct {
-	Partition             string
-	AccountID             string
-	Region                string
-	ResourceID            string
-	DhcpOptionsID         sql.NullString
-	OwnerID               sql.NullString
-	TagsPresent           bool
-	ConfigurationsPresent bool
+	Partition                  string
+	AccountID                  string
+	Region                     string
+	ResourceID                 string
+	DhcpOptionsID              sql.NullString
+	OwnerID                    sql.NullString
+	TagsPresent                bool
+	ConfigurationsPresent      bool
+	CloudformationResourceType string
+	CloudformationOwner        string
 }
 
 type Ec2DhcpOptionsTag struct {
@@ -301,6 +303,8 @@ type Ec2Instance struct {
 	HibernationReady                bool
 	LambdaCapacityProviderArn       string
 	LambdaManagedGeneration         string
+	CloudformationResourceType      string
+	CloudformationOwner             string
 }
 
 type Ec2InstanceCreditDefault struct {
@@ -438,14 +442,16 @@ type Ec2InstanceTag struct {
 }
 
 type Ec2InternetGateway struct {
-	Partition          string
-	AccountID          string
-	Region             string
-	ResourceID         string
-	InternetGatewayID  sql.NullString
-	OwnerID            sql.NullString
-	AttachmentsPresent bool
-	TagsPresent        bool
+	Partition                  string
+	AccountID                  string
+	Region                     string
+	ResourceID                 string
+	InternetGatewayID          sql.NullString
+	OwnerID                    sql.NullString
+	AttachmentsPresent         bool
+	TagsPresent                bool
+	CloudformationResourceType string
+	CloudformationOwner        string
 }
 
 type Ec2InternetGatewayAttachment struct {
@@ -469,17 +475,19 @@ type Ec2InternetGatewayTag struct {
 }
 
 type Ec2KeyPair struct {
-	Partition      string
-	AccountID      string
-	Region         string
-	ResourceID     string
-	KeyPairID      sql.NullString
-	KeyName        sql.NullString
-	KeyFingerprint sql.NullString
-	KeyType        sql.NullString
-	PublicKey      sql.NullString
-	CreateTime     sql.NullTime
-	TagsPresent    bool
+	Partition                  string
+	AccountID                  string
+	Region                     string
+	ResourceID                 string
+	KeyPairID                  sql.NullString
+	KeyName                    sql.NullString
+	KeyFingerprint             sql.NullString
+	KeyType                    sql.NullString
+	PublicKey                  sql.NullString
+	CreateTime                 sql.NullTime
+	TagsPresent                bool
+	CloudformationResourceType string
+	CloudformationOwner        string
 }
 
 type Ec2KeyPairTag struct {
@@ -493,17 +501,19 @@ type Ec2KeyPairTag struct {
 }
 
 type Ec2LaunchTemplate struct {
-	Partition      string
-	AccountID      string
-	Region         string
-	ResourceID     string
-	Name           string
-	CreatedAt      time.Time
-	CreatedBy      string
-	DefaultVersion int64
-	LatestVersion  int64
-	LastVersion    int64
-	TagsPresent    bool
+	Partition                  string
+	AccountID                  string
+	Region                     string
+	ResourceID                 string
+	Name                       string
+	CreatedAt                  time.Time
+	CreatedBy                  string
+	DefaultVersion             int64
+	LatestVersion              int64
+	LastVersion                int64
+	TagsPresent                bool
+	CloudformationResourceType string
+	CloudformationOwner        string
 }
 
 type Ec2LaunchTemplateTag struct {
@@ -774,18 +784,66 @@ type Ec2LtVersionTagSpecificationsTagsRecord struct {
 	Value                            sql.NullString
 }
 
+type Ec2NatGateway struct {
+	Partition                  string
+	AccountID                  string
+	Region                     string
+	ResourceID                 string
+	NatGatewayID               sql.NullString
+	VpcID                      sql.NullString
+	SubnetID                   sql.NullString
+	ConnectivityType           sql.NullString
+	AvailabilityMode           sql.NullString
+	State                      sql.NullString
+	CreateTime                 sql.NullString
+	DeleteTime                 sql.NullString
+	FailureCode                sql.NullString
+	FailureMessage             sql.NullString
+	TagsPresent                bool
+	NatGatewayAddressesPresent bool
+	CloudformationResourceType string
+	CloudformationOwner        string
+}
+
+type Ec2NatGatewayAddress struct {
+	Partition          string
+	AccountID          string
+	Region             string
+	ResourceID         string
+	Position           int64
+	AllocationID       sql.NullString
+	AssociationID      sql.NullString
+	NetworkInterfaceID sql.NullString
+	PrivateIp          sql.NullString
+	PublicIp           sql.NullString
+	IsPrimary          sql.NullBool
+	Status             sql.NullString
+}
+
+type Ec2NatGatewayTag struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	ResourceID string
+	Position   int64
+	Key        sql.NullString
+	Value      sql.NullString
+}
+
 type Ec2NetworkAcl struct {
-	Partition           string
-	AccountID           string
-	Region              string
-	ResourceID          string
-	IsDefault           sql.NullBool
-	NetworkAclID        sql.NullString
-	OwnerID             sql.NullString
-	VpcID               sql.NullString
-	TagsPresent         bool
-	AssociationsPresent bool
-	EntriesPresent      bool
+	Partition                  string
+	AccountID                  string
+	Region                     string
+	ResourceID                 string
+	IsDefault                  sql.NullBool
+	NetworkAclID               sql.NullString
+	OwnerID                    sql.NullString
+	VpcID                      sql.NullString
+	TagsPresent                bool
+	AssociationsPresent        bool
+	EntriesPresent             bool
+	CloudformationResourceType string
+	CloudformationOwner        string
 }
 
 type Ec2NetworkAclAssociation struct {
@@ -848,46 +906,51 @@ type Ec2NetworkCreationTag struct {
 }
 
 type Ec2NetworkInterface struct {
-	Partition                     string
-	AccountID                     string
-	Region                        string
-	ResourceID                    string
-	NetworkInterfaceID            sql.NullString
-	OwnerID                       sql.NullString
-	RequesterID                   sql.NullString
-	RequesterManaged              sql.NullBool
-	AvailabilityZone              sql.NullString
-	AvailabilityZoneID            sql.NullString
-	SubnetID                      sql.NullString
-	VpcID                         sql.NullString
-	MacAddress                    sql.NullString
-	Description                   sql.NullString
-	InterfaceType                 sql.NullString
-	SourceDestCheck               sql.NullBool
-	Status                        sql.NullString
-	PrivateIpAddress              sql.NullString
-	PrivateDnsName                sql.NullString
-	GroupsPresent                 bool
-	PrivateIpAddressesPresent     bool
-	Ipv6AddressesPresent          bool
-	TagsPresent                   bool
-	OperatorPresent               bool
-	OperatorManaged               sql.NullBool
-	OperatorHiddenByDefault       sql.NullBool
-	OperatorPrincipal             sql.NullString
-	TaskOwnerArn                  string
-	TaskPublicNetworking          bool
-	AttachmentPresent             bool
-	AttachmentID                  sql.NullString
-	AttachmentTime                sql.NullTime
-	AttachmentDeleteOnTermination sql.NullBool
-	AttachmentDeviceIndex         sql.NullInt64
-	AttachmentNetworkCardIndex    sql.NullInt64
-	AttachmentStatus              sql.NullString
-	AttachmentInstanceID          sql.NullString
-	AttachmentInstanceOwnerID     sql.NullString
-	SubnetOwnerAccountID          string
-	LambdaMappingOwnerArn         string
+	Partition                      string
+	AccountID                      string
+	Region                         string
+	ResourceID                     string
+	NetworkInterfaceID             sql.NullString
+	OwnerID                        sql.NullString
+	RequesterID                    sql.NullString
+	RequesterManaged               sql.NullBool
+	AvailabilityZone               sql.NullString
+	AvailabilityZoneID             sql.NullString
+	SubnetID                       sql.NullString
+	VpcID                          sql.NullString
+	MacAddress                     sql.NullString
+	Description                    sql.NullString
+	InterfaceType                  sql.NullString
+	SourceDestCheck                sql.NullBool
+	Status                         sql.NullString
+	PrivateIpAddress               sql.NullString
+	PrivateDnsName                 sql.NullString
+	GroupsPresent                  bool
+	PrivateIpAddressesPresent      bool
+	Ipv6AddressesPresent           bool
+	TagsPresent                    bool
+	OperatorPresent                bool
+	OperatorManaged                sql.NullBool
+	OperatorHiddenByDefault        sql.NullBool
+	OperatorPrincipal              sql.NullString
+	TaskOwnerArn                   string
+	TaskPublicNetworking           bool
+	AttachmentPresent              bool
+	AttachmentID                   sql.NullString
+	AttachmentTime                 sql.NullTime
+	AttachmentDeleteOnTermination  sql.NullBool
+	AttachmentDeviceIndex          sql.NullInt64
+	AttachmentNetworkCardIndex     sql.NullInt64
+	AttachmentStatus               sql.NullString
+	AttachmentInstanceID           sql.NullString
+	AttachmentInstanceOwnerID      sql.NullString
+	SubnetOwnerAccountID           string
+	LambdaMappingOwnerArn          string
+	LambdaFunctionOwnerArn         string
+	LambdaFunctionOwnerIncarnation string
+	NetworkControlOwnerID          string
+	CloudformationResourceType     string
+	CloudformationOwner            string
 }
 
 type Ec2NetworkInterfaceCreation struct {
@@ -955,18 +1018,30 @@ type Ec2NetworkInterfaceTag struct {
 	Value      sql.NullString
 }
 
+type Ec2NetworkOwnerCreation struct {
+	Partition   string
+	AccountID   string
+	Region      string
+	Action      string
+	Token       string
+	ResourceID  string
+	Fingerprint string
+}
+
 type Ec2PublicAddress struct {
-	Partition          string
-	AccountID          string
-	Region             string
-	ResourceID         string
-	Automatic          bool
-	PublicIp           sql.NullString
-	AssociationID      sql.NullString
-	NetworkInterfaceID sql.NullString
-	PrivateIpAddress   sql.NullString
-	NetworkBorderGroup string
-	TagsPresent        bool
+	Partition                  string
+	AccountID                  string
+	Region                     string
+	ResourceID                 string
+	Automatic                  bool
+	PublicIp                   sql.NullString
+	AssociationID              sql.NullString
+	NetworkInterfaceID         sql.NullString
+	PrivateIpAddress           sql.NullString
+	NetworkBorderGroup         string
+	TagsPresent                bool
+	CloudformationResourceType string
+	CloudformationOwner        string
 }
 
 type Ec2PublicAddressTag struct {
@@ -1106,17 +1181,19 @@ type Ec2ReservationTagSpecification struct {
 }
 
 type Ec2RouteTable struct {
-	Partition              string
-	AccountID              string
-	Region                 string
-	ResourceID             string
-	OwnerID                sql.NullString
-	RouteTableID           sql.NullString
-	VpcID                  sql.NullString
-	TagsPresent            bool
-	AssociationsPresent    bool
-	PropagatingVgwsPresent bool
-	RoutesPresent          bool
+	Partition                  string
+	AccountID                  string
+	Region                     string
+	ResourceID                 string
+	OwnerID                    sql.NullString
+	RouteTableID               sql.NullString
+	VpcID                      sql.NullString
+	TagsPresent                bool
+	AssociationsPresent        bool
+	PropagatingVgwsPresent     bool
+	RoutesPresent              bool
+	CloudformationResourceType string
+	CloudformationOwner        string
 }
 
 type Ec2RouteTableAssociation struct {
@@ -1194,6 +1271,8 @@ type Ec2SecurityGroup struct {
 	IpPermissionsPresent       bool
 	IpPermissionsEgressPresent bool
 	VpcOwnerAccountID          string
+	CloudformationResourceType string
+	CloudformationOwner        string
 }
 
 type Ec2SecurityGroupPermission struct {
@@ -1213,24 +1292,26 @@ type Ec2SecurityGroupPermission struct {
 }
 
 type Ec2SecurityGroupRule struct {
-	Partition            string
-	AccountID            string
-	Region               string
-	ResourceID           string
-	CidrIpv4             sql.NullString
-	CidrIpv6             sql.NullString
-	Description          sql.NullString
-	FromPort             sql.NullInt64
-	GroupID              sql.NullString
-	GroupOwnerID         sql.NullString
-	IpProtocol           sql.NullString
-	IsEgress             sql.NullBool
-	PrefixListID         sql.NullString
-	ReferencedGroupInfo  []byte
-	SecurityGroupRuleArn sql.NullString
-	SecurityGroupRuleID  sql.NullString
-	ToPort               sql.NullInt64
-	TagsPresent          bool
+	Partition                  string
+	AccountID                  string
+	Region                     string
+	ResourceID                 string
+	CidrIpv4                   sql.NullString
+	CidrIpv6                   sql.NullString
+	Description                sql.NullString
+	FromPort                   sql.NullInt64
+	GroupID                    sql.NullString
+	GroupOwnerID               sql.NullString
+	IpProtocol                 sql.NullString
+	IsEgress                   sql.NullBool
+	PrefixListID               sql.NullString
+	ReferencedGroupInfo        []byte
+	SecurityGroupRuleArn       sql.NullString
+	SecurityGroupRuleID        sql.NullString
+	ToPort                     sql.NullInt64
+	TagsPresent                bool
+	CloudformationResourceType string
+	CloudformationOwner        string
 }
 
 type Ec2SecurityGroupRuleTag struct {
@@ -1281,6 +1362,8 @@ type Ec2Subnet struct {
 	VpcID                              sql.NullString
 	TagsPresent                        bool
 	Ipv6CidrBlockAssociationSetPresent bool
+	CloudformationResourceType         string
+	CloudformationOwner                string
 }
 
 type Ec2SubnetIpv6Association struct {
@@ -1326,6 +1409,8 @@ type Ec2Vpc struct {
 	TagsPresent                        bool
 	CidrBlockAssociationSetPresent     bool
 	Ipv6CidrBlockAssociationSetPresent bool
+	CloudformationResourceType         string
+	CloudformationOwner                string
 }
 
 type Ec2VpcCidrAssociation struct {
@@ -1337,6 +1422,93 @@ type Ec2VpcCidrAssociation struct {
 	AssociationID  sql.NullString
 	CidrBlock      sql.NullString
 	CidrBlockState []byte
+}
+
+type Ec2VpcEndpoint struct {
+	Partition                                string
+	AccountID                                string
+	Region                                   string
+	ResourceID                               string
+	VpcEndpointID                            sql.NullString
+	VpcID                                    sql.NullString
+	VpcEndpointType                          sql.NullString
+	ServiceName                              sql.NullString
+	ServiceRegion                            sql.NullString
+	OwnerID                                  sql.NullString
+	RequesterManaged                         sql.NullBool
+	State                                    sql.NullString
+	CreationTimestamp                        sql.NullString
+	PolicyDocument                           sql.NullString
+	PrivateDnsEnabled                        sql.NullBool
+	IpAddressType                            sql.NullString
+	TagsPresent                              bool
+	GroupsPresent                            bool
+	RouteTableIdsPresent                     bool
+	SubnetIdsPresent                         bool
+	NetworkInterfaceIdsPresent               bool
+	DnsEntriesPresent                        bool
+	DnsOptionsPresent                        bool
+	DnsRecordIpType                          sql.NullString
+	PrivateDnsOnlyForInboundResolverEndpoint sql.NullBool
+	CloudformationResourceType               string
+	CloudformationOwner                      string
+}
+
+type Ec2VpcEndpointDnsEntry struct {
+	Partition    string
+	AccountID    string
+	Region       string
+	ResourceID   string
+	Position     int64
+	DnsName      sql.NullString
+	HostedZoneID sql.NullString
+}
+
+type Ec2VpcEndpointGroup struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	ResourceID string
+	Position   int64
+	GroupID    sql.NullString
+	GroupName  sql.NullString
+}
+
+type Ec2VpcEndpointInterface struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	ResourceID string
+	Position   int64
+	Value      sql.NullString
+}
+
+type Ec2VpcEndpointRouteTable struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	ResourceID string
+	Position   int64
+	Value      sql.NullString
+}
+
+type Ec2VpcEndpointSubnet struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	ResourceID string
+	Position   int64
+	Value      sql.NullString
+}
+
+type Ec2VpcEndpointTag struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	ResourceID string
+	Position   int64
+	Key        sql.NullString
+	Value      sql.NullString
 }
 
 type Ec2VpcIpv6Association struct {

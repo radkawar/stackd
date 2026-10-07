@@ -46,6 +46,9 @@ func (s *Service) CreateSnapshot(ctx context.Context, in *api.CreateSnapshotRequ
 		if err := ec2DryRun(in.DryRun); err != nil {
 			return err
 		}
+		if err := deletionSnapshotFence(tx, source); err != nil {
+			return err
+		}
 		if in.OutpostArn != nil || in.Location != nil && *in.Location != "regional" {
 			return ec2Failure("UnsupportedOperation", "Snapshot placement outside the Region is not implemented.")
 		}
@@ -54,6 +57,9 @@ func (s *Service) CreateSnapshot(ctx context.Context, in *api.CreateSnapshotRequ
 		}
 		snapshot, err = s.admitVolumeSnapshot(tx, source, tags, description, true)
 		if err != nil {
+			return err
+		}
+		if err := admitDeletionSnapshotOwner(tx, &snapshot); err != nil {
 			return err
 		}
 		if tags == nil {

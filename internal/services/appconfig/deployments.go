@@ -97,7 +97,7 @@ func (s *Service) deploymentEnvironment(r Reader, action, application, environme
 		if e != nil {
 			return app, env, e
 		}
-		if e = s.authorize(r.Context(), action, resource, tags); e != nil {
+		if e = s.authorizeClaimed(r, action, resource, tags); e != nil {
 			return app, env, e
 		}
 	}
@@ -109,7 +109,7 @@ func (s *Service) authorizeDeployment(r Reader, action string, d Deployment) err
 	if err != nil {
 		return err
 	}
-	return s.authorize(r.Context(), action, resource, tags)
+	return s.authorizePrivate(r.Context(), action, resource, tags, d.Ownership)
 }
 func deploymentOutput(d Deployment) api.Deployment {
 	out := api.Deployment{ApplicationId: new(api.Id(d.ApplicationID)), EnvironmentId: new(api.Id(d.EnvironmentID)), ConfigurationProfileId: new(api.Id(d.ProfileID)), DeploymentStrategyId: deployOptional[api.Id](d.StrategyID), DeploymentNumber: new(api.Integer(d.Number)), ConfigurationName: new(api.Name(d.ConfigurationName)), ConfigurationLocationUri: new(api.Uri(d.LocationURI)), ConfigurationVersion: new(api.Version(d.ConfigurationVersion)), Description: deployOptional[api.Description](d.Description)}
@@ -275,7 +275,7 @@ func (s *Service) startDeployment(ctx context.Context, in *api.StartDeploymentIn
 	if err != nil {
 		return nil, err
 	}
-	d := Deployment{Scope: a.app.Scope, Type: "USER", ApplicationID: a.app.ID, EnvironmentID: a.env.ID, ProfileID: a.profile.ID, StrategyID: a.strategy.ID, LocationURI: a.profile.LocationURI, Number: a.latest + 1, PreviousDeployment: a.previous, ConfigurationName: a.profile.Name, Description: value(in.Description), DurationMinutes: a.strategy.DurationMinutes, FinalBakeMinutes: a.strategy.FinalBakeMinutes, GrowthFactor: a.strategy.GrowthFactor, GrowthType: a.strategy.GrowthType, DynamicParameters: map[string][]string{}, KMSKeyIdentifier: value(in.KmsKeyIdentifier)}
+	d := Deployment{Scope: a.app.Scope, Type: "USER", ApplicationID: a.app.ID, EnvironmentID: a.env.ID, ProfileID: a.profile.ID, StrategyID: a.strategy.ID, LocationURI: a.profile.LocationURI, Number: a.latest + 1, PreviousDeployment: a.previous, ConfigurationName: a.profile.Name, Description: value(in.Description), DurationMinutes: a.strategy.DurationMinutes, FinalBakeMinutes: a.strategy.FinalBakeMinutes, GrowthFactor: a.strategy.GrowthFactor, GrowthType: a.strategy.GrowthType, DynamicParameters: map[string][]string{}, KMSKeyIdentifier: value(in.KmsKeyIdentifier), Ownership: cloudFormationClaim(ctx, "deployment")}
 	d.PipelineActionID = pipelineActionID(ctx)
 	for k, v := range in.DynamicExtensionParameters {
 		d.DynamicParameters[string(k)] = []string{string(v)}

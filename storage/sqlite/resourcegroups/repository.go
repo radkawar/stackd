@@ -68,6 +68,7 @@ func (r reader) groupRecord(row sqlcgen.ResourcegroupsGroup) (domain.Group, erro
 		ManagedType: row.ManagedType, ApplicationARN: row.ApplicationArn,
 		SourceARN: row.SourceArn, SourceName: row.SourceName, ParentARN: row.ParentArn,
 		Incarnation: row.Incarnation, DisplayName: row.DisplayName, Owner: row.Owner,
+		CloudFormationClaim: row.CloudformationClaim,
 	}
 	if row.Criticality.Valid {
 		g.Criticality = new(int32(row.Criticality.Int64))
@@ -89,6 +90,7 @@ func (w writer) PutGroup(g domain.Group) error {
 		g.Incarnation = uuid.NewString()
 	}
 	row := sqlcgen.PutGroupParams{Arn: g.ARN, Partition: g.Partition, AccountID: g.AccountID, Region: g.Region, Name: g.Name, Description: g.Description, Created: storeTime(g.Created), ManagedType: g.ManagedType, ApplicationArn: g.ApplicationARN, SourceArn: g.SourceARN, SourceName: g.SourceName, ParentArn: g.ParentARN, Incarnation: g.Incarnation, DisplayName: g.DisplayName, Owner: g.Owner}
+	row.CloudformationClaim = g.CloudFormationClaim
 	if g.Criticality != nil {
 		row.Criticality = sql.NullInt64{Int64: int64(*g.Criticality), Valid: true}
 	}

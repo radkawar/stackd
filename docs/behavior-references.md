@@ -3473,6 +3473,26 @@ authorization, not just `ram:ReplacePermissionAssociations`.
 The [actual scoped SDK workflow](../testdata/integration/ram_scoped_authorization.json)
 records these denials, successful replacement and complete cleanup.
 
+CloudFormation ownership of RAM permissions, shares and each registered
+resource/principal/permission association is private native metadata admitted
+with the corresponding row. Public tags cannot prove ownership and remain
+customer configuration. Exact-incarnation recovery and no-op observation use
+current native IAM; direct API and Cloud Control updates preserve surviving
+claims, while deleting/recreating an edge or permission starts an unclaimed
+native lifetime. Schema `397_ram_private_ownership.sql` stores permission and
+receipt provenance without adopting old public markers.
+
+The [native permission identity capture](../internal/services/ram/testdata/native-permission-identity.json)
+retains the actual name-derived `permission/<Name>` ARN. A private UUID distinguishes
+same-ARN object lifetimes and binds typed mutation receipts to their admitted
+object; it is never substituted for the native public identifier. The regression
+source runs real RAM and SSM owners over memory/SQLite with native IAM principals,
+lost replies and same-ARN replacement. This is a local controller-safety boundary,
+not evidence of unmeasured AWS same-ARN recreation/token-replay behavior. Public
+contracts remain the
+[RAM Permission resource](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-ram-permission.html)
+and [CreatePermission API](https://docs.aws.amazon.com/ram/latest/APIReference/API_CreatePermission.html).
+
 The [native version capture](../internal/services/ram/testdata/native-permission-version-template-identity.json)
 establishes readable `DELETED` versions, reuse of the highest deleted number,
 active-only version quotas and duplicate-template rejection. A supplied token
@@ -3883,12 +3903,20 @@ resources without physical identities remain additions in subsequent plans.
 
 | Resource | Implemented property/effect boundary |
 | --- | --- |
-| S3 Bucket | Name/tags, canned ACL except `AwsExecRead`, versioning, ownership/public-access controls, AES256/KMS default encryption, SSE-C blocking, EventBridge and SQS/SNS/Lambda notifications with event/key filters; nonempty deletion fails |
+| S3 Bucket | Name/tags, canned ACL except `AwsExecRead`, CORS, versioning, ownership/public-access controls, AES256/KMS default encryption, tag/prefix-filtered lifecycle expiration, SSE-C blocking, EventBridge and SQS/SNS/Lambda notifications with event/key filters; nonempty deletion fails |
 | S3 BucketPolicy | Actual bucket policy installation/removal; changing the bucket replaces the policy resource |
-| SQS Queue / QueuePolicy | Names, FIFO/content deduplication, delay/visibility/retention/size/wait settings, encryption, DLQ/redrive and queue policies/tags; names/FIFO creation mode replace; unenforced `FifoThroughputLimit` is rejected |
+| SQS Queue / QueuePolicy | Names, FIFO/content deduplication and message-group deduplication scope, `FifoThroughputLimit`, delay/visibility/retention/size/wait settings, encryption, DLQ/redrive and queue policies/tags; names/FIFO creation mode replace |
 | SNS Topic / TopicPolicy / Subscription | Topic names/display/FIFO/encryption, supported delivery logging, tags/policies, SQS/Lambda inline subscriptions and same-account/Region SQS/Lambda/Firehose standalone subscriptions, filtering/raw delivery/DLQ where meaningful |
 | IAM Role / Policy / ManagedPolicy | Actual trust, role inline/attached policies and permissions boundary; standalone inline policies target same-stack roles; managed-policy versions and role/user/group attachment; immutable names/paths/description replace as applicable |
-| Lambda Function / Permission | Real inline `index.py`/`index.js` ZIP or S3 code; configuration then code deployment, environment/layers/architecture/concurrency, actual permission statements and asynchronous stabilization |
+| Lambda Function / Permission | Real inline or S3-backed ZIP, including `provided.al2023`, and explicitly installed local Docker images; configuration/code deployments, environment/layers/architecture/concurrency, native VpcConfig and permission statements, asynchronous stabilization and private incarnation recovery; [runtime and image boundary](lambda.md#container-image-deployments) |
+| Lambda EventInvokeConfig | Qualified asynchronous retry/age controls and actual supported success/failure destinations through the Lambda owner; omitted controls return to native defaults |
+| Cognito UserPool / UserPoolClient / UserPoolDomain / UserPoolUser / UserPoolIdentityProvider | Typed pool/user/provider configuration, native auth flows and token validity, signed local login/JWKS and OAuth client configuration; [external hosted UI/exchange limits](cognito.md) |
+| IAM InstanceProfile | Actual scoped profile creation, role attachment/removal and private owner recovery through IAM |
+| EC2 VPC / InternetGateway / VPCGatewayAttachment / Subnet / RouteTable / Route / SubnetRouteTableAssociation | Actual typed network resources and relationship slots; immutable creation receipts and current-IAM mutation fences, not tag adoption |
+| EC2 EIP / NatGateway / VPCEndpoint / SecurityGroup / SecurityGroupIngress | Native addresses, NAT/endpoints and permission rules with owned deletion/recovery; [Linux Lambda packet-routing boundary](lambda.md) |
+| WAFv2 WebACL / WebACLAssociation | Native rule configuration and association lifetime through WAF; unsupported rule settings fail before mutation |
+| API Gateway REST RestApi / Deployment / Stage / Resource / Method / Authorizer | Native API graph, deployment snapshots, authorizers and actual Lambda proxy execution; stage method settings retain native wildcard/root/exact path semantics |
+| API Gateway V2 Api / Stage / Authorizer / Route / RouteResponse / Integration / DomainName / ApiMapping | Native HTTP/WebSocket graph, Lambda proxy integrations, authorizers and domain/mapping ownership; actual HTTP Lambda execution and imported ACM certificate binding, not invented DNS provisioning |
 | Lambda Alias | Real alias/routing changes over published function versions; qualified ARN outputs, current-IAM recovery, private incarnation ownership, provisioned runtime stabilization and stack-only discovery; no CodeDeploy rollout orchestration |
 | Lambda Version | Immutable publication with transactional private receipt recovery; qualified Ref/FunctionArn and numeric Version; hash precondition, runtime/provisioned controls, scaling through the existing owner, replacement/retirement and alias-dependent deletion stabilization; [native calibration and limits](lambda.md#cloudformation-versions) |
 | Lambda LayerVersion | Actual S3-backed publication with version pinning, private transactional recovery, logical-ID default naming, immutable replacement, current-owner discovery and retained function attachments after catalog deletion; [native calibration and runtime evidence](lambda.md#cloudformation-layer-versions) |
@@ -3902,18 +3930,41 @@ resources without physical identities remain additions in subsequent plans.
 | KMS Key / Alias | Actual key material, policy, description, enable/rotation controls, tags, alias target updates and scheduled key deletion; immutable key mode changes fail rather than replace |
 
 Unknown properties are rejected even when a downstream service happens to store
-them as inactive metadata. Private `stackd:cloudformation:*` owner/incarnation and
-phase tags use real service tag storage and quotas, are reserved from customer
-input, and prevent adopting/deleting an unrelated same-name resource. They are
-not represented as native AWS-generated tag names. Untaggable KMS and Lambda
-aliases retain private owner/incarnation fields in their respective repositories
-instead of invented tags. SNS inline subscriptions follow the documented non-cascading deletion
+them as inactive metadata. Resource adapters retain owner/incarnation claims on
+typed native rows, separately from public tags. Public marker tags cannot
+establish or revoke authority, and migrations do not promote legacy public tags
+into claims. Recovery and stack mutations require the exact native incarnation
+and current IAM authorization. Cloud Control updates and deletes retain ordinary
+native authority without adopting a stack claim. SNS inline subscriptions follow the documented non-cascading deletion
 boundary; use standalone Subscription resources when stack-owned unsubscription
 is required.
 
 The [Lambda alias workflow](lambda.md#cloudformation-aliases) retains native
 deployment/routing/provisioned-runtime and stack-membership evidence separately
 from local memory/SQLite recovery and foreign-replacement proofs.
+
+REST stage method settings use the documented CloudFormation `ResourcePath: /*`
+and `HttpMethod: *` wildcard, with `/` for root and `/~1...` for encoded paths,
+then translate to native API patch keys. Omission clears prior writable settings;
+reading them does not discard nested method models.
+[CloudFormation MethodSetting contract](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-apigateway-stage-methodsetting.html).
+
+HTTP Lambda proxy integrations admit `TimeoutInMillis` from 50 through 30,000
+and apply it to the actual backend request context; WebSocket admission retains
+the 50–29,000 range.
+[API Gateway V2 integration contract](https://docs.aws.amazon.com/apigatewayv2/latest/api-reference/apis-apiid-integrations.html).
+Pipes tags use the provider's string-map contract, unlike the tag arrays used by
+many other resource families.
+[CloudFormation Pipe contract](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-pipes-pipe.html).
+
+SNS policy admission compares the native canonical default policy before taking
+an unclaimed policy slot; private policy and topic-incarnation metadata remain
+the mutation/recovery fence. Native policy writes relinquish the policy claim,
+including equal-document writes. JSON formatting is not an ownership token.
+Glue connection read models omit credentials. Unrelated edits preserve the
+stored password/ciphertext; explicit removal from a previous writable model is
+validated by the native owner and can transition to `SECRET_ID`, without sending
+an invalid empty modeled password or exposing the retained secret.
 
 ### CloudFormation rule bus migration
 
@@ -4018,10 +4069,13 @@ The generated AWS SDK model is pinned with the other frontends.
 retains twenty native regional `DescribeType` responses: sixteen original SDK
 captures with request IDs and four CLI captures for SSM Parameter, ECR Repository,
 KMS Key and KMS Alias, each with its capture tool, timestamp and registry metadata.
-`go run ./cmd/cfngen` generates deterministic nested object/required-property
-contracts, read-only and create-only paths, primary/additional identifiers,
-tagging metadata and per-handler permissions. `make generate-cloudformation-check`
-detects drift.
+`go run ./cmd/cfngen` now consumes
+`testdata/aws/cloudformation/resource_schemas_public.json`, the pinned official
+regional public registry archive from
+https://schema.cloudformation.us-east-2.amazonaws.com/CloudformationSchema.zip.
+It generates deterministic nested object/required-property contracts, read-only
+and create-only paths, primary/additional identifiers, tagging metadata and
+per-handler permissions. `make generate-cloudformation-check` detects drift.
 Public registry responses omit `DefaultVersionId`; the capture preserves that
 absence rather than inventing a version. These schemas are not provisioning
 strategies: adapters still explicitly reject unsupported properties/effects and
@@ -4035,15 +4089,14 @@ fields without changing the owner response; primary identifiers follow the
 registry order. These checks do not claim a complete JSON Schema validator:
 supported values, coercion and effects still belong to the resource adapters.
 
-SQS Queue, S3 Bucket and Logs LogGroup expose optional live resource readers and
-paginated owner discovery. They normalize resource identifiers, reconstruct
-properties from the existing service commands and filter private CloudFormation
-ownership tags. Direct Cloud Control update/delete uses current service-owner
-authorization without requiring a stack claim; updates retain existing private
-claims, and ordinary stack mutations and create recovery retain their incarnation
-checks. There is no second resource-state database. S3's lifecycle adapter
-supports prefix-scoped noncurrent-version cleanup and incomplete-multipart
-abortion; other lifecycle action/filter projections remain explicit errors.
+Native resource readers and paginated owner discovery normalize resource
+identifiers and reconstruct properties from current service commands.
+Direct Cloud Control update/delete uses current service-owner authorization
+without requiring a stack claim; updates retain private native claims, and
+ordinary stack mutations and create recovery retain their incarnation checks.
+There is no second resource-state database. S3 lifecycle supports tag/prefix
+filtered current-object expiration, noncurrent-version cleanup and
+incomplete-multipart abortion; unsupported actions remain explicit errors.
 
 A disposable actual-owner command executable exercised all three direct-created
 resource types through ARN normalization, read/list, mutation, public-tag

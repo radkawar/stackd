@@ -163,7 +163,7 @@ func (q *Queries) ExpireAlarmHistory(ctx context.Context, arg ExpireAlarmHistory
 }
 
 const getAlarm = `-- name: GetAlarm :one
-SELECT id, "partition", account_id, region, name, alarm_type, version, created, updated, description, actions_enabled, state_value, state_reason, state_reason_data, state_updated, state_transitioned, state_event_id, state_request_id, next_evaluation, suppression_phase, suppression_reason, suppression_until, evaluation_event_id, evaluation_request_id FROM cloudwatch_alarms WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
+SELECT id, "partition", account_id, region, name, alarm_type, version, created, updated, description, actions_enabled, state_value, state_reason, state_reason_data, state_updated, state_transitioned, state_event_id, state_request_id, next_evaluation, suppression_phase, suppression_reason, suppression_until, evaluation_event_id, evaluation_request_id, cfn_owner FROM cloudwatch_alarms WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
 `
 
 type GetAlarmParams struct {
@@ -206,6 +206,7 @@ func (q *Queries) GetAlarm(ctx context.Context, arg GetAlarmParams) (CloudwatchA
 		&i.SuppressionUntil,
 		&i.EvaluationEventID,
 		&i.EvaluationRequestID,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -240,7 +241,7 @@ func (q *Queries) GetAlarmAction(ctx context.Context, id string) (CloudwatchAlar
 }
 
 const getAlarmByID = `-- name: GetAlarmByID :one
-SELECT id, "partition", account_id, region, name, alarm_type, version, created, updated, description, actions_enabled, state_value, state_reason, state_reason_data, state_updated, state_transitioned, state_event_id, state_request_id, next_evaluation, suppression_phase, suppression_reason, suppression_until, evaluation_event_id, evaluation_request_id FROM cloudwatch_alarms WHERE id = ?
+SELECT id, "partition", account_id, region, name, alarm_type, version, created, updated, description, actions_enabled, state_value, state_reason, state_reason_data, state_updated, state_transitioned, state_event_id, state_request_id, next_evaluation, suppression_phase, suppression_reason, suppression_until, evaluation_event_id, evaluation_request_id, cfn_owner FROM cloudwatch_alarms WHERE id = ?
 `
 
 func (q *Queries) GetAlarmByID(ctx context.Context, id string) (CloudwatchAlarm, error) {
@@ -271,6 +272,7 @@ func (q *Queries) GetAlarmByID(ctx context.Context, id string) (CloudwatchAlarm,
 		&i.SuppressionUntil,
 		&i.EvaluationEventID,
 		&i.EvaluationRequestID,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -676,7 +678,7 @@ func (q *Queries) ListAlarmTargets(ctx context.Context, alarmID string) ([]Cloud
 }
 
 const listAlarms = `-- name: ListAlarms :many
-SELECT cloudwatch_alarms.id, cloudwatch_alarms."partition", cloudwatch_alarms.account_id, cloudwatch_alarms.region, cloudwatch_alarms.name, cloudwatch_alarms.alarm_type, cloudwatch_alarms.version, cloudwatch_alarms.created, cloudwatch_alarms.updated, cloudwatch_alarms.description, cloudwatch_alarms.actions_enabled, cloudwatch_alarms.state_value, cloudwatch_alarms.state_reason, cloudwatch_alarms.state_reason_data, cloudwatch_alarms.state_updated, cloudwatch_alarms.state_transitioned, cloudwatch_alarms.state_event_id, cloudwatch_alarms.state_request_id, cloudwatch_alarms.next_evaluation, cloudwatch_alarms.suppression_phase, cloudwatch_alarms.suppression_reason, cloudwatch_alarms.suppression_until, cloudwatch_alarms.evaluation_event_id, cloudwatch_alarms.evaluation_request_id FROM cloudwatch_alarms
+SELECT cloudwatch_alarms.id, cloudwatch_alarms."partition", cloudwatch_alarms.account_id, cloudwatch_alarms.region, cloudwatch_alarms.name, cloudwatch_alarms.alarm_type, cloudwatch_alarms.version, cloudwatch_alarms.created, cloudwatch_alarms.updated, cloudwatch_alarms.description, cloudwatch_alarms.actions_enabled, cloudwatch_alarms.state_value, cloudwatch_alarms.state_reason, cloudwatch_alarms.state_reason_data, cloudwatch_alarms.state_updated, cloudwatch_alarms.state_transitioned, cloudwatch_alarms.state_event_id, cloudwatch_alarms.state_request_id, cloudwatch_alarms.next_evaluation, cloudwatch_alarms.suppression_phase, cloudwatch_alarms.suppression_reason, cloudwatch_alarms.suppression_until, cloudwatch_alarms.evaluation_event_id, cloudwatch_alarms.evaluation_request_id, cloudwatch_alarms.cfn_owner FROM cloudwatch_alarms
 WHERE cloudwatch_alarms.partition = ?1 AND cloudwatch_alarms.account_id = ?2 AND cloudwatch_alarms.region = ?3
  AND cloudwatch_alarms.name >= ?4
  AND (CAST(?5 AS INTEGER) = 0 OR cloudwatch_alarms.name > ?6)
@@ -750,6 +752,7 @@ func (q *Queries) ListAlarms(ctx context.Context, arg ListAlarmsParams) ([]Cloud
 			&i.SuppressionUntil,
 			&i.EvaluationEventID,
 			&i.EvaluationRequestID,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -810,9 +813,9 @@ func (q *Queries) NextAlarmEvaluation(ctx context.Context) (NextAlarmEvaluationR
 }
 
 const putAlarm = `-- name: PutAlarm :exec
-INSERT INTO cloudwatch_alarms (id, partition, account_id, region, name, alarm_type, version, created, updated, description, actions_enabled, state_value, state_reason, state_reason_data, state_updated, state_transitioned, state_event_id, state_request_id, next_evaluation, suppression_phase, suppression_reason, suppression_until, evaluation_event_id, evaluation_request_id)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(id) DO UPDATE SET partition=excluded.partition, account_id=excluded.account_id, region=excluded.region, name=excluded.name, alarm_type=excluded.alarm_type, version=excluded.version, created=excluded.created, updated=excluded.updated, description=excluded.description, actions_enabled=excluded.actions_enabled, state_value=excluded.state_value, state_reason=excluded.state_reason, state_reason_data=excluded.state_reason_data, state_updated=excluded.state_updated, state_transitioned=excluded.state_transitioned, state_event_id=excluded.state_event_id, state_request_id=excluded.state_request_id, next_evaluation=excluded.next_evaluation, suppression_phase=excluded.suppression_phase, suppression_reason=excluded.suppression_reason, suppression_until=excluded.suppression_until, evaluation_event_id=excluded.evaluation_event_id, evaluation_request_id=excluded.evaluation_request_id
+INSERT INTO cloudwatch_alarms (id, partition, account_id, region, name, alarm_type, version, created, updated, description, actions_enabled, state_value, state_reason, state_reason_data, state_updated, state_transitioned, state_event_id, state_request_id, next_evaluation, suppression_phase, suppression_reason, suppression_until, evaluation_event_id, evaluation_request_id, cfn_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(id) DO UPDATE SET partition=excluded.partition, account_id=excluded.account_id, region=excluded.region, name=excluded.name, alarm_type=excluded.alarm_type, version=excluded.version, created=excluded.created, updated=excluded.updated, description=excluded.description, actions_enabled=excluded.actions_enabled, state_value=excluded.state_value, state_reason=excluded.state_reason, state_reason_data=excluded.state_reason_data, state_updated=excluded.state_updated, state_transitioned=excluded.state_transitioned, state_event_id=excluded.state_event_id, state_request_id=excluded.state_request_id, next_evaluation=excluded.next_evaluation, suppression_phase=excluded.suppression_phase, suppression_reason=excluded.suppression_reason, suppression_until=excluded.suppression_until, evaluation_event_id=excluded.evaluation_event_id, evaluation_request_id=excluded.evaluation_request_id, cfn_owner=excluded.cfn_owner
 `
 
 type PutAlarmParams struct {
@@ -840,6 +843,7 @@ type PutAlarmParams struct {
 	SuppressionUntil    sql.NullTime
 	EvaluationEventID   string
 	EvaluationRequestID string
+	CfnOwner            string
 }
 
 func (q *Queries) PutAlarm(ctx context.Context, arg PutAlarmParams) error {
@@ -868,6 +872,7 @@ func (q *Queries) PutAlarm(ctx context.Context, arg PutAlarmParams) error {
 		arg.SuppressionUntil,
 		arg.EvaluationEventID,
 		arg.EvaluationRequestID,
+		arg.CfnOwner,
 	)
 	return err
 }

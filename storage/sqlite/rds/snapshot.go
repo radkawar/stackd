@@ -50,7 +50,7 @@ func (r reader) AllSnapshots() ([]domain.Snapshot, error) {
 }
 
 func (r reader) snapshot(row sqlcgen.RdsSnapshot) (domain.Snapshot, error) {
-	v := domain.Snapshot{Key: domain.Key{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Kind: row.Kind, Name: row.Name}, Source: row.Source, SourceRuntimeID: row.SourceRuntimeID, RuntimeID: row.RuntimeID, Engine: row.Engine, EngineVersion: row.EngineVersion, DatabaseName: row.DatabaseName, Username: row.Username, Class: row.Class, Status: row.Status, Ciphertext: row.Ciphertext, Version: row.Version, Created: readTime(row.Created), Due: readTime(row.Due)}
+	v := domain.Snapshot{Key: domain.Key{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Kind: row.Kind, Name: row.Name}, Owner: domain.CloudFormationOwner{StackID: row.OwnerStackID, LogicalID: row.OwnerLogicalID, Token: row.OwnerToken}, Source: row.Source, SourceRuntimeID: row.SourceRuntimeID, RuntimeID: row.RuntimeID, Engine: row.Engine, EngineVersion: row.EngineVersion, DatabaseName: row.DatabaseName, Username: row.Username, Class: row.Class, Status: row.Status, Ciphertext: row.Ciphertext, Version: row.Version, Created: readTime(row.Created), Due: readTime(row.Due)}
 	var e error
 	v.Tags, e = r.tags(v.Key)
 	if e != nil {
@@ -62,7 +62,7 @@ func (r reader) snapshot(row sqlcgen.RdsSnapshot) (domain.Snapshot, error) {
 
 func (w writer) PutSnapshot(v domain.Snapshot) error {
 	k := v.Key
-	if e := w.q.PutSnapshot(w.ctx, sqlcgen.PutSnapshotParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Kind: k.Kind, Name: k.Name, Source: v.Source, SourceRuntimeID: v.SourceRuntimeID, RuntimeID: v.RuntimeID, Engine: v.Engine, EngineVersion: v.EngineVersion, DatabaseName: v.DatabaseName, Username: v.Username, Class: v.Class, Status: v.Status, Ciphertext: blob(v.Ciphertext), Version: v.Version, Created: timeValue(v.Created), Due: timeValue(v.Due)}); e != nil {
+	if e := w.q.PutSnapshot(w.ctx, sqlcgen.PutSnapshotParams{Partition: k.Partition, OwnerStackID: v.Owner.StackID, OwnerLogicalID: v.Owner.LogicalID, OwnerToken: v.Owner.Token, AccountID: k.AccountID, Region: k.Region, Kind: k.Kind, Name: k.Name, Source: v.Source, SourceRuntimeID: v.SourceRuntimeID, RuntimeID: v.RuntimeID, Engine: v.Engine, EngineVersion: v.EngineVersion, DatabaseName: v.DatabaseName, Username: v.Username, Class: v.Class, Status: v.Status, Ciphertext: blob(v.Ciphertext), Version: v.Version, Created: timeValue(v.Created), Due: timeValue(v.Due)}); e != nil {
 		return e
 	}
 	if e := w.putTags(k, v.Tags); e != nil {

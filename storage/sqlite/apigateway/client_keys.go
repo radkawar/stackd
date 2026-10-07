@@ -24,6 +24,7 @@ func stringColumn(value *string) sql.NullString {
 func (r reader) clientKey(row sqlcgen.ApigatewayClientKey) (domain.ClientKeyRecord, error) {
 	key := domain.ClientKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.ClientKeyID}
 	out := domain.ClientKeyRecord{Key: key, Name: stringPointer(row.Name), Description: stringPointer(row.Description), CustomerID: stringPointer(row.CustomerID), Value: row.Value, Enabled: row.Enabled, Created: row.Created, Updated: row.Updated}
+	out.Ownership = domain.Ownership{StackID: row.CfnStackID, LogicalID: row.CfnLogicalID, Incarnation: row.CfnIncarnation}
 	tags, err := r.q.ListClientKeyTags(r.ctx, sqlcgen.ListClientKeyTagsParams{Partition: key.Partition, AccountID: key.AccountID, Region: key.Region, ClientKeyID: key.ID})
 	if err != nil {
 		return domain.ClientKeyRecord{}, err
@@ -79,7 +80,7 @@ func (r reader) ClientKeys(scope domain.Scope) ([]domain.ClientKeyRecord, error)
 
 func (w writer) PutClientKey(row domain.ClientKeyRecord) error {
 	key := row.Key
-	if err := w.q.PutClientKey(w.ctx, sqlcgen.PutClientKeyParams{Partition: key.Partition, AccountID: key.AccountID, Region: key.Region, ClientKeyID: key.ID, Name: stringColumn(row.Name), Description: stringColumn(row.Description), CustomerID: stringColumn(row.CustomerID), Value: row.Value, Enabled: row.Enabled, Created: row.Created, Updated: row.Updated}); err != nil {
+	if err := w.q.PutClientKey(w.ctx, sqlcgen.PutClientKeyParams{CfnStackID: row.Ownership.StackID, CfnLogicalID: row.Ownership.LogicalID, CfnIncarnation: row.Ownership.Incarnation, Partition: key.Partition, AccountID: key.AccountID, Region: key.Region, ClientKeyID: key.ID, Name: stringColumn(row.Name), Description: stringColumn(row.Description), CustomerID: stringColumn(row.CustomerID), Value: row.Value, Enabled: row.Enabled, Created: row.Created, Updated: row.Updated}); err != nil {
 		return err
 	}
 	if err := w.q.DeleteClientKeyTags(w.ctx, sqlcgen.DeleteClientKeyTagsParams{Partition: key.Partition, AccountID: key.AccountID, Region: key.Region, ClientKeyID: key.ID}); err != nil {

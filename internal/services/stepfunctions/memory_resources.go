@@ -79,6 +79,9 @@ func (w memoryWriter) PutMachine(row MachineRecord) error {
 		return err
 	}
 	previous, existed := w.s.machines[row.Key]
+	if existed && previous.ID == row.ID {
+		row.CFNOwner = previous.CFNOwner
+	}
 	w.s.machines[row.Key] = cloneMachine(row)
 	if existed && previous.ID != row.ID {
 		for key := range w.s.aliases {
@@ -303,6 +306,9 @@ func (r memoryReader) ActivityCount(scope Scope) (int64, error) {
 func (w memoryWriter) PutActivity(row ActivityRecord) error {
 	if err := w.tx.Check(true); err != nil {
 		return err
+	}
+	if old, ok := w.s.activities[row.Key]; ok && old.ID == row.ID {
+		row.CFNOwner = old.CFNOwner
 	}
 	w.s.activities[row.Key] = cloneActivity(row)
 	return nil

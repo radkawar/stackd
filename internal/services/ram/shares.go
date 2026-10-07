@@ -7,6 +7,7 @@ import (
 	"slices"
 	"stackd/internal/authorization"
 	api "stackd/internal/awsapi/ram"
+	"stackd/internal/services/identitystore"
 	"strings"
 	"time"
 )
@@ -48,6 +49,15 @@ func (s *Service) createResourceShare(tx Transaction, in *api.CreateResourceShar
 		if e != nil {
 			return nil, e
 		}
+		if e = checkShareOwner(tx.Context(), v); e != nil {
+			return nil, e
+		}
+		if v.Scope != scopeFor(tx.Context()) || identitystore.CloudFormationOwner(tx.Context()) != "" && v.Status != "ACTIVE" {
+			return nil, ErrNotFound
+		}
+		if e = s.authorize(tx, "CreateResourceShare", v.ARN, v.Tags); e != nil {
+			return nil, e
+		}
 		return &api.CreateResourceShareResponse{ClientToken: in.ClientToken, ResourceShare: apiShare(v)}, nil
 	}
 	name := value(in.Name)
@@ -62,7 +72,7 @@ func (s *Service) createResourceShare(tx Transaction, in *api.CreateResourceShar
 		return nil, e
 	}
 	now := s.clock.Now()
-	v := Share{Scope: scopeFor(tx.Context()), Name: name, Status: "ACTIVE", FeatureSet: "STANDARD", AllowExternal: true, Created: now, Updated: now, Tags: tags}
+	v := Share{Scope: scopeFor(tx.Context()), Name: name, Status: "ACTIVE", FeatureSet: "STANDARD", AllowExternal: true, Created: now, Updated: now, Tags: tags, CloudFormationOwner: identitystore.CloudFormationOwner(tx.Context())}
 	v.ARN = arnFor(v.Scope, "resource-share", identifier())
 	if in.AllowExternalPrincipals != nil {
 		v.AllowExternal = bool(*in.AllowExternalPrincipals)
@@ -86,9 +96,9 @@ func (s *Service) createResourceShare(tx Transaction, in *api.CreateResourceShar
 				return nil, failure("InvalidParameterException", "Only one permission per resource type is allowed.")
 			}
 		}
-		v.Permissions = append(v.Permissions, PermissionAssociation{p.ARN, p.ResourceType, p.DefaultVersion})
+		v.Permissions = append(v.Permissions, PermissionAssociation{ARN: p.ARN, ResourceType: p.ResourceType, Version: p.DefaultVersion, CloudFormationOwner: v.CloudFormationOwner})
 	}
-	if _, e = s.addAssociations(tx, &v, in.ResourceArns, in.Principals); e != nil {
+	if _, e = s.addAssociations(tx, &v, in.ResourceArns, in.Principals, v.CloudFormationOwner); e != nil {
 		return nil, e
 	}
 	if e = tx.PutShare(v); e != nil {
@@ -103,6 +113,9 @@ func (s *Service) createResourceShare(tx Transaction, in *api.CreateResourceShar
 func (s *Service) updateResourceShare(tx Transaction, in *api.UpdateResourceShareRequest) (*api.UpdateResourceShareResponse, error) {
 	v, e := s.ownedShare(tx, value(in.ResourceShareArn), "UpdateResourceShare", true)
 	if e != nil {
+		return nil, e
+	}
+	if e = checkShareOwner(tx.Context(), v); e != nil {
 		return nil, e
 	}
 	rec, replay, e := receipt(tx, "UpdateResourceShare", in.ClientToken, in)
@@ -146,6 +159,9 @@ func (s *Service) updateResourceShare(tx Transaction, in *api.UpdateResourceShar
 func (s *Service) deleteResourceShare(tx Transaction, in *api.DeleteResourceShareRequest) (*api.DeleteResourceShareResponse, error) {
 	v, e := s.ownedShare(tx, value(in.ResourceShareArn), "DeleteResourceShare", false)
 	if e != nil {
+		return nil, e
+	}
+	if e = checkShareOwner(tx.Context(), v); e != nil {
 		return nil, e
 	}
 	rec, replay, e := receipt(tx, "DeleteResourceShare", in.ClientToken, in)
@@ -203,7 +219,10 @@ func (s *Service) resolve(r Reader, arn string) (ResourceIdentity, error) {
 	}
 	return v, nil
 }
-func (s *Service) addAssociations(tx Transaction, v *Share, arns api.ResourceArnList, principals api.PrincipalArnOrIdList) (api.ResourceShareAssociationList, error) {
+
+// addAssociations stamps owner on each edge it creates. Existing live edges keep
+// their owner; default permissions are share configuration owned by the share.
+func (s *Service) addAssociations(tx Transaction, v *Share, arns api.ResourceArnList, principals api.PrincipalArnOrIdList, owner string) (api.ResourceShareAssociationList, error) {
 	if len(arns) > 100 {
 		return nil, failure("ResourceShareLimitExceededException", "A call can associate at most 100 resources.")
 	}
@@ -227,12 +246,16 @@ func (s *Service) addAssociations(tx Transaction, v *Share, arns api.ResourceArn
 			if a.ARN == r.ARN {
 				found = true
 				if a.Status != "ASSOCIATED" {
-					v.Resources[i] = ResourceAssociation{ResourceIdentity: r, Status: "ASSOCIATED", Created: now, Updated: now}
+					claim := owner
+					if claim == "" && a.Status != "DISASSOCIATED" {
+						claim = a.CloudFormationOwner
+					}
+					v.Resources[i] = ResourceAssociation{ResourceIdentity: r, Status: "ASSOCIATED", Created: now, Updated: now, CloudFormationOwner: claim}
 				}
 			}
 		}
 		if !found {
-			v.Resources = append(v.Resources, ResourceAssociation{ResourceIdentity: r, Status: "ASSOCIATED", Created: now, Updated: now})
+			v.Resources = append(v.Resources, ResourceAssociation{ResourceIdentity: r, Status: "ASSOCIATED", Created: now, Updated: now, CloudFormationOwner: owner})
 		}
 		hasPermission := false
 		for _, p := range v.Permissions {
@@ -245,7 +268,7 @@ func (s *Service) addAssociations(tx Transaction, v *Share, arns api.ResourceArn
 			if e != nil {
 				return nil, e
 			}
-			v.Permissions = append(v.Permissions, PermissionAssociation{p.ARN, p.ResourceType, p.DefaultVersion})
+			v.Permissions = append(v.Permissions, PermissionAssociation{ARN: p.ARN, ResourceType: p.ResourceType, Version: p.DefaultVersion, CloudFormationOwner: v.CloudFormationOwner})
 		}
 	}
 	for _, principal := range principals {
@@ -264,6 +287,7 @@ func (s *Service) addAssociations(tx Transaction, v *Share, arns api.ResourceArn
 		if e != nil {
 			return nil, e
 		}
+		a.CloudFormationOwner = owner
 		if idx >= 0 {
 			v.Principals[idx] = a
 		} else {
@@ -374,6 +398,20 @@ func (s *Service) associateResourceShare(tx Transaction, in *api.AssociateResour
 	if e != nil {
 		return nil, e
 	}
+	for _, arn := range in.ResourceArns {
+		if e = s.claimEdge(tx, v, "RESOURCE", string(arn)); e != nil {
+			return nil, e
+		}
+	}
+	for _, principal := range in.Principals {
+		if e = s.claimEdge(tx, v, "PRINCIPAL", string(principal)); e != nil {
+			return nil, e
+		}
+	}
+	owner, _, e := edgeAuthority(tx.Context(), v)
+	if e != nil {
+		return nil, e
+	}
 	if len(in.Sources) > 0 {
 		return nil, failure("InvalidParameterException", "These resource owners do not support source constraints.")
 	}
@@ -383,7 +421,7 @@ func (s *Service) associateResourceShare(tx Transaction, in *api.AssociateResour
 	}
 	var out api.ResourceShareAssociationList
 	if !replay {
-		out, e = s.addAssociations(tx, &v, in.ResourceArns, in.Principals)
+		out, e = s.addAssociations(tx, &v, in.ResourceArns, in.Principals, owner)
 		if e != nil {
 			return nil, e
 		}
@@ -421,6 +459,7 @@ func selectedAssociations(v Share, arns api.ResourceArnList, principals api.Prin
 }
 func (s *Service) removePrincipal(tx Transaction, p *PrincipalAssociation) error {
 	p.Status = "DISASSOCIATED"
+	p.CloudFormationOwner = ""
 	p.Updated = s.clock.Now()
 	if p.InvitationARN != "" {
 		i, e := tx.Invitation(p.InvitationARN)
@@ -440,6 +479,16 @@ func (s *Service) disassociateResourceShare(tx Transaction, in *api.Disassociate
 	if e != nil {
 		return nil, e
 	}
+	for _, arn := range in.ResourceArns {
+		if e = s.claimEdge(tx, v, "RESOURCE", string(arn)); e != nil {
+			return nil, e
+		}
+	}
+	for _, principal := range in.Principals {
+		if e = s.claimEdge(tx, v, "PRINCIPAL", string(principal)); e != nil {
+			return nil, e
+		}
+	}
 	if len(in.Sources) > 0 {
 		return nil, failure("InvalidParameterException", "These resource owners do not support source constraints.")
 	}
@@ -458,6 +507,7 @@ func (s *Service) disassociateResourceShare(tx Transaction, in *api.Disassociate
 			}
 			if remove {
 				r.Status = "DISASSOCIATED"
+				r.CloudFormationOwner = ""
 				r.Updated = s.clock.Now()
 			}
 		}

@@ -9,10 +9,12 @@ SELECT * FROM sqs_queues WHERE next_metric_sample IS NOT NULL
 ORDER BY next_metric_sample, partition, account, region, name LIMIT 1;
 
 -- name: PutQueue :exec
-INSERT INTO sqs_queues (partition, account, region, name, id, created, modified, purged, sequence, encryption_key, delay_seconds, maximum_message_size, retention_seconds, visibility_seconds, wait_seconds, fifo, content_deduplication, managed_sse, deduplication_scope, throughput, policy, kms_key, kms_reuse_seconds, dead_letter_target_arn, max_receive_count, redrive_permission, metric_active_until, next_metric_sample)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO sqs_queues (partition, account, region, name, id, created, modified, purged, sequence, encryption_key, delay_seconds, maximum_message_size, retention_seconds, visibility_seconds, wait_seconds, fifo, content_deduplication, managed_sse, deduplication_scope, throughput, policy, kms_key, kms_reuse_seconds, dead_letter_target_arn, max_receive_count, redrive_permission, metric_active_until, next_metric_sample, creation_owner, policy_owner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account, region, name) DO UPDATE SET
     id = excluded.id,
+    creation_owner = excluded.creation_owner,
+    policy_owner = excluded.policy_owner,
     created = excluded.created,
     modified = excluded.modified,
     purged = excluded.purged,

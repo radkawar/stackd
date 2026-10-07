@@ -89,7 +89,16 @@ func (s *Service) adminCreateUser(tx Transaction, in *api.AdminCreateUserInput) 
 		return nil, err
 	}
 	if action != "SUPPRESS" {
-		if err = s.emailSender.QueueEmail(tx.Context(), EmailMessage{Pool: pool.Key, Configuration: poolEmailConfiguration(pool), To: userAttribute(user, "email"), Subject: "Your temporary password", Text: "Your username is " + user.Key.Username + " and temporary password is " + password + ".\n"}); err != nil {
+		subject, text := "Your temporary password", "Your username is "+user.Key.Username+" and temporary password is "+password+".\n"
+		if t := pool.Data.AdminCreateUserConfig; t != nil && t.InviteMessageTemplate != nil {
+			if t.InviteMessageTemplate.EmailSubject != nil {
+				subject = string(*t.InviteMessageTemplate.EmailSubject)
+			}
+			if t.InviteMessageTemplate.EmailMessage != nil {
+				text = strings.NewReplacer("{username}", user.Key.Username, "{####}", password).Replace(string(*t.InviteMessageTemplate.EmailMessage))
+			}
+		}
+		if err = s.emailSender.QueueEmail(tx.Context(), EmailMessage{Pool: pool.Key, Configuration: poolEmailConfiguration(pool), To: userAttribute(user, "email"), Subject: subject, Text: text}); err != nil {
 			return nil, failure("CodeDeliveryFailureException", "Unable to accept invitation email.")
 		}
 	}

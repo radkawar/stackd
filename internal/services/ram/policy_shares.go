@@ -71,7 +71,7 @@ func (s *Service) SyncResourcePolicy(ctx context.Context, resource ResourceIdent
 				if e = tx.PutPermission(p); e != nil {
 					return e
 				}
-				sh.Permissions = []PermissionAssociation{{p.ARN, p.ResourceType, 1}}
+				sh.Permissions = []PermissionAssociation{{ARN: p.ARN, ResourceType: p.ResourceType, Version: 1}}
 			}
 		}
 		return tx.PutShare(sh)
@@ -94,6 +94,15 @@ func (s *Service) promotePermissionCreatedFromPolicy(tx Transaction, in *api.Pro
 		if e != nil {
 			return nil, e
 		}
+		if rec.ObjectID != p.ObjectID {
+			return nil, ErrNotFound
+		}
+		if e = checkPermissionOwner(tx.Context(), p); e != nil {
+			return nil, e
+		}
+		if e = s.authorize(tx, "PromotePermissionCreatedFromPolicy", p.ARN, p.Tags); e != nil {
+			return nil, e
+		}
 		return &api.PromotePermissionCreatedFromPolicyResponse{ClientToken: in.ClientToken, Permission: permissionSummary(p, p.DefaultVersion, "PromotePermissionCreatedFromPolicy")}, nil
 	}
 	if p.FeatureSet != "CREATED_FROM_POLICY" {
@@ -112,6 +121,7 @@ func (s *Service) promotePermissionCreatedFromPolicy(tx Transaction, in *api.Pro
 		return nil, e
 	}
 	p.ARN = arn
+	p.ObjectID = identifier()
 	p.Name = name
 	p.FeatureSet = "STANDARD"
 	p.Updated = s.clock.Now()
@@ -119,6 +129,7 @@ func (s *Service) promotePermissionCreatedFromPolicy(tx Transaction, in *api.Pro
 		return nil, e
 	}
 	rec.ARN = p.ARN
+	rec.ObjectID = p.ObjectID
 	if e = saveReceipt(tx, rec); e != nil {
 		return nil, e
 	}
@@ -164,7 +175,7 @@ func (s *Service) promoteResourceShareCreatedFromPolicy(tx Transaction, in *api.
 			return nil, failure("UnmatchedPolicyPermissionException", "Promote an exactly matching managed permission first.")
 		}
 		p := permissions[idx]
-		replacement = append(replacement, PermissionAssociation{p.ARN, p.ResourceType, p.DefaultVersion})
+		replacement = append(replacement, PermissionAssociation{ARN: p.ARN, ResourceType: p.ResourceType, Version: p.DefaultVersion})
 	}
 	for _, a := range sh.Resources {
 		if _, active, e := s.currentResource(tx, a); e != nil {

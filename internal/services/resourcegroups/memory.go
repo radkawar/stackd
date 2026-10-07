@@ -111,6 +111,7 @@ func (w memoryWriter) PutGroup(g Group) error {
 	}
 	if old, ok := w.state.groups[g.ARN]; ok {
 		g.Incarnation = old.Incarnation
+		g.CloudFormationClaim = old.CloudFormationClaim
 	} else {
 		g.Incarnation = uuid.NewString()
 	}

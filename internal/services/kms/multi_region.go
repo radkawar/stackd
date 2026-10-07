@@ -2,6 +2,7 @@ package kms
 
 import (
 	"context"
+	"maps"
 	"slices"
 	"strconv"
 	"time"
@@ -67,9 +68,15 @@ func (s *Service) replicaRegion(ctx context.Context, region string) *awswire.Err
 }
 
 func (s *Service) replicateKey(ctx context.Context, in *kmsapi.ReplicateKeyInput) (*kmsapi.ReplicateKeyOutput, *awswire.Error) {
+	owner, ownerErr := keyResourceOwnerFor(ctx)
+	if ownerErr != nil {
+		return nil, ownerErr
+	}
 	region := value(in.ReplicaRegion)
 	ctx = withConditions(ctx, map[string][]string{"kms:ReplicaRegion": {region}, "kms:BypassPolicyLockoutSafetyCheck": {strconv.FormatBool(isTrue(in.BypassPolicyLockoutSafetyCheck))}})
-	k, err := s.keyIDAuthorized(ctx, value(in.KeyId))
+	// The primary is not owned by the replica's stack incarnation. Its current
+	// key policy and IAM still authorize ReplicateKey; fence the destination.
+	k, err := s.keyIDAuthorized(withoutKeyResourceOwner(ctx), value(in.KeyId))
 	if err != nil {
 		return nil, err
 	}
@@ -90,8 +97,21 @@ func (s *Service) replicateKey(ctx context.Context, in *kmsapi.ReplicateKeyInput
 	}
 	destination := regionalContext(ctx, region)
 	store := s.store(destination)
-	if store.keys[k.ID] != nil {
-		return nil, failure("AlreadyExistsException", "A related key already exists in the replica Region.")
+	if existing := store.keys[k.ID]; existing != nil {
+		if owner == (KeyResourceOwner{}) || existing.owner != owner {
+			return nil, failure("AlreadyExistsException", "A related key already exists in the replica Region.")
+		}
+		if err := s.authorizeKeyCreation(destination, k.Spec, k.Usage, k.Origin, true, isTrue(in.BypassPolicyLockoutSafetyCheck), in.Tags); err != nil {
+			return nil, err
+		}
+		return replicaResult(destination, existing), nil
+	}
+	if owner != (KeyResourceOwner{}) {
+		for _, existing := range store.keys {
+			if existing.owner == owner {
+				return nil, failure("AlreadyExistsException", "The resource incarnation already owns a replica of another primary key.")
+			}
+		}
 	}
 	tags, err := mergeTags(nil, in.Tags)
 	if err != nil {
@@ -107,6 +127,7 @@ func (s *Service) replicateKey(ctx context.Context, in *kmsapi.ReplicateKeyInput
 	}
 	now := s.currentTime().UTC()
 	replica := &key{KeySetRecord: k.KeySetRecord, arn: arn, description: value(in.Description), manager: "CUSTOMER", state: "Creating", created: now, availableAt: now.Add(replicaCreationDelay), policy: bound.Document, principalIDs: bound.PrincipalIDs, tags: tags, imports: make(map[string]ImportedMaterialRecord)}
+	replica.owner = owner
 	store.keys[k.ID] = replica
 	k.ReplicaRegions = append(k.ReplicaRegions, region)
 	slices.Sort(k.ReplicaRegions)
@@ -118,7 +139,15 @@ func (s *Service) replicateKey(ctx context.Context, in *kmsapi.ReplicateKeyInput
 			resource: journal.APIEventResource{AccountID: keyScope(replica).account, Type: "AWS::KMS::Key", ARN: replica.arn},
 		})
 	}
-	return &kmsapi.ReplicateKeyOutput{ReplicaKeyMetadata: metadata(destination, replica), ReplicaPolicy: ptr(kmsapi.PolicyType(replica.policy)), ReplicaTags: in.Tags}, nil
+	return replicaResult(destination, replica), nil
+}
+
+func replicaResult(ctx context.Context, replica *key) *kmsapi.ReplicateKeyOutput {
+	tags := make(kmsapi.TagList, 0, len(replica.tags))
+	for _, name := range slices.Sorted(maps.Keys(replica.tags)) {
+		tags = append(tags, kmsapi.Tag{TagKey: ptr(kmsapi.TagKeyType(name)), TagValue: ptr(kmsapi.TagValueType(replica.tags[name]))})
+	}
+	return &kmsapi.ReplicateKeyOutput{ReplicaKeyMetadata: metadata(ctx, replica), ReplicaPolicy: ptr(kmsapi.PolicyType(replica.policy)), ReplicaTags: tags}
 }
 
 func (s *Service) updatePrimaryRegion(ctx context.Context, in *kmsapi.UpdatePrimaryRegionInput) (*kmsapi.UpdatePrimaryRegionOutput, *awswire.Error) {

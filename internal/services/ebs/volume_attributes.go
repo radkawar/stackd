@@ -87,6 +87,11 @@ func (s *Service) volumeControl(r Reader, action string, id *api.VolumeId, dry *
 	if v.Status == api.VolumeStateDeleting {
 		return VolumeRecord{}, volumeMissing(v.Key.ID)
 	}
+	if action != "DescribeVolumeAttribute" && action != "CreateSnapshot" {
+		if err := volumeMutationFence(r.Context(), v); err != nil {
+			return VolumeRecord{}, err
+		}
+	}
 	return v, nil
 }
 

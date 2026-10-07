@@ -128,8 +128,20 @@ func (s *Service) createFunctionURL(ctx context.Context, in *api.CreateFunctionU
 		if wire := s.authorizeFunction(tx, "CreateFunctionUrlConfig", ref, f, functionURLAuthContext(in.AuthType)); wire != nil {
 			return wire
 		}
-		if _, err := tx.FunctionURL(ref); err == nil {
-			return failure("ResourceConflictException", "Failed to create function url config for [functionArn = "+ref.ARN()+"]. Error message:  FunctionUrlConfig exists for this Lambda function", 409)
+		owner, _, err := additionalOwnerFor(tx.Context())
+		if err != nil {
+			return err
+		}
+		if current, err := tx.FunctionURL(ref); err == nil {
+			if owner == (AdditionalOwner{}) {
+				return failure("ResourceConflictException", "FunctionUrlConfig exists for this Lambda function.", 409)
+			}
+			if err := requireAdditionalOwner(tx.Context(), current.Owner); err != nil {
+				return err
+			}
+			config := s.functionURLConfiguration(current)
+			out = &api.CreateFunctionUrlConfigOutput{FunctionUrl: config.FunctionUrl, FunctionArn: config.FunctionArn, AuthType: config.AuthType, InvokeMode: config.InvokeMode, Cors: config.Cors, CreationTime: config.CreationTime}
+			return s.recordCall(tx.Context(), "CreateFunctionUrlConfig", in, out, nil)
 		} else if !errors.Is(err, ErrNotFound) {
 			return err
 		}
@@ -138,6 +150,7 @@ func (s *Service) createFunctionURL(ctx context.Context, in *api.CreateFunctionU
 		}
 		now := s.clock.Now()
 		v := FunctionURLRecord{Key: ref, ID: uuid.NewString(), Created: now, Modified: now, AppliesAt: now, Settings: FunctionURLSettings{AuthType: value(in.AuthType), InvokeMode: "BUFFERED", Cors: cors}}
+		v.Owner = owner
 		if in.InvokeMode != nil {
 			v.Settings.InvokeMode = value(in.InvokeMode)
 		}
@@ -173,6 +186,9 @@ func (s *Service) getFunctionURL(ctx context.Context, in *api.GetFunctionUrlConf
 			return wire
 		}
 		v, err = r.FunctionURL(ref)
+		if err == nil {
+			return requireAdditionalOwner(r.Context(), v.Owner)
+		}
 		return err
 	})
 	if err != nil {
@@ -203,6 +219,9 @@ func (s *Service) updateFunctionURL(ctx context.Context, in *api.UpdateFunctionU
 		v, err := tx.FunctionURL(ref)
 		if err != nil {
 			return functionURLNotFound(err, false)
+		}
+		if err := requireAdditionalOwner(tx.Context(), v.Owner); err != nil {
+			return err
 		}
 		now := s.clock.Now()
 		v.Effective = v.EffectiveSettings(now)
@@ -245,7 +264,11 @@ func (s *Service) deleteFunctionURL(ctx context.Context, in *api.DeleteFunctionU
 		if wire := s.authorizeFunction(tx, "DeleteFunctionUrlConfig", ref, f, nil); wire != nil {
 			return wire
 		}
-		if _, err := tx.FunctionURL(ref); err != nil {
+		v, err := tx.FunctionURL(ref)
+		if err != nil {
+			return err
+		}
+		if err := requireAdditionalOwner(tx.Context(), v.Owner); err != nil {
 			return err
 		}
 		if err := tx.DeleteFunctionURL(ref); err != nil {

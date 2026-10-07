@@ -84,7 +84,17 @@ func (s *Service) issueEmailCode(tx Transaction, pool PoolRecord, user UserRecor
 	if kind == "RESET_PASSWORD" {
 		subject = "Your password reset code"
 	}
-	if e = s.emailSender.QueueEmail(tx.Context(), EmailMessage{Pool: pool.Key, Configuration: poolEmailConfiguration(pool), To: destination, Subject: subject, Text: "Your confirmation code is " + code + ".\n"}); e != nil {
+	text := "Your confirmation code is " + code + ".\n"
+	// A configured verification template applies to every emailed code.
+	if t := pool.Data.VerificationMessageTemplate; t != nil {
+		if t.EmailSubject != nil {
+			subject = string(*t.EmailSubject)
+		}
+		if t.EmailMessage != nil {
+			text = strings.ReplaceAll(string(*t.EmailMessage), "{####}", code)
+		}
+	}
+	if e = s.emailSender.QueueEmail(tx.Context(), EmailMessage{Pool: pool.Key, Configuration: poolEmailConfiguration(pool), To: destination, Subject: subject, Text: text}); e != nil {
 		return nil, failure("CodeDeliveryFailureException", "Unable to accept verification email.")
 	}
 	local, domain, _ := strings.Cut(destination, "@")

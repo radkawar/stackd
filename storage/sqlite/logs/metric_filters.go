@@ -9,7 +9,8 @@ import (
 
 func (r reader) metricFilter(v sqlcgen.GetMetricFilterRow) (domain.MetricFilterRecord, error) {
 	out := domain.MetricFilterRecord{
-		Key: domain.MetricFilterKey{GroupID: v.GroupID, Name: v.Name}, GroupName: v.GroupName,
+		CFNOwner: v.CfnOwner,
+		Key:      domain.MetricFilterKey{GroupID: v.GroupID, Name: v.Name}, GroupName: v.GroupName,
 		Pattern: v.Pattern, MetricNamespace: v.MetricNamespace, MetricName: v.MetricName,
 		MetricValue: v.MetricValue, Unit: v.Unit, ApplyOnTransformedLogs: v.ApplyOnTransformedLogs != 0,
 		FieldSelection: v.FieldSelection, Created: v.Created,
@@ -67,7 +68,8 @@ func (w writer) PutMetricFilter(v domain.MetricFilterRecord) error {
 		transformed = 1
 	}
 	if err := w.q.PutMetricFilter(w.ctx, sqlcgen.PutMetricFilterParams{
-		GroupID: v.Key.GroupID, Name: v.Key.Name, Pattern: v.Pattern,
+		CfnOwner: v.CFNOwner,
+		GroupID:  v.Key.GroupID, Name: v.Key.Name, Pattern: v.Pattern,
 		MetricNamespace: v.MetricNamespace, MetricName: v.MetricName, MetricValue: v.MetricValue,
 		Unit: v.Unit, DefaultValue: defaultValue, ApplyOnTransformedLogs: transformed,
 		FieldSelection: v.FieldSelection, Created: v.Created,

@@ -38,7 +38,7 @@ func (r reader) TaskDefinitions(q domain.TaskDefinitionQuery) ([]domain.TaskDefi
 }
 func (r reader) taskDefinition(row sqlcgen.EcsTaskDefinition) (domain.TaskDefinitionRecord, error) {
 	k := domain.TaskDefinitionKey{FamilyKey: domain.FamilyKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, Family: row.Family}, Revision: int32(row.Revision)}
-	out := domain.TaskDefinitionRecord{Key: k, Data: api.TaskDefinition{
+	out := domain.TaskDefinitionRecord{Ownership: row.Ownership, Key: k, Data: api.TaskDefinition{
 		TaskDefinitionArn: stringPointer[api.String](row.TaskDefinitionArn), Family: stringPointer[api.String](row.TaskFamily), Revision: integerPointer[api.Integer](row.TaskRevision),
 		Status: stringPointer[api.TaskDefinitionStatus](row.Status), Cpu: stringPointer[api.String](row.Cpu), Memory: stringPointer[api.String](row.Memory),
 		NetworkMode: stringPointer[api.NetworkMode](row.NetworkMode), IpcMode: stringPointer[api.IpcMode](row.IpcMode), PidMode: stringPointer[api.PidMode](row.PidMode),
@@ -77,15 +77,13 @@ func (r reader) taskDefinition(row sqlcgen.EcsTaskDefinition) (domain.TaskDefini
 }
 func (w writer) PutTaskDefinition(v domain.TaskDefinitionRecord) error {
 	k, d := v.Key, &v.Data
-	params := sqlcgen.PutTaskDefinitionParams{
-		Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Family: k.Family, Revision: int64(k.Revision),
+	params := sqlcgen.PutTaskDefinitionParams{Ownership: v.Ownership, Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Family: k.Family, Revision: int64(k.Revision),
 		TaskDefinitionArn: nullableString(d.TaskDefinitionArn), TaskFamily: nullableString(d.Family), TaskRevision: nullableInteger(d.Revision),
 		Status: nullableString(d.Status), Cpu: nullableString(d.Cpu), Memory: nullableString(d.Memory),
 		NetworkMode: nullableString(d.NetworkMode), IpcMode: nullableString(d.IpcMode), PidMode: nullableString(d.PidMode),
 		ExecutionRoleArn: nullableString(d.ExecutionRoleArn), TaskRoleArn: nullableString(d.TaskRoleArn), RegisteredBy: nullableString(d.RegisteredBy),
 		RegisteredAt: nullableTime(d.RegisteredAt), DeregisteredAt: nullableTime(d.DeregisteredAt), DeleteRequestedAt: nullableTime(d.DeleteRequestedAt),
-		EnableFaultInjection: nullableBool(d.EnableFaultInjection), CompatibilitiesPresent: d.Compatibilities != nil, RequiresCompatibilitiesPresent: d.RequiresCompatibilities != nil,
-	}
+		EnableFaultInjection: nullableBool(d.EnableFaultInjection), CompatibilitiesPresent: d.Compatibilities != nil, RequiresCompatibilitiesPresent: d.RequiresCompatibilities != nil}
 	if err := marshalFields(
 		jsonWriteField{&params.ContainerDefinitions, d.ContainerDefinitions}, jsonWriteField{&params.EphemeralStorage, d.EphemeralStorage},
 		jsonWriteField{&params.InferenceAccelerators, d.InferenceAccelerators}, jsonWriteField{&params.PlacementConstraints, d.PlacementConstraints},

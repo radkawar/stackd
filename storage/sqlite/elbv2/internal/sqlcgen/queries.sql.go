@@ -224,7 +224,7 @@ func (q *Queries) DeleteTargetGroup(ctx context.Context, arg DeleteTargetGroupPa
 }
 
 const getListener = `-- name: GetListener :one
-SELECT "partition", account_id, region, arn, load_balancer_arn, protocol, port, ssl_policy, certificate_id, certificates, actions FROM elbv2_listeners WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND arn = ?4
+SELECT "partition", account_id, region, arn, load_balancer_arn, protocol, port, ssl_policy, certificate_id, certificates, actions, ownership FROM elbv2_listeners WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND arn = ?4
 `
 
 type GetListenerParams struct {
@@ -254,12 +254,13 @@ func (q *Queries) GetListener(ctx context.Context, arg GetListenerParams) (Elbv2
 		&i.CertificateID,
 		&i.Certificates,
 		&i.Actions,
+		&i.Ownership,
 	)
 	return i, err
 }
 
 const getLoadBalancer = `-- name: GetLoadBalancer :one
-SELECT "partition", account_id, region, arn, name, created, scheme, type, ip_address_type, vpc_id, dns_name, hosted_zone_id, state, state_reason, zones, security_groups, deletion_protection, idle_timeout, deleting, next_reconcile, version, next_metric_at FROM elbv2_load_balancers WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND arn = ?4
+SELECT "partition", account_id, region, arn, name, created, scheme, type, ip_address_type, vpc_id, dns_name, hosted_zone_id, state, state_reason, zones, security_groups, deletion_protection, idle_timeout, deleting, next_reconcile, version, next_metric_at, ownership FROM elbv2_load_balancers WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND arn = ?4
 `
 
 type GetLoadBalancerParams struct {
@@ -300,12 +301,13 @@ func (q *Queries) GetLoadBalancer(ctx context.Context, arg GetLoadBalancerParams
 		&i.NextReconcile,
 		&i.Version,
 		&i.NextMetricAt,
+		&i.Ownership,
 	)
 	return i, err
 }
 
 const getRule = `-- name: GetRule :one
-SELECT "partition", account_id, region, arn, listener_arn, priority, is_default, conditions, actions FROM elbv2_rules WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND arn = ?4
+SELECT "partition", account_id, region, arn, listener_arn, priority, is_default, conditions, actions, ownership FROM elbv2_rules WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND arn = ?4
 `
 
 type GetRuleParams struct {
@@ -333,6 +335,7 @@ func (q *Queries) GetRule(ctx context.Context, arg GetRuleParams) (Elbv2Rule, er
 		&i.IsDefault,
 		&i.Conditions,
 		&i.Actions,
+		&i.Ownership,
 	)
 	return i, err
 }
@@ -383,7 +386,7 @@ func (q *Queries) GetTarget(ctx context.Context, arg GetTargetParams) (Elbv2Targ
 }
 
 const getTargetGroup = `-- name: GetTargetGroup :one
-SELECT "partition", account_id, region, arn, name, protocol, port, protocol_version, target_type, ip_address_type, vpc_id, health_enabled, health_protocol, health_port, health_path, health_interval, health_timeout, healthy_threshold, unhealthy_threshold, matcher, load_balancer_arns, deregistration_delay FROM elbv2_target_groups WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND arn = ?4
+SELECT "partition", account_id, region, arn, name, protocol, port, protocol_version, target_type, ip_address_type, vpc_id, health_enabled, health_protocol, health_port, health_path, health_interval, health_timeout, healthy_threshold, unhealthy_threshold, matcher, load_balancer_arns, deregistration_delay, ownership FROM elbv2_target_groups WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND arn = ?4
 `
 
 type GetTargetGroupParams struct {
@@ -424,6 +427,7 @@ func (q *Queries) GetTargetGroup(ctx context.Context, arg GetTargetGroupParams) 
 		&i.Matcher,
 		&i.LoadBalancerArns,
 		&i.DeregistrationDelay,
+		&i.Ownership,
 	)
 	return i, err
 }
@@ -474,7 +478,7 @@ func (q *Queries) ListAttachments(ctx context.Context, arg ListAttachmentsParams
 }
 
 const listListeners = `-- name: ListListeners :many
-SELECT "partition", account_id, region, arn, load_balancer_arn, protocol, port, ssl_policy, certificate_id, certificates, actions FROM elbv2_listeners WHERE ((?1 = '' AND ?2 = '' AND ?3 = '') OR (partition=?1 AND account_id=?2 AND region=?3)) ORDER BY partition, account_id, region, arn
+SELECT "partition", account_id, region, arn, load_balancer_arn, protocol, port, ssl_policy, certificate_id, certificates, actions, ownership FROM elbv2_listeners WHERE ((?1 = '' AND ?2 = '' AND ?3 = '') OR (partition=?1 AND account_id=?2 AND region=?3)) ORDER BY partition, account_id, region, arn
 `
 
 type ListListenersParams struct {
@@ -504,6 +508,7 @@ func (q *Queries) ListListeners(ctx context.Context, arg ListListenersParams) ([
 			&i.CertificateID,
 			&i.Certificates,
 			&i.Actions,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -519,7 +524,7 @@ func (q *Queries) ListListeners(ctx context.Context, arg ListListenersParams) ([
 }
 
 const listLoadBalancers = `-- name: ListLoadBalancers :many
-SELECT "partition", account_id, region, arn, name, created, scheme, type, ip_address_type, vpc_id, dns_name, hosted_zone_id, state, state_reason, zones, security_groups, deletion_protection, idle_timeout, deleting, next_reconcile, version, next_metric_at FROM elbv2_load_balancers WHERE ((?1 = '' AND ?2 = '' AND ?3 = '') OR (partition=?1 AND account_id=?2 AND region=?3)) ORDER BY partition, account_id, region, arn
+SELECT "partition", account_id, region, arn, name, created, scheme, type, ip_address_type, vpc_id, dns_name, hosted_zone_id, state, state_reason, zones, security_groups, deletion_protection, idle_timeout, deleting, next_reconcile, version, next_metric_at, ownership FROM elbv2_load_balancers WHERE ((?1 = '' AND ?2 = '' AND ?3 = '') OR (partition=?1 AND account_id=?2 AND region=?3)) ORDER BY partition, account_id, region, arn
 `
 
 type ListLoadBalancersParams struct {
@@ -560,6 +565,7 @@ func (q *Queries) ListLoadBalancers(ctx context.Context, arg ListLoadBalancersPa
 			&i.NextReconcile,
 			&i.Version,
 			&i.NextMetricAt,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -634,7 +640,7 @@ func (q *Queries) ListMetricSamples(ctx context.Context, arg ListMetricSamplesPa
 }
 
 const listRules = `-- name: ListRules :many
-SELECT "partition", account_id, region, arn, listener_arn, priority, is_default, conditions, actions FROM elbv2_rules WHERE ((?1 = '' AND ?2 = '' AND ?3 = '') OR (partition=?1 AND account_id=?2 AND region=?3)) ORDER BY partition, account_id, region, arn
+SELECT "partition", account_id, region, arn, listener_arn, priority, is_default, conditions, actions, ownership FROM elbv2_rules WHERE ((?1 = '' AND ?2 = '' AND ?3 = '') OR (partition=?1 AND account_id=?2 AND region=?3)) ORDER BY partition, account_id, region, arn
 `
 
 type ListRulesParams struct {
@@ -662,6 +668,7 @@ func (q *Queries) ListRules(ctx context.Context, arg ListRulesParams) ([]Elbv2Ru
 			&i.IsDefault,
 			&i.Conditions,
 			&i.Actions,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -721,7 +728,7 @@ func (q *Queries) ListTags(ctx context.Context, arg ListTagsParams) ([]ListTagsR
 }
 
 const listTargetGroups = `-- name: ListTargetGroups :many
-SELECT "partition", account_id, region, arn, name, protocol, port, protocol_version, target_type, ip_address_type, vpc_id, health_enabled, health_protocol, health_port, health_path, health_interval, health_timeout, healthy_threshold, unhealthy_threshold, matcher, load_balancer_arns, deregistration_delay FROM elbv2_target_groups WHERE ((?1 = '' AND ?2 = '' AND ?3 = '') OR (partition=?1 AND account_id=?2 AND region=?3)) ORDER BY partition, account_id, region, arn
+SELECT "partition", account_id, region, arn, name, protocol, port, protocol_version, target_type, ip_address_type, vpc_id, health_enabled, health_protocol, health_port, health_path, health_interval, health_timeout, healthy_threshold, unhealthy_threshold, matcher, load_balancer_arns, deregistration_delay, ownership FROM elbv2_target_groups WHERE ((?1 = '' AND ?2 = '' AND ?3 = '') OR (partition=?1 AND account_id=?2 AND region=?3)) ORDER BY partition, account_id, region, arn
 `
 
 type ListTargetGroupsParams struct {
@@ -762,6 +769,7 @@ func (q *Queries) ListTargetGroups(ctx context.Context, arg ListTargetGroupsPara
 			&i.Matcher,
 			&i.LoadBalancerArns,
 			&i.DeregistrationDelay,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -897,10 +905,11 @@ func (q *Queries) PutAttachment(ctx context.Context, arg PutAttachmentParams) er
 }
 
 const putListener = `-- name: PutListener :exec
-INSERT INTO elbv2_listeners (partition, account_id, region, arn, load_balancer_arn, protocol, port, ssl_policy, certificate_id, certificates, actions) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11) ON CONFLICT (partition, account_id, region, arn) DO UPDATE SET load_balancer_arn=excluded.load_balancer_arn, protocol=excluded.protocol, port=excluded.port, ssl_policy=excluded.ssl_policy, certificate_id=excluded.certificate_id, certificates=excluded.certificates, actions=excluded.actions
+INSERT INTO elbv2_listeners (ownership, partition, account_id, region, arn, load_balancer_arn, protocol, port, ssl_policy, certificate_id, certificates, actions) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) ON CONFLICT (partition, account_id, region, arn) DO UPDATE SET ownership=excluded.ownership, load_balancer_arn=excluded.load_balancer_arn, protocol=excluded.protocol, port=excluded.port, ssl_policy=excluded.ssl_policy, certificate_id=excluded.certificate_id, certificates=excluded.certificates, actions=excluded.actions
 `
 
 type PutListenerParams struct {
+	Ownership       string
 	Partition       string
 	AccountID       string
 	Region          string
@@ -916,6 +925,7 @@ type PutListenerParams struct {
 
 func (q *Queries) PutListener(ctx context.Context, arg PutListenerParams) error {
 	_, err := q.db.ExecContext(ctx, putListener,
+		arg.Ownership,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -932,10 +942,11 @@ func (q *Queries) PutListener(ctx context.Context, arg PutListenerParams) error 
 }
 
 const putLoadBalancer = `-- name: PutLoadBalancer :exec
-INSERT INTO elbv2_load_balancers (partition, account_id, region, arn, name, created, scheme, type, ip_address_type, vpc_id, dns_name, hosted_zone_id, state, state_reason, zones, security_groups, deletion_protection, idle_timeout, deleting, next_reconcile, version) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21) ON CONFLICT (partition, account_id, region, arn) DO UPDATE SET name=excluded.name, created=excluded.created, scheme=excluded.scheme, type=excluded.type, ip_address_type=excluded.ip_address_type, vpc_id=excluded.vpc_id, dns_name=excluded.dns_name, hosted_zone_id=excluded.hosted_zone_id, state=excluded.state, state_reason=excluded.state_reason, zones=excluded.zones, security_groups=excluded.security_groups, deletion_protection=excluded.deletion_protection, idle_timeout=excluded.idle_timeout, deleting=excluded.deleting, next_reconcile=excluded.next_reconcile, version=excluded.version
+INSERT INTO elbv2_load_balancers (ownership, partition, account_id, region, arn, name, created, scheme, type, ip_address_type, vpc_id, dns_name, hosted_zone_id, state, state_reason, zones, security_groups, deletion_protection, idle_timeout, deleting, next_reconcile, version) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22) ON CONFLICT (partition, account_id, region, arn) DO UPDATE SET ownership=excluded.ownership, name=excluded.name, created=excluded.created, scheme=excluded.scheme, type=excluded.type, ip_address_type=excluded.ip_address_type, vpc_id=excluded.vpc_id, dns_name=excluded.dns_name, hosted_zone_id=excluded.hosted_zone_id, state=excluded.state, state_reason=excluded.state_reason, zones=excluded.zones, security_groups=excluded.security_groups, deletion_protection=excluded.deletion_protection, idle_timeout=excluded.idle_timeout, deleting=excluded.deleting, next_reconcile=excluded.next_reconcile, version=excluded.version
 `
 
 type PutLoadBalancerParams struct {
+	Ownership          string
 	Partition          string
 	AccountID          string
 	Region             string
@@ -961,6 +972,7 @@ type PutLoadBalancerParams struct {
 
 func (q *Queries) PutLoadBalancer(ctx context.Context, arg PutLoadBalancerParams) error {
 	_, err := q.db.ExecContext(ctx, putLoadBalancer,
+		arg.Ownership,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -987,10 +999,11 @@ func (q *Queries) PutLoadBalancer(ctx context.Context, arg PutLoadBalancerParams
 }
 
 const putRule = `-- name: PutRule :exec
-INSERT INTO elbv2_rules (partition, account_id, region, arn, listener_arn, priority, is_default, conditions, actions) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) ON CONFLICT (partition, account_id, region, arn) DO UPDATE SET listener_arn=excluded.listener_arn, priority=excluded.priority, is_default=excluded.is_default, conditions=excluded.conditions, actions=excluded.actions
+INSERT INTO elbv2_rules (ownership, partition, account_id, region, arn, listener_arn, priority, is_default, conditions, actions) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10) ON CONFLICT (partition, account_id, region, arn) DO UPDATE SET ownership=excluded.ownership, listener_arn=excluded.listener_arn, priority=excluded.priority, is_default=excluded.is_default, conditions=excluded.conditions, actions=excluded.actions
 `
 
 type PutRuleParams struct {
+	Ownership   string
 	Partition   string
 	AccountID   string
 	Region      string
@@ -1004,6 +1017,7 @@ type PutRuleParams struct {
 
 func (q *Queries) PutRule(ctx context.Context, arg PutRuleParams) error {
 	_, err := q.db.ExecContext(ctx, putRule,
+		arg.Ownership,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -1090,10 +1104,11 @@ func (q *Queries) PutTarget(ctx context.Context, arg PutTargetParams) error {
 }
 
 const putTargetGroup = `-- name: PutTargetGroup :exec
-INSERT INTO elbv2_target_groups (partition, account_id, region, arn, name, protocol, port, protocol_version, target_type, ip_address_type, vpc_id, health_enabled, health_protocol, health_port, health_path, health_interval, health_timeout, healthy_threshold, unhealthy_threshold, matcher, load_balancer_arns, deregistration_delay) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22) ON CONFLICT (partition, account_id, region, arn) DO UPDATE SET name=excluded.name, protocol=excluded.protocol, port=excluded.port, protocol_version=excluded.protocol_version, target_type=excluded.target_type, ip_address_type=excluded.ip_address_type, vpc_id=excluded.vpc_id, health_enabled=excluded.health_enabled, health_protocol=excluded.health_protocol, health_port=excluded.health_port, health_path=excluded.health_path, health_interval=excluded.health_interval, health_timeout=excluded.health_timeout, healthy_threshold=excluded.healthy_threshold, unhealthy_threshold=excluded.unhealthy_threshold, matcher=excluded.matcher, load_balancer_arns=excluded.load_balancer_arns, deregistration_delay=excluded.deregistration_delay
+INSERT INTO elbv2_target_groups (ownership, partition, account_id, region, arn, name, protocol, port, protocol_version, target_type, ip_address_type, vpc_id, health_enabled, health_protocol, health_port, health_path, health_interval, health_timeout, healthy_threshold, unhealthy_threshold, matcher, load_balancer_arns, deregistration_delay) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23) ON CONFLICT (partition, account_id, region, arn) DO UPDATE SET ownership=excluded.ownership, name=excluded.name, protocol=excluded.protocol, port=excluded.port, protocol_version=excluded.protocol_version, target_type=excluded.target_type, ip_address_type=excluded.ip_address_type, vpc_id=excluded.vpc_id, health_enabled=excluded.health_enabled, health_protocol=excluded.health_protocol, health_port=excluded.health_port, health_path=excluded.health_path, health_interval=excluded.health_interval, health_timeout=excluded.health_timeout, healthy_threshold=excluded.healthy_threshold, unhealthy_threshold=excluded.unhealthy_threshold, matcher=excluded.matcher, load_balancer_arns=excluded.load_balancer_arns, deregistration_delay=excluded.deregistration_delay
 `
 
 type PutTargetGroupParams struct {
+	Ownership           string
 	Partition           string
 	AccountID           string
 	Region              string
@@ -1120,6 +1135,7 @@ type PutTargetGroupParams struct {
 
 func (q *Queries) PutTargetGroup(ctx context.Context, arg PutTargetGroupParams) error {
 	_, err := q.db.ExecContext(ctx, putTargetGroup,
+		arg.Ownership,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,

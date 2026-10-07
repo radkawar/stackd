@@ -10,7 +10,7 @@ import (
 )
 
 const allRegistries = `-- name: AllRegistries :many
-SELECT "partition", account_id, region, policy, policy_principals, scanning, replication FROM ecr_registries ORDER BY partition,account_id,region
+SELECT "partition", account_id, region, policy, policy_principals, scanning, replication, policy_ownership, replication_ownership, scanning_ownership FROM ecr_registries ORDER BY partition,account_id,region
 `
 
 func (q *Queries) AllRegistries(ctx context.Context) ([]EcrRegistry, error) {
@@ -30,6 +30,9 @@ func (q *Queries) AllRegistries(ctx context.Context) ([]EcrRegistry, error) {
 			&i.PolicyPrincipals,
 			&i.Scanning,
 			&i.Replication,
+			&i.PolicyOwnership,
+			&i.ReplicationOwnership,
+			&i.ScanningOwnership,
 		); err != nil {
 			return nil, err
 		}
@@ -45,7 +48,7 @@ func (q *Queries) AllRegistries(ctx context.Context) ([]EcrRegistry, error) {
 }
 
 const allRepositories = `-- name: AllRepositories :many
-SELECT "partition", account_id, region, name, arn, created, mutability, exclusions, tags, policy, policy_principals, encryption_type, kms_key_id, data_key, grants, grant_tokens, scan_on_push, lifecycle_policy, lifecycle_due, lifecycle_evaluated, preview_policy, preview_status, preview_results, preview_expires FROM ecr_repositories ORDER BY arn
+SELECT "partition", account_id, region, name, arn, created, mutability, exclusions, tags, policy, policy_principals, encryption_type, kms_key_id, data_key, grants, grant_tokens, scan_on_push, lifecycle_policy, lifecycle_due, lifecycle_evaluated, preview_policy, preview_status, preview_results, preview_expires, ownership FROM ecr_repositories ORDER BY arn
 `
 
 func (q *Queries) AllRepositories(ctx context.Context) ([]EcrRepository, error) {
@@ -82,6 +85,7 @@ func (q *Queries) AllRepositories(ctx context.Context) ([]EcrRepository, error) 
 			&i.PreviewStatus,
 			&i.PreviewResults,
 			&i.PreviewExpires,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -253,7 +257,7 @@ func (q *Queries) GetImage(ctx context.Context, arg GetImageParams) (EcrImage, e
 }
 
 const getRegistry = `-- name: GetRegistry :one
-SELECT "partition", account_id, region, policy, policy_principals, scanning, replication FROM ecr_registries WHERE partition = ? AND account_id = ? AND region = ?
+SELECT "partition", account_id, region, policy, policy_principals, scanning, replication, policy_ownership, replication_ownership, scanning_ownership FROM ecr_registries WHERE partition = ? AND account_id = ? AND region = ?
 `
 
 type GetRegistryParams struct {
@@ -273,12 +277,15 @@ func (q *Queries) GetRegistry(ctx context.Context, arg GetRegistryParams) (EcrRe
 		&i.PolicyPrincipals,
 		&i.Scanning,
 		&i.Replication,
+		&i.PolicyOwnership,
+		&i.ReplicationOwnership,
+		&i.ScanningOwnership,
 	)
 	return i, err
 }
 
 const getRepository = `-- name: GetRepository :one
-SELECT "partition", account_id, region, name, arn, created, mutability, exclusions, tags, policy, policy_principals, encryption_type, kms_key_id, data_key, grants, grant_tokens, scan_on_push, lifecycle_policy, lifecycle_due, lifecycle_evaluated, preview_policy, preview_status, preview_results, preview_expires FROM ecr_repositories WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
+SELECT "partition", account_id, region, name, arn, created, mutability, exclusions, tags, policy, policy_principals, encryption_type, kms_key_id, data_key, grants, grant_tokens, scan_on_push, lifecycle_policy, lifecycle_due, lifecycle_evaluated, preview_policy, preview_status, preview_results, preview_expires, ownership FROM ecr_repositories WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
 `
 
 type GetRepositoryParams struct {
@@ -321,6 +328,7 @@ func (q *Queries) GetRepository(ctx context.Context, arg GetRepositoryParams) (E
 		&i.PreviewStatus,
 		&i.PreviewResults,
 		&i.PreviewExpires,
+		&i.Ownership,
 	)
 	return i, err
 }
@@ -484,7 +492,7 @@ func (q *Queries) ListReplications(ctx context.Context) ([]EcrReplication, error
 }
 
 const listRepositories = `-- name: ListRepositories :many
-SELECT "partition", account_id, region, name, arn, created, mutability, exclusions, tags, policy, policy_principals, encryption_type, kms_key_id, data_key, grants, grant_tokens, scan_on_push, lifecycle_policy, lifecycle_due, lifecycle_evaluated, preview_policy, preview_status, preview_results, preview_expires FROM ecr_repositories WHERE partition=? AND account_id=? AND region=? ORDER BY name
+SELECT "partition", account_id, region, name, arn, created, mutability, exclusions, tags, policy, policy_principals, encryption_type, kms_key_id, data_key, grants, grant_tokens, scan_on_push, lifecycle_policy, lifecycle_due, lifecycle_evaluated, preview_policy, preview_status, preview_results, preview_expires, ownership FROM ecr_repositories WHERE partition=? AND account_id=? AND region=? ORDER BY name
 `
 
 type ListRepositoriesParams struct {
@@ -527,6 +535,7 @@ func (q *Queries) ListRepositories(ctx context.Context, arg ListRepositoriesPara
 			&i.PreviewStatus,
 			&i.PreviewResults,
 			&i.PreviewExpires,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -626,18 +635,21 @@ func (q *Queries) PutImage(ctx context.Context, arg PutImageParams) error {
 }
 
 const putRegistry = `-- name: PutRegistry :exec
-INSERT INTO ecr_registries (partition,account_id,region,policy,policy_principals,scanning,replication) VALUES (?,?,?,?,?,?,?)
-ON CONFLICT (partition,account_id,region) DO UPDATE SET policy=excluded.policy,policy_principals=excluded.policy_principals,scanning=excluded.scanning,replication=excluded.replication
+INSERT INTO ecr_registries (partition,account_id,region,policy,policy_principals,scanning,replication,policy_ownership,replication_ownership,scanning_ownership) VALUES (?,?,?,?,?,?,?,?,?,?)
+ON CONFLICT (partition,account_id,region) DO UPDATE SET policy=excluded.policy,policy_principals=excluded.policy_principals,scanning=excluded.scanning,replication=excluded.replication,policy_ownership=excluded.policy_ownership,replication_ownership=excluded.replication_ownership,scanning_ownership=excluded.scanning_ownership
 `
 
 type PutRegistryParams struct {
-	Partition        string
-	AccountID        string
-	Region           string
-	Policy           string
-	PolicyPrincipals string
-	Scanning         string
-	Replication      string
+	Partition            string
+	AccountID            string
+	Region               string
+	Policy               string
+	PolicyPrincipals     string
+	Scanning             string
+	Replication          string
+	PolicyOwnership      string
+	ReplicationOwnership string
+	ScanningOwnership    string
 }
 
 func (q *Queries) PutRegistry(ctx context.Context, arg PutRegistryParams) error {
@@ -649,6 +661,9 @@ func (q *Queries) PutRegistry(ctx context.Context, arg PutRegistryParams) error 
 		arg.PolicyPrincipals,
 		arg.Scanning,
 		arg.Replication,
+		arg.PolicyOwnership,
+		arg.ReplicationOwnership,
+		arg.ScanningOwnership,
 	)
 	return err
 }
@@ -694,8 +709,8 @@ func (q *Queries) PutReplication(ctx context.Context, arg PutReplicationParams) 
 }
 
 const putRepository = `-- name: PutRepository :exec
-INSERT INTO ecr_repositories (partition,account_id,region,name,arn,created,mutability,exclusions,tags,policy,policy_principals,encryption_type,kms_key_id,data_key,grants,grant_tokens,scan_on_push,lifecycle_policy,lifecycle_due,lifecycle_evaluated,preview_policy,preview_status,preview_results,preview_expires) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-ON CONFLICT (partition,account_id,region,name) DO UPDATE SET arn=excluded.arn,created=excluded.created,mutability=excluded.mutability,exclusions=excluded.exclusions,tags=excluded.tags,policy=excluded.policy,policy_principals=excluded.policy_principals,encryption_type=excluded.encryption_type,kms_key_id=excluded.kms_key_id,data_key=excluded.data_key,grants=excluded.grants,grant_tokens=excluded.grant_tokens,scan_on_push=excluded.scan_on_push,lifecycle_policy=excluded.lifecycle_policy,lifecycle_due=excluded.lifecycle_due,lifecycle_evaluated=excluded.lifecycle_evaluated,preview_policy=excluded.preview_policy,preview_status=excluded.preview_status,preview_results=excluded.preview_results,preview_expires=excluded.preview_expires
+INSERT INTO ecr_repositories (partition,account_id,region,name,arn,created,mutability,exclusions,tags,policy,policy_principals,encryption_type,kms_key_id,data_key,grants,grant_tokens,scan_on_push,lifecycle_policy,lifecycle_due,lifecycle_evaluated,preview_policy,preview_status,preview_results,preview_expires,ownership) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+ON CONFLICT (partition,account_id,region,name) DO UPDATE SET arn=excluded.arn,created=excluded.created,mutability=excluded.mutability,exclusions=excluded.exclusions,tags=excluded.tags,policy=excluded.policy,policy_principals=excluded.policy_principals,encryption_type=excluded.encryption_type,kms_key_id=excluded.kms_key_id,data_key=excluded.data_key,grants=excluded.grants,grant_tokens=excluded.grant_tokens,scan_on_push=excluded.scan_on_push,lifecycle_policy=excluded.lifecycle_policy,lifecycle_due=excluded.lifecycle_due,lifecycle_evaluated=excluded.lifecycle_evaluated,preview_policy=excluded.preview_policy,preview_status=excluded.preview_status,preview_results=excluded.preview_results,preview_expires=excluded.preview_expires,ownership=excluded.ownership
 `
 
 type PutRepositoryParams struct {
@@ -723,6 +738,7 @@ type PutRepositoryParams struct {
 	PreviewStatus      string
 	PreviewResults     string
 	PreviewExpires     int64
+	Ownership          string
 }
 
 func (q *Queries) PutRepository(ctx context.Context, arg PutRepositoryParams) error {
@@ -751,6 +767,7 @@ func (q *Queries) PutRepository(ctx context.Context, arg PutRepositoryParams) er
 		arg.PreviewStatus,
 		arg.PreviewResults,
 		arg.PreviewExpires,
+		arg.Ownership,
 	)
 	return err
 }

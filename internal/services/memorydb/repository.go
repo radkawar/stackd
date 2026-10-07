@@ -29,30 +29,36 @@ type Cluster struct {
 	Created, Due                                                                                                         time.Time
 	Deployment                                                                                                           engine.Deployment
 	Tags                                                                                                                 map[string]string
+	// CloudFormationOwner is the private incarnation claim, never a public tag.
+	CloudFormationOwner string
 }
 type User struct {
 	Key                                  Key
 	AccessString, Authentication, Status string
 	PasswordHashes                       []string
 	Tags                                 map[string]string
+	CloudFormationOwner                  string
 }
 type ACL struct {
-	Key    Key
-	Status string
-	Users  []string
-	Tags   map[string]string
+	Key                 Key
+	Status              string
+	Users               []string
+	Tags                map[string]string
+	CloudFormationOwner string
 }
 type ParameterGroup struct {
 	Key                 Key
 	Family, Description string
 	Parameters, Tags    map[string]string
+	CloudFormationOwner string
 }
 type Subnet struct{ ID, VPCID, AvailabilityZone string }
 type SubnetGroup struct {
-	Key                Key
-	Description, VPCID string
-	Subnets            []Subnet
-	Tags               map[string]string
+	Key                 Key
+	Description, VPCID  string
+	Subnets             []Subnet
+	Tags                map[string]string
+	CloudFormationOwner string
 }
 type Snapshot struct {
 	Key                                                                                                                         Key
@@ -62,6 +68,7 @@ type Snapshot struct {
 	Version                                                                                                                     int64
 	Created, Due                                                                                                                time.Time
 	Tags                                                                                                                        map[string]string
+	CloudFormationOwner                                                                                                         string
 }
 
 // Transactions join the resource/journal domain. Native effects run outside them.

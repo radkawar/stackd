@@ -34,9 +34,13 @@ The two query forms are:
 * `CLOUDFORMATION_STACK_1_0`: the stack ARN resolves through the real
   CloudFormation repository, then through the current live resource owners.
   Direct current deployments participate; stale replacement/retention history
-  does not. Where the deployment owner supplies ownership tags/tokens, those
-  must still match: an out-of-band delete/recreate cannot impersonate the old
-  CloudFormation resource. A missing stack produces
+  does not. Membership requires the live native row's private CloudFormation
+  owner claim for that exact stack, logical ID and incarnation; public tags
+  and the stack's own resource records prove nothing. An out-of-band
+  delete/recreate, or a copied/forged public marker, therefore cannot
+  impersonate the old CloudFormation resource. Resource families without a
+  native private claim (for example EC2 images/snapshots, ECS tasks and
+  Organizations roots) never appear as stack members. A missing stack produces
   `CLOUDFORMATION_STACK_NOT_EXISTING` in search results. Known
   `DELETE_COMPLETE`, `ROLLBACK_COMPLETE` and `CREATE_FAILED` stacks produce
   `CLOUDFORMATION_STACK_INACTIVE`. Creating/updating a query for a missing or

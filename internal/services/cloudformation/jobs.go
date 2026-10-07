@@ -1,7 +1,6 @@
 package cloudformation
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"stackd/internal/awsctx"
+	"stackd/internal/awswire"
 	"stackd/internal/scheduler"
 )
 
@@ -54,7 +54,7 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 	var op OperationRecord
 	var stack StackRecord
 	var step StepRecord
-	var execute bool
+	var execute, finalize, beforeCleanup, planning bool
 	err := s.repository.Update(ctx, func(tx Transaction) error {
 		var e error
 		op, e = tx.Operation(job.Key)
@@ -103,24 +103,43 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 			}
 		}
 		if op.Phase == "ROLLBACK" {
-			for op.Cursor >= 0 && op.Cursor < len(op.Steps) && (op.Steps[op.Cursor].State == "PENDING" || op.Steps[op.Cursor].State == "SKIPPED" || op.Steps[op.Cursor].State == "ROLLED_BACK") {
+			for op.Cursor >= 0 && op.Cursor < len(op.Steps) && (op.Steps[op.Cursor].State == "PENDING" || op.Steps[op.Cursor].State == "PLANNING" || op.Steps[op.Cursor].State == "SKIPPED" || op.Steps[op.Cursor].State == "ROLLED_BACK") {
 				op.Cursor--
 			}
 			if op.Cursor < 0 || len(op.Steps) == 0 {
-				return s.finishRollback(tx, &stack, &op)
+				if op.Kind == "CREATE" {
+					return s.finishRollback(tx, &stack, &op)
+				}
+				execute, finalize = true, true
+				return nil
 			}
 			step = op.Steps[op.Cursor]
-			if step.State == "RUNNING" && step.After.PhysicalID == "" && (step.Action == "CREATE" || step.Action == "REPLACE") {
+			if step.State == "RUNNING" && !step.AdmissionPending && step.After.PhysicalID == "" && (step.Action == "CREATE" || step.Action == "REPLACE") {
 				step.State = "RECOVERING"
-				op.Steps[op.Cursor] = step
 			}
+			if step.BeforeDeleted && step.Restore.Token == "" {
+				step.Restore = step.Before
+				step.Restore.Generation = max(step.Before.Generation, step.After.Generation) + 1
+				step.Restore.Token = uuid.NewString()
+				step.Restore.PhysicalID, step.Restore.Ref, step.Restore.Attributes = "", "", nil
+				step.Restore.Current = false
+			}
+			op.Steps[op.Cursor] = step
 			execute = true
 			return tx.PutOperation(op)
 		}
 		if op.Cursor >= len(op.Steps) {
+			if op.Kind != "DELETE" && op.Phase != "CLEANUP" {
+				execute, finalize = true, true
+				return nil
+			}
 			return s.complete(tx, &stack, &op)
 		}
 		step = op.Steps[op.Cursor]
+		if step.State == "PLANNING" {
+			execute, planning = true, true
+			return nil
+		}
 		if step.State == "PENDING" {
 			if step.Action == "UPSERT" {
 				t, e := ParseTemplate(op.Template)
@@ -139,76 +158,60 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 				if h == nil {
 					return s.failOperation(tx, &stack, &op, invalid("Resource handler is unavailable: "+step.After.Type))
 				}
-				if e = h.Validate(props); e != nil {
+				updateValidator, validatesUpdate := h.(ResourceUpdateValidator)
+				validatesUpdate = validatesUpdate && step.Before.PhysicalID != "" && step.Before.Type == step.After.Type
+				if validatesUpdate {
+					e = updateValidator.ValidateUpdate(step.Before.Properties, props)
+				} else {
+					e = h.Validate(props)
+				}
+				if e != nil {
 					return s.failOperation(tx, &stack, &op, e)
 				}
 				step.After.Properties = props
 				step.After.EventProperties = t.eventProperties(step.LogicalID, evaluation, props)
-				step.Action = "CREATE"
-				if step.Before.PhysicalID != "" {
-					replace := step.Before.Type != step.After.Type
-					if !replace {
-						replace, e = RequiresReplacement(h, stack.Scope, step.Before.Properties, props)
-						if e != nil {
-							return s.failOperation(tx, &stack, &op, e)
-						}
+				replace := step.Before.PhysicalID != "" && step.Before.Type != step.After.Type
+				if step.Before.PhysicalID != "" && !replace {
+					if _, contextual := h.(ResourceContextualReplacementPlanner); contextual {
+						// Resolve customer state first, then retain planning intent.
+						// Owner observations run with fresh authority after commit.
+						step.State = "PLANNING"
+						op.Steps[op.Cursor] = step
+						op.Revision++
+						op.Due = s.clock.Now()
+						execute, planning = true, true
+						return tx.PutOperation(op)
 					}
-					if replace {
-						step.Action = "REPLACE"
-					} else {
-						after := step.Before
-						after.Properties = props
-						after.EventProperties = step.After.EventProperties
-						after.DeletionPolicy = step.After.DeletionPolicy
-						after.UpdateReplacePolicy = step.After.UpdateReplacePolicy
-						step.After = after
-						step.Action = "UPDATE"
-						if reflect.DeepEqual(props, step.Before.Properties) && maps.Equal(op.Tags, stack.Tags) {
-							step.State = "SKIPPED"
-							op.Steps[op.Cursor] = step
-							op.Cursor++
-							op.Revision++
-							if e = tx.PutResource(step.After); e != nil {
-								return e
-							}
-							return tx.PutOperation(op)
-						}
+					replace, e = RequiresReplacement(h, stack.Scope, step.Before.Properties, props)
+					if e != nil {
+						return s.failOperation(tx, &stack, &op, e)
 					}
+				}
+				if e = resolveStepAction(&step, replace); e != nil {
+					return s.failOperation(tx, &stack, &op, e)
+				}
+				if step.Action == "REPLACE" && validatesUpdate {
+					if e = h.Validate(props); e != nil {
+						return s.failOperation(tx, &stack, &op, e)
+					}
+				}
+				if step.Action == "UPDATE" && reflect.DeepEqual(props, step.Before.Properties) && maps.Equal(op.Tags, stack.Tags) {
+					step.State = "SKIPPED"
+					op.Steps[op.Cursor] = step
+					op.Cursor++
+					op.Revision++
+					if e = tx.PutResource(step.After); e != nil {
+						return e
+					}
+					return tx.PutOperation(op)
 				}
 			}
 			if step.Action == "DELETE" || step.Action == "RETIRE" {
-				// Commit the new definition before entering irreversible cleanup.
+				// Refresh owner-derived attributes before committing outputs and
+				// entering irreversible cleanup. Reads run outside this transaction.
 				if op.Kind != "DELETE" && op.Phase == "APPLY" {
-					previous, e := ParseTemplate(stack.Template)
-					if e != nil {
-						return s.failOperation(tx, &stack, &op, e)
-					}
-					evaluation, e := s.evaluation(tx, stack, stack.Parameters, stack.ResolvedParameters)
-					if e != nil {
-						return e
-					}
-					previousOrder, e := previous.Order(evaluation)
-					if e != nil {
-						return s.failOperation(tx, &stack, &op, e)
-					}
-					order := make(map[string]int, len(previousOrder))
-					for i, id := range previousOrder {
-						order[id] = i
-					}
-					slices.SortStableFunc(op.Steps[op.Cursor:], func(a, b StepRecord) int {
-						return cmp.Compare(order[b.LogicalID], order[a.LogicalID])
-					})
-					for i := op.Cursor; i < len(op.Steps); i++ {
-						op.Steps[i].Position = i
-					}
-					step = op.Steps[op.Cursor]
-					if e := s.commitDefinition(tx, &stack, op); e != nil {
-						return s.failOperation(tx, &stack, &op, e)
-					}
-					op.Phase = "CLEANUP"
-					if e = s.stackEvent(tx, &stack, op.Token, "UPDATE_COMPLETE_CLEANUP_IN_PROGRESS", ""); e != nil {
-						return e
-					}
+					execute, finalize, beforeCleanup = true, true, true
+					return nil
 				}
 				policy := step.Before.DeletionPolicy
 				if step.Action == "RETIRE" {
@@ -231,6 +234,13 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 				}
 			}
 			step.State = "RUNNING"
+			if deleteBeforeCreate(step) {
+				if _, readable := s.handlers[step.Before.Type].(ResourceReader); !readable {
+					return s.failOperation(tx, &stack, &op, invalid("Delete-before-create replacement requires an authoritative reader: "+step.Before.Type))
+				}
+				step.BeforeDeleteStarted = true
+				step.State = "BEFORE_DELETE_RUNNING"
+			}
 			op.Steps[op.Cursor] = step
 			resource, status := step.After, "CREATE_IN_PROGRESS"
 			if step.Action == "UPDATE" || step.Action == "REPLACE" {
@@ -247,6 +257,15 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 			if e = tx.PutStack(stack); e != nil {
 				return e
 			}
+			if e = tx.PutOperation(op); e != nil {
+				return e
+			}
+		}
+		if step.State == "BEFORE_DELETED" {
+			// The durable create intent distinguishes cancellation before the
+			// command from recovery after a possibly admitted owner creation.
+			step.State = "RUNNING"
+			op.Steps[op.Cursor] = step
 			if e = tx.PutOperation(op); e != nil {
 				return e
 			}
@@ -270,13 +289,20 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 			commandCtx, err = s.roles.Context(commandCtx, stack.ID, op.RoleARN)
 		}
 	}
+	if finalize {
+		return s.finalizeDefinition(ctx, commandCtx, stack, op, beforeCleanup, err)
+	}
+	if planning {
+		return s.planReplacement(ctx, commandCtx, stack, op, step, err)
+	}
 	var result ResourceResult
-	var pending bool
+	var pending, effectStarted bool
 	if err == nil {
 		if op.Phase == "ROLLBACK" {
-			result, pending, err = s.undoStep(commandCtx, stack, op, step)
+			result, pending, err = s.undoStep(commandCtx, stack, op, &step)
 		} else {
-			result, pending, err = s.executeStep(commandCtx, stack, op, step)
+			effectStarted = true
+			result, pending, err = s.executeStep(commandCtx, stack, op, &step)
 		}
 	}
 	if ctx.Err() != nil {
@@ -287,7 +313,7 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 		if e != nil {
 			return e
 		}
-		if current.Phase == "DONE" || current.Revision != op.Revision || current.Cursor != op.Cursor {
+		if current.Phase != op.Phase || current.Revision != op.Revision || current.Cursor != op.Cursor {
 			return nil
 		}
 		stack, e = tx.Stack(op.StackID)
@@ -298,6 +324,25 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 			return nil
 		}
 		op.Cancel = current.Cancel
+		var admission *ResourcePendingError
+		if errors.As(err, &admission) {
+			step.AdmissionPending = true
+			op.Steps[op.Cursor] = step
+			op.Revision++
+			op.Due = s.clock.Now().Add(time.Second)
+			return tx.PutOperation(op)
+		}
+		step.AdmissionPending = false
+		if step.BeforeDeleted && !op.Steps[op.Cursor].BeforeDeleted {
+			before := step.Before
+			before.Current = false
+			if e = s.resourceEvent(tx, &stack, op, before, "DELETE_COMPLETE", "Deleted before replacement"); e != nil {
+				return e
+			}
+			if e = tx.PutStack(stack); e != nil {
+				return e
+			}
+		}
 		if op.Phase == "ROLLBACK" {
 			return s.recordUndo(tx, &stack, &op, step, result, pending, err)
 		}
@@ -331,6 +376,12 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 				return tx.PutOperation(op)
 			}
 			step.State = "FAILED"
+			if effectStarted && step.After.PhysicalID == "" && (step.Action == "CREATE" || (step.Action == "REPLACE" && (!deleteBeforeCreate(step) || step.BeforeDeleted))) {
+				// A modeled failure may occur after a multi-command adapter
+				// admitted an owner resource. Retain exact-token recovery intent
+				// rather than assuming the failed creation never existed.
+				step.State = "FAILED_CREATE_RECOVERING"
+			}
 			step.Error = err.Error()
 			op.Steps[op.Cursor] = step
 			v := step.After
@@ -348,7 +399,9 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 			return s.failOperation(tx, &stack, &op, err)
 		}
 		if pending {
-			step.State = "STABILIZING"
+			if step.State != "BEFORE_DELETE_STABILIZING" && step.State != "BEFORE_DELETED" {
+				step.State = "STABILIZING"
+			}
 			op.Steps[op.Cursor] = step
 			op.Revision++
 			op.Due = s.clock.Now().Add(time.Second)
@@ -383,10 +436,15 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 		if step.Action == "REPLACE" {
 			before := step.Before
 			before.Current = false
+			if step.BeforeDeleted {
+				before.Status, before.StatusReason = "DELETE_COMPLETE", "Deleted before replacement"
+			}
 			if e = tx.PutResource(before); e != nil {
 				return e
 			}
-			op.Steps = append(op.Steps, StepRecord{Position: len(op.Steps), LogicalID: before.LogicalID, Action: "RETIRE", State: "PENDING", Before: before})
+			if !step.BeforeDeleted {
+				op.Steps = append(op.Steps, StepRecord{Position: len(op.Steps), LogicalID: before.LogicalID, Action: "RETIRE", State: "PENDING", Before: before})
+			}
 		}
 		if e = s.resourceEvent(tx, &stack, op, v, status, ""); e != nil {
 			return e
@@ -401,9 +459,129 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 	})
 }
 func resourceRequest(stack StackRecord, op OperationRecord, v ResourceRecord, previous Properties) ResourceRequest {
-	return ResourceRequest{StackID: stack.ID, StackName: stack.Name, LogicalID: v.LogicalID, Type: v.Type, PhysicalID: v.PhysicalID, Token: v.Token, Scope: stack.Scope, Properties: v.Properties, Previous: previous, Tags: op.Tags}
+	return ResourceRequest{StackID: stack.ID, StackName: stack.Name, LogicalID: v.LogicalID, Type: v.Type, PhysicalID: v.PhysicalID, Token: v.Token, OperationToken: op.ID, Scope: stack.Scope, Properties: v.Properties, Previous: previous, Tags: op.Tags}
 }
-func (s *Service) executeStep(ctx context.Context, stack StackRecord, op OperationRecord, step StepRecord) (ResourceResult, bool, error) {
+
+func resolveStepAction(step *StepRecord, replace bool) error {
+	step.Action = "CREATE"
+	if step.Before.PhysicalID == "" {
+		return nil
+	}
+	if replace {
+		step.Action = "REPLACE"
+		if deleteBeforeCreate(*step) && ((step.Before.UpdateReplacePolicy != "" && step.Before.UpdateReplacePolicy != "Delete") || (step.After.UpdateReplacePolicy != "" && step.After.UpdateReplacePolicy != "Delete")) {
+			return invalid("Resource " + step.LogicalID + " requires delete-before-create replacement; UpdateReplacePolicy must be Delete")
+		}
+		return nil
+	}
+	after := step.Before
+	after.Properties = step.After.Properties
+	after.EventProperties = step.After.EventProperties
+	after.DeletionPolicy = step.After.DeletionPolicy
+	after.UpdateReplacePolicy = step.After.UpdateReplacePolicy
+	step.After, step.Action = after, "UPDATE"
+	return nil
+}
+
+// planReplacement consumes a durable resolved planning intent. Native owner
+// observations never execute inside the shared repository transaction.
+func (s *Service) planReplacement(ctx, commandCtx context.Context, stack StackRecord, op OperationRecord, step StepRecord, cause error) error {
+	var replace bool
+	if cause == nil {
+		planner, ok := s.handlers[step.After.Type].(ResourceContextualReplacementPlanner)
+		if !ok {
+			cause = invalid("Contextual replacement planner is unavailable: " + step.After.Type)
+		} else {
+			request := resourceRequest(stack, op, step.After, step.Before.Properties)
+			request.PhysicalID = step.Before.PhysicalID
+			request.Token = step.Before.Token
+			replace, cause = planner.ReplacementForResource(commandCtx, request)
+		}
+	}
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	return s.repository.Update(ctx, func(tx Transaction) error {
+		current, err := tx.Operation(op.ID)
+		if err != nil {
+			return err
+		}
+		if current.Phase != op.Phase || current.Revision != op.Revision || current.Cursor != op.Cursor || current.Steps[op.Cursor].State != "PLANNING" {
+			return nil
+		}
+		stack, err = tx.Stack(op.StackID)
+		if err != nil {
+			return err
+		}
+		if stack.OperationID != op.ID {
+			return nil
+		}
+		op.Cancel = current.Cancel
+		if op.Cancel {
+			return s.startRollback(tx, &stack, &op, "Update cancelled by user")
+		}
+		var admission *ResourcePendingError
+		if errors.As(cause, &admission) {
+			op.Revision++
+			op.Due = s.clock.Now().Add(time.Second)
+			return tx.PutOperation(op)
+		}
+		if cause == nil {
+			cause = resolveStepAction(&step, replace)
+		}
+		if cause == nil && step.Action == "REPLACE" {
+			if handler := s.handlers[step.After.Type]; handler != nil {
+				if _, validatesUpdate := handler.(ResourceUpdateValidator); validatesUpdate {
+					cause = handler.Validate(step.After.Properties)
+				}
+			}
+		}
+		if cause != nil {
+			return s.failOperation(tx, &stack, &op, cause)
+		}
+		step.State = "PENDING"
+		position := op.Cursor
+		if step.Action == "UPDATE" && reflect.DeepEqual(step.After.Properties, step.Before.Properties) && maps.Equal(op.Tags, stack.Tags) {
+			step.State = "SKIPPED"
+			op.Cursor++
+			if err = tx.PutResource(step.After); err != nil {
+				return err
+			}
+		}
+		op.Steps[position] = step
+		op.Revision++
+		op.Due = s.clock.Now()
+		return tx.PutOperation(op)
+	})
+}
+func (s *Service) executeStep(ctx context.Context, stack StackRecord, op OperationRecord, step *StepRecord) (ResourceResult, bool, error) {
+	if deleteBeforeCreate(*step) && !step.BeforeDeleted {
+		h := s.handlers[step.Before.Type]
+		if h == nil {
+			return ResourceResult{}, false, invalid("Resource handler is unavailable: " + step.Before.Type)
+		}
+		request := resourceRequest(stack, op, step.Before, nil)
+		request.DeletionPolicy = "Delete"
+		if step.State == "BEFORE_DELETE_STABILIZING" {
+			if waiter, ok := h.(ResourceDeletionStabilizer); ok {
+				ready, err := waiter.StabilizeDeletion(ctx, request)
+				if err != nil || !ready {
+					return ResourceResult{}, !ready, err
+				}
+			}
+		} else {
+			if err := h.Delete(ctx, request); err != nil {
+				return ResourceResult{}, false, err
+			}
+			if _, asynchronous := h.(ResourceDeletionStabilizer); asynchronous {
+				step.State = "BEFORE_DELETE_STABILIZING"
+				return ResourceResult{}, true, nil
+			}
+		}
+		step.BeforeDeleted = true
+		step.State = "BEFORE_DELETED"
+		return ResourceResult{}, true, nil
+	}
 	v := step.After
 	deleting := step.Action == "DELETE" || step.Action == "RETIRE"
 	if deleting {
@@ -417,6 +595,13 @@ func (s *Service) executeStep(ctx context.Context, stack StackRecord, op Operati
 		return ResourceResult{}, false, invalid("Resource handler is unavailable: " + v.Type)
 	}
 	request := resourceRequest(stack, op, v, step.Before.Properties)
+	request.DeletionPolicy = v.DeletionPolicy
+	if step.Action == "RETIRE" {
+		request.DeletionPolicy = v.UpdateReplacePolicy
+		if request.DeletionPolicy == "" {
+			request.DeletionPolicy = "Delete"
+		}
+	}
 	if step.State == "STABILIZING" {
 		result := ResourceResult{PhysicalID: v.PhysicalID, Ref: v.Ref, Attributes: v.Attributes}
 		if deleting {
@@ -426,6 +611,9 @@ func (s *Service) executeStep(ctx context.Context, stack StackRecord, op Operati
 			}
 		} else if waiter, ok := h.(ResourceStabilizer); ok {
 			ready, e := waiter.Stabilize(ctx, request)
+			if e == nil && ready {
+				result, e = stabilizedResourceResult(ctx, h, request, result)
+			}
 			return result, !ready, e
 		}
 		return result, false, nil
@@ -442,6 +630,9 @@ func (s *Service) executeStep(ctx context.Context, stack StackRecord, op Operati
 	default:
 		err = fmt.Errorf("invalid retained deployment action %q", step.Action)
 	}
+	if err == nil && (step.Action == "CREATE" || step.Action == "REPLACE") && result.PhysicalID == "" {
+		err = invalid("Resource creation did not return a physical identity")
+	}
 	pending := false
 	if err == nil {
 		if deleting {
@@ -451,6 +642,21 @@ func (s *Service) executeStep(ctx context.Context, stack StackRecord, op Operati
 		}
 	}
 	return result, pending, err
+}
+
+func stabilizedResourceResult(ctx context.Context, handler ResourceHandler, request ResourceRequest, previous ResourceResult) (ResourceResult, error) {
+	reader, ok := handler.(ResourceResultReader)
+	if !ok {
+		return previous, nil
+	}
+	result, err := reader.Result(ctx, request)
+	if err != nil {
+		return previous, err
+	}
+	if result.PhysicalID != request.PhysicalID {
+		return previous, fmt.Errorf("stabilized resource changed physical identity from %q to %q", request.PhysicalID, result.PhysicalID)
+	}
+	return result, nil
 }
 func (s *Service) startRollback(tx Transaction, stack *StackRecord, op *OperationRecord, reason string) error {
 	op.Reason = reason
@@ -487,20 +693,78 @@ func (s *Service) failOperation(tx Transaction, stack *StackRecord, op *Operatio
 	}
 	return s.startRollback(tx, stack, op, cause.Error())
 }
-func (s *Service) undoStep(ctx context.Context, stack StackRecord, op OperationRecord, step StepRecord) (ResourceResult, bool, error) {
+func (s *Service) undoStep(ctx context.Context, stack StackRecord, op OperationRecord, step *StepRecord) (ResourceResult, bool, error) {
 	before, after := step.Before, step.After
 	result := ResourceResult{PhysicalID: before.PhysicalID, Ref: before.Ref, Attributes: before.Attributes}
+	if step.BeforeDeleteStarted && !step.BeforeDeleted {
+		h := s.handlers[before.Type]
+		reader, ok := h.(ResourceReader)
+		if !ok {
+			return ResourceResult{}, false, invalid("Delete-before-create recovery requires an authoritative reader: " + before.Type)
+		}
+		request := resourceRequest(stack, op, before, nil)
+		_, err := reader.Read(ctx, request)
+		if modeledResourceAbsent(err) {
+			step.BeforeDeleted = true
+			step.State = "UNDO_REPLACEMENT"
+			return ResourceResult{}, true, nil
+		}
+		if err != nil {
+			return ResourceResult{}, false, err
+		}
+		if step.State == "BEFORE_DELETE_STABILIZING" {
+			waiter, ok := h.(ResourceDeletionStabilizer)
+			if !ok {
+				return ResourceResult{}, false, invalid("Retained deletion stabilizer is unavailable")
+			}
+			ready, err := waiter.StabilizeDeletion(ctx, request)
+			if err != nil || !ready {
+				return ResourceResult{}, !ready, err
+			}
+			// A successful waiter must not turn a still-live old owner into a
+			// fake restored row. Only a modeled absence permits a fresh Create.
+			_, err = reader.Read(ctx, request)
+			if !modeledResourceAbsent(err) {
+				if err == nil {
+					err = invalid("Deletion stabilized while the exact old resource still exists")
+				}
+				return ResourceResult{}, false, err
+			}
+			step.BeforeDeleted = true
+			step.State = "UNDO_REPLACEMENT"
+			return ResourceResult{}, true, nil
+		}
+		// An ambiguous interrupted deletion can still expose a live resource.
+		// Confirm its owner is stable before keeping that original incarnation.
+		if waiter, ok := h.(ResourceStabilizer); ok {
+			ready, err := waiter.Stabilize(ctx, request)
+			if err != nil {
+				return ResourceResult{}, false, err
+			}
+			if !ready {
+				if _, asynchronous := h.(ResourceDeletionStabilizer); asynchronous && !step.AdmissionPending {
+					// A crash can lose an admitted asynchronous Delete result.
+					// Replay the exact old identity before waiting for absence.
+					request.DeletionPolicy = "Delete"
+					if err := h.Delete(ctx, request); err != nil {
+						return ResourceResult{}, false, err
+					}
+					step.State = "BEFORE_DELETE_STABILIZING"
+				}
+				return ResourceResult{}, true, nil
+			}
+			result, err = stabilizedResourceResult(ctx, h, request, result)
+			if err != nil {
+				return ResourceResult{}, false, err
+			}
+		}
+	}
+	if step.BeforeDeleted {
+		return s.undoDeletedReplacement(ctx, stack, op, step)
+	}
 	if step.Action == "CREATE" || step.Action == "REPLACE" {
-		if step.State == "RECOVERING" {
-			h := s.handlers[after.Type]
-			if h == nil {
-				return ResourceResult{}, false, invalid("Resource handler unavailable")
-			}
-			recovered, err := h.Create(ctx, resourceRequest(stack, op, after, nil))
-			if err == nil && recovered.PhysicalID == "" {
-				err = invalid("Resource recovery did not return a physical identity")
-			}
-			return recovered, false, err
+		if step.State == "RECOVERING" || step.State == "FAILED_CREATE_RECOVERING" {
+			return s.recoverCreation(ctx, stack, op, step)
 		}
 		if after.PhysicalID == "" || after.DeletionPolicy == "Retain" {
 			return result, false, nil
@@ -510,6 +774,7 @@ func (s *Service) undoStep(ctx context.Context, stack StackRecord, op OperationR
 			return ResourceResult{}, false, invalid("Resource handler unavailable")
 		}
 		request := resourceRequest(stack, op, after, nil)
+		request.DeletionPolicy = "Delete"
 		waiter, asynchronous := h.(ResourceDeletionStabilizer)
 		if step.State == "UNDO_STABILIZING" && asynchronous {
 			ready, err := waiter.StabilizeDeletion(ctx, request)
@@ -528,6 +793,9 @@ func (s *Service) undoStep(ctx context.Context, stack StackRecord, op OperationR
 		waiter, asynchronous := h.(ResourceStabilizer)
 		if step.State == "UNDO_STABILIZING" && asynchronous {
 			ready, err := waiter.Stabilize(ctx, request)
+			if err == nil && ready {
+				result, err = stabilizedResourceResult(ctx, h, request, result)
+			}
 			return result, !ready, err
 		}
 		result, err := h.Update(ctx, request)
@@ -535,11 +803,130 @@ func (s *Service) undoStep(ctx context.Context, stack StackRecord, op OperationR
 	}
 	return result, false, nil
 }
+
+func modeledResourceAbsent(err error) bool {
+	var wire *awswire.Error
+	if !errors.As(err, &wire) {
+		return false
+	}
+	switch wire.Code {
+	case "NotFound", "ResourceNotFound", "ResourceNotFoundException", "EntityNotFoundException", "NoSuchEntity", "NoSuchBucket":
+		return true
+	}
+	return strings.HasSuffix(wire.Code, ".NotFound")
+}
+
+func (s *Service) recoverCreation(ctx context.Context, stack StackRecord, op OperationRecord, step *StepRecord) (ResourceResult, bool, error) {
+	h := s.handlers[step.After.Type]
+	if h == nil {
+		return ResourceResult{}, false, invalid("Resource creation recovery handler is unavailable: " + step.After.Type)
+	}
+	request := resourceRequest(stack, op, step.After, nil)
+	var result ResourceResult
+	var err error
+	if reader, authoritative := h.(ResourceCreationRecoverer); authoritative {
+		result, err = reader.RecoverCreation(ctx, request)
+		if result.PhysicalID == "" && modeledResourceAbsent(err) {
+			step.State = "CREATE_NOT_ADMITTED"
+			// A deleted-before-create owner still needs a fresh restoration.
+			// Otherwise the original incarnation remains authoritative.
+			before := step.Before
+			return ResourceResult{PhysicalID: before.PhysicalID, Ref: before.Ref, Attributes: before.Attributes}, step.BeforeDeleted, nil
+		}
+	} else {
+		// The same incarnation token can recover a partially admitted native
+		// object. An error with no authentic result is not proof of absence.
+		result, err = h.Create(ctx, request)
+	}
+	if result.PhysicalID == "" {
+		if err == nil {
+			err = invalid("Resource creation recovery did not return a physical identity")
+		}
+		return ResourceResult{}, false, fmt.Errorf("recover exact creation of %s: %w", step.LogicalID, err)
+	}
+	return result, false, err
+}
+
+// undoDeletedReplacement first removes the admitted replacement, then restores
+// the old properties through a separately retained, freshly owned incarnation.
+func (s *Service) undoDeletedReplacement(ctx context.Context, stack StackRecord, op OperationRecord, step *StepRecord) (ResourceResult, bool, error) {
+	if step.State == "RECOVERING" || step.State == "FAILED_CREATE_RECOVERING" {
+		return s.recoverCreation(ctx, stack, op, step)
+	}
+	if step.State == "RESTORE_RUNNING" || step.State == "RESTORE_STABILIZING" {
+		if step.Restore.Token == "" {
+			return ResourceResult{}, false, invalid("Rollback restoration has no retained incarnation")
+		}
+		h := s.handlers[step.Restore.Type]
+		if h == nil {
+			return ResourceResult{}, false, invalid("Resource restoration handler is unavailable")
+		}
+		op.Tags = stack.Tags
+		request := resourceRequest(stack, op, step.Restore, nil)
+		result := ResourceResult{PhysicalID: step.Restore.PhysicalID, Ref: step.Restore.Ref, Attributes: step.Restore.Attributes}
+		var err error
+		if step.State == "RESTORE_STABILIZING" {
+			waiter, ok := h.(ResourceStabilizer)
+			if !ok {
+				return ResourceResult{}, false, invalid("Retained restoration stabilizer is unavailable")
+			}
+			ready, err := waiter.Stabilize(ctx, request)
+			if err != nil || !ready {
+				return result, !ready, err
+			}
+			result, err = stabilizedResourceResult(ctx, h, request, result)
+		} else {
+			result, err = h.Create(ctx, request)
+			if err == nil && result.PhysicalID == "" {
+				err = invalid("Resource restoration did not return a physical identity")
+			}
+		}
+		if result.PhysicalID != "" {
+			step.Restore.PhysicalID, step.Restore.Ref, step.Restore.Attributes = result.PhysicalID, result.Ref, result.Attributes
+		}
+		if err != nil {
+			return result, false, err
+		}
+		if step.State == "RESTORE_RUNNING" {
+			if _, asynchronous := h.(ResourceStabilizer); asynchronous {
+				step.State = "RESTORE_STABILIZING"
+				return result, true, nil
+			}
+		}
+		step.State = "RESTORED"
+		return result, false, nil
+	}
+	if step.After.PhysicalID != "" {
+		h := s.handlers[step.After.Type]
+		if h == nil {
+			return ResourceResult{}, false, invalid("Replacement deletion handler is unavailable")
+		}
+		request := resourceRequest(stack, op, step.After, nil)
+		request.DeletionPolicy = "Delete"
+		waiter, asynchronous := h.(ResourceDeletionStabilizer)
+		if step.State == "UNDO_STABILIZING" && asynchronous {
+			ready, err := waiter.StabilizeDeletion(ctx, request)
+			if err != nil || !ready {
+				return ResourceResult{}, !ready, err
+			}
+		} else {
+			if err := h.Delete(ctx, request); err != nil {
+				return ResourceResult{}, false, err
+			}
+			if asynchronous {
+				step.State = "UNDO_STABILIZING"
+				return ResourceResult{}, true, nil
+			}
+		}
+	}
+	step.State = "RESTORE_RUNNING"
+	return ResourceResult{}, true, nil
+}
 func (s *Service) recordUndo(tx Transaction, stack *StackRecord, op *OperationRecord, step StepRecord, result ResourceResult, pending bool, cause error) error {
-	if step.State == "RECOVERING" && result.PhysicalID != "" {
+	if (step.State == "RECOVERING" || step.State == "FAILED_CREATE_RECOVERING") && result.PhysicalID != "" {
 		step.After.PhysicalID, step.After.Ref, step.After.Attributes = result.PhysicalID, result.Ref, result.Attributes
 		step.State = "RECOVERED"
-		if cause != nil {
+		if cause != nil && step.Error == "" {
 			step.Error = cause.Error()
 		}
 		op.Steps[op.Cursor] = step
@@ -548,34 +935,32 @@ func (s *Service) recordUndo(tx Transaction, stack *StackRecord, op *OperationRe
 		return tx.PutOperation(*op)
 	}
 	if cause != nil {
-		op.Phase = "DONE"
-		op.Reason = cause.Error()
-		status := "UPDATE_ROLLBACK_FAILED"
-		if op.Kind == "CREATE" {
-			status = "ROLLBACK_FAILED"
+		op.Steps[op.Cursor] = step
+		return s.failRollback(tx, stack, op, cause)
+	}
+	if step.State == "RESTORE_RUNNING" && op.Steps[op.Cursor].State != "RESTORE_RUNNING" && step.After.PhysicalID != "" {
+		v := step.After
+		v.Current = false
+		if err := s.resourceEvent(tx, stack, *op, v, "DELETE_COMPLETE", "Deleted replacement before rollback restoration"); err != nil {
+			return err
 		}
-		if e := s.stackEvent(tx, stack, op.Token, status, cause.Error()); e != nil {
-			return e
-		}
-		if e := s.finishChangeSet(tx, *op, false); e != nil {
-			return e
-		}
-		if e := tx.PutStack(*stack); e != nil {
-			return e
-		}
-		return tx.PutOperation(*op)
 	}
 	if pending {
-		step.State = "UNDO_STABILIZING"
-		if result.PhysicalID != "" {
-			step.Before.PhysicalID, step.Before.Ref, step.Before.Attributes = result.PhysicalID, result.Ref, result.Attributes
+		if !step.BeforeDeleteStarted {
+			step.State = "UNDO_STABILIZING"
+			if result.PhysicalID != "" {
+				step.Before.PhysicalID, step.Before.Ref, step.Before.Attributes = result.PhysicalID, result.Ref, result.Attributes
+			}
 		}
 		op.Steps[op.Cursor] = step
 		op.Revision++
 		op.Due = s.clock.Now().Add(time.Second)
+		if err := tx.PutStack(*stack); err != nil {
+			return err
+		}
 		return tx.PutOperation(*op)
 	}
-	if step.After.LogicalID != "" && (step.Action == "CREATE" || step.Action == "REPLACE") {
+	if !step.BeforeDeleted && step.After.PhysicalID != "" && (step.Action == "CREATE" || step.Action == "REPLACE") {
 		v := step.After
 		v.Current = false
 		status := "DELETE_COMPLETE"
@@ -586,13 +971,31 @@ func (s *Service) recordUndo(tx Transaction, stack *StackRecord, op *OperationRe
 			return e
 		}
 	}
-	if step.Before.PhysicalID != "" {
-		v := step.Before
+	if step.After.PhysicalID == "" && (step.Action == "CREATE" || step.Action == "REPLACE") {
+		// Preserve the failed/unadmitted logical history, but do not leave its
+		// initial blank in-progress row selected as a current incarnation or
+		// fabricate a successful native deletion for a resource that never existed.
+		v := step.After
+		v.Current, v.Status, v.StatusReason = false, "CREATE_FAILED", step.Error
+		if step.Action == "REPLACE" {
+			v.Status = "UPDATE_FAILED"
+		}
+		if v.StatusReason == "" {
+			v.StatusReason = "Resource creation cancelled before admission"
+		}
+		v.Updated = s.clock.Now()
+		if err := tx.PutResource(v); err != nil {
+			return err
+		}
+	}
+	v := step.Before
+	if step.BeforeDeleted {
+		v = step.Restore
+	}
+	if v.PhysicalID != "" {
 		v.Current = true
 		if result.PhysicalID != "" {
-			v.PhysicalID = result.PhysicalID
-			v.Ref = result.Ref
-			v.Attributes = result.Attributes
+			v.PhysicalID, v.Ref, v.Attributes = result.PhysicalID, result.Ref, result.Attributes
 		}
 		if e := s.resourceEvent(tx, stack, *op, v, "UPDATE_COMPLETE", ""); e != nil {
 			return e
@@ -605,6 +1008,24 @@ func (s *Service) recordUndo(tx Transaction, stack *StackRecord, op *OperationRe
 	op.Due = s.clock.Now()
 	if e := tx.PutStack(*stack); e != nil {
 		return e
+	}
+	return tx.PutOperation(*op)
+}
+
+func (s *Service) failRollback(tx Transaction, stack *StackRecord, op *OperationRecord, cause error) error {
+	op.Phase, op.Reason = "DONE", cause.Error()
+	status := "UPDATE_ROLLBACK_FAILED"
+	if op.Kind == "CREATE" {
+		status = "ROLLBACK_FAILED"
+	}
+	if err := s.stackEvent(tx, stack, op.Token, status, cause.Error()); err != nil {
+		return err
+	}
+	if err := s.finishChangeSet(tx, *op, false); err != nil {
+		return err
+	}
+	if err := tx.PutStack(*stack); err != nil {
+		return err
 	}
 	return tx.PutOperation(*op)
 }

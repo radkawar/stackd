@@ -77,7 +77,7 @@ func (source accountCreationJobs) Run(ctx context.Context, selected scheduler.Jo
 		job.State, job.FailureReason = "FAILED", "INTERNAL_FAILURE"
 	} else {
 		worker.accountProvisioning = &AccountProvisioning{Partition: partition, AccountID: job.AccountID, AccountName: job.AccountName, ManagementAccountID: org.organization.MasterAccountID, AccessRoleName: job.RoleName, CreatedAt: worker.instant}
-		account := account{ID: job.AccountID, ARN: org.arn(partition, "account", job.AccountID), Name: job.AccountName, Email: job.Email, State: "ACTIVE", Status: "ACTIVE", JoinedMethod: "CREATED", JoinedTimestamp: worker.timestamp()}
+		account := account{ID: job.AccountID, ARN: org.arn(partition, "account", job.AccountID), Name: job.AccountName, Email: job.Email, State: "ACTIVE", Status: "ACTIVE", JoinedMethod: "CREATED", JoinedTimestamp: worker.timestamp(), CloudFormationOwner: job.CloudFormationOwner, CloudFormationRegion: job.RequestRegion}
 		org.accounts[account.ID], worker.knownAccounts[account.ID] = account, account
 		org.parents[account.ID], org.tags[account.ID] = org.root.ID, job.Tags
 		org.attachDefaults(account.ID)

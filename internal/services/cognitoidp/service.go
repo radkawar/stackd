@@ -49,6 +49,7 @@ func New(c Config) *Service {
 	s := &Service{repository: c.Repository, authorizer: c.Authorizer, recorder: c.Recorder, clock: c.Clock, publicEndpoint: c.PublicEndpoint, emailSender: c.EmailSender, emailSetup: c.EmailSetup, operations: map[string]func(context.Context) (any, *awswire.Error){}}
 	registerControl(s)
 	registerGroups(s)
+	registerFederation(s)
 	registerAuthentication(s)
 	registerEmail(s)
 	return s
@@ -118,10 +119,24 @@ func runCommand[I, O any](s *Service, ctx context.Context, action string, in *I,
 	}
 	var out *O
 	err = s.repository.Attempt(ctx, func(tx Transaction) error {
-		var err error
-		out, err = fn(tx, in)
+		replay, finish, err := s.ownedCommand(tx, action, in)
 		if err != nil {
 			return err
+		}
+		if replay != nil {
+			var ok bool
+			if out, ok = replay.(*O); !ok {
+				return failure("InternalErrorException", "Invalid owned command replay.")
+			}
+			return s.recordCall(tx.Context(), action, in, out, nil)
+		}
+		if out, err = fn(tx, in); err != nil {
+			return err
+		}
+		if finish != nil {
+			if err = finish(out); err != nil {
+				return err
+			}
 		}
 		return s.recordCall(tx.Context(), action, in, out, nil)
 	})

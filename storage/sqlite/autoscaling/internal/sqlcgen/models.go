@@ -126,6 +126,7 @@ type AsgGroup struct {
 	HasDataWarmPoolConfigurationInstanceReusePolicy                                                      bool
 	DataWarmPoolConfigurationInstanceReusePolicyReuseOnScaleIn                                           sql.NullBool
 	ScaleUpVersion                                                                                       sqlite.Uint64
+	Ownership                                                                                            string
 }
 
 type AsgGroupsAvailabilityZone struct {
@@ -218,6 +219,7 @@ type AsgHook struct {
 	DataNotificationMetadata  sql.NullString
 	DataNotificationTargetArn sql.NullString
 	DataRoleArn               sql.NullString
+	Ownership                 string
 }
 
 type AsgInstance struct {
@@ -354,6 +356,7 @@ type AsgPolicy struct {
 	DataTargetTrackingConfigurationPredefinedMetricSpecificationPredefinedMetricType sql.NullString
 	DataTargetTrackingConfigurationPredefinedMetricSpecificationResourceLabel        sql.NullString
 	DataTargetTrackingConfigurationTargetValue                                       sql.NullFloat64
+	Ownership                                                                        string
 }
 
 type AsgRefresh struct {
@@ -456,4 +459,5 @@ type AsgSchedule struct {
 	DataStartTime            sql.NullTime
 	DataTime                 sql.NullTime
 	DataTimeZone             sql.NullString
+	Ownership                string
 }

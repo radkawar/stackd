@@ -32,6 +32,9 @@ func (s *Service) tagDomain(ctx context.Context, tx Transaction, arn, action str
 	if err != nil {
 		return v, err
 	}
+	if cloudFormationForeign(ctx, v) {
+		return Domain{}, ErrNotFound
+	}
 	if err = s.authorize(ctx, action, arn, v.Tags, conditions, nil); err != nil {
 		return v, err
 	}

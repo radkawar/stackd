@@ -14,17 +14,23 @@ type SnapshotPolicies interface {
 }
 
 func (s *Service) effectivePublicAccess(r Reader, scope Scope) (api.SnapshotBlockPublicAccessState, bool, string, error) {
-	if s.policies != nil {
-		state, managed, message, err := s.policies.SnapshotPublicAccess(r.Context(), scope.Partition, scope.AccountID)
-		if err != nil || managed {
-			return api.SnapshotBlockPublicAccessState(state), managed, message, err
-		}
+	state, managed, message, err := s.publicAccessPolicy(r.Context(), scope)
+	if err != nil || managed {
+		return state, managed, message, err
 	}
 	setting, err := r.SnapshotPublicAccess(scope)
 	if errors.Is(err, ErrNotFound) {
 		return "unblocked", false, "", nil
 	}
 	return setting.State, false, "", err
+}
+
+func (s *Service) publicAccessPolicy(ctx context.Context, scope Scope) (api.SnapshotBlockPublicAccessState, bool, string, error) {
+	if s.policies == nil {
+		return "", false, "", nil
+	}
+	state, managed, message, err := s.policies.SnapshotPublicAccess(ctx, scope.Partition, scope.AccountID)
+	return api.SnapshotBlockPublicAccessState(state), managed, message, err
 }
 
 func (s *Service) publicAccessControl(ctx context.Context, action string, dry *api.Boolean, requested *api.SnapshotBlockPublicAccessState) (*api.GetSnapshotBlockPublicAccessStateResult, error) {
@@ -48,9 +54,18 @@ func (s *Service) publicAccessControl(ctx context.Context, action string, dry *a
 			}
 		}
 		scope := scopeFor(ctx)
-		state, managed, message, err := s.effectivePublicAccess(tx, scope)
+		state, managed, message, err := s.publicAccessPolicy(tx.Context(), scope)
 		if err != nil {
 			return err
+		}
+		current, err := tx.SnapshotPublicAccess(scope)
+		if errors.Is(err, ErrNotFound) {
+			current = SnapshotPublicAccess{Scope: scope, State: "unblocked"}
+		} else if err != nil {
+			return err
+		}
+		if !managed {
+			state = current.State
 		}
 		if action != "GetSnapshotBlockPublicAccessState" {
 			if managed {
@@ -63,7 +78,13 @@ func (s *Service) publicAccessControl(ctx context.Context, action string, dry *a
 			if requested != nil {
 				state = *requested
 			}
-			if err := tx.PutSnapshotPublicAccess(SnapshotPublicAccess{Scope: scope, State: state}); err != nil {
+		}
+		owned, err := admitSnapshotPublicAccessOwner(tx.Context(), action, current, state)
+		if err != nil {
+			return err
+		}
+		if action != "GetSnapshotBlockPublicAccessState" {
+			if err := tx.PutSnapshotPublicAccess(owned); err != nil {
 				return err
 			}
 		}

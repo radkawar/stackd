@@ -112,7 +112,7 @@ func (s *Service) createFleet(ctx context.Context, tx Transaction, in *api.Creat
 		return nil, failure("InvalidInputException", "Invalid fleet overflow behavior.")
 	}
 	data := api.Fleet{Arn: new(api.NonEmptyString(resource)), Id: new(api.NonEmptyString(id)), Name: in.Name, EnvironmentType: in.EnvironmentType, ComputeType: in.ComputeType, BaseCapacity: in.BaseCapacity, FleetServiceRole: in.FleetServiceRole, OverflowBehavior: overflow, Tags: in.Tags, Created: &now, LastModified: &now, Status: &api.FleetStatus{StatusCode: new(api.FleetStatusCode("CREATING"))}}
-	if err := tx.PutFleet(FleetRecord{key, data}); err != nil {
+	if err := tx.PutFleet(FleetRecord{Key: key, Data: data}); err != nil {
 		return nil, err
 	}
 	return &api.CreateFleetOutput{Fleet: &data}, nil
@@ -236,6 +236,7 @@ func (s *Service) batchGetFleets(ctx context.Context, tx Transaction, in *api.Ba
 		if err = s.authorize(ctx, "BatchGetFleets", value(r.Data.Arn), tagConditions(r.Data.Tags)); err != nil {
 			return nil, err
 		}
+		observeCloudFormationResource(ctx, "Fleet", value(r.Data.Arn), r.Ownership)
 		out.Fleets = append(out.Fleets, r.Data)
 	}
 	return out, nil

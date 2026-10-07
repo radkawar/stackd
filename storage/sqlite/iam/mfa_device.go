@@ -23,6 +23,7 @@ func (r reader) MFADevice(scope domain.Scope, key string) (domain.MFADevice, err
 	record.VerificationCount.Window = row.VerificationCountWindow
 	record.LastPairStep = row.LastPairStep
 	record.VerificationCount.Count = int(row.VerificationCountCount)
+	record.CloudFormationOwner = row.CfnOwner
 	record.SerialNumber = row.SerialNumber
 	record.Binding.Value.Seed = row.BindingValueSeed
 	record.Binding.Value.UserID = row.BindingValueUserID
@@ -77,7 +78,7 @@ func (w writer) PutMFADevice(scope domain.Scope, record domain.MFADevice) error 
 	if _, err := w.q.DeleteMFADevice(w.ctx, sqlcgen.DeleteMFADeviceParams{Partition: scope.Partition, Account: scope.AccountID, ResourceKey: record.SerialNumber}); err != nil {
 		return err
 	}
-	if err := w.q.InsertMFADevice(w.ctx, sqlcgen.InsertMFADeviceParams{Partition: scope.Partition, Account: scope.AccountID, ResourceKey: record.SerialNumber, EnableDate: record.EnableDate, RetiredAt: record.RetiredAt, VerificationCountWindow: record.VerificationCount.Window, LastPairStep: record.LastPairStep, VerificationCountCount: int64(record.VerificationCount.Count), SerialNumber: record.SerialNumber, BindingValueSeed: record.Binding.Value.Seed, BindingValueUserID: record.Binding.Value.UserID, BindingVisibleValueSeed: record.Binding.VisibleValue.Seed, BindingVisibleValueUserID: record.Binding.VisibleValue.UserID, BindingValueSkewSteps: record.Binding.Value.SkewSteps, BindingVisibleValueSkewSteps: record.Binding.VisibleValue.SkewSteps}); err != nil {
+	if err := w.q.InsertMFADevice(w.ctx, sqlcgen.InsertMFADeviceParams{CfnOwner: record.CloudFormationOwner, Partition: scope.Partition, Account: scope.AccountID, ResourceKey: record.SerialNumber, EnableDate: record.EnableDate, RetiredAt: record.RetiredAt, VerificationCountWindow: record.VerificationCount.Window, LastPairStep: record.LastPairStep, VerificationCountCount: int64(record.VerificationCount.Count), SerialNumber: record.SerialNumber, BindingValueSeed: record.Binding.Value.Seed, BindingValueUserID: record.Binding.Value.UserID, BindingVisibleValueSeed: record.Binding.VisibleValue.Seed, BindingVisibleValueUserID: record.Binding.VisibleValue.UserID, BindingValueSkewSteps: record.Binding.Value.SkewSteps, BindingVisibleValueSkewSteps: record.Binding.VisibleValue.SkewSteps}); err != nil {
 		return err
 	}
 	if err := w.writeMFADeviceBindingPending(scope.Partition, scope.AccountID, record.SerialNumber, record.Binding.Pending); err != nil {

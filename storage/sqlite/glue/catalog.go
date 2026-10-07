@@ -28,6 +28,7 @@ func catalogBoolean[T ~bool](v *T) int64 {
 }
 func decodeCatalog(row sqlcgen.GlueCatalog) (domain.CatalogRecord, error) {
 	out := domain.CatalogRecord{Key: domain.CatalogKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, CatalogID: row.CatalogID}}
+	out.CFNOwner = row.CfnOwner
 	out.Catalog.CatalogId = new(api.CatalogIdString(row.CatalogID))
 	out.Catalog.ResourceArn = new(api.ResourceArnString(out.Key.ARN()))
 	out.Catalog.Name = new(api.CatalogNameString(row.Name))
@@ -77,6 +78,7 @@ func (r reader) Catalogs(key domain.Scope) ([]domain.CatalogRecord, error) {
 func (w writer) PutCatalog(v domain.CatalogRecord) error {
 	key := v.Key
 	p := sqlcgen.PutGlueCatalogParams{Partition: key.Partition, AccountID: key.AccountID, Region: key.Region, CatalogID: key.CatalogID}
+	p.CfnOwner = v.CFNOwner
 	p.Name = catalogValue(v.Catalog.Name)
 	p.Description = catalogNullString(v.Catalog.Description)
 	p.CreatedAt = catalogRequiredTime(v.Catalog.CreateTime)
@@ -114,6 +116,7 @@ func (w writer) PutCatalog(v domain.CatalogRecord) error {
 }
 func decodeDatabase(row sqlcgen.GlueDatabase) (domain.DatabaseRecord, error) {
 	out := domain.DatabaseRecord{Key: domain.DatabaseKey{CatalogKey: domain.CatalogKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, CatalogID: row.CatalogID}, Name: row.DatabaseName}}
+	out.CFNOwner = row.CfnOwner
 	out.Database.Name = new(api.NameString(row.DatabaseName))
 	out.Database.CatalogId = new(api.CatalogIdString(row.CatalogID))
 	out.Database.Description = catalogString[api.DescriptionString](row.Description)
@@ -176,6 +179,7 @@ func (r reader) ForeignDatabases(scope domain.Scope) ([]domain.DatabaseRecord, e
 func (w writer) PutDatabase(v domain.DatabaseRecord) error {
 	key := v.Key
 	p := sqlcgen.PutGlueDatabaseParams{Partition: key.Partition, AccountID: key.AccountID, Region: key.Region, CatalogID: key.CatalogID, DatabaseName: key.Name}
+	p.CfnOwner = v.CFNOwner
 	p.Description = catalogNullString(v.Database.Description)
 	p.LocationUri = catalogNullString(v.Database.LocationUri)
 	p.CreatedAt = catalogRequiredTime(v.Database.CreateTime)
@@ -211,6 +215,7 @@ func (w writer) PutDatabase(v domain.DatabaseRecord) error {
 }
 func decodeTable(row sqlcgen.GlueTable) (domain.TableRecord, error) {
 	out := domain.TableRecord{Key: domain.TableKey{DatabaseKey: domain.DatabaseKey{CatalogKey: domain.CatalogKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, CatalogID: row.CatalogID}, Name: row.DatabaseName}, TableName: row.TableName}}
+	out.CFNOwner = row.CfnOwner
 	out.Table.Name = new(api.NameString(row.TableName))
 	out.Table.DatabaseName = new(api.NameString(row.DatabaseName))
 	out.Table.CatalogId = new(api.CatalogIdString(row.CatalogID))
@@ -272,6 +277,7 @@ func (r reader) Tables(key domain.DatabaseKey) ([]domain.TableRecord, error) {
 func (w writer) PutTable(v domain.TableRecord) error {
 	key := v.Key
 	p := sqlcgen.PutGlueTableParams{Partition: key.Partition, AccountID: key.AccountID, Region: key.Region, CatalogID: key.CatalogID, DatabaseName: key.Name, TableName: key.TableName}
+	p.CfnOwner = v.CFNOwner
 	p.Version = v.Version
 	p.Description = catalogNullString(v.Table.Description)
 	p.Owner = catalogNullString(v.Table.Owner)
@@ -419,6 +425,7 @@ func (w writer) PutTableVersion(v domain.TableVersionRecord) error {
 }
 func decodePartition(row sqlcgen.GluePartition) (domain.PartitionRecord, error) {
 	out := domain.PartitionRecord{Key: domain.PartitionKey{TableKey: domain.TableKey{DatabaseKey: domain.DatabaseKey{CatalogKey: domain.CatalogKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, CatalogID: row.CatalogID}, Name: row.DatabaseName}, TableName: row.TableName}, Values: row.ValuesJson}}
+	out.CFNOwner = row.CfnOwner
 	out.Partition.TableName = new(api.NameString(row.TableName))
 	out.Partition.DatabaseName = new(api.NameString(row.DatabaseName))
 	out.Partition.CatalogId = new(api.CatalogIdString(row.CatalogID))
@@ -464,6 +471,7 @@ func (r reader) Partitions(key domain.TableKey) ([]domain.PartitionRecord, error
 func (w writer) PutPartition(v domain.PartitionRecord) error {
 	key := v.Key
 	p := sqlcgen.PutGluePartitionParams{Partition: key.Partition, AccountID: key.AccountID, Region: key.Region, CatalogID: key.CatalogID, DatabaseName: key.Name, TableName: key.TableName, ValuesJson: key.Values}
+	p.CfnOwner = v.CFNOwner
 	p.CreatedAt = catalogRequiredTime(v.Partition.CreationTime)
 	p.LastAccessAt = catalogNullTime(v.Partition.LastAccessTime)
 	p.LastAnalyzedAt = catalogNullTime(v.Partition.LastAnalyzedTime)

@@ -2,12 +2,31 @@ package integrations
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"strings"
 
 	api "stackd/internal/awsapi/s3"
 	"stackd/internal/services/cloudformation"
+	"stackd/internal/services/s3"
 )
+
+// cfnS3Claim is the private native provenance of one exact resource
+// incarnation. The S3 owner stores it on the bucket, bucket-policy edge or
+// access point row in the transaction that creates it; it is never a tag.
+func cfnS3Claim(r cloudformation.ResourceRequest) string {
+	claim, _ := json.Marshal([]string{r.Type, r.StackID, r.LogicalID, r.Token})
+	return string(claim)
+}
+
+// cfnS3BucketContext binds this incarnation's bucket claim. Cloud Control
+// creates claim their new bucket; other Cloud Control operations act on an
+// existing bucket under current IAM alone.
+func cfnS3BucketContext(ctx context.Context, r cloudformation.ResourceRequest, create bool) context.Context {
+	if r.CloudControl && !create {
+		return ctx
+	}
+	return s3.WithCloudFormationBucketOwner(ctx, cfnS3Claim(r))
+}
 
 type cfnS3Bucket struct{ commands StepFunctionsCommands }
 type cfnS3BucketProperties struct {
@@ -27,6 +46,7 @@ type cfnS3BucketProperties struct {
 	BucketEncryption          *struct{ ServerSideEncryptionConfiguration []cfnS3EncryptionRule }
 	NotificationConfiguration *cfnS3Notifications
 	LifecycleConfiguration    *cfnS3Lifecycle
+	CorsConfiguration         *cfnS3Cors
 }
 type cfnS3EncryptionRule struct {
 	ServerSideEncryptionByDefault *struct {
@@ -35,55 +55,6 @@ type cfnS3EncryptionRule struct {
 	}
 	BucketKeyEnabled       *cfnMessagingBool
 	BlockedEncryptionTypes *struct{ EncryptionType []string }
-}
-type cfnS3Lifecycle struct{ Rules []cfnS3LifecycleRule }
-type cfnS3LifecycleRule struct {
-	ID                          string `json:"Id"`
-	Status, Prefix              string
-	NoncurrentVersionExpiration *struct {
-		NoncurrentDays          cfnMessagingInt
-		NewerNoncurrentVersions *cfnMessagingInt
-	}
-	AbortIncompleteMultipartUpload *struct{ DaysAfterInitiation cfnMessagingInt }
-}
-
-func (p *cfnS3Lifecycle) native() (*api.BucketLifecycleConfiguration, error) {
-	if p == nil {
-		return nil, nil
-	}
-	if len(p.Rules) == 0 {
-		return nil, fmt.Errorf("LifecycleConfiguration requires Rules")
-	}
-	out := &api.BucketLifecycleConfiguration{}
-	for _, rule := range p.Rules {
-		if rule.Status != "Enabled" && rule.Status != "Disabled" {
-			return nil, fmt.Errorf("lifecycle rule Status must be Enabled or Disabled")
-		}
-		if rule.NoncurrentVersionExpiration == nil && rule.AbortIncompleteMultipartUpload == nil {
-			return nil, fmt.Errorf("lifecycle rule requires a supported action")
-		}
-		next := api.LifecycleRule{ID: new(api.ID(rule.ID)), Status: new(api.ExpirationStatus(rule.Status)), Filter: &api.LifecycleRuleFilter{Prefix: new(api.Prefix(rule.Prefix))}}
-		if value := rule.NoncurrentVersionExpiration; value != nil {
-			if value.NoncurrentDays < 1 || value.NoncurrentDays > 2147483647 {
-				return nil, fmt.Errorf("NoncurrentDays must be a positive 32-bit integer")
-			}
-			next.NoncurrentVersionExpiration = &api.NoncurrentVersionExpiration{NoncurrentDays: new(api.Days(value.NoncurrentDays))}
-			if value.NewerNoncurrentVersions != nil {
-				if *value.NewerNoncurrentVersions < 1 || *value.NewerNoncurrentVersions > 100 {
-					return nil, fmt.Errorf("NewerNoncurrentVersions must be 1 through 100")
-				}
-				next.NoncurrentVersionExpiration.NewerNoncurrentVersions = new(api.VersionCount(*value.NewerNoncurrentVersions))
-			}
-		}
-		if value := rule.AbortIncompleteMultipartUpload; value != nil {
-			if value.DaysAfterInitiation < 1 || value.DaysAfterInitiation > 2147483647 {
-				return nil, fmt.Errorf("DaysAfterInitiation must be a positive 32-bit integer")
-			}
-			next.AbortIncompleteMultipartUpload = &api.AbortIncompleteMultipartUpload{DaysAfterInitiation: new(api.DaysAfterInitiation(value.DaysAfterInitiation))}
-		}
-		out.Rules = append(out.Rules, next)
-	}
-	return out, nil
 }
 
 func cfnS3ACL(value string) string {
@@ -155,6 +126,9 @@ func (h cfnS3Bucket) Validate(raw cloudformation.Properties) error {
 		return err
 	}
 	if _, err := p.LifecycleConfiguration.native(); err != nil {
+		return err
+	}
+	if _, err := p.CorsConfiguration.native(); err != nil {
 		return err
 	}
 	_, err := cfnMessagingTags(cloudformation.ResourceRequest{}, p.Tags)
@@ -285,15 +259,29 @@ func (h cfnS3Bucket) apply(ctx context.Context, r cloudformation.ResourceRequest
 		}
 	}
 	if p.LifecycleConfiguration != nil {
-		config, err := p.LifecycleConfiguration.native()
+		input, err := p.LifecycleConfiguration.native()
 		if err != nil {
 			return err
 		}
-		if err := cfnMessagingExec(ctx, h.commands, "s3", "PutBucketLifecycleConfiguration", &api.PutBucketLifecycleConfigurationInput{Bucket: bucket, ExpectedBucketOwner: owner, LifecycleConfiguration: config}); err != nil {
+		input.Bucket, input.ExpectedBucketOwner = bucket, owner
+		if err := cfnMessagingExec(ctx, h.commands, "s3", "PutBucketLifecycleConfiguration", input); err != nil {
 			return err
 		}
 	} else if old.LifecycleConfiguration != nil {
 		if err := cfnMessagingExec(ctx, h.commands, "s3", "DeleteBucketLifecycle", &api.DeleteBucketLifecycleInput{Bucket: bucket, ExpectedBucketOwner: owner}); err != nil {
+			return err
+		}
+	}
+	if p.CorsConfiguration != nil {
+		config, err := p.CorsConfiguration.native()
+		if err != nil {
+			return err
+		}
+		if err := cfnMessagingExec(ctx, h.commands, "s3", "PutBucketCors", &api.PutBucketCorsInput{Bucket: bucket, ExpectedBucketOwner: owner, CORSConfiguration: config}); err != nil {
+			return err
+		}
+	} else if old.CorsConfiguration != nil {
+		if err := cfnMessagingExec(ctx, h.commands, "s3", "DeleteBucketCors", &api.DeleteBucketCorsInput{Bucket: bucket, ExpectedBucketOwner: owner}); err != nil {
 			return err
 		}
 	}
@@ -311,20 +299,11 @@ func (h cfnS3Bucket) Create(ctx context.Context, r cloudformation.ResourceReques
 	if name == "" {
 		name = cfnMessagingName(r, 63, false)
 	}
-	tags, err := h.tags(ctx, r, name)
-	if err == nil {
-		if err := cfnMessagingOwned(tags, r); err != nil {
-			return cloudformation.ResourceResult{}, cfnResourceCreateOwnedError(r, err)
-		}
-		return h.result(r, name), h.apply(ctx, r, p, cfnS3BucketProperties{}, name)
-	}
-	if !cfnMessagingMissing(err, "NoSuchBucket") {
-		return cloudformation.ResourceResult{}, err
-	}
-	tags, err = cfnMessagingTags(r, p.Tags)
+	tags, err := cfnMessagingTags(r, p.Tags)
 	if err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
+	ctx = cfnS3BucketContext(ctx, r, true)
 	input := &api.CreateBucketInput{Bucket: new(api.BucketName(name)), CreateBucketConfiguration: &api.CreateBucketConfiguration{Tags: cfnS3NativeTags(tags)}}
 	if r.Scope.Region != "us-east-1" {
 		input.CreateBucketConfiguration.LocationConstraint = new(api.BucketLocationConstraint(r.Scope.Region))
@@ -332,10 +311,33 @@ func (h cfnS3Bucket) Create(ctx context.Context, r cloudformation.ResourceReques
 	if p.OwnershipControls != nil {
 		input.ObjectOwnership = new(api.ObjectOwnership(p.OwnershipControls.Rules[0].ObjectOwnership))
 	}
+	// The owner admits a new bucket with this claim, or returns the bucket this
+	// exact incarnation already committed; any other bucket is rejected.
 	if err := cfnMessagingExec(ctx, h.commands, "s3", "CreateBucket", input); err != nil {
+		if cfnMessagingMissing(err, "BucketAlreadyOwnedByYou", "BucketAlreadyExists") {
+			return cloudformation.ResourceResult{}, cfnResourceCreateOwnedError(r, err)
+		}
+		// A failed reply is not evidence that admission did not occur.
+		if recovered, recoveryErr := h.RecoverCreation(ctx, r); recoveryErr == nil {
+			return recovered, err
+		}
 		return cloudformation.ResourceResult{}, err
 	}
 	return h.result(r, name), h.apply(ctx, r, p, cfnS3BucketProperties{}, name)
+}
+
+// RecoverCreation observes only the bucket whose private claim is this exact
+// incarnation. A same-name bucket with copied tags is a foreign bucket.
+func (h cfnS3Bucket) RecoverCreation(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
+	name := cfnComputeString(r.Properties, "BucketName")
+	if name == "" {
+		name = cfnMessagingName(r, 63, false)
+	}
+	ctx = cfnS3BucketContext(ctx, r, true)
+	if _, err := cfnMessagingCall[api.GetBucketLocationOutput](ctx, h.commands, "s3", "GetBucketLocation", &api.GetBucketLocationInput{Bucket: new(api.BucketName(name)), ExpectedBucketOwner: new(api.AccountId(r.Scope.Account))}); err != nil {
+		return cloudformation.ResourceResult{}, err
+	}
+	return h.result(r, name), nil
 }
 func (h cfnS3Bucket) Update(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
 	if r.CloudControl {
@@ -348,6 +350,7 @@ func (h cfnS3Bucket) Update(ctx context.Context, r cloudformation.ResourceReques
 		}
 		r.PhysicalID = name
 	}
+	ctx = cfnS3BucketContext(ctx, r, false)
 	result := h.result(r, r.PhysicalID)
 	replacement, err := h.Replacement(r.Previous, r.Properties)
 	if err != nil {
@@ -363,25 +366,12 @@ func (h cfnS3Bucket) Update(ctx context.Context, r cloudformation.ResourceReques
 	if err := cfnMessagingDecode(r.Properties, &next); err != nil {
 		return result, err
 	}
-	tags, err := h.tags(ctx, r, r.PhysicalID)
-	if err != nil {
-		return result, err
-	}
-	if err := cfnMessagingOwned(tags, r); !r.CloudControl && err != nil {
-		return result, err
-	}
 	if err := h.apply(ctx, r, next, old, r.PhysicalID); err != nil {
 		return result, err
 	}
 	wanted, err := cfnMessagingTags(r, next.Tags)
 	if err != nil {
 		return result, err
-	}
-	wanted = cfnResourceMutationTags(r, tags, wanted)
-	for k, v := range tags {
-		if strings.HasPrefix(k, "stackd:cloudformation:") && k != cfnMessagingOwnerTag && k != cfnMessagingTokenTag {
-			wanted[k] = v
-		}
 	}
 	if err := h.putTags(ctx, r, r.PhysicalID, wanted); err != nil {
 		return result, err
@@ -396,15 +386,9 @@ func (h cfnS3Bucket) Delete(ctx context.Context, r cloudformation.ResourceReques
 		}
 		r.PhysicalID = name
 	}
-	tags, err := h.tags(ctx, r, r.PhysicalID)
+	err := cfnMessagingExec(cfnS3BucketContext(ctx, r, false), h.commands, "s3", "DeleteBucket", &api.DeleteBucketInput{Bucket: new(api.BucketName(r.PhysicalID)), ExpectedBucketOwner: new(api.AccountId(r.Scope.Account))})
 	if cfnMessagingMissing(err, "NoSuchBucket") && !r.CloudControl {
 		return nil
 	}
-	if err != nil {
-		return err
-	}
-	if err := cfnMessagingOwned(tags, r); !r.CloudControl && err != nil {
-		return err
-	}
-	return cfnMessagingExec(ctx, h.commands, "s3", "DeleteBucket", &api.DeleteBucketInput{Bucket: new(api.BucketName(r.PhysicalID)), ExpectedBucketOwner: new(api.AccountId(r.Scope.Account))})
+	return err
 }

@@ -26,6 +26,11 @@ func (r reader) volume(v sqlcgen.EbsVolume) (domain.VolumeRecord, error) {
 		InfrastructureGrantID: kmsapi.GrantIdType(v.InfrastructureGrantID),
 		RequestID:             v.RequestID, ParentEventID: v.ParentEventID,
 	}
+	var claimErr error
+	out.CloudFormationOwner, claimErr = r.cloudFormationClaim(out.Key.Scope, out.Key.ID)
+	if claimErr != nil {
+		return domain.VolumeRecord{}, claimErr
+	}
 	if v.CreationSourceID != "" {
 		out.Creation = &domain.VolumeCreation{
 			Source:           domain.SnapshotKey{Scope: domain.Scope{Partition: v.CreationSourcePartition, AccountID: v.CreationSourceAccountID, Region: v.CreationSourceRegion}, ID: v.CreationSourceID},
@@ -172,6 +177,9 @@ func (w writer) PutVolume(v domain.VolumeRecord) error {
 		params.ModificationStatusMessage = m.StatusMessage
 	}
 	if err := w.q.PutVolume(w.ctx, params); err != nil {
+		return err
+	}
+	if err := w.putCloudFormationClaim(v.Key.Scope, v.Key.ID, v.CloudFormationOwner); err != nil {
 		return err
 	}
 	if err := w.q.DeleteVolumeTags(w.ctx, sqlcgen.DeleteVolumeTagsParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, VolumeID: k.ID}); err != nil {

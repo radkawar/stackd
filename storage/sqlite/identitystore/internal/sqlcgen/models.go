@@ -14,17 +14,19 @@ type IdentitystoreEmail struct {
 }
 
 type IdentitystoreGroup struct {
-	StoreID     string
-	ID          string
-	DisplayName string
-	Description string
+	StoreID             string
+	ID                  string
+	DisplayName         string
+	Description         string
+	CloudformationOwner string
 }
 
 type IdentitystoreMembership struct {
-	StoreID string
-	ID      string
-	UserID  string
-	GroupID string
+	StoreID             string
+	ID                  string
+	UserID              string
+	GroupID             string
+	CloudformationOwner string
 }
 
 type IdentitystoreStore struct {

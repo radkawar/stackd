@@ -9,6 +9,7 @@ func credential(row sqlcgen.CodebuildCredential) domain.CredentialRecord {
 	return domain.CredentialRecord{
 		Key: domain.CredentialKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ServerType: row.ServerType, AuthType: row.AuthType},
 		ARN: row.Arn, Ciphertext: row.Ciphertext,
+		Ownership: row.Ownership,
 	}
 }
 
@@ -34,7 +35,7 @@ func (r reader) Credentials(k domain.Scope) ([]domain.CredentialRecord, error) {
 
 func (w writer) PutCredential(v domain.CredentialRecord) error {
 	k := v.Key
-	return w.q.PutCredential(w.ctx, sqlcgen.PutCredentialParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ServerType: k.ServerType, AuthType: k.AuthType, Arn: v.ARN, Ciphertext: v.Ciphertext})
+	return w.q.PutCredential(w.ctx, sqlcgen.PutCredentialParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ServerType: k.ServerType, AuthType: k.AuthType, Arn: v.ARN, Ciphertext: v.Ciphertext, Ownership: v.Ownership})
 }
 
 func (w writer) DeleteCredential(k domain.CredentialKey) error {

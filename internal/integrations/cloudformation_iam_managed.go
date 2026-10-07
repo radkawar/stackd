@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"reflect"
 	"slices"
+	"time"
 
 	api "stackd/internal/awsapi/iam"
 	"stackd/internal/services/cloudformation"
@@ -44,6 +45,7 @@ func cfnIAMManagedARN(r cloudformation.ResourceRequest) string {
 	return "arn:" + r.Scope.Partition + ":iam::" + r.Scope.Account + ":policy" + fmt.Sprint(cfnComputeDefault(r.Properties, "Path", "/")) + cfnComputeName(r, "ManagedPolicyName", 128)
 }
 func (h cfnIAMManagedPolicy) owned(ctx context.Context, r cloudformation.ResourceRequest, arn string) (*api.Policy, error) {
+	ctx = cfnIAMContext(ctx, r)
 	out, err := cfnComputeCall[api.GetPolicyOutput](ctx, h.commands, "iam", "GetPolicy", map[string]any{"PolicyArn": arn})
 	if err != nil {
 		return nil, err
@@ -51,18 +53,17 @@ func (h cfnIAMManagedPolicy) owned(ctx context.Context, r cloudformation.Resourc
 	if out.Policy == nil {
 		return nil, fmt.Errorf("IAM returned no managed policy")
 	}
-	tags := map[string]string{}
-	for _, tag := range out.Policy.Tags {
-		tags[cfnComputeValue(tag.Key)] = cfnComputeValue(tag.Value)
-	}
-	if err := cfnComputeOwnership(r, tags); err != nil {
-		return nil, err
-	}
 	return out.Policy, nil
 }
 func cfnIAMManagedResult(policy *api.Policy) cloudformation.ResourceResult {
 	arn := cfnComputeValue(policy.Arn)
 	attributes := map[string]any{"PolicyArn": arn, "PolicyId": cfnComputeValue(policy.PolicyId), "DefaultVersionId": cfnComputeValue(policy.DefaultVersionId)}
+	if policy.CreateDate != nil {
+		attributes["CreateDate"] = policy.CreateDate.UTC().Format(time.RFC3339)
+	}
+	if policy.UpdateDate != nil {
+		attributes["UpdateDate"] = policy.UpdateDate.UTC().Format(time.RFC3339)
+	}
 	if policy.AttachmentCount != nil {
 		attributes["AttachmentCount"] = int64(*policy.AttachmentCount)
 	}
@@ -75,6 +76,7 @@ func cfnIAMManagedResult(policy *api.Policy) cloudformation.ResourceResult {
 	return cloudformation.ResourceResult{PhysicalID: arn, Ref: arn, Attributes: attributes}
 }
 func (h cfnIAMManagedPolicy) attachments(ctx context.Context, r cloudformation.ResourceRequest, arn string) error {
+	ctx = cfnIAMContext(ctx, r)
 	for key, entity := range map[string]string{"Roles": "Role", "Users": "User", "Groups": "Group"} {
 		desired, _ := cfnComputeStringList(r.Properties, key)
 		previous, _ := cfnComputeStringList(r.Previous, key)
@@ -116,6 +118,8 @@ func cfnIAMDocumentEqual(encoded, desired string) bool {
 	return json.Unmarshal([]byte(actual), &a) == nil && json.Unmarshal([]byte(desired), &b) == nil && reflect.DeepEqual(a, b)
 }
 func (h cfnIAMManagedPolicy) Create(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
+	r.CloudControl = false
+	ctx = cfnIAMContext(ctx, r)
 	if err := h.Validate(r.Properties); err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
@@ -128,10 +132,10 @@ func (h cfnIAMManagedPolicy) Create(ctx context.Context, r cloudformation.Resour
 		input := cfnComputeCopy(r.Properties, "Path", "Description")
 		input["PolicyName"] = cfnComputeName(r, "ManagedPolicyName", 128)
 		input["PolicyDocument"], _ = cfnComputeDocument(r.Properties["PolicyDocument"])
-		input["Tags"] = cfnComputeTagList(cfnComputeOwnedTags(r))
+		input["Tags"] = cfnComputeTagList(cfnIAMCustomerTags(r))
 		out, err := cfnComputeCall[api.CreatePolicyOutput](ctx, h.commands, "iam", "CreatePolicy", input)
 		if err != nil {
-			return cloudformation.ResourceResult{}, err
+			return cfnIAMCreationFailure(ctx, r, h, err)
 		}
 		policy = out.Policy
 	}
@@ -146,6 +150,7 @@ func (h cfnIAMManagedPolicy) Create(ctx context.Context, r cloudformation.Resour
 	return cfnIAMManagedResult(policy), nil
 }
 func (h cfnIAMManagedPolicy) Update(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
+	ctx = cfnIAMContext(ctx, r)
 	if err := h.Validate(r.Properties); err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
@@ -177,17 +182,7 @@ func (h cfnIAMManagedPolicy) Update(ctx context.Context, r cloudformation.Resour
 	if err := h.pruneVersions(ctx, arn); err != nil {
 		return result, err
 	}
-	current := map[string]string{}
-	for _, tag := range policy.Tags {
-		current[cfnComputeValue(tag.Key)] = cfnComputeValue(tag.Value)
-	}
-	tags := cfnComputeOwnedTags(r)
-	if removed := cfnComputeRemovedTags(current, tags); len(removed) > 0 {
-		if err := cfnComputeRun(ctx, h.commands, "iam", "UntagPolicy", map[string]any{"PolicyArn": arn, "TagKeys": removed}); err != nil {
-			return result, err
-		}
-	}
-	if err := cfnComputeRun(ctx, h.commands, "iam", "TagPolicy", map[string]any{"PolicyArn": arn, "Tags": cfnComputeTagList(tags)}); err != nil {
+	if err := cfnIAMUpdateTags(ctx, h.commands, r, "Policy", "PolicyArn", arn, cfnIAMTags(policy.Tags)); err != nil {
 		return result, err
 	}
 	policy, err = h.owned(ctx, r, arn)
@@ -197,6 +192,7 @@ func (h cfnIAMManagedPolicy) Update(ctx context.Context, r cloudformation.Resour
 	return cfnIAMManagedResult(policy), nil
 }
 func (h cfnIAMManagedPolicy) Delete(ctx context.Context, r cloudformation.ResourceRequest) error {
+	ctx = cfnIAMContext(ctx, r)
 	arn := cfnIAMManagedARN(r)
 	if _, err := h.owned(ctx, r, arn); err != nil {
 		return cfnComputeAbsent(err)
@@ -210,4 +206,82 @@ func (h cfnIAMManagedPolicy) Delete(ctx context.Context, r cloudformation.Resour
 		return err
 	}
 	return cfnComputeAbsent(cfnComputeRun(ctx, h.commands, "iam", "DeletePolicy", map[string]any{"PolicyArn": arn}))
+}
+
+// https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-iam-managedpolicy.html
+func (h cfnIAMManagedPolicy) Read(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.Properties, error) {
+	policy, err := h.owned(ctx, r, r.PhysicalID)
+	if err != nil {
+		return nil, err
+	}
+	p := cloudformation.Properties{"ManagedPolicyName": cfnComputeValue(policy.PolicyName), "Path": cfnComputeValue(policy.Path), "Description": cfnComputeValue(policy.Description)}
+	for key, value := range cfnIAMManagedResult(policy).Attributes {
+		p[key] = value
+	}
+	version, err := cfnComputeCall[api.GetPolicyVersionOutput](ctx, h.commands, "iam", "GetPolicyVersion", map[string]any{"PolicyArn": r.PhysicalID, "VersionId": cfnComputeValue(policy.DefaultVersionId)})
+	if err != nil {
+		return nil, err
+	}
+	if version.PolicyVersion == nil {
+		return nil, cfnIAMNotFound()
+	}
+	p["PolicyDocument"] = cfnIAMDocument(cfnComputeValue(version.PolicyVersion.Document))
+	roles, users, groups := []string{}, []string{}, []string{}
+	input := map[string]any{"PolicyArn": r.PhysicalID}
+	for {
+		out, err := cfnComputeCall[api.ListEntitiesForPolicyOutput](ctx, h.commands, "iam", "ListEntitiesForPolicy", input)
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range out.PolicyRoles {
+			roles = append(roles, cfnComputeValue(v.RoleName))
+		}
+		for _, v := range out.PolicyUsers {
+			users = append(users, cfnComputeValue(v.UserName))
+		}
+		for _, v := range out.PolicyGroups {
+			groups = append(groups, cfnComputeValue(v.GroupName))
+		}
+		marker := cfnComputeValue(out.Marker)
+		if marker == "" {
+			break
+		}
+		input["Marker"] = marker
+	}
+	p["Roles"], p["Users"], p["Groups"] = roles, users, groups
+	return p, nil
+}
+func (h cfnIAMManagedPolicy) List(ctx context.Context, r cloudformation.ResourceRequest) ([]cloudformation.ResourceDescription, error) {
+	var result []cloudformation.ResourceDescription
+	input := map[string]any{"Scope": "Local"}
+	for {
+		out, err := cfnComputeCall[api.ListPoliciesOutput](ctx, h.commands, "iam", "ListPolicies", input)
+		if err != nil {
+			return nil, err
+		}
+		for _, policy := range out.Policies {
+			rr := r
+			rr.PhysicalID = cfnComputeValue(policy.Arn)
+			p, e := h.Read(ctx, rr)
+			if e != nil {
+				if !r.CloudControl {
+					continue
+				}
+				return nil, e
+			}
+			result = append(result, cloudformation.ResourceDescription{Identifier: rr.PhysicalID, Properties: p})
+		}
+		marker := cfnComputeValue(out.Marker)
+		if marker == "" {
+			return result, nil
+		}
+		input["Marker"] = marker
+	}
+}
+func (h cfnIAMManagedPolicy) Result(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
+	policy, err := h.owned(ctx, r, r.PhysicalID)
+	if err != nil {
+		return cloudformation.ResourceResult{}, err
+	}
+	return cfnIAMManagedResult(policy), nil
 }

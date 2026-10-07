@@ -67,6 +67,8 @@ func (s *Service) newDatabase(ctx context.Context, tx Transaction, k Key, eng, v
 	if e != nil {
 		return v, e
 	}
+	v.ResourceID = v.RuntimeID
+	v.Owner = cloudFormationClaim(ctx, k)
 	v.Ciphertext, e = s.cipher.Seal(ctx, k.ARN(), user, password)
 	return v, e
 }
@@ -157,7 +159,12 @@ func (s *Service) createWriter(ctx context.Context, tx Transaction, k Key, in *a
 	if e = s.authorize(ctx, "CreateDBInstance", k, nil, tags); e != nil {
 		return nil, e
 	}
+	id, e := incarnation()
+	if e != nil {
+		return nil, e
+	}
 	v := Database{Key: k, Engine: c.Engine, EngineVersion: c.EngineVersion, DatabaseName: c.DatabaseName, Username: c.Username, Class: value(in.DBInstanceClass), Cluster: c.Key.Name, RuntimeID: c.RuntimeID, Status: "creating", Desired: "running", Version: 1, Created: s.clock.Now(), Tags: tags, DeletionProtection: boolean(in.DeletionProtection), CopyTags: boolean(in.CopyTagsToSnapshot)}
+	v.ResourceID, v.Owner = id, cloudFormationClaim(ctx, k)
 	c.Due = s.clock.Now()
 	if c.Operation == "" {
 		c.Operation = "start"
@@ -179,6 +186,21 @@ func (s *Service) modifyDatabase(ctx context.Context, tx Transaction, action, ki
 	}
 	if v.Cluster != "" && (password != nil || group != nil) {
 		return v, unsupported("Modify credentials and parameters through the owning cluster.")
+	}
+	if v.Status == "modifying" && v.Operation == "password" && password != nil && boolean(immediate) {
+		// Recover an exact committed native credential intent, not an
+		// unrelated modification or a changed credential.
+		user, pending, err := s.cipher.Open(ctx, v.Key.ARN(), v.PendingCiphertext)
+		if err != nil {
+			return v, err
+		}
+		if user == v.Username && pending == string(*password) &&
+			(protection == nil || bool(*protection) == v.DeletionProtection) &&
+			(copyTags == nil || bool(*copyTags) == v.CopyTags) &&
+			(group == nil || string(*group) == v.ParameterGroup) {
+			return v, nil
+		}
+		return v, stateError(kind)
 	}
 	if v.Status != "available" && v.Status != "stopped" {
 		return v, stateError(kind)

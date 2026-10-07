@@ -166,6 +166,9 @@ func (s *Service) controlMachine(r Reader, raw, action string, unqualified, acti
 	if err != nil {
 		return machine, qualifier, err
 	}
+	if err := cloudFormationCheck(r.Context(), "StateMachine", machine.CFNOwner); err != nil {
+		return machine, qualifier, err
+	}
 	if unqualified && qualifier != "" {
 		return machine, qualifier, machineMissing(raw)
 	}

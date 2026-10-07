@@ -18,7 +18,7 @@ func (s *Service) registerResourcePolicyOperations() {
 		if err != nil {
 			return nil, err
 		}
-		if o.resourcePolicy.ID == "" {
+		if o.resourcePolicy.ID == "" || !claimVisible(r, o.resourcePolicy.CloudFormationOwner) {
 			return nil, resourcePolicyMissing()
 		}
 		return &api.DescribeResourcePolicyOutput{ResourcePolicy: o.resourcePolicy.api()}, nil
@@ -31,6 +31,9 @@ func (s *Service) registerResourcePolicyOperations() {
 		if o.resourcePolicy.ID == "" {
 			return nil, resourcePolicyMissing()
 		}
+		if err := claimMutation(r, o.resourcePolicy.CloudFormationOwner); err != nil {
+			return nil, err
+		}
 		delete(o.tags, o.resourcePolicy.ID)
 		o.resourcePolicy = ResourcePolicyRecord{}
 		return &api.DeleteResourcePolicyOutput{}, nil
@@ -41,6 +44,11 @@ func (s *operationState) putResourcePolicy(r *http.Request, in *api.PutResourceP
 	o, err := s.organizationFor(r, true)
 	if err != nil {
 		return nil, err
+	}
+	if o.resourcePolicy.ID != "" {
+		if err := claimMutation(r, o.resourcePolicy.CloudFormationOwner); err != nil {
+			return nil, err
+		}
 	}
 	if o.resourcePolicy.ID != "" && len(in.Tags) != 0 {
 		return nil, failure("ConstraintViolationException", "UPDATE_EXISTING_RESOURCE_POLICY_WITH_TAGS_NOT_SUPPORTED: Adding tags when updating a resource policy is not supported.")
@@ -76,7 +84,7 @@ func (s *operationState) putResourcePolicy(r *http.Request, in *api.PutResourceP
 			return nil, err
 		}
 		id := s.createdResourceID
-		o.resourcePolicy = ResourcePolicyRecord{ID: id, ARN: o.arn(s.partition, "resourcepolicy", id)}
+		o.resourcePolicy = ResourcePolicyRecord{ID: id, ARN: o.arn(s.partition, "resourcepolicy", id), CloudFormationOwner: cloudFormationClaim(r)}
 		o.tags[id] = tags
 	}
 	o.resourcePolicy.Content = string(canonical)

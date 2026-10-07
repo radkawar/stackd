@@ -224,6 +224,11 @@ type SnsTopic struct {
 	KmsMasterKeyID            string
 	DeliveryPolicy            string
 	TracingConfig             string
+	CfnTopicOwner             string
+	CfnTopicToken             string
+	CfnPolicyOwner            string
+	CfnPolicyIdentifier       string
+	CfnPolicyType             string
 }
 
 type SnsTopicArchive struct {

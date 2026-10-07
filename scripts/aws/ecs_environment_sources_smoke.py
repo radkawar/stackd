@@ -59,8 +59,8 @@ class Proof:
         environment['AWS_EC2_METADATA_DISABLED'] = 'true'
         command = [str(Path(self.args.binary).resolve()), '-listen', f'0.0.0.0:{self.port}',
             '-public-endpoint', self.endpoint, '-database', str(self.database),
-            '-docker-host', self.args.docker_host, '-compute-endpoint', f'http://host.docker.internal:{self.port}',
-            '-lambda-telemetry-directory', str(Path(self.args.telemetry_directory).resolve())]
+            '-docker-host', self.args.docker_host, '-ecs-runtime',
+            '-compute-endpoint', f'http://host.docker.internal:{self.port}']
         self.controller.start(command, self.endpoint, environment=environment, timeout=90)
 
     def docker(self, *arguments):
@@ -278,7 +278,6 @@ def main():
     parser.add_argument('--state-directory', required=True)
     parser.add_argument('--image', default='busybox:1.36')
     parser.add_argument('--docker-host', default=os.environ.get('DOCKER_HOST', 'unix:///var/run/docker.sock'))
-    parser.add_argument('--telemetry-directory', default='bin')
     args = parser.parse_args()
     proof = Proof(args)
     try:

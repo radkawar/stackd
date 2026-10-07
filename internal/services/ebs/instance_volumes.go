@@ -245,6 +245,11 @@ func (s *Service) AdmitInstanceVolumes(ctx context.Context, instanceID string, z
 			for _, tag := range tags {
 				v.Tags[value(tag.Key)] = value(tag.Value)
 			}
+			if owner, _, create, present := ec2.CloudFormationIntent(ctx); present && create && owner.ResourceType == "AWS::EC2::Instance" && owner.Owner != "" {
+				// Launch-created block devices share the instance incarnation's
+				// lifetime; they never receive a Volume creation receipt.
+				v.CloudFormationOwner = owner
+			}
 			if source != nil {
 				v.SnapshotID, v.LineageID = source.Key.ID, source.LineageID
 			}

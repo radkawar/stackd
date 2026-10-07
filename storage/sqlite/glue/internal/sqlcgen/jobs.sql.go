@@ -31,7 +31,7 @@ func (q *Queries) DeleteGlueJob(ctx context.Context, arg DeleteGlueJobParams) er
 }
 
 const getGlueJob = `-- name: GetGlueJob :one
-SELECT "partition", account_id, region, name, description, role, command, script_location, python_version, glue_version, worker_type, execution_class, security_configuration, max_concurrent_runs, max_retries, timeout, number_of_workers, max_capacity, default_arguments, non_overridable_arguments, tags, created_at, updated_at FROM glue_jobs WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
+SELECT "partition", account_id, region, name, description, role, command, script_location, python_version, glue_version, worker_type, execution_class, security_configuration, max_concurrent_runs, max_retries, timeout, number_of_workers, max_capacity, default_arguments, non_overridable_arguments, tags, created_at, updated_at, cfn_owner FROM glue_jobs WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
 `
 
 type GetGlueJobParams struct {
@@ -73,6 +73,7 @@ func (q *Queries) GetGlueJob(ctx context.Context, arg GetGlueJobParams) (GlueJob
 		&i.Tags,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -298,7 +299,7 @@ func (q *Queries) ListGlueJobRuns(ctx context.Context, arg ListGlueJobRunsParams
 }
 
 const listGlueJobs = `-- name: ListGlueJobs :many
-SELECT "partition", account_id, region, name, description, role, command, script_location, python_version, glue_version, worker_type, execution_class, security_configuration, max_concurrent_runs, max_retries, timeout, number_of_workers, max_capacity, default_arguments, non_overridable_arguments, tags, created_at, updated_at FROM glue_jobs WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
+SELECT "partition", account_id, region, name, description, role, command, script_location, python_version, glue_version, worker_type, execution_class, security_configuration, max_concurrent_runs, max_retries, timeout, number_of_workers, max_capacity, default_arguments, non_overridable_arguments, tags, created_at, updated_at, cfn_owner FROM glue_jobs WHERE partition = ? AND account_id = ? AND region = ? ORDER BY name
 `
 
 type ListGlueJobsParams struct {
@@ -340,6 +341,7 @@ func (q *Queries) ListGlueJobs(ctx context.Context, arg ListGlueJobsParams) ([]G
 			&i.Tags,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -433,8 +435,8 @@ func (q *Queries) PendingGlueJobRuns(ctx context.Context) ([]GlueJobRun, error) 
 }
 
 const putGlueJob = `-- name: PutGlueJob :exec
-INSERT INTO glue_jobs (partition, account_id, region, name, description, role, command, script_location, python_version, glue_version, worker_type, execution_class, security_configuration, max_concurrent_runs, max_retries, timeout, number_of_workers, max_capacity, default_arguments, non_overridable_arguments, tags, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO glue_jobs (cfn_owner, partition, account_id, region, name, description, role, command, script_location, python_version, glue_version, worker_type, execution_class, security_configuration, max_concurrent_runs, max_retries, timeout, number_of_workers, max_capacity, default_arguments, non_overridable_arguments, tags, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, name) DO UPDATE SET
     description = excluded.description,
     role = excluded.role,
@@ -458,6 +460,7 @@ ON CONFLICT (partition, account_id, region, name) DO UPDATE SET
 `
 
 type PutGlueJobParams struct {
+	CfnOwner                string
 	Partition               string
 	AccountID               string
 	Region                  string
@@ -485,6 +488,7 @@ type PutGlueJobParams struct {
 
 func (q *Queries) PutGlueJob(ctx context.Context, arg PutGlueJobParams) error {
 	_, err := q.db.ExecContext(ctx, putGlueJob,
+		arg.CfnOwner,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,

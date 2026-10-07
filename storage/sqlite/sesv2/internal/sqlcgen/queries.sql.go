@@ -104,7 +104,7 @@ func (q *Queries) GetAccount(ctx context.Context, arg GetAccountParams) (Sesv2Ac
 }
 
 const getConfigurationSet = `-- name: GetConfigurationSet :one
-SELECT arn, "partition", account_id, region, name, sending_enabled FROM sesv2_configuration_sets WHERE arn=?
+SELECT arn, "partition", account_id, region, name, sending_enabled, cfn_owner FROM sesv2_configuration_sets WHERE arn=?
 `
 
 func (q *Queries) GetConfigurationSet(ctx context.Context, arn string) (Sesv2ConfigurationSet, error) {
@@ -117,12 +117,13 @@ func (q *Queries) GetConfigurationSet(ctx context.Context, arn string) (Sesv2Con
 		&i.Region,
 		&i.Name,
 		&i.SendingEnabled,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const getIdentity = `-- name: GetIdentity :one
-SELECT arn, "partition", account_id, region, name, verified, verification_token, verification_expires, configuration_set FROM sesv2_identities WHERE arn=?
+SELECT arn, "partition", account_id, region, name, verified, verification_token, verification_expires, configuration_set, cfn_owner FROM sesv2_identities WHERE arn=?
 `
 
 func (q *Queries) GetIdentity(ctx context.Context, arn string) (Sesv2Identity, error) {
@@ -138,12 +139,13 @@ func (q *Queries) GetIdentity(ctx context.Context, arn string) (Sesv2Identity, e
 		&i.VerificationToken,
 		&i.VerificationExpires,
 		&i.ConfigurationSet,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const getIdentityByToken = `-- name: GetIdentityByToken :one
-SELECT arn, "partition", account_id, region, name, verified, verification_token, verification_expires, configuration_set FROM sesv2_identities WHERE verification_token=? AND verification_token<>''
+SELECT arn, "partition", account_id, region, name, verified, verification_token, verification_expires, configuration_set, cfn_owner FROM sesv2_identities WHERE verification_token=? AND verification_token<>''
 `
 
 func (q *Queries) GetIdentityByToken(ctx context.Context, verificationToken string) (Sesv2Identity, error) {
@@ -159,6 +161,7 @@ func (q *Queries) GetIdentityByToken(ctx context.Context, verificationToken stri
 		&i.VerificationToken,
 		&i.VerificationExpires,
 		&i.ConfigurationSet,
+		&i.CfnOwner,
 	)
 	return i, err
 }
@@ -196,7 +199,7 @@ func (q *Queries) GetMessage(ctx context.Context, arn string) (Sesv2Message, err
 }
 
 const getTemplate = `-- name: GetTemplate :one
-SELECT arn, "partition", account_id, region, name, subject, text_body, html_body, created FROM sesv2_templates WHERE arn=?
+SELECT arn, "partition", account_id, region, name, subject, text_body, html_body, created, cfn_owner FROM sesv2_templates WHERE arn=?
 `
 
 func (q *Queries) GetTemplate(ctx context.Context, arn string) (Sesv2Template, error) {
@@ -212,12 +215,13 @@ func (q *Queries) GetTemplate(ctx context.Context, arn string) (Sesv2Template, e
 		&i.TextBody,
 		&i.HtmlBody,
 		&i.Created,
+		&i.CfnOwner,
 	)
 	return i, err
 }
 
 const listConfigurationSets = `-- name: ListConfigurationSets :many
-SELECT arn, "partition", account_id, region, name, sending_enabled FROM sesv2_configuration_sets WHERE partition=? AND account_id=? AND region=? ORDER BY name
+SELECT arn, "partition", account_id, region, name, sending_enabled, cfn_owner FROM sesv2_configuration_sets WHERE partition=? AND account_id=? AND region=? ORDER BY name
 `
 
 type ListConfigurationSetsParams struct {
@@ -242,6 +246,7 @@ func (q *Queries) ListConfigurationSets(ctx context.Context, arg ListConfigurati
 			&i.Region,
 			&i.Name,
 			&i.SendingEnabled,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -289,7 +294,7 @@ func (q *Queries) ListConfigurationTags(ctx context.Context, arn string) ([]List
 }
 
 const listIdentities = `-- name: ListIdentities :many
-SELECT arn, "partition", account_id, region, name, verified, verification_token, verification_expires, configuration_set FROM sesv2_identities WHERE partition=? AND account_id=? AND region=? ORDER BY name
+SELECT arn, "partition", account_id, region, name, verified, verification_token, verification_expires, configuration_set, cfn_owner FROM sesv2_identities WHERE partition=? AND account_id=? AND region=? ORDER BY name
 `
 
 type ListIdentitiesParams struct {
@@ -317,6 +322,7 @@ func (q *Queries) ListIdentities(ctx context.Context, arg ListIdentitiesParams) 
 			&i.VerificationToken,
 			&i.VerificationExpires,
 			&i.ConfigurationSet,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -548,7 +554,7 @@ func (q *Queries) ListMessages(ctx context.Context, arg ListMessagesParams) ([]S
 }
 
 const listTemplates = `-- name: ListTemplates :many
-SELECT arn, "partition", account_id, region, name, subject, text_body, html_body, created FROM sesv2_templates WHERE partition=? AND account_id=? AND region=? ORDER BY name
+SELECT arn, "partition", account_id, region, name, subject, text_body, html_body, created, cfn_owner FROM sesv2_templates WHERE partition=? AND account_id=? AND region=? ORDER BY name
 `
 
 type ListTemplatesParams struct {
@@ -576,6 +582,7 @@ func (q *Queries) ListTemplates(ctx context.Context, arg ListTemplatesParams) ([
 			&i.TextBody,
 			&i.HtmlBody,
 			&i.Created,
+			&i.CfnOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -644,7 +651,7 @@ func (q *Queries) PutAccount(ctx context.Context, arg PutAccountParams) error {
 }
 
 const putConfigurationSet = `-- name: PutConfigurationSet :exec
-INSERT INTO sesv2_configuration_sets(arn,partition,account_id,region,name,sending_enabled) VALUES(?,?,?,?,?,?) ON CONFLICT(arn) DO UPDATE SET sending_enabled=excluded.sending_enabled
+INSERT INTO sesv2_configuration_sets(arn,partition,account_id,region,name,sending_enabled,cfn_owner) VALUES(?,?,?,?,?,?,?) ON CONFLICT(arn) DO UPDATE SET sending_enabled=excluded.sending_enabled
 `
 
 type PutConfigurationSetParams struct {
@@ -654,6 +661,7 @@ type PutConfigurationSetParams struct {
 	Region         string
 	Name           string
 	SendingEnabled int64
+	CfnOwner       string
 }
 
 func (q *Queries) PutConfigurationSet(ctx context.Context, arg PutConfigurationSetParams) error {
@@ -664,6 +672,7 @@ func (q *Queries) PutConfigurationSet(ctx context.Context, arg PutConfigurationS
 		arg.Region,
 		arg.Name,
 		arg.SendingEnabled,
+		arg.CfnOwner,
 	)
 	return err
 }
@@ -684,7 +693,7 @@ func (q *Queries) PutConfigurationTag(ctx context.Context, arg PutConfigurationT
 }
 
 const putIdentity = `-- name: PutIdentity :exec
-INSERT INTO sesv2_identities(arn,partition,account_id,region,name,verified,verification_token,verification_expires,configuration_set) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(arn) DO UPDATE SET verified=excluded.verified,verification_token=excluded.verification_token,verification_expires=excluded.verification_expires,configuration_set=excluded.configuration_set
+INSERT INTO sesv2_identities(arn,partition,account_id,region,name,verified,verification_token,verification_expires,configuration_set,cfn_owner) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(arn) DO UPDATE SET verified=excluded.verified,verification_token=excluded.verification_token,verification_expires=excluded.verification_expires,configuration_set=excluded.configuration_set
 `
 
 type PutIdentityParams struct {
@@ -697,6 +706,7 @@ type PutIdentityParams struct {
 	VerificationToken   string
 	VerificationExpires int64
 	ConfigurationSet    string
+	CfnOwner            string
 }
 
 func (q *Queries) PutIdentity(ctx context.Context, arg PutIdentityParams) error {
@@ -710,6 +720,7 @@ func (q *Queries) PutIdentity(ctx context.Context, arg PutIdentityParams) error 
 		arg.VerificationToken,
 		arg.VerificationExpires,
 		arg.ConfigurationSet,
+		arg.CfnOwner,
 	)
 	return err
 }
@@ -855,7 +866,7 @@ func (q *Queries) PutMessageTag(ctx context.Context, arg PutMessageTagParams) er
 }
 
 const putTemplate = `-- name: PutTemplate :exec
-INSERT INTO sesv2_templates(arn,partition,account_id,region,name,subject,text_body,html_body,created) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(arn) DO UPDATE SET subject=excluded.subject,text_body=excluded.text_body,html_body=excluded.html_body
+INSERT INTO sesv2_templates(arn,partition,account_id,region,name,subject,text_body,html_body,created,cfn_owner) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(arn) DO UPDATE SET subject=excluded.subject,text_body=excluded.text_body,html_body=excluded.html_body,cfn_owner=excluded.cfn_owner
 `
 
 type PutTemplateParams struct {
@@ -868,6 +879,7 @@ type PutTemplateParams struct {
 	TextBody  string
 	HtmlBody  string
 	Created   int64
+	CfnOwner  string
 }
 
 func (q *Queries) PutTemplate(ctx context.Context, arg PutTemplateParams) error {
@@ -881,6 +893,7 @@ func (q *Queries) PutTemplate(ctx context.Context, arg PutTemplateParams) error 
 		arg.TextBody,
 		arg.HtmlBody,
 		arg.Created,
+		arg.CfnOwner,
 	)
 	return err
 }

@@ -86,6 +86,7 @@ func (s *Service) createDeliveryStream(ctx context.Context, tx Transaction, in *
 	}
 	now := s.clock.Now().UTC().Truncate(time.Millisecond)
 	stream := StreamRecord{Key: key, ID: uuid.NewString(), Status: "CREATING", Version: 1, Created: now, LifecycleDue: now.Add(lifecycleDelay), Destination: destination, Tags: tags}
+	stream.CFNOwner = cloudFormationOwner(ctx)
 	if source := in.KinesisStreamSourceConfiguration; source != nil {
 		if value(source.RoleARN) == "" || value(source.KinesisStreamARN) == "" {
 			return nil, failure("InvalidArgumentException", "A Kinesis source requires KinesisStreamARN and RoleARN")
@@ -125,7 +126,7 @@ func (s *Service) deleteDeliveryStream(ctx context.Context, tx Transaction, in *
 	if stream.Status == "DELETING" {
 		return &api.DeleteDeliveryStreamOutput{}, nil
 	}
-	if stream.Status != "ACTIVE" {
+	if stream.Status != "ACTIVE" && !(cloudFormationOwner(ctx) != "" && stream.Status == "CREATING") {
 		return nil, failure("ResourceInUseException", fmt.Sprintf("Firehose %s under account %s cannot be deleted in %s state", stream.Key.Name, stream.Key.AccountID, stream.Status))
 	}
 	stream.Status = "DELETING"

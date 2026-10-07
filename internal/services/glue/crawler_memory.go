@@ -71,6 +71,9 @@ func (w memoryWriter) PutCrawler(v CrawlerRecord) error {
 	if err := w.tx.Check(true); err != nil {
 		return err
 	}
+	if old, ok := w.s.crawlers[v.Key]; ok {
+		v.CFNOwner = old.CFNOwner
+	}
 	w.s.crawlers[v.Key] = cloneCrawlerRecord(v)
 	return nil
 }
@@ -195,6 +198,9 @@ func (r memoryReader) Connections(scope Scope) ([]ConnectionRecord, error) {
 func (w memoryWriter) PutConnection(v ConnectionRecord) error {
 	if err := w.tx.Check(true); err != nil {
 		return err
+	}
+	if old, ok := w.s.connections[v.Key]; ok {
+		v.CFNOwner = old.CFNOwner
 	}
 	w.s.connections[v.Key] = cloneConnectionRecord(v)
 	return nil

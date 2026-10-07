@@ -75,7 +75,7 @@ func (q *Queries) DeleteClientKeyTags(ctx context.Context, arg DeleteClientKeyTa
 }
 
 const getClientKey = `-- name: GetClientKey :one
-SELECT "partition", account_id, region, client_key_id, name, description, customer_id, value, enabled, created, updated FROM apigateway_client_keys WHERE partition = ? AND account_id = ? AND region = ? AND client_key_id = ?
+SELECT "partition", account_id, region, client_key_id, name, description, customer_id, value, enabled, created, updated, cfn_stack_id, cfn_logical_id, cfn_incarnation FROM apigateway_client_keys WHERE partition = ? AND account_id = ? AND region = ? AND client_key_id = ?
 `
 
 type GetClientKeyParams struct {
@@ -105,12 +105,15 @@ func (q *Queries) GetClientKey(ctx context.Context, arg GetClientKeyParams) (Api
 		&i.Enabled,
 		&i.Created,
 		&i.Updated,
+		&i.CfnStackID,
+		&i.CfnLogicalID,
+		&i.CfnIncarnation,
 	)
 	return i, err
 }
 
 const getClientKeyByValue = `-- name: GetClientKeyByValue :one
-SELECT "partition", account_id, region, client_key_id, name, description, customer_id, value, enabled, created, updated FROM apigateway_client_keys WHERE partition = ? AND account_id = ? AND region = ? AND value = ?
+SELECT "partition", account_id, region, client_key_id, name, description, customer_id, value, enabled, created, updated, cfn_stack_id, cfn_logical_id, cfn_incarnation FROM apigateway_client_keys WHERE partition = ? AND account_id = ? AND region = ? AND value = ?
 `
 
 type GetClientKeyByValueParams struct {
@@ -140,6 +143,9 @@ func (q *Queries) GetClientKeyByValue(ctx context.Context, arg GetClientKeyByVal
 		&i.Enabled,
 		&i.Created,
 		&i.Updated,
+		&i.CfnStackID,
+		&i.CfnLogicalID,
+		&i.CfnIncarnation,
 	)
 	return i, err
 }
@@ -233,7 +239,7 @@ func (q *Queries) ListClientKeyTags(ctx context.Context, arg ListClientKeyTagsPa
 }
 
 const listClientKeys = `-- name: ListClientKeys :many
-SELECT "partition", account_id, region, client_key_id, name, description, customer_id, value, enabled, created, updated FROM apigateway_client_keys WHERE partition = ? AND account_id = ? AND region = ? ORDER BY client_key_id
+SELECT "partition", account_id, region, client_key_id, name, description, customer_id, value, enabled, created, updated, cfn_stack_id, cfn_logical_id, cfn_incarnation FROM apigateway_client_keys WHERE partition = ? AND account_id = ? AND region = ? ORDER BY client_key_id
 `
 
 type ListClientKeysParams struct {
@@ -263,6 +269,9 @@ func (q *Queries) ListClientKeys(ctx context.Context, arg ListClientKeysParams) 
 			&i.Enabled,
 			&i.Created,
 			&i.Updated,
+			&i.CfnStackID,
+			&i.CfnLogicalID,
+			&i.CfnIncarnation,
 		); err != nil {
 			return nil, err
 		}
@@ -278,22 +287,25 @@ func (q *Queries) ListClientKeys(ctx context.Context, arg ListClientKeysParams) 
 }
 
 const putClientKey = `-- name: PutClientKey :exec
-INSERT INTO apigateway_client_keys (partition, account_id, region, client_key_id, name, description, customer_id, value, enabled, created, updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, client_key_id) DO UPDATE SET name = excluded.name, description = excluded.description, customer_id = excluded.customer_id, value = excluded.value, enabled = excluded.enabled, created = excluded.created, updated = excluded.updated
+INSERT INTO apigateway_client_keys (partition, account_id, region, client_key_id, name, description, customer_id, value, enabled, created, updated, cfn_stack_id, cfn_logical_id, cfn_incarnation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, client_key_id) DO UPDATE SET name = excluded.name, description = excluded.description, customer_id = excluded.customer_id, value = excluded.value, enabled = excluded.enabled, created = excluded.created, updated = excluded.updated, cfn_stack_id = excluded.cfn_stack_id, cfn_logical_id = excluded.cfn_logical_id, cfn_incarnation = excluded.cfn_incarnation
 `
 
 type PutClientKeyParams struct {
-	Partition   string
-	AccountID   string
-	Region      string
-	ClientKeyID string
-	Name        sql.NullString
-	Description sql.NullString
-	CustomerID  sql.NullString
-	Value       string
-	Enabled     bool
-	Created     time.Time
-	Updated     time.Time
+	Partition      string
+	AccountID      string
+	Region         string
+	ClientKeyID    string
+	Name           sql.NullString
+	Description    sql.NullString
+	CustomerID     sql.NullString
+	Value          string
+	Enabled        bool
+	Created        time.Time
+	Updated        time.Time
+	CfnStackID     string
+	CfnLogicalID   string
+	CfnIncarnation string
 }
 
 func (q *Queries) PutClientKey(ctx context.Context, arg PutClientKeyParams) error {
@@ -309,6 +321,9 @@ func (q *Queries) PutClientKey(ctx context.Context, arg PutClientKeyParams) erro
 		arg.Enabled,
 		arg.Created,
 		arg.Updated,
+		arg.CfnStackID,
+		arg.CfnLogicalID,
+		arg.CfnIncarnation,
 	)
 	return err
 }

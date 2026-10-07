@@ -68,7 +68,7 @@ func (s *Service) permissionDocument(r Reader, action, name, permission string) 
 	if !documentNamePattern.MatchString(name) {
 		return Record{}, failure("ValidationException", "Specify the owned document name.")
 	}
-	record, err := s.load(r, action, name)
+	record, err := s.loadClaimed(r, action, name)
 	if err != nil {
 		return Record{}, err
 	}

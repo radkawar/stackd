@@ -30,6 +30,9 @@ func (s *Service) listTags(ctx context.Context, in *api.ListTagsForResourceInput
 		if err := s.authorize(tx, "ListTagsForResource", key.ARN(), topic.Tags, nil, topic.Policy); err != nil {
 			return err
 		}
+		if err := checkCloudFormationTopicClaim(tx.Context(), topic); err != nil {
+			return err
+		}
 		out = &api.ListTagsForResourceOutput{Tags: api.TagList{}}
 		for _, k := range slices.Sorted(maps.Keys(topic.Tags)) {
 			out.Tags = append(out.Tags, api.Tag{Key: str[api.TagKey](k), Value: str[api.TagValue](topic.Tags[k])})
@@ -61,6 +64,9 @@ func (s *Service) tagResource(ctx context.Context, in *api.TagResourceInput) (ou
 			return err
 		}
 		if err := s.authorize(tx, "TagResource", key.ARN(), topic.Tags, conditions, topic.Policy); err != nil {
+			return err
+		}
+		if err := checkCloudFormationTopicClaim(tx.Context(), topic); err != nil {
 			return err
 		}
 		merged := maps.Clone(topic.Tags)
@@ -106,6 +112,9 @@ func (s *Service) untagResource(ctx context.Context, in *api.UntagResourceInput)
 			return err
 		}
 		if err := s.authorize(tx, "UntagResource", key.ARN(), topic.Tags, conditions, topic.Policy); err != nil {
+			return err
+		}
+		if err := checkCloudFormationTopicClaim(tx.Context(), topic); err != nil {
 			return err
 		}
 		topic.Tags = maps.Clone(topic.Tags)

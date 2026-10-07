@@ -881,7 +881,7 @@ func (q *Queries) GetSubscriptionByEndpoint(ctx context.Context, arg GetSubscrip
 }
 
 const getTopic = `-- name: GetTopic :one
-SELECT id, "partition", account_id, region, name, created, updated, display_name, signature_version, policy, fifo, content_based_deduplication, fifo_throughput_scope, sequence, kms_master_key_id, delivery_policy, tracing_config FROM sns_topics WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
+SELECT id, "partition", account_id, region, name, created, updated, display_name, signature_version, policy, fifo, content_based_deduplication, fifo_throughput_scope, sequence, kms_master_key_id, delivery_policy, tracing_config, cfn_topic_owner, cfn_topic_token, cfn_policy_owner, cfn_policy_identifier, cfn_policy_type FROM sns_topics WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
 `
 
 type GetTopicParams struct {
@@ -917,6 +917,11 @@ func (q *Queries) GetTopic(ctx context.Context, arg GetTopicParams) (SnsTopic, e
 		&i.KmsMasterKeyID,
 		&i.DeliveryPolicy,
 		&i.TracingConfig,
+		&i.CfnTopicOwner,
+		&i.CfnTopicToken,
+		&i.CfnPolicyOwner,
+		&i.CfnPolicyIdentifier,
+		&i.CfnPolicyType,
 	)
 	return i, err
 }
@@ -1231,7 +1236,7 @@ func (q *Queries) ListTopicSubscriptionVersions(ctx context.Context, topicID str
 }
 
 const listTopics = `-- name: ListTopics :many
-SELECT id, "partition", account_id, region, name, created, updated, display_name, signature_version, policy, fifo, content_based_deduplication, fifo_throughput_scope, sequence, kms_master_key_id, delivery_policy, tracing_config FROM sns_topics WHERE partition = ? AND account_id = ? AND region = ? AND name > ?4 ORDER BY name LIMIT ?5
+SELECT id, "partition", account_id, region, name, created, updated, display_name, signature_version, policy, fifo, content_based_deduplication, fifo_throughput_scope, sequence, kms_master_key_id, delivery_policy, tracing_config, cfn_topic_owner, cfn_topic_token, cfn_policy_owner, cfn_policy_identifier, cfn_policy_type FROM sns_topics WHERE partition = ? AND account_id = ? AND region = ? AND name > ?4 ORDER BY name LIMIT ?5
 `
 
 type ListTopicsParams struct {
@@ -1275,6 +1280,11 @@ func (q *Queries) ListTopics(ctx context.Context, arg ListTopicsParams) ([]SnsTo
 			&i.KmsMasterKeyID,
 			&i.DeliveryPolicy,
 			&i.TracingConfig,
+			&i.CfnTopicOwner,
+			&i.CfnTopicToken,
+			&i.CfnPolicyOwner,
+			&i.CfnPolicyIdentifier,
+			&i.CfnPolicyType,
 		); err != nil {
 			return nil, err
 		}
@@ -1336,7 +1346,7 @@ func (q *Queries) NextArchiveExpiration(ctx context.Context) (SnsArchiveEntry, e
 }
 
 const nextArchiveMetric = `-- name: NextArchiveMetric :one
-SELECT t.id, t."partition", t.account_id, t.region, t.name, t.created, t.updated, t.display_name, t.signature_version, t.policy, t.fifo, t.content_based_deduplication, t.fifo_throughput_scope, t.sequence, t.kms_master_key_id, t.delivery_policy, t.tracing_config FROM sns_topic_archives a JOIN sns_topics t ON t.id = a.topic_id
+SELECT t.id, t."partition", t.account_id, t.region, t.name, t.created, t.updated, t.display_name, t.signature_version, t.policy, t.fifo, t.content_based_deduplication, t.fifo_throughput_scope, t.sequence, t.kms_master_key_id, t.delivery_policy, t.tracing_config, t.cfn_topic_owner, t.cfn_topic_token, t.cfn_policy_owner, t.cfn_policy_identifier, t.cfn_policy_type FROM sns_topic_archives a JOIN sns_topics t ON t.id = a.topic_id
 ORDER BY a.metric_due, 'arn:' || t.partition || ':sns:' || t.region || ':' || t.account_id || ':' || t.name LIMIT 1
 `
 
@@ -1361,6 +1371,11 @@ func (q *Queries) NextArchiveMetric(ctx context.Context) (SnsTopic, error) {
 		&i.KmsMasterKeyID,
 		&i.DeliveryPolicy,
 		&i.TracingConfig,
+		&i.CfnTopicOwner,
+		&i.CfnTopicToken,
+		&i.CfnPolicyOwner,
+		&i.CfnPolicyIdentifier,
+		&i.CfnPolicyType,
 	)
 	return i, err
 }
@@ -1820,9 +1835,9 @@ func (q *Queries) PutSubscription(ctx context.Context, arg PutSubscriptionParams
 }
 
 const putTopic = `-- name: PutTopic :exec
-INSERT INTO sns_topics (id, partition, account_id, region, name, created, updated, display_name, signature_version, policy, fifo, content_based_deduplication, fifo_throughput_scope, sequence, kms_master_key_id, delivery_policy, tracing_config)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(partition, account_id, region, name) DO UPDATE SET id=excluded.id, created=excluded.created, updated=excluded.updated, display_name=excluded.display_name, signature_version=excluded.signature_version, policy=excluded.policy, fifo=excluded.fifo, content_based_deduplication=excluded.content_based_deduplication, fifo_throughput_scope=excluded.fifo_throughput_scope, sequence=excluded.sequence, kms_master_key_id=excluded.kms_master_key_id, delivery_policy=excluded.delivery_policy, tracing_config=excluded.tracing_config
+INSERT INTO sns_topics (id, partition, account_id, region, name, created, updated, display_name, signature_version, policy, fifo, content_based_deduplication, fifo_throughput_scope, sequence, kms_master_key_id, delivery_policy, tracing_config, cfn_topic_owner, cfn_topic_token, cfn_policy_owner, cfn_policy_identifier, cfn_policy_type)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(partition, account_id, region, name) DO UPDATE SET id=excluded.id, created=excluded.created, updated=excluded.updated, display_name=excluded.display_name, signature_version=excluded.signature_version, policy=excluded.policy, fifo=excluded.fifo, content_based_deduplication=excluded.content_based_deduplication, fifo_throughput_scope=excluded.fifo_throughput_scope, sequence=excluded.sequence, kms_master_key_id=excluded.kms_master_key_id, delivery_policy=excluded.delivery_policy, tracing_config=excluded.tracing_config, cfn_topic_owner=excluded.cfn_topic_owner, cfn_topic_token=excluded.cfn_topic_token, cfn_policy_owner=excluded.cfn_policy_owner, cfn_policy_identifier=excluded.cfn_policy_identifier, cfn_policy_type=excluded.cfn_policy_type
 `
 
 type PutTopicParams struct {
@@ -1843,6 +1858,11 @@ type PutTopicParams struct {
 	KmsMasterKeyID            string
 	DeliveryPolicy            string
 	TracingConfig             string
+	CfnTopicOwner             string
+	CfnTopicToken             string
+	CfnPolicyOwner            string
+	CfnPolicyIdentifier       string
+	CfnPolicyType             string
 }
 
 func (q *Queries) PutTopic(ctx context.Context, arg PutTopicParams) error {
@@ -1864,6 +1884,11 @@ func (q *Queries) PutTopic(ctx context.Context, arg PutTopicParams) error {
 		arg.KmsMasterKeyID,
 		arg.DeliveryPolicy,
 		arg.TracingConfig,
+		arg.CfnTopicOwner,
+		arg.CfnTopicToken,
+		arg.CfnPolicyOwner,
+		arg.CfnPolicyIdentifier,
+		arg.CfnPolicyType,
 	)
 	return err
 }

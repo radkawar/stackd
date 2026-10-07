@@ -101,6 +101,11 @@ func (s *Service) authorize(ctx context.Context, action, resource string, condit
 }
 
 func (s *Service) authorizeResource(ctx context.Context, r Reader, key ResourceKey, conditions map[string][]string, actions ...string) error {
+	for _, action := range actions {
+		if err := checkResourceOwner(ctx, r, key, action); err != nil {
+			return err
+		}
+	}
 	if conditions == nil {
 		conditions = map[string][]string{}
 	}

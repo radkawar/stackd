@@ -60,6 +60,7 @@ func (s *Service) armIdle(slot *execution) {
 			s.mu.Lock()
 			s.collectExecutionLocked(slot)
 			s.mu.Unlock()
+			s.reconcileExecutionImages(slot)
 			slot.mu.Unlock()
 			return
 		}
@@ -86,6 +87,7 @@ func (s *Service) releaseExecution(slot *execution) {
 	}
 	s.releaseExecutionLocked(slot)
 	s.mu.Unlock()
+	s.reconcileExecutionImages(slot)
 }
 
 // releaseExecutionLocked publishes availability and timer ownership together.

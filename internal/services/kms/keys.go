@@ -33,6 +33,10 @@ func (s *Service) registerKeys() {
 }
 
 func (s *Service) createKey(ctx context.Context, in *kmsapi.CreateKeyInput) (*kmsapi.CreateKeyOutput, *awswire.Error) {
+	owner, ownerErr := keyResourceOwnerFor(ctx)
+	if ownerErr != nil {
+		return nil, ownerErr
+	}
 	origin := value(in.Origin)
 	if origin == "" {
 		origin = "AWS_KMS"
@@ -96,11 +100,19 @@ func (s *Service) createKey(ctx context.Context, in *kmsapi.CreateKeyInput) (*km
 			return nil, err
 		}
 	}
+	if owner != (KeyResourceOwner{}) {
+		for _, existing := range s.store(ctx).keys {
+			if existing.owner == owner {
+				return &kmsapi.CreateKeyOutput{KeyMetadata: metadata(ctx, existing)}, nil
+			}
+		}
+	}
 	k, err := s.newKey(ctx, value(in.Description), "CUSTOMER", KeySetRecord{Spec: spec, Usage: usage, Origin: origin, MultiRegion: isTrue(in.MultiRegion)}, tags)
 	if err != nil {
 		return nil, err
 	}
 	k.policy, k.principalIDs = bound.Document, bound.PrincipalIDs
+	k.owner = owner
 	return &kmsapi.CreateKeyOutput{KeyMetadata: metadata(ctx, k)}, nil
 }
 

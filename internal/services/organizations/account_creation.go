@@ -35,6 +35,23 @@ func (s *operationState) createAccount(r *http.Request, in *api.CreateAccountInp
 	if err != nil {
 		return nil, err
 	}
+	owner := cloudFormationClaim(r)
+	region := awsctx.FromContext(r.Context()).Region
+	if owner != "" {
+		for _, existing := range o.creations {
+			if existing.CloudFormationOwner == owner && existing.RequestRegion == region {
+				if existing.State == "SUCCEEDED" {
+					a, exists := o.accounts[existing.AccountID]
+					if !exists || a.CloudFormationOwner != owner || a.CloudFormationRegion != region {
+						return nil, failure("AccessDeniedException", "The created account no longer belongs to this CloudFormation incarnation.")
+					}
+				}
+				status := accountStatus(existing)
+				status.AccountId = new(api.AccountId(existing.AccountID))
+				return &api.CreateAccountOutput{CreateAccountStatus: status}, nil
+			}
+		}
+	}
 	if s.accountQuotaReached(o, s.accountQuota, "") {
 		return nil, failure("ConstraintViolationException", "ACCOUNT_NUMBER_LIMIT_EXCEEDED: The organization has reached its account quota.")
 	}
@@ -53,13 +70,17 @@ func (s *operationState) createAccount(r *http.Request, in *api.CreateAccountInp
 	}
 	id, sequence := s.nextAccountID()
 	s.nextAccount = sequence
-	job := AccountCreationRecord{ID: identifier("car-", 12), AccountID: id, AccountName: string(*in.AccountName), Email: string(*in.Email), RoleName: roleName, State: "IN_PROGRESS", RequestedAt: s.instant, Due: s.instant.Add(accountCreationDelay), Tags: tags}
+	job := AccountCreationRecord{ID: identifier("car-", 12), AccountID: id, AccountName: string(*in.AccountName), Email: string(*in.Email), RoleName: roleName, State: "IN_PROGRESS", RequestedAt: s.instant, Due: s.instant.Add(accountCreationDelay), Tags: tags, CloudFormationOwner: owner}
 	origin := awsctx.FromContext(r.Context())
 	job.RequestID, job.RequestRegion, job.ActorARN = origin.RequestID, origin.Region, origin.PrincipalARN
 	// TODO: Comeback implement account billing access, post-success initialization, Service Quotas API integration, request throttling and remaining AWS failure/timestamp conformance; current jobs publish membership, IAM roles and copied primary contact together.
 	o.creations[job.ID] = job
 	s.recordAccountCreation(o, job)
-	return &api.CreateAccountOutput{CreateAccountStatus: accountStatus(job)}, nil
+	status := accountStatus(job)
+	if cloudFormationClaim(r) != "" {
+		status.AccountId = new(api.AccountId(job.AccountID))
+	}
+	return &api.CreateAccountOutput{CreateAccountStatus: status}, nil
 }
 
 func (s *operationState) describeAccountStatus(r *http.Request, in *api.DescribeCreateAccountStatusInput) (*api.DescribeCreateAccountStatusOutput, *awswire.Error) {
@@ -70,6 +91,9 @@ func (s *operationState) describeAccountStatus(r *http.Request, in *api.Describe
 	job, ok := o.creations[string(*in.CreateAccountRequestId)]
 	if !ok {
 		return nil, failure("CreateAccountStatusNotFoundException", "The account creation request does not exist.")
+	}
+	if !creationVisible(r, o, job) {
+		return nil, failure("CreateAccountStatusNotFoundException", "The account creation request does not belong to this CloudFormation incarnation.")
 	}
 	return &api.DescribeCreateAccountStatusOutput{CreateAccountStatus: accountStatus(job)}, nil
 }
@@ -88,6 +112,9 @@ func (s *operationState) listAccountStatus(r *http.Request, in *api.ListCreateAc
 	items := make([]AccountCreationRecord, 0)
 	for _, job := range o.creations {
 		if len(states) == 0 || slices.Contains(states, job.State) {
+			if !creationVisible(r, o, job) {
+				continue
+			}
 			items = append(items, job)
 		}
 	}
@@ -98,9 +125,27 @@ func (s *operationState) listAccountStatus(r *http.Request, in *api.ListCreateAc
 	out := &api.ListCreateAccountStatusOutput{CreateAccountStatuses: make(api.CreateAccountStatuses, len(items))}
 	for i, job := range items {
 		out.CreateAccountStatuses[i] = *accountStatus(job)
+		if cloudFormationClaim(r) != "" {
+			out.CreateAccountStatuses[i].AccountId = new(api.AccountId(job.AccountID))
+		}
 	}
 	out.NextToken = nextToken(next)
 	return out, nil
+}
+
+func creationVisible(r *http.Request, o *orgState, job AccountCreationRecord) bool {
+	owner := cloudFormationClaim(r)
+	if owner == "" {
+		return true
+	}
+	if job.CloudFormationOwner != owner || job.RequestRegion != awsctx.FromContext(r.Context()).Region {
+		return false
+	}
+	if job.State == "SUCCEEDED" {
+		a, exists := o.accounts[job.AccountID]
+		return exists && accountClaimVisible(r, a)
+	}
+	return true
 }
 
 func accountStatus(job AccountCreationRecord) *api.CreateAccountStatus {

@@ -26,15 +26,19 @@ type Config struct {
 	Clock        clock.Clock
 	Endpoint     string
 	Logs         apigatewayexec.LoggingConfiguration
+	Certificates DomainCertificates
+	Truststores  DomainTruststores
 }
 type Service struct {
-	repository Repository
-	authorizer authorization.Authorizer
-	recorder   apievents.Recorder
-	clock      clock.Clock
-	endpoint   string
-	logs       apigatewayexec.LoggingConfiguration
-	operations map[string]func(context.Context) (any, *awswire.Error)
+	repository   Repository
+	authorizer   authorization.Authorizer
+	recorder     apievents.Recorder
+	clock        clock.Clock
+	endpoint     string
+	logs         apigatewayexec.LoggingConfiguration
+	certificates DomainCertificates
+	truststores  DomainTruststores
+	operations   map[string]func(context.Context) (any, *awswire.Error)
 }
 
 func New(c Config) *Service {
@@ -47,7 +51,7 @@ func New(c Config) *Service {
 	if c.Authorizer == nil {
 		c.Authorizer = authorization.NewWithClock(nil, nil, c.Clock)
 	}
-	s := &Service{repository: c.Repository, authorizer: c.Authorizer, recorder: c.Recorder, clock: c.Clock, endpoint: strings.TrimRight(c.Endpoint, "/"), logs: c.Logs, operations: map[string]func(context.Context) (any, *awswire.Error){}}
+	s := &Service{repository: c.Repository, authorizer: c.Authorizer, recorder: c.Recorder, clock: c.Clock, endpoint: strings.TrimRight(c.Endpoint, "/"), logs: c.Logs, certificates: c.Certificates, truststores: c.Truststores, operations: map[string]func(context.Context) (any, *awswire.Error){}}
 	register(s, "CreateApi", s.createAPI)
 	register(s, "GetApi", s.getAPI)
 	register(s, "GetApis", s.getAPIs)
@@ -89,6 +93,7 @@ func New(c Config) *Service {
 	register(s, "GetTags", s.getTags)
 	register(s, "TagResource", s.tagResource)
 	register(s, "UntagResource", s.untagResource)
+	registerDomains(s)
 	return s
 }
 func (s *Service) Operations() []string {
@@ -127,8 +132,8 @@ func (s *Service) ExecuteCommand(ctx context.Context, in awsapi.DecodedRequest) 
 	ctx = awsapi.WithDecodedRequest(ctx, in)
 	fn, ok := s.operations[string(in.Operation.Name)]
 	if !ok {
-		// Custom domains, VPC links, models, imports and exports require actual
-		// execution consumers before their configuration can be accepted.
+		// VPC links, models, imports and exports require actual execution
+		// consumers before their configuration can be accepted.
 		rejected := unsupported("This API Gateway V2 operation is not implemented")
 		if err := s.RecordRequestError(ctx, in, rejected); err != nil {
 			return nil, wireError(err)
@@ -150,6 +155,10 @@ func register[I, O any](s *Service, action string, fn func(Transaction, *I) (*O,
 		}
 		var out *O
 		err = s.repository.Attempt(ctx, func(tx Transaction) error {
+			tx, err = resourceOwnerTransaction(tx, action)
+			if err != nil {
+				return err
+			}
 			var e error
 			out, e = fn(tx, in)
 			if e != nil {

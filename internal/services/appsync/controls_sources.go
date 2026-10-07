@@ -30,7 +30,7 @@ func registerDataSources(s *Service) {
 			return nil, e
 		}
 		text(&d.DataSourceArn, p.Key.ARN()+"/datasources/"+value(d.Name))
-		if e = t.PutDataSource(DataSourceRecord{p.Key, d}); e != nil {
+		if e = t.PutDataSource(DataSourceRecord{API: p.Key, DataSource: d}); e != nil {
 			return nil, e
 		}
 		return &api.CreateDataSourceResponse{DataSource: &d}, nil
@@ -57,7 +57,7 @@ func registerDataSources(s *Service) {
 			}
 		}
 		text(&d.DataSourceArn, p.Key.ARN()+"/datasources/"+value(d.Name))
-		if e = t.PutDataSource(DataSourceRecord{p.Key, d}); e != nil {
+		if e = t.PutDataSource(DataSourceRecord{API: p.Key, DataSource: d}); e != nil {
 			return nil, e
 		}
 		return &api.UpdateDataSourceResponse{DataSource: &d}, nil

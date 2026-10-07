@@ -23,7 +23,7 @@ func (s *Service) captureSnapshot(ctx context.Context, tx Transaction, kind, sou
 	if v.Cluster != "" {
 		return Snapshot{}, unsupported("Snapshot the cluster, not its writer member.")
 	}
-	if v.Status != "available" {
+	if v.Status != "available" && !(kind == "cluster" && v.Status == "creating" && v.Operation == "") {
 		return Snapshot{}, stateError(kind)
 	}
 	k, e := resourceKey(ctx, skind, name)
@@ -61,6 +61,7 @@ func (s *Service) captureSnapshot(ctx context.Context, tx Transaction, kind, sou
 		return Snapshot{}, e
 	}
 	snap := Snapshot{Key: k, Source: v.Key.Name, SourceRuntimeID: v.RuntimeID, RuntimeID: id, Engine: v.Engine, EngineVersion: v.EngineVersion, DatabaseName: v.DatabaseName, Username: user, Class: v.Class, Status: "creating", Ciphertext: sealed, Parameters: maps.Clone(v.Parameters), Tags: tagged, Version: 1, Created: s.clock.Now(), Due: s.clock.Now()}
+	snap.Owner = cloudFormationClaim(ctx, k)
 	// Native backup briefly stops the source. Hide its endpoint before that effect,
 	// and keep the source blocked until actual restart/authentication succeeds.
 	v.Status = "backing-up"
@@ -124,6 +125,16 @@ func (s *Service) loadSnapshot(ctx context.Context, tx Reader, action, kind, nam
 		e = notFound(kind)
 	}
 	if e != nil {
+		return v, e
+	}
+	if e = checkCloudFormationOwner(ctx, k, v.Owner); e != nil {
+		return v, e
+	}
+	id := "db-" + v.SourceRuntimeID
+	if kind == "cluster-snapshot" {
+		id = "cluster-" + v.SourceRuntimeID
+	}
+	if e = checkCloudFormationSnapshot(ctx, k, id); e != nil {
 		return v, e
 	}
 	return v, s.authorize(ctx, action, k, v.Tags, nil)
@@ -321,6 +332,7 @@ func (s *Service) restoreDatabase(ctx context.Context, tx Transaction, kind, nam
 		return Database{}, failure("InvalidParameterValue", "DBInstanceClass is required.")
 	}
 	v := Database{Key: k, Engine: snap.Engine, EngineVersion: snap.EngineVersion, DatabaseName: snap.DatabaseName, Username: user, Class: class, ParameterGroup: group, RuntimeID: id, Status: "creating", Desired: "running", Operation: "restore", RestoreSnapshot: snap.RuntimeID, Ciphertext: sealed, Parameters: maps.Clone(snap.Parameters), Tags: tagged, Version: 1, Created: s.clock.Now(), Due: s.clock.Now()}
+	v.ResourceID, v.Owner = id, cloudFormationClaim(ctx, k)
 	if group != "" {
 
 		v.Parameters, e = s.groupParameters(ctx, tx, kind, group, v.Engine)

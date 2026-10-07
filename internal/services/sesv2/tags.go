@@ -47,26 +47,26 @@ func tagConditions(tags map[string]string) map[string][]string {
 	out["aws:TagKeys"] = keys
 	return out
 }
-func tagTarget(tx Transaction, arn string) (map[string]string, func(map[string]string) error, error) {
+func tagTarget(tx Transaction, arn string) (map[string]string, string, func(map[string]string) error, error) {
 	scope := scopeFor(tx.Context())
 	prefix := "arn:" + scope.Partition + ":ses:" + scope.Region + ":" + scope.AccountID + ":"
 	if !strings.HasPrefix(arn, prefix) {
-		return nil, nil, ErrNotFound
+		return nil, "", nil, ErrNotFound
 	}
 	kind, name, ok := strings.Cut(strings.TrimPrefix(arn, prefix), "/")
 	if !ok {
-		return nil, nil, bad("Invalid resource ARN.")
+		return nil, "", nil, bad("Invalid resource ARN.")
 	}
 	k := ResourceKey{scope, name}
 	switch kind {
 	case "identity":
 		v, e := tx.Identity(k)
-		return v.Tags, func(tags map[string]string) error { v.Tags = tags; return tx.PutIdentity(v) }, e
+		return v.Tags, v.Owner, func(tags map[string]string) error { v.Tags = tags; return tx.PutIdentity(v) }, e
 	case "configuration-set":
 		v, e := tx.ConfigurationSet(k)
-		return v.Tags, func(tags map[string]string) error { v.Tags = tags; return tx.PutConfigurationSet(v) }, e
+		return v.Tags, v.Owner, func(tags map[string]string) error { v.Tags = tags; return tx.PutConfigurationSet(v) }, e
 	default:
-		return nil, nil, unsupported("Tagging is implemented for email identities and configuration sets.")
+		return nil, "", nil, unsupported("Tagging is implemented for email identities and configuration sets.")
 	}
 }
 func (s *Service) tagResource(tx Transaction, in *api.TagResourceInput) (*api.TagResourceOutput, error) {
@@ -75,11 +75,14 @@ func (s *Service) tagResource(tx Transaction, in *api.TagResourceInput) (*api.Ta
 		return nil, e
 	}
 	arn := value(in.ResourceArn)
-	current, put, e := tagTarget(tx, arn)
+	current, owner, put, e := tagTarget(tx, arn)
 	if e != nil {
 		return nil, e
 	}
 	if e = s.authorize(tx, "TagResource", arn, current, tagConditions(tags)); e != nil {
+		return nil, e
+	}
+	if e = observeCloudFormationResource(tx.Context(), arn, owner); e != nil {
 		return nil, e
 	}
 	for k, v := range tags {
@@ -92,7 +95,7 @@ func (s *Service) tagResource(tx Transaction, in *api.TagResourceInput) (*api.Ta
 }
 func (s *Service) untagResource(tx Transaction, in *api.UntagResourceInput) (*api.UntagResourceOutput, error) {
 	arn := value(in.ResourceArn)
-	current, put, e := tagTarget(tx, arn)
+	current, owner, put, e := tagTarget(tx, arn)
 	if e != nil {
 		return nil, e
 	}
@@ -106,6 +109,9 @@ func (s *Service) untagResource(tx Transaction, in *api.UntagResourceInput) (*ap
 	if e = s.authorize(tx, "UntagResource", arn, current, map[string][]string{"aws:TagKeys": keys}); e != nil {
 		return nil, e
 	}
+	if e = observeCloudFormationResource(tx.Context(), arn, owner); e != nil {
+		return nil, e
+	}
 	for _, k := range keys {
 		delete(current, k)
 	}
@@ -113,11 +119,14 @@ func (s *Service) untagResource(tx Transaction, in *api.UntagResourceInput) (*ap
 }
 func (s *Service) listTags(tx Transaction, in *api.ListTagsForResourceInput) (*api.ListTagsForResourceOutput, error) {
 	arn := value(in.ResourceArn)
-	tags, _, e := tagTarget(tx, arn)
+	tags, owner, _, e := tagTarget(tx, arn)
 	if e != nil {
 		return nil, e
 	}
 	if e = s.authorize(tx, "ListTagsForResource", arn, tags, nil); e != nil {
+		return nil, e
+	}
+	if e = observeCloudFormationResource(tx.Context(), arn, owner); e != nil {
 		return nil, e
 	}
 	return &api.ListTagsForResourceOutput{Tags: apiTags(tags)}, nil

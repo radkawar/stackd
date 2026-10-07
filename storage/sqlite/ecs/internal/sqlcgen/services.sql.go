@@ -35,7 +35,7 @@ func (q *Queries) DeleteServiceDeployments(ctx context.Context, arg DeleteServic
 }
 
 const getService = `-- name: GetService :one
-SELECT "partition", account_id, region, cluster_name, service_name, service_availability_zone_rebalancing, service_capacity_provider_strategy, service_cluster_arn, service_created_at, service_created_by, service_current_service_deployment, service_current_service_revisions, service_deployment_configuration, service_deployment_controller, service_desired_count, service_enable_ecs_managed_tags, service_enable_execute_command, service_events, service_health_check_grace_period_seconds, service_launch_type, service_effective_launch_type, service_load_balancers, service_network_configuration, service_pending_count, service_placement_constraints, service_placement_strategy, service_platform_family, service_platform_version, service_propagate_tags, service_resource_management_type, service_role_arn, service_running_count, service_scheduling_strategy, service_service_arn, service_service_name, service_service_registries, service_status, service_task_definition, service_task_sets, create_availability_zone_rebalancing, create_capacity_provider_strategy, create_client_token, create_cluster, create_deployment_configuration, create_deployment_controller, create_desired_count, create_enable_ecs_managed_tags, create_enable_execute_command, create_health_check_grace_period_seconds, create_launch_type, create_load_balancers, create_monitoring, create_network_configuration, create_placement_constraints, create_placement_strategy, create_platform_version, create_propagate_tags, create_role, create_scheduling_strategy, create_service_connect_configuration, create_service_name, create_service_registries, create_tags, create_task_definition, create_volume_configurations, create_vpc_lattice_configurations, accepted_event_id, drain_after, deployments_present, next_metric_collection FROM ecs_services WHERE partition = ? AND account_id = ? AND region = ? AND cluster_name = ? AND service_name = ?
+SELECT "partition", account_id, region, cluster_name, service_name, service_availability_zone_rebalancing, service_capacity_provider_strategy, service_cluster_arn, service_created_at, service_created_by, service_current_service_deployment, service_current_service_revisions, service_deployment_configuration, service_deployment_controller, service_desired_count, service_enable_ecs_managed_tags, service_enable_execute_command, service_events, service_health_check_grace_period_seconds, service_launch_type, service_effective_launch_type, service_load_balancers, service_network_configuration, service_pending_count, service_placement_constraints, service_placement_strategy, service_platform_family, service_platform_version, service_propagate_tags, service_resource_management_type, service_role_arn, service_running_count, service_scheduling_strategy, service_service_arn, service_service_name, service_service_registries, service_status, service_task_definition, service_task_sets, create_availability_zone_rebalancing, create_capacity_provider_strategy, create_client_token, create_cluster, create_deployment_configuration, create_deployment_controller, create_desired_count, create_enable_ecs_managed_tags, create_enable_execute_command, create_health_check_grace_period_seconds, create_launch_type, create_load_balancers, create_monitoring, create_network_configuration, create_placement_constraints, create_placement_strategy, create_platform_version, create_propagate_tags, create_role, create_scheduling_strategy, create_service_connect_configuration, create_service_name, create_service_registries, create_tags, create_task_definition, create_volume_configurations, create_vpc_lattice_configurations, accepted_event_id, drain_after, deployments_present, next_metric_collection, ownership FROM ecs_services WHERE partition = ? AND account_id = ? AND region = ? AND cluster_name = ? AND service_name = ?
 `
 
 type GetServiceParams struct {
@@ -126,6 +126,7 @@ func (q *Queries) GetService(ctx context.Context, arg GetServiceParams) (EcsServ
 		&i.DrainAfter,
 		&i.DeploymentsPresent,
 		&i.NextMetricCollection,
+		&i.Ownership,
 	)
 	return i, err
 }
@@ -394,7 +395,7 @@ func (q *Queries) ListServiceResolvedImages(ctx context.Context, arg ListService
 }
 
 const listServices = `-- name: ListServices :many
-SELECT "partition", account_id, region, cluster_name, service_name, service_availability_zone_rebalancing, service_capacity_provider_strategy, service_cluster_arn, service_created_at, service_created_by, service_current_service_deployment, service_current_service_revisions, service_deployment_configuration, service_deployment_controller, service_desired_count, service_enable_ecs_managed_tags, service_enable_execute_command, service_events, service_health_check_grace_period_seconds, service_launch_type, service_effective_launch_type, service_load_balancers, service_network_configuration, service_pending_count, service_placement_constraints, service_placement_strategy, service_platform_family, service_platform_version, service_propagate_tags, service_resource_management_type, service_role_arn, service_running_count, service_scheduling_strategy, service_service_arn, service_service_name, service_service_registries, service_status, service_task_definition, service_task_sets, create_availability_zone_rebalancing, create_capacity_provider_strategy, create_client_token, create_cluster, create_deployment_configuration, create_deployment_controller, create_desired_count, create_enable_ecs_managed_tags, create_enable_execute_command, create_health_check_grace_period_seconds, create_launch_type, create_load_balancers, create_monitoring, create_network_configuration, create_placement_constraints, create_placement_strategy, create_platform_version, create_propagate_tags, create_role, create_scheduling_strategy, create_service_connect_configuration, create_service_name, create_service_registries, create_tags, create_task_definition, create_volume_configurations, create_vpc_lattice_configurations, accepted_event_id, drain_after, deployments_present, next_metric_collection FROM ecs_services
+SELECT "partition", account_id, region, cluster_name, service_name, service_availability_zone_rebalancing, service_capacity_provider_strategy, service_cluster_arn, service_created_at, service_created_by, service_current_service_deployment, service_current_service_revisions, service_deployment_configuration, service_deployment_controller, service_desired_count, service_enable_ecs_managed_tags, service_enable_execute_command, service_events, service_health_check_grace_period_seconds, service_launch_type, service_effective_launch_type, service_load_balancers, service_network_configuration, service_pending_count, service_placement_constraints, service_placement_strategy, service_platform_family, service_platform_version, service_propagate_tags, service_resource_management_type, service_role_arn, service_running_count, service_scheduling_strategy, service_service_arn, service_service_name, service_service_registries, service_status, service_task_definition, service_task_sets, create_availability_zone_rebalancing, create_capacity_provider_strategy, create_client_token, create_cluster, create_deployment_configuration, create_deployment_controller, create_desired_count, create_enable_ecs_managed_tags, create_enable_execute_command, create_health_check_grace_period_seconds, create_launch_type, create_load_balancers, create_monitoring, create_network_configuration, create_placement_constraints, create_placement_strategy, create_platform_version, create_propagate_tags, create_role, create_scheduling_strategy, create_service_connect_configuration, create_service_name, create_service_registries, create_tags, create_task_definition, create_volume_configurations, create_vpc_lattice_configurations, accepted_event_id, drain_after, deployments_present, next_metric_collection, ownership FROM ecs_services
 WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND cluster_name = ?4
  AND service_name > CAST(?5 AS TEXT)
  AND (CAST(?6 AS INTEGER) <> 0 OR service_status = 'ACTIVE')
@@ -505,6 +506,7 @@ func (q *Queries) ListServices(ctx context.Context, arg ListServicesParams) ([]E
 			&i.DrainAfter,
 			&i.DeploymentsPresent,
 			&i.NextMetricCollection,
+			&i.Ownership,
 		); err != nil {
 			return nil, err
 		}
@@ -521,6 +523,7 @@ func (q *Queries) ListServices(ctx context.Context, arg ListServicesParams) ([]E
 
 const putService = `-- name: PutService :exec
 INSERT INTO ecs_services (
+ ownership,
  partition,
  account_id,
  region,
@@ -592,10 +595,12 @@ INSERT INTO ecs_services (
  service_effective_launch_type,
  next_metric_collection
 ) VALUES (
+ ?,
  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
  , ?, ?
 )
 ON CONFLICT(partition, account_id, region, cluster_name, service_name) DO UPDATE SET
+ ownership = excluded.ownership,
  service_availability_zone_rebalancing = excluded.service_availability_zone_rebalancing,
  service_capacity_provider_strategy = excluded.service_capacity_provider_strategy,
  service_cluster_arn = excluded.service_cluster_arn,
@@ -664,6 +669,7 @@ ON CONFLICT(partition, account_id, region, cluster_name, service_name) DO UPDATE
 `
 
 type PutServiceParams struct {
+	Ownership                            string
 	Partition                            string
 	AccountID                            string
 	Region                               string
@@ -738,6 +744,7 @@ type PutServiceParams struct {
 
 func (q *Queries) PutService(ctx context.Context, arg PutServiceParams) error {
 	_, err := q.db.ExecContext(ctx, putService,
+		arg.Ownership,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,

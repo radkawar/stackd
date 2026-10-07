@@ -210,6 +210,9 @@ func (s *Service) loadDetector(r Reader, id, action string) (Detector, error) {
 	if err != nil {
 		return v, invalid("The request is rejected because the input detectorId is not owned by the current account.")
 	}
+	if err := checkCloudFormationOwnership(r.Context(), v.CFNOwnership); err != nil {
+		return v, err
+	}
 	return v, nil
 }
 func scopeFor(ctx context.Context) Scope {

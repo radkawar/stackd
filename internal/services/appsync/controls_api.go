@@ -70,6 +70,11 @@ func registerAPIs(s *Service) {
 		if e != nil {
 			return nil, e
 		}
+		if desired, _ := ctx.Value(cfnDesiredAPIKey{}).(bool); desired {
+			p.API.UserPoolConfig, p.API.OpenIDConnectConfig, p.API.LambdaAuthorizerConfig = nil, nil, nil
+			p.API.LogConfig, p.API.EnhancedMetricsConfig, p.API.MergedApiExecutionRoleArn = nil, nil, nil
+			p.API.OwnerContact = nil
+		}
 		text(&p.API.Name, value(in.Name))
 		p.API.AuthenticationType = in.AuthenticationType
 		if in.AdditionalAuthenticationProviders != nil {
@@ -156,6 +161,25 @@ func registerAPIs(s *Service) {
 		p, e := s.load(ctx, t, value(in.ApiId), "StartSchemaCreation")
 		if e != nil {
 			return nil, e
+		}
+		if b, ok := ctx.Value(cfnOwnershipKey{}).(*cfnOwnership); ok && b.Kind == "GraphQLSchema" && !b.Enforce && p.SchemaOwnership != b.Claim && (p.Schema != "" || p.SchemaOwnership != "") {
+			return nil, failure("ConflictException", "Schema belongs to another CloudFormation incarnation", 409)
+		}
+		if ctx.Value(cfnSchemaOperationKey{}) == "delete" {
+			resolvers, err := t.Resolvers(p.Key)
+			if err != nil {
+				return nil, err
+			}
+			if len(resolvers) != 0 {
+				return nil, bad("Schema still has attached resolvers.")
+			}
+			p.Schema, p.SchemaStatus, p.SchemaDetails = "", "NOT_APPLICABLE", nil
+			if err := t.PutAPI(p); err != nil {
+				return nil, err
+			}
+			out := &api.StartSchemaCreationResponse{}
+			text(&out.Status, p.SchemaStatus)
+			return out, nil
 		}
 		definition := string(in.Definition)
 		e = validateSchema(definition)

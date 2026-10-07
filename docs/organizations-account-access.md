@@ -78,6 +78,31 @@ provider without an IAM provisioner rejects organization/account creation with
 reject unsupported organization creation without publishing membership. GovCloud
 consolidated billing mode is rejected with its documented constraint reason.
 
+## Private CloudFormation account ownership
+
+The account controller admits its private incarnation together with the typed
+creation receipt, including the caller's management account, partition and
+request region. The reserved account ID is visible only to this trusted
+controller observation while provisioning is pending; ordinary AWS API responses
+keep their documented pending shape. Terminal membership receives the same claim
+only in the native completion transaction that installs the real IAM access and
+service-linked roles. Public tags remain independent customer metadata.
+
+Recovery, stabilization, no-op updates and explicit removal use the current
+native Organizations IAM checks. Changing or forging public tags cannot adopt a
+native account. Native or Cloud Control tag/membership updates preserve a live
+claim, but removal ends it: reinviting the same registered account does not revive
+the old creation receipt's authority. The
+[CloudFormation account contract](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-organizations-account.html)
+still defaults to **Retain**; explicit deletion removes organization membership,
+not the underlying AWS account or its IAM roles.
+
+Schema `396_organizations_account_ownership.sql` retains receipt and membership
+claims without marker backfill. The memory/SQLite regression source covers lost
+accepted replies, pending recovery, native role provisioning, public-tag forgery,
+current-IAM denial and removal/reinvitation. These private controller claims are
+a local trust mechanism, not an asserted AWS public tag or response contract.
+
 ## Account quotas
 
 An organization defaults to ten accounts. The management account and suspended

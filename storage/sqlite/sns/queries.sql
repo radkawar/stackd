@@ -14,9 +14,9 @@ SELECT key, value FROM sns_topic_tags WHERE topic_id = ? ORDER BY key;
 SELECT arn, principal_id FROM sns_topic_policy_principals WHERE topic_id = ? ORDER BY arn;
 
 -- name: PutTopic :exec
-INSERT INTO sns_topics (id, partition, account_id, region, name, created, updated, display_name, signature_version, policy, fifo, content_based_deduplication, fifo_throughput_scope, sequence, kms_master_key_id, delivery_policy, tracing_config)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(partition, account_id, region, name) DO UPDATE SET id=excluded.id, created=excluded.created, updated=excluded.updated, display_name=excluded.display_name, signature_version=excluded.signature_version, policy=excluded.policy, fifo=excluded.fifo, content_based_deduplication=excluded.content_based_deduplication, fifo_throughput_scope=excluded.fifo_throughput_scope, sequence=excluded.sequence, kms_master_key_id=excluded.kms_master_key_id, delivery_policy=excluded.delivery_policy, tracing_config=excluded.tracing_config;
+INSERT INTO sns_topics (id, partition, account_id, region, name, created, updated, display_name, signature_version, policy, fifo, content_based_deduplication, fifo_throughput_scope, sequence, kms_master_key_id, delivery_policy, tracing_config, cfn_topic_owner, cfn_topic_token, cfn_policy_owner, cfn_policy_identifier, cfn_policy_type)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(partition, account_id, region, name) DO UPDATE SET id=excluded.id, created=excluded.created, updated=excluded.updated, display_name=excluded.display_name, signature_version=excluded.signature_version, policy=excluded.policy, fifo=excluded.fifo, content_based_deduplication=excluded.content_based_deduplication, fifo_throughput_scope=excluded.fifo_throughput_scope, sequence=excluded.sequence, kms_master_key_id=excluded.kms_master_key_id, delivery_policy=excluded.delivery_policy, tracing_config=excluded.tracing_config, cfn_topic_owner=excluded.cfn_topic_owner, cfn_topic_token=excluded.cfn_topic_token, cfn_policy_owner=excluded.cfn_policy_owner, cfn_policy_identifier=excluded.cfn_policy_identifier, cfn_policy_type=excluded.cfn_policy_type;
 
 -- name: DeleteTopic :exec
 DELETE FROM sns_topics WHERE partition = ? AND account_id = ? AND region = ? AND name = ?;

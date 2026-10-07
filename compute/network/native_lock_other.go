@@ -8,7 +8,7 @@ import (
 )
 
 func nativeNetworkIdentity(context.Context) (string, error) {
-	// TODO: Comeback: native public/private admission requires a Linux controller
-	// sharing the daemon host's lock inode; remote/Desktop hosts are unsupported.
+	// Default local admission requires a Linux controller sharing the daemon's
+	// inode. NewDaemonBridges explicitly owns this witness inside the Engine.
 	return "", errors.New("native public/private network admission requires a local Linux controller and daemon-host /run/lock")
 }

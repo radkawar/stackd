@@ -9,19 +9,20 @@ import (
 )
 
 type AppregistryApplication struct {
-	Arn               string
-	Partition         string
-	AccountID         string
-	Region            string
-	ID                string
-	Name              string
-	Description       string
-	ClientToken       string
-	CreateFingerprint string
-	GroupArn          string
-	TagGroupArn       string
-	Created           sql.NullInt64
-	Modified          sql.NullInt64
+	Arn                 string
+	Partition           string
+	AccountID           string
+	Region              string
+	ID                  string
+	Name                string
+	Description         string
+	ClientToken         string
+	CreateFingerprint   string
+	GroupArn            string
+	TagGroupArn         string
+	Created             sql.NullInt64
+	Modified            sql.NullInt64
+	CloudformationClaim string
 }
 
 type AppregistryApplicationTag struct {
@@ -31,24 +32,31 @@ type AppregistryApplicationTag struct {
 }
 
 type AppregistryAttributeGroup struct {
-	Arn               string
-	Partition         string
-	AccountID         string
-	Region            string
-	ID                string
-	Name              string
-	Description       string
-	Attributes        string
-	ClientToken       string
-	CreateFingerprint string
-	Created           sql.NullInt64
-	Modified          sql.NullInt64
+	Arn                 string
+	Partition           string
+	AccountID           string
+	Region              string
+	ID                  string
+	Name                string
+	Description         string
+	Attributes          string
+	ClientToken         string
+	CreateFingerprint   string
+	Created             sql.NullInt64
+	Modified            sql.NullInt64
+	CloudformationClaim string
 }
 
 type AppregistryAttributeGroupTag struct {
 	AttributeGroupArn string
 	TagKey            string
 	TagValue          string
+}
+
+type AppregistryAttributeLink struct {
+	ApplicationArn      string
+	AttributeGroupArn   string
+	CloudformationClaim string
 }
 
 type AppregistryConfiguration struct {
@@ -59,11 +67,12 @@ type AppregistryConfiguration struct {
 }
 
 type AppregistryResourceAssociation struct {
-	ApplicationArn string
-	ResourceArn    string
-	ResourceName   string
-	ResourceType   string
-	Incarnation    string
-	ApplyTag       int64
-	Created        sql.NullInt64
+	ApplicationArn      string
+	ResourceArn         string
+	ResourceName        string
+	ResourceType        string
+	Incarnation         string
+	ApplyTag            int64
+	Created             sql.NullInt64
+	CloudformationClaim string
 }

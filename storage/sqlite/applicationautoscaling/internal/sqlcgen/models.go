@@ -83,6 +83,7 @@ type AasPolicy struct {
 	HasCustomDimensions  bool
 	HasMetricQueries     bool
 	PendingActivityID    string
+	Ownership            string
 }
 
 type AasPolicyAlarm struct {
@@ -174,6 +175,7 @@ type AasTarget struct {
 	SuspendedOut       sql.NullBool
 	SuspendedScheduled sql.NullBool
 	HasTags            bool
+	Ownership          string
 }
 
 type AasTargetTag struct {

@@ -18,6 +18,7 @@ type Sesv2ConfigurationSet struct {
 	Region         string
 	Name           string
 	SendingEnabled int64
+	CfnOwner       string
 }
 
 type Sesv2ConfigurationTag struct {
@@ -36,6 +37,7 @@ type Sesv2Identity struct {
 	VerificationToken   string
 	VerificationExpires int64
 	ConfigurationSet    string
+	CfnOwner            string
 }
 
 type Sesv2IdentityPolicy struct {
@@ -103,4 +105,5 @@ type Sesv2Template struct {
 	TextBody  string
 	HtmlBody  string
 	Created   int64
+	CfnOwner  string
 }

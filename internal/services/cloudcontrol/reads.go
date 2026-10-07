@@ -38,20 +38,18 @@ func (s *Service) list(ctx context.Context, in *api.ListResourcesInput) (*api.Li
 	if err != nil {
 		return nil, err
 	}
+	var filters cloudformation.Properties
 	if in.ResourceModel != nil {
-		p, err := document(text(in.ResourceModel))
+		filters, err = document(text(in.ResourceModel))
 		if err != nil {
 			return nil, err
-		}
-		if len(p) > 0 {
-			return nil, failure("UnsupportedActionException", "Resource-model list filters are not implemented for this resource type.")
 		}
 	}
 	commandCtx, err := s.roleContext(ctx, "", text(in.RoleArn))
 	if err != nil {
 		return nil, err
 	}
-	rows, err := reader.List(commandCtx, cloudformation.ResourceRequest{Type: text(in.TypeName), Scope: scopeFor(ctx), CloudControl: true})
+	rows, err := reader.List(commandCtx, cloudformation.ResourceRequest{Type: text(in.TypeName), Scope: scopeFor(ctx), Properties: filters, CloudControl: true})
 	if err != nil {
 		return nil, readError(err)
 	}

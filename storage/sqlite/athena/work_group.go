@@ -41,6 +41,7 @@ func (w writer) DeleteWorkGroup(key domain.ResourceKey) error {
 
 func (r reader) workGroup(row *sqlcgen.AthenaWorkGroup) (domain.WorkGroupRecord, error) {
 	var out domain.WorkGroupRecord
+	out.CFNOwner = row.CfnOwner
 	out.Key.Scope.Partition = row.KeyScopePartition
 	out.Key.Scope.AccountID = row.KeyScopeAccountID
 	out.Key.Scope.Region = row.KeyScopeRegion
@@ -168,6 +169,7 @@ func (r reader) workGroup(row *sqlcgen.AthenaWorkGroup) (domain.WorkGroupRecord,
 
 func (w writer) PutWorkGroup(v domain.WorkGroupRecord) error {
 	var p sqlcgen.PutWorkGroupParams
+	p.CfnOwner = v.CFNOwner
 	p.KeyScopePartition = v.Key.Scope.Partition
 	p.KeyScopeAccountID = v.Key.Scope.AccountID
 	p.KeyScopeRegion = v.Key.Scope.Region

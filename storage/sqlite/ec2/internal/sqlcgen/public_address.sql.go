@@ -56,7 +56,7 @@ func (q *Queries) DeletePublicAddressTags(ctx context.Context, arg DeletePublicA
 }
 
 const getPublicAddress = `-- name: GetPublicAddress :one
-SELECT "partition", account_id, region, resource_id, automatic, public_ip, association_id, network_interface_id, private_ip_address, network_border_group, tags_present FROM ec2_public_addresses WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
+SELECT "partition", account_id, region, resource_id, automatic, public_ip, association_id, network_interface_id, private_ip_address, network_border_group, tags_present, cloudformation_resource_type, cloudformation_owner FROM ec2_public_addresses WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
 `
 
 type GetPublicAddressParams struct {
@@ -86,6 +86,8 @@ func (q *Queries) GetPublicAddress(ctx context.Context, arg GetPublicAddressPara
 		&i.PrivateIpAddress,
 		&i.NetworkBorderGroup,
 		&i.TagsPresent,
+		&i.CloudformationResourceType,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
@@ -138,7 +140,7 @@ func (q *Queries) ListPublicAddressTags(ctx context.Context, arg ListPublicAddre
 }
 
 const listPublicAddresses = `-- name: ListPublicAddresses :many
-SELECT "partition", account_id, region, resource_id, automatic, public_ip, association_id, network_interface_id, private_ip_address, network_border_group, tags_present FROM ec2_public_addresses WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
+SELECT "partition", account_id, region, resource_id, automatic, public_ip, association_id, network_interface_id, private_ip_address, network_border_group, tags_present, cloudformation_resource_type, cloudformation_owner FROM ec2_public_addresses WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
 `
 
 type ListPublicAddressesParams struct {
@@ -168,6 +170,8 @@ func (q *Queries) ListPublicAddresses(ctx context.Context, arg ListPublicAddress
 			&i.PrivateIpAddress,
 			&i.NetworkBorderGroup,
 			&i.TagsPresent,
+			&i.CloudformationResourceType,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}

@@ -11,9 +11,10 @@ import (
 // LaunchTemplateRecord owns the name and mutable default/latest pointers. The
 // allocation counter never rewinds when the most recent version is deleted.
 type LaunchTemplateRecord struct {
-	Key         ResourceKey
-	Data        api.LaunchTemplate
-	LastVersion int64
+	Key                 ResourceKey
+	CloudFormationOwner CloudFormationOwner
+	Data                api.LaunchTemplate
+	LastVersion         int64
 }
 
 type LaunchTemplateVersionKey struct {
@@ -57,7 +58,7 @@ func (r memoryReader) LaunchTemplates(scope Scope) ([]LaunchTemplateRecord, erro
 	return listRecords(r.tx, r.s.launchTemplates, scope, cloneLaunchTemplate)
 }
 func (w memoryWriter) PutLaunchTemplate(v LaunchTemplateRecord) error {
-	return putRecord(w.tx, w.s.launchTemplates, v.Key, v, cloneLaunchTemplate)
+	return putClaimed(w.tx, w.s.launchTemplates, v.Key, v, cloneLaunchTemplate)
 }
 func (w memoryWriter) DeleteLaunchTemplate(k ResourceKey) error {
 	if err := deleteRecord(w.tx, w.s.launchTemplates, k); err != nil {

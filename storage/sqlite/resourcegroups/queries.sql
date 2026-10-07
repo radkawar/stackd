@@ -8,8 +8,8 @@ SELECT * FROM resourcegroups_groups
 WHERE partition = ? AND account_id = ? AND region = ? ORDER BY arn;
 
 -- name: PutGroup :execrows
-INSERT INTO resourcegroups_groups (arn, partition, account_id, region, name, description, query_present, query_type, query_string, created, managed_type, application_arn, source_arn, source_name, parent_arn, incarnation, display_name, owner, criticality)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO resourcegroups_groups (arn, partition, account_id, region, name, description, query_present, query_type, query_string, created, managed_type, application_arn, source_arn, source_name, parent_arn, incarnation, display_name, owner, criticality, cloudformation_claim)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(arn) DO UPDATE SET
     name = excluded.name, description = excluded.description,
     query_present = excluded.query_present,

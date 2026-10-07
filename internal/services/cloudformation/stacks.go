@@ -1,6 +1,7 @@
 package cloudformation
 
 import (
+	"maps"
 	"reflect"
 	"slices"
 
@@ -27,8 +28,11 @@ func (s *Service) createStack(tx Transaction, in *api.CreateStackInput) (*api.Cr
 		return nil, invalid("Stack name must start with a letter and contain only letters, numbers and hyphens, up to 128 characters")
 	}
 	hash := requestHash(in)
-	existing, e := findStack(tx, name)
+	existing, e := findCreateStack(tx, name, text(in.ClientRequestToken))
 	if e == nil {
+		if e = checkNestedStackOwner(tx, existing); e != nil {
+			return nil, e
+		}
 		if e = s.authorizeRole(tx, "CreateStack", existing, text(in.RoleARN)); e != nil {
 			return nil, e
 		}
@@ -46,6 +50,9 @@ func (s *Service) createStack(tx Transaction, in *api.CreateStackInput) (*api.Cr
 	}
 	stack := StackRecord{Scope: scopeFor(tx.Context()), Name: name, Created: s.clock.Now(), TerminationProtection: truth(in.EnableTerminationProtection)}
 	stack.ID = stackARN(stack.Scope, name, uuid.NewString())
+	if e = admitNestedStackOwner(tx, &stack); e != nil {
+		return nil, e
+	}
 	stack.Tags, e = tagsFrom(in.Tags)
 	if e != nil {
 		return nil, e
@@ -57,11 +64,19 @@ func (s *Service) createStack(tx Transaction, in *api.CreateStackInput) (*api.Cr
 	if e != nil {
 		return nil, e
 	}
-	t, params, resolved, e := s.prepare(tx, stack, body, in.Parameters, in.Capabilities)
+	caps := capabilitiesFrom(in.Capabilities)
+	if in.Capabilities == nil {
+		caps = nil
+	}
+	caps, inheritedRole, e := nestedStackConfiguration(tx, caps, stack.RoleARN)
 	if e != nil {
 		return nil, e
 	}
-	role, e := s.role(tx, stack.ID, text(in.RoleARN), "")
+	t, params, resolved, e := s.prepare(tx, stack, body, in.Parameters, capabilitiesOutput(caps))
+	if e != nil {
+		return nil, e
+	}
+	role, e := s.role(tx, stack.ID, text(in.RoleARN), inheritedRole)
 	if e != nil {
 		return nil, e
 	}
@@ -80,7 +95,7 @@ func (s *Service) createStack(tx Transaction, in *api.CreateStackInput) (*api.Cr
 		return nil, failure("NotImplementedException", "OnFailure DELETE is not implemented.", 501)
 	}
 	stack.Description = t.Description
-	if e = s.begin(tx, stack, "CREATE", body, params, resolved, stack.Tags, capabilitiesFrom(in.Capabilities), role, text(in.ClientRequestToken), hash, "", disable); e != nil {
+	if e = s.begin(tx, stack, "CREATE", body, params, resolved, stack.Tags, caps, role, text(in.ClientRequestToken), hash, "", disable); e != nil {
 		return nil, e
 	}
 	return &api.CreateStackOutput{StackId: new(api.StackId(stack.ID))}, nil
@@ -93,7 +108,16 @@ func (s *Service) updateStack(tx Transaction, in *api.UpdateStackInput) (*api.Up
 	if e != nil {
 		return nil, e
 	}
-	if e = s.authorizeRole(tx, "UpdateStack", stack, text(in.RoleARN)); e != nil {
+	if e = checkNestedStackOwner(tx, stack); e != nil {
+		return nil, e
+	}
+	_, projectedRole, e := nestedStackConfiguration(tx, nil, stack.RoleARN)
+	if e != nil {
+		return nil, e
+	}
+	authorizationStack := stack
+	authorizationStack.RoleARN = projectedRole
+	if e = s.authorizeRole(tx, "UpdateStack", authorizationStack, text(in.RoleARN)); e != nil {
 		return nil, e
 	}
 	hash := requestHash(in)
@@ -105,13 +129,24 @@ func (s *Service) updateStack(tx Transaction, in *api.UpdateStackInput) (*api.Up
 		return &api.UpdateStackOutput{StackId: new(api.StackId(stack.ID))}, nil
 	}
 	if e = updateable(stack); e != nil {
+		if active(stack) {
+			return nil, stackBusyAdmission(tx.Context(), wireError(e).Message)
+		}
 		return nil, e
 	}
 	body, e := s.templateBody(tx.Context(), text(in.TemplateBody), text(in.TemplateURL), truth(in.UsePreviousTemplate), stack.Template)
 	if e != nil {
 		return nil, e
 	}
-	t, params, resolved, e := s.prepare(tx, stack, body, in.Parameters, in.Capabilities)
+	caps := capabilitiesFrom(in.Capabilities)
+	if in.Capabilities == nil {
+		caps = nil
+	}
+	caps, inheritedRole, e := nestedStackConfiguration(tx, caps, stack.RoleARN)
+	if e != nil {
+		return nil, e
+	}
+	t, params, resolved, e := s.prepare(tx, stack, body, in.Parameters, capabilitiesOutput(caps))
 	if e != nil {
 		return nil, e
 	}
@@ -127,10 +162,10 @@ func (s *Service) updateStack(tx Transaction, in *api.UpdateStackInput) (*api.Up
 		return nil, e
 	}
 	prior, _ := ParseTemplate(stack.Template)
-	if len(changes) == 0 && prior != nil && reflect.DeepEqual(prior.Outputs, t.Outputs) && prior.Description == t.Description {
+	if len(changes) == 0 && prior != nil && reflect.DeepEqual(prior.Outputs, t.Outputs) && prior.Description == t.Description && maps.Equal(params, stack.Parameters) && maps.Equal(resolved, stack.ResolvedParameters) && maps.Equal(tags, stack.Tags) && (text(in.RoleARN) == "" || text(in.RoleARN) == stack.RoleARN) && inheritedRole == stack.RoleARN && slices.Equal(caps, stack.Capabilities) {
 		return nil, invalid("No updates are to be performed.")
 	}
-	role, e := s.role(tx, stack.ID, text(in.RoleARN), stack.RoleARN)
+	role, e := s.role(tx, stack.ID, text(in.RoleARN), inheritedRole)
 	if e != nil {
 		return nil, e
 	}
@@ -138,7 +173,7 @@ func (s *Service) updateStack(tx Transaction, in *api.UpdateStackInput) (*api.Up
 	if e != nil {
 		return nil, e
 	}
-	if e = s.begin(tx, stack, "UPDATE", body, params, resolved, tags, capabilitiesFrom(in.Capabilities), role, text(in.ClientRequestToken), hash, "", disable); e != nil {
+	if e = s.begin(tx, stack, "UPDATE", body, params, resolved, tags, caps, role, text(in.ClientRequestToken), hash, "", disable); e != nil {
 		return nil, e
 	}
 	return &api.UpdateStackOutput{StackId: new(api.StackId(stack.ID))}, nil
@@ -160,7 +195,16 @@ func (s *Service) deleteStack(tx Transaction, in *api.DeleteStackInput) (*api.De
 		}
 		return &api.DeleteStackOutput{}, nil
 	}
-	if e = s.authorizeRole(tx, "DeleteStack", stack, text(in.RoleARN)); e != nil {
+	if e = checkNestedStackOwner(tx, stack); e != nil {
+		return nil, e
+	}
+	_, projectedRole, e := nestedStackConfiguration(tx, nil, stack.RoleARN)
+	if e != nil {
+		return nil, e
+	}
+	authorizationStack := stack
+	authorizationStack.RoleARN = projectedRole
+	if e = s.authorizeRole(tx, "DeleteStack", authorizationStack, text(in.RoleARN)); e != nil {
 		return nil, e
 	}
 	hash := requestHash(in)
@@ -172,7 +216,18 @@ func (s *Service) deleteStack(tx Transaction, in *api.DeleteStackInput) (*api.De
 		return &api.DeleteStackOutput{}, nil
 	}
 	if active(stack) {
-		return nil, invalid("Stack cannot be deleted while in " + stack.Status + " state")
+		return nil, stackBusyAdmission(tx.Context(), "Stack cannot be deleted while in "+stack.Status+" state")
+	}
+	if stack.ParentID != "" {
+		if _, controlled := nestedStackOwner(tx.Context()); !controlled {
+			root, err := tx.Stack(stack.RootID)
+			if err != nil {
+				return nil, err
+			}
+			if root.TerminationProtection {
+				return nil, invalid("Nested stack cannot be deleted while root stack TerminationProtection is enabled")
+			}
+		}
 	}
 	if stack.TerminationProtection {
 		return nil, invalid("Stack [" + stack.Name + "] cannot be deleted while TerminationProtection is enabled")
@@ -196,7 +251,7 @@ func (s *Service) deleteStack(tx Transaction, in *api.DeleteStackInput) (*api.De
 			}
 		}
 	}
-	role, e := s.role(tx, stack.ID, text(in.RoleARN), stack.RoleARN)
+	role, e := s.role(tx, stack.ID, text(in.RoleARN), projectedRole)
 	if e != nil {
 		return nil, e
 	}
@@ -327,6 +382,12 @@ func (s *Service) terminationProtection(tx Transaction, in *api.UpdateTerminatio
 	stack, e := findStack(tx, text(in.StackName))
 	if e != nil {
 		return nil, e
+	}
+	if e = checkNestedStackOwner(tx, stack); e != nil {
+		return nil, e
+	}
+	if stack.ParentID != "" {
+		return nil, invalid("Termination protection cannot be changed directly on a nested stack")
 	}
 	if e = s.authorize(tx, "UpdateTerminationProtection", stack); e != nil {
 		return nil, e

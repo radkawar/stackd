@@ -106,6 +106,7 @@ func New(c Config) *Service {
 	registerInternetGateways(s)
 	registerNetworkInterfaces(s)
 	registerPublicAddresses(s)
+	registerNetworkOwners(s)
 	registerDHCPOptions(s)
 	registerAvailability(s)
 	registerKeyPairs(s)
@@ -204,9 +205,17 @@ func register[I, O any](s *Service, action string, fn func(context.Context, Tran
 		// Consumers such as Auto Scaling handle DryRunOperation as admission
 		// success; a rejected EC2 child must not poison their outer transaction.
 		err := s.repository.Attempt(ctx, func(tx Transaction) error {
-			var err error
-			out, err = fn(tx.Context(), tx, in)
+			owned, admission, err := beginCloudFormationOwner(tx.Context(), tx)
 			if err != nil {
+				return err
+			}
+			out, err = fn(owned.Context(), owned, in)
+			if err != nil {
+				return err
+			}
+			// Private CloudFormation claims commit atomically with the native
+			// effect, after the command has evaluated current IAM.
+			if err := admission.finish(owned.Context()); err != nil {
 				return err
 			}
 			return s.recordCall(tx.Context(), action, in, out, nil)

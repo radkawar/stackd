@@ -45,6 +45,8 @@ type Config struct {
 	Metrics        Metrics
 	Logs           LogPublisher
 	Clock          clock.Clock
+	// WebACLs applies AWS WAF web ACLs associated with REST API stages.
+	WebACLs WebACLs
 }
 
 type Handler struct {
@@ -59,6 +61,7 @@ type Handler struct {
 	metrics            Metrics
 	logs               LogPublisher
 	clock              clock.Clock
+	webACLs            WebACLs
 	validationPatterns sync.Map
 }
 
@@ -67,7 +70,7 @@ func New(c Config) *Handler {
 		c.Clock = clock.Real{}
 	}
 	return &Handler{http: c.HTTP, rest: c.REST, authentication: c.Authentication,
-		authorization: c.Authorization, functions: c.Functions, roles: c.Roles, authorizers: NewAuthorizerExecutor(c.Functions, c.Roles), keys: c.Keys, usagePlans: c.UsagePlans, metrics: c.Metrics, logs: c.Logs, clock: c.Clock}
+		authorization: c.Authorization, functions: c.Functions, roles: c.Roles, authorizers: NewAuthorizerExecutor(c.Functions, c.Roles), keys: c.Keys, usagePlans: c.UsagePlans, metrics: c.Metrics, logs: c.Logs, clock: c.Clock, webACLs: c.WebACLs}
 }
 
 func (s *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -75,10 +78,14 @@ func (s *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, Prefix)
 	apiID, path, _ := strings.Cut(path, "/")
 	path = "/" + path
+	stage := ""
+	if target, ok := CustomExecutionTarget(r.Context()); ok {
+		apiID, stage, path = target.APIID, target.Stage, target.Path
+	}
 	var route *Route
 	err := ErrUnknownAPI
 	if s.http != nil {
-		route, err = s.http.Resolve(r.Context(), apiID, "", r.Method, path)
+		route, err = s.http.Resolve(r.Context(), apiID, stage, r.Method, path)
 	}
 	rest := false
 	if errors.Is(err, ErrUnknownAPI) && s.rest != nil {
@@ -134,6 +141,13 @@ func (s *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	// Authentication needs the original signed host/path/query and complete body.
 	r.Body = io.NopCloser(bytes.NewReader(body))
+	// AWS WAF inspects REST stage requests before API Gateway authorization.
+	if rest {
+		var admitted bool
+		if r, admitted = s.inspectWebACL(w, r, route, body); !admitted {
+			return
+		}
+	}
 	switch route.AuthorizationType {
 	case "NONE", "":
 	case "AWS_IAM":
@@ -188,6 +202,9 @@ func (s *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	timeout := 30 * time.Second
 	if rest {
 		timeout = 29 * time.Second
+	}
+	if route.IntegrationTimeoutMillis > 0 {
+		timeout = time.Duration(route.IntegrationTimeoutMillis) * time.Millisecond
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()

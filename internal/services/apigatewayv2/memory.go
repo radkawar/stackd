@@ -21,6 +21,8 @@ type memoryState struct {
 	deployments     map[ResourceKey]DeploymentRecord
 	snapshots       map[ResourceKey]map[string]DeployedRoute
 	authorizerCache map[AuthorizerCacheKey]AuthorizerCacheRecord
+	domains         map[DomainKey]DomainRecord
+	mappings        map[MappingKey]MappingRecord
 }
 type MemoryRepository struct{ store *memory.Store[memoryState] }
 
@@ -28,6 +30,8 @@ func NewMemoryRepository(domain *memory.Domain) *MemoryRepository {
 	initial := memoryState{apis: map[APIKey]APIRecord{}, integrations: map[ResourceKey]IntegrationRecord{}, authorizers: map[ResourceKey]AuthorizerRecord{}, routes: map[ResourceKey]RouteRecord{}, stages: map[ResourceKey]StageRecord{}, deployments: map[ResourceKey]DeploymentRecord{}, snapshots: map[ResourceKey]map[string]DeployedRoute{}}
 	initial.authorizerCache = map[AuthorizerCacheKey]AuthorizerCacheRecord{}
 	initial.routeResponses = map[ResourceKey]RouteResponseRecord{}
+	initial.domains = map[DomainKey]DomainRecord{}
+	initial.mappings = map[MappingKey]MappingRecord{}
 	return &MemoryRepository{store: memory.New(domain, initial, func(s memoryState) memoryState {
 		s.apis = maps.Clone(s.apis)
 		s.integrations = maps.Clone(s.integrations)
@@ -38,6 +42,8 @@ func NewMemoryRepository(domain *memory.Domain) *MemoryRepository {
 		s.deployments = maps.Clone(s.deployments)
 		s.snapshots = maps.Clone(s.snapshots)
 		s.authorizerCache = maps.Clone(s.authorizerCache)
+		s.domains = maps.Clone(s.domains)
+		s.mappings = maps.Clone(s.mappings)
 		return s
 	})}
 }

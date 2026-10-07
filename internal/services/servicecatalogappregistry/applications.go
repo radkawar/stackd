@@ -51,7 +51,7 @@ func (s *Service) createApplication(tx Transaction, in *api.CreateApplicationReq
 		if err != nil {
 			return nil, err
 		}
-		a = Application{Scope: scope, ID: id, ARN: applicationARN(scope, id), Name: value(in.Name), Description: value(in.Description), ClientToken: value(in.ClientToken), CreateFingerprint: fingerprint, Created: s.clock.Now(), Modified: s.clock.Now(), Tags: tags}
+		a = Application{Scope: scope, ID: id, ARN: applicationARN(scope, id), Name: value(in.Name), Description: value(in.Description), ClientToken: value(in.ClientToken), CloudFormationClaim: parentClaim(tx.Context()), CreateFingerprint: fingerprint, Created: s.clock.Now(), Modified: s.clock.Now(), Tags: tags}
 	}
 	if err := s.authorize(tx.Context(), "CreateApplication", a.ARN, nil, tags, slices.Sorted(maps.Keys(tags))); err != nil {
 		return nil, err
@@ -62,6 +62,9 @@ func (s *Service) createApplication(tx Transaction, in *api.CreateApplicationReq
 		}
 	}
 	if replay != nil {
+		if claim := parentClaim(tx.Context()); claim != "" && a.CloudFormationClaim != claim {
+			return nil, failure("ConflictException", "The client token belongs to an independent application.")
+		}
 		if a.CreateFingerprint != fingerprint {
 			return nil, failure("ConflictException", "The client token is already associated with a different request.")
 		}
@@ -169,6 +172,9 @@ func (s *Service) listApplications(tx Transaction, in *api.ListApplicationsReque
 	rows, err := tx.Applications(scopeFor(tx.Context()))
 	if err != nil {
 		return nil, err
+	}
+	for _, a := range rows {
+		observeClaim(tx.Context(), a.ID, a.CloudFormationClaim)
 	}
 	page, next, err := paginate(tx.Context(), "ListApplications", "", in.NextToken, in.MaxResults, rows, func(a Application) string { return a.ARN })
 	if err != nil {

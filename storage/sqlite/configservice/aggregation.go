@@ -6,7 +6,7 @@ import (
 )
 
 func (r reader) loadAggregator(v sqlcgen.ConfigAggregator) (domain.Aggregator, error) {
-	out := domain.Aggregator{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name, ARN: v.ARN, CreatedAt: v.CreatedAt, UpdatedAt: v.UpdatedAt}
+	out := domain.Aggregator{CFNOwnership: domain.CloudFormationOwnership{Owner: v.CfnOwner, Token: v.CfnToken}, Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name, ARN: v.ARN, CreatedAt: v.CreatedAt, UpdatedAt: v.UpdatedAt}
 	sources, err := r.q.ListAggregatorSources(r.ctx, v.RowID)
 	if err != nil {
 		return out, err
@@ -34,7 +34,7 @@ func (r reader) Aggregators(s domain.Scope) ([]domain.Aggregator, error) {
 }
 
 func (w writer) PutAggregator(v domain.Aggregator) error {
-	id, err := w.q.PutAggregator(w.ctx, sqlcgen.PutAggregatorParams{Partition: v.Scope.Partition, AccountID: v.Scope.AccountID, Region: v.Scope.Region, Name: v.Name, ARN: v.ARN, CreatedAt: v.CreatedAt, UpdatedAt: v.UpdatedAt})
+	id, err := w.q.PutAggregator(w.ctx, sqlcgen.PutAggregatorParams{CfnOwner: v.CFNOwnership.Owner, CfnToken: v.CFNOwnership.Token, Partition: v.Scope.Partition, AccountID: v.Scope.AccountID, Region: v.Scope.Region, Name: v.Name, ARN: v.ARN, CreatedAt: v.CreatedAt, UpdatedAt: v.UpdatedAt})
 	if err != nil {
 		return err
 	}
@@ -54,7 +54,7 @@ func (w writer) DeleteAggregator(s domain.Scope, name string) error {
 }
 
 func (r reader) loadAggregationAuthorization(v sqlcgen.ConfigAggregationAuthorization) (domain.AggregationAuthorization, error) {
-	out := domain.AggregationAuthorization{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, AccountID: v.AuthorizedAccountID, Region: v.AuthorizedRegion, ARN: v.ARN, CreatedAt: v.CreatedAt}
+	out := domain.AggregationAuthorization{CFNOwnership: domain.CloudFormationOwnership{Owner: v.CfnOwner, Token: v.CfnToken}, Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, AccountID: v.AuthorizedAccountID, Region: v.AuthorizedRegion, ARN: v.ARN, CreatedAt: v.CreatedAt}
 	return out, nil
 }
 
@@ -75,7 +75,7 @@ func (r reader) AggregationAuthorizations(s domain.Scope) ([]domain.AggregationA
 }
 
 func (w writer) PutAggregationAuthorization(v domain.AggregationAuthorization) error {
-	return w.q.PutAggregationAuthorization(w.ctx, sqlcgen.PutAggregationAuthorizationParams{Partition: v.Scope.Partition, AccountID: v.Scope.AccountID, Region: v.Scope.Region, AuthorizedAccountID: v.AccountID, AuthorizedRegion: v.Region, ARN: v.ARN, CreatedAt: v.CreatedAt})
+	return w.q.PutAggregationAuthorization(w.ctx, sqlcgen.PutAggregationAuthorizationParams{CfnOwner: v.CFNOwnership.Owner, CfnToken: v.CFNOwnership.Token, Partition: v.Scope.Partition, AccountID: v.Scope.AccountID, Region: v.Scope.Region, AuthorizedAccountID: v.AccountID, AuthorizedRegion: v.Region, ARN: v.ARN, CreatedAt: v.CreatedAt})
 }
 
 func (w writer) DeleteAggregationAuthorization(s domain.Scope, account, region string) error {

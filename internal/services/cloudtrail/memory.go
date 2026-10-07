@@ -120,6 +120,17 @@ func (r memoryReader) Trail(key TrailKey) (TrailRecord, error) {
 	}
 	return cloneTrail(v), nil
 }
+func (r memoryReader) TrailByOwner(partition, region, name, owner string) (TrailRecord, error) {
+	if err := r.tx.Check(false); err != nil {
+		return TrailRecord{}, err
+	}
+	for key, trail := range r.state.trails {
+		if key.Partition == partition && key.Region == region && key.Name == name && trail.CFNOwner == owner && owner != "" {
+			return cloneTrail(trail), nil
+		}
+	}
+	return TrailRecord{}, ErrNotFound
+}
 func (r memoryReader) Trails(partition, accountID string) ([]TrailRecord, error) {
 	if err := r.tx.Check(false); err != nil {
 		return nil, err
@@ -208,6 +219,9 @@ func (w memoryWriter) PutTrail(v TrailRecord) error {
 	}
 	if old, ok := w.state.trails[v.Key]; ok && old.ID != v.ID {
 		return errors.New("CloudTrail trail identity is immutable")
+	}
+	if old, ok := w.state.trails[v.Key]; ok && old.CFNOwner != v.CFNOwner {
+		return errors.New("CloudTrail trail ownership is immutable")
 	}
 	for k, old := range w.state.trails {
 		if old.ID == v.ID && k != v.Key {

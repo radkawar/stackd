@@ -40,6 +40,7 @@ func (k TaskDefinitionKey) ARN() string {
 // Deletion retains INACTIVE data. Recreation replaces this row and its tags.
 type ClusterRecord struct {
 	Key              ClusterKey
+	Ownership        string
 	Data             api.Cluster
 	CreateInput      api.CreateClusterInput
 	Created, Updated time.Time
@@ -49,8 +50,9 @@ type ClusterRecord struct {
 // DELETE_IN_PROGRESS remains addressable until the service reaps unreferenced revisions.
 // The family revision high-water mark survives every resource deletion.
 type TaskDefinitionRecord struct {
-	Key  TaskDefinitionKey
-	Data api.TaskDefinition
+	Key       TaskDefinitionKey
+	Ownership string
+	Data      api.TaskDefinition
 }
 type TagKey struct {
 	Scope

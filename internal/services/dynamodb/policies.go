@@ -55,6 +55,9 @@ func (s *Service) policyTarget(ctx context.Context, tx Transaction, resource, ac
 }
 
 func (s *Service) authorizePolicy(ctx context.Context, r Reader, key TableKey, resource, action string, bound authorization.BoundPolicy) error {
+	if err := checkResourceOwner(ctx, r, key); err != nil {
+		return err
+	}
 	conditions := map[string][]string{}
 	tags, err := readTags(r, key)
 	if err != nil {

@@ -188,6 +188,24 @@ func (s *Service) deleteVPC(ctx context.Context, tx Transaction, in *api.DeleteV
 		return nil, err
 	}
 	scope := v.Key.Scope
+	nats, err := tx.NatGateways(scope)
+	if err != nil {
+		return nil, err
+	}
+	for _, nat := range nats {
+		if str(nat.Data.VpcId) == v.Key.ID && str(nat.Data.State) != "deleted" {
+			return nil, failure("DependencyViolation", "The VPC contains a NAT gateway.")
+		}
+	}
+	endpoints, err := tx.VPCEndpoints(scope)
+	if err != nil {
+		return nil, err
+	}
+	for _, endpoint := range endpoints {
+		if str(endpoint.Data.VpcId) == v.Key.ID && str(endpoint.Data.State) != "deleted" {
+			return nil, failure("DependencyViolation", "The VPC contains a VPC endpoint.")
+		}
+	}
 	subnets, err := tx.Subnets(scope)
 	if err != nil {
 		return nil, err

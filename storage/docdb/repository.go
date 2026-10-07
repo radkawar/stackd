@@ -7,15 +7,16 @@ import (
 )
 
 type (
-	Scope            = service.Scope
-	Key              = service.Key
-	Cluster          = service.Cluster
-	Instance         = service.Instance
-	Snapshot         = service.Snapshot
-	Repository       = service.Repository
-	Reader           = service.Reader
-	Transaction      = service.Transaction
-	MemoryRepository = service.MemoryRepository
+	Scope               = service.Scope
+	Key                 = service.Key
+	CloudFormationOwner = service.CloudFormationOwner
+	Cluster             = service.Cluster
+	Instance            = service.Instance
+	Snapshot            = service.Snapshot
+	Repository          = service.Repository
+	Reader              = service.Reader
+	Transaction         = service.Transaction
+	MemoryRepository    = service.MemoryRepository
 )
 
 var ErrNotFound = service.ErrNotFound

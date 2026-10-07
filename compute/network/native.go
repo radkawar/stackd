@@ -67,10 +67,10 @@ func (b *Bridges) installPolicy(ctx context.Context, name, publicOwner, rules st
 	return nil
 }
 
-// A controller in another mount namespace must bind the daemon-host /run/lock.
-// Device/inode alone cannot identify a remote host, hence the boot identity.
-// TODO: Comeback: remote/Desktop native networking remains unsupported; the
-// controller must share the daemon-host lock inode and bridge Engine socket.
+// Default local admission requires the daemon-host /run/lock mount. Device/inode
+// alone cannot identify a remote host, hence the boot identity. Explicit
+// NewDaemonBridges admission obtains and verifies this witness inside the daemon
+// host/VM instead and verifies its Engine socket before accepting any mutation.
 const nativeLockCheckScript = `
 exec 9</run/lock/stackd-public-network.lock
 flock -x -w 15 9

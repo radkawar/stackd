@@ -20,6 +20,7 @@ type DashboardEntry struct {
 }
 
 type DashboardRecord struct {
+	CFNOwner string
 	DashboardEntry
 	Body string
 	Tags map[string]string

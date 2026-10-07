@@ -107,7 +107,13 @@ func (w writer) DeleteUser(k domain.UserKey) error {
 	if err := w.RevokeUserSessions(k); err != nil {
 		return err
 	}
-	return w.q.DeleteUser(w.ctx, sqlcgen.DeleteUserParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, PoolID: k.ID, Username: k.Username})
+	if err := w.q.DeleteUser(w.ctx, sqlcgen.DeleteUserParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, PoolID: k.ID, Username: k.Username}); err != nil {
+		return err
+	}
+	if err := w.q.DeleteMembershipOwnersByUser(w.ctx, sqlcgen.DeleteMembershipOwnersByUserParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, PoolID: k.ID, MemberUser: k.Username}); err != nil {
+		return err
+	}
+	return w.releaseOwners(k.PoolKey, k.Username, domain.OwnerKindUser)
 }
 
 func (w writer) RevokeUserSessions(k domain.UserKey) error {

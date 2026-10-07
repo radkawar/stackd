@@ -6,17 +6,20 @@ import (
 )
 
 type WorkflowRecord struct {
+	CFNOwner string
 	Key      ResourceKey
 	Workflow api.Workflow
 	Tags     map[string]string
 }
 type TriggerRecord struct {
+	CFNOwner string
 	Key      ResourceKey
 	Trigger  api.Trigger
 	Tags     map[string]string
 	NextFire *time.Time
 }
 type SecurityConfigurationRecord struct {
+	CFNOwner      string
 	Key           ResourceKey
 	Configuration api.SecurityConfiguration
 }

@@ -71,7 +71,7 @@ func (s *Service) createConfigurationSet(tx Transaction, in *api.CreateConfigura
 	if in.SendingOptions != nil && in.SendingOptions.SendingEnabled != nil {
 		enabled = bool(*in.SendingOptions.SendingEnabled)
 	}
-	return &api.CreateConfigurationSetOutput{}, tx.PutConfigurationSet(ConfigurationSet{k, enabled, tags})
+	return &api.CreateConfigurationSetOutput{}, tx.PutConfigurationSet(ConfigurationSet{Key: k, SendingEnabled: enabled, Tags: tags, Owner: cloudFormationOwner(tx.Context())})
 }
 func (s *Service) getConfigurationSet(tx Transaction, in *api.GetConfigurationSetInput) (*api.GetConfigurationSetOutput, error) {
 	k := ResourceKey{scopeFor(tx.Context()), value(in.ConfigurationSetName)}
@@ -80,6 +80,9 @@ func (s *Service) getConfigurationSet(tx Transaction, in *api.GetConfigurationSe
 		return nil, e
 	}
 	if e = s.authorize(tx, "GetConfigurationSet", k.ARN("configuration-set"), v.Tags, nil); e != nil {
+		return nil, e
+	}
+	if e = observeCloudFormationResource(tx.Context(), k.ARN("configuration-set"), v.Owner); e != nil {
 		return nil, e
 	}
 	return &api.GetConfigurationSetOutput{ConfigurationSetName: new(api.ConfigurationSetName(k.Name)), SendingOptions: &api.SendingOptions{SendingEnabled: new(api.Enabled(v.SendingEnabled))}, Tags: apiTags(v.Tags)}, nil
@@ -91,6 +94,9 @@ func (s *Service) deleteConfigurationSet(tx Transaction, in *api.DeleteConfigura
 		return nil, e
 	}
 	if e = s.authorize(tx, "DeleteConfigurationSet", k.ARN("configuration-set"), v.Tags, nil); e != nil {
+		return nil, e
+	}
+	if e = observeCloudFormationResource(tx.Context(), k.ARN("configuration-set"), v.Owner); e != nil {
 		return nil, e
 	}
 	return &api.DeleteConfigurationSetOutput{}, tx.DeleteConfigurationSet(k)
@@ -120,6 +126,9 @@ func (s *Service) putConfigurationSending(tx Transaction, in *api.PutConfigurati
 		return nil, e
 	}
 	if e = s.authorize(tx, "PutConfigurationSetSendingOptions", k.ARN("configuration-set"), v.Tags, nil); e != nil {
+		return nil, e
+	}
+	if e = observeCloudFormationResource(tx.Context(), k.ARN("configuration-set"), v.Owner); e != nil {
 		return nil, e
 	}
 	if in.SendingEnabled == nil {

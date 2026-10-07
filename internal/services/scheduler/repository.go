@@ -32,6 +32,7 @@ func (k ScheduleKey) ARN() string {
 }
 
 type GroupRecord struct {
+	ID, CFNOwner      string
 	Key               GroupKey
 	Created, Modified time.Time
 	Tags              map[string]string
@@ -81,6 +82,7 @@ type Tag struct {
 }
 
 type ScheduleRecord struct {
+	CFNOwner, ParentID                                              string
 	Key                                                             ScheduleKey
 	Created, Modified                                               time.Time
 	Expression, Timezone, State, Description, ActionAfterCompletion string

@@ -3,8 +3,8 @@ SELECT * FROM eventbridge_buses WHERE partition=? AND account=? AND region=? AND
 -- name: ListBuses :many
 SELECT * FROM eventbridge_buses WHERE partition=? AND account=? AND region=? ORDER BY name;
 -- name: PutBus :exec
-INSERT INTO eventbridge_buses(partition,account,region,name,description,created,modified,policy,kms_key_identifier,dead_letter_arn,configuration_data_key,configuration_key_arn)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(partition,account,region,name) DO UPDATE SET description=excluded.description,modified=excluded.modified,policy=excluded.policy,kms_key_identifier=excluded.kms_key_identifier,dead_letter_arn=excluded.dead_letter_arn,configuration_data_key=excluded.configuration_data_key,configuration_key_arn=excluded.configuration_key_arn;
+INSERT INTO eventbridge_buses(partition,account,region,name,description,created,modified,policy,kms_key_identifier,dead_letter_arn,configuration_data_key,configuration_key_arn,cfn_owner)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(partition,account,region,name) DO UPDATE SET description=excluded.description,modified=excluded.modified,policy=excluded.policy,kms_key_identifier=excluded.kms_key_identifier,dead_letter_arn=excluded.dead_letter_arn,configuration_data_key=excluded.configuration_data_key,configuration_key_arn=excluded.configuration_key_arn;
 -- name: DeleteBus :exec
 DELETE FROM eventbridge_buses WHERE partition=? AND account=? AND region=? AND name=?;
 -- name: GetBusTags :many
@@ -19,6 +19,12 @@ SELECT arn,principal_id FROM eventbridge_bus_policy_principals WHERE partition=?
 DELETE FROM eventbridge_bus_policy_principals WHERE partition=? AND account=? AND region=? AND bus_name=?;
 -- name: PutBusPolicyPrincipal :exec
 INSERT INTO eventbridge_bus_policy_principals(partition,account,region,bus_name,arn,principal_id) VALUES(?,?,?,?,?,?);
+-- name: GetBusPolicyStatementOwners :many
+SELECT statement_id,cfn_owner FROM eventbridge_bus_policy_statement_owners WHERE partition=? AND account=? AND region=? AND bus_name=? ORDER BY statement_id;
+-- name: DeleteBusPolicyStatementOwners :exec
+DELETE FROM eventbridge_bus_policy_statement_owners WHERE partition=? AND account=? AND region=? AND bus_name=?;
+-- name: PutBusPolicyStatementOwner :exec
+INSERT INTO eventbridge_bus_policy_statement_owners(partition,account,region,bus_name,statement_id,cfn_owner) VALUES(?,?,?,?,?,?);
 -- name: GetRule :one
 SELECT * FROM eventbridge_rules WHERE partition=? AND account=? AND region=? AND bus_name=? AND name=?;
 -- name: ListRules :many
@@ -27,8 +33,8 @@ SELECT * FROM eventbridge_rules WHERE partition=? AND account=? AND region=? AND
 SELECT * FROM eventbridge_rules WHERE next_schedule_seconds IS NOT NULL
 ORDER BY next_schedule_seconds, 'arn:' || partition || ':events:' || region || ':' || account || ':rule/' || CASE WHEN bus_name='default' THEN name ELSE bus_name || '/' || name END LIMIT 1;
 -- name: PutRule :exec
-INSERT INTO eventbridge_rules(partition,account,region,bus_name,name,pattern,description,state,created_by,role_arn,has_pattern,has_description,schedule_expression,next_schedule_seconds,archive_id,encrypted_pattern,managed_by)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(partition,account,region,bus_name,name) DO UPDATE SET pattern=excluded.pattern,description=excluded.description,state=excluded.state,role_arn=excluded.role_arn,has_pattern=excluded.has_pattern,has_description=excluded.has_description,schedule_expression=excluded.schedule_expression,next_schedule_seconds=excluded.next_schedule_seconds,archive_id=excluded.archive_id,encrypted_pattern=excluded.encrypted_pattern,managed_by=excluded.managed_by;
+INSERT INTO eventbridge_rules(partition,account,region,bus_name,name,pattern,description,state,created_by,role_arn,has_pattern,has_description,schedule_expression,next_schedule_seconds,archive_id,encrypted_pattern,managed_by,cfn_owner)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(partition,account,region,bus_name,name) DO UPDATE SET pattern=excluded.pattern,description=excluded.description,state=excluded.state,role_arn=excluded.role_arn,has_pattern=excluded.has_pattern,has_description=excluded.has_description,schedule_expression=excluded.schedule_expression,next_schedule_seconds=excluded.next_schedule_seconds,archive_id=excluded.archive_id,encrypted_pattern=excluded.encrypted_pattern,managed_by=excluded.managed_by;
 -- name: UpdateRuleSchedule :execrows
 UPDATE eventbridge_rules SET next_schedule_seconds=? WHERE partition=? AND account=? AND region=? AND bus_name=? AND name=?;
 -- name: DeleteRule :exec

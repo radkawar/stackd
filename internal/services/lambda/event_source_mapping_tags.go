@@ -20,6 +20,11 @@ func (s *Service) tagMapping(r Reader, key EventSourceMappingKey, action string,
 	if wire := s.authorize(r.Context(), action, key.ARN(), v.Tags, requested, conditions); wire != nil {
 		return v, wire
 	}
+	if err == nil {
+		if wire := requireMappingOwner(r.Context(), v); wire != nil {
+			return v, wire
+		}
+	}
 	return v, err
 }
 func (s *Service) listEventSourceMappingTags(ctx context.Context, in *api.ListTagsInput) (*api.ListTagsOutput, *awswire.Error) {

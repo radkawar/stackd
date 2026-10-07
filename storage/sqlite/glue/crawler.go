@@ -86,6 +86,7 @@ func (r reader) ScheduledCrawlers() ([]domain.CrawlerRecord, error) {
 }
 func decodeCrawler(v sqlcgen.GlueCrawler) (domain.CrawlerRecord, error) {
 	out := domain.CrawlerRecord{Key: domain.ResourceKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name}, RunID: v.RunID}
+	out.CFNOwner = v.CfnOwner
 	if v.NextScheduled.Valid {
 		out.NextScheduled = new(time.Unix(0, v.NextScheduled.Int64).UTC())
 	}
@@ -104,6 +105,7 @@ func decodeCrawler(v sqlcgen.GlueCrawler) (domain.CrawlerRecord, error) {
 func (w writer) PutCrawler(row domain.CrawlerRecord) error {
 	c := row.Crawler
 	v := sqlcgen.PutGlueCrawlerParams{Partition: row.Key.Partition, AccountID: row.Key.AccountID, Region: row.Key.Region, Name: row.Key.Name, Role: string(*c.Role), Description: crawlerString(c.Description), TablePrefix: crawlerString(c.TablePrefix), Configuration: crawlerString(c.Configuration), SecurityConfiguration: crawlerString(c.CrawlerSecurityConfiguration), State: string(*c.State), Version: int64(*c.Version), CreatedAt: c.CreationTime.UnixNano(), UpdatedAt: c.LastUpdated.UnixNano(), RunID: row.RunID}
+	v.CfnOwner = row.CFNOwner
 	if c.DatabaseName != nil {
 		v.DatabaseName = string(*c.DatabaseName)
 	}

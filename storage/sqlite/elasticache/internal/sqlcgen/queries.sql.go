@@ -10,7 +10,7 @@ import (
 )
 
 const allClusters = `-- name: AllClusters :many
-SELECT "partition", account_id, region, kind, name, engine, engine_version, node_type, description, parameter_group, user_group, runtime_id, status, operation, restore_snapshot, shards, replicas, cluster_mode, tls_enabled, memory_bytes, version, created, due FROM elasticache_cluster ORDER BY partition, account_id, region, kind, name
+SELECT "partition", account_id, region, kind, name, engine, engine_version, node_type, description, parameter_group, user_group, runtime_id, status, operation, restore_snapshot, shards, replicas, cluster_mode, tls_enabled, memory_bytes, version, created, due, cloudformation_owner FROM elasticache_cluster ORDER BY partition, account_id, region, kind, name
 `
 
 func (q *Queries) AllClusters(ctx context.Context) ([]ElasticacheCluster, error) {
@@ -46,6 +46,7 @@ func (q *Queries) AllClusters(ctx context.Context) ([]ElasticacheCluster, error)
 			&i.Version,
 			&i.Created,
 			&i.Due,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -388,7 +389,7 @@ func (q *Queries) DeleteUserGroup(ctx context.Context, arg DeleteUserGroupParams
 }
 
 const getCluster = `-- name: GetCluster :one
-SELECT "partition", account_id, region, kind, name, engine, engine_version, node_type, description, parameter_group, user_group, runtime_id, status, operation, restore_snapshot, shards, replicas, cluster_mode, tls_enabled, memory_bytes, version, created, due FROM elasticache_cluster WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ?
+SELECT "partition", account_id, region, kind, name, engine, engine_version, node_type, description, parameter_group, user_group, runtime_id, status, operation, restore_snapshot, shards, replicas, cluster_mode, tls_enabled, memory_bytes, version, created, due, cloudformation_owner FROM elasticache_cluster WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ?
 `
 
 type GetClusterParams struct {
@@ -432,12 +433,13 @@ func (q *Queries) GetCluster(ctx context.Context, arg GetClusterParams) (Elastic
 		&i.Version,
 		&i.Created,
 		&i.Due,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
 
 const getParameterGroup = `-- name: GetParameterGroup :one
-SELECT "partition", account_id, region, kind, name, family, description FROM elasticache_parameter_group WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ?
+SELECT "partition", account_id, region, kind, name, family, description, cloudformation_owner FROM elasticache_parameter_group WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ?
 `
 
 type GetParameterGroupParams struct {
@@ -465,6 +467,7 @@ func (q *Queries) GetParameterGroup(ctx context.Context, arg GetParameterGroupPa
 		&i.Name,
 		&i.Family,
 		&i.Description,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
@@ -519,7 +522,7 @@ func (q *Queries) GetSnapshot(ctx context.Context, arg GetSnapshotParams) (Elast
 }
 
 const getSubnetGroup = `-- name: GetSubnetGroup :one
-SELECT "partition", account_id, region, kind, name, description, vpc_id FROM elasticache_subnet_group WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ?
+SELECT "partition", account_id, region, kind, name, description, vpc_id, cloudformation_owner FROM elasticache_subnet_group WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ?
 `
 
 type GetSubnetGroupParams struct {
@@ -547,12 +550,13 @@ func (q *Queries) GetSubnetGroup(ctx context.Context, arg GetSubnetGroupParams) 
 		&i.Name,
 		&i.Description,
 		&i.VpcID,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
 
 const getUser = `-- name: GetUser :one
-SELECT "partition", account_id, region, kind, name, user_name, engine, access_string, status, no_password FROM elasticache_user WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ?
+SELECT "partition", account_id, region, kind, name, user_name, engine, access_string, status, no_password, cloudformation_owner FROM elasticache_user WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ?
 `
 
 type GetUserParams struct {
@@ -583,12 +587,13 @@ func (q *Queries) GetUser(ctx context.Context, arg GetUserParams) (ElasticacheUs
 		&i.AccessString,
 		&i.Status,
 		&i.NoPassword,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
 
 const getUserGroup = `-- name: GetUserGroup :one
-SELECT "partition", account_id, region, kind, name, engine, status FROM elasticache_user_group WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ?
+SELECT "partition", account_id, region, kind, name, engine, status, cloudformation_owner FROM elasticache_user_group WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ?
 `
 
 type GetUserGroupParams struct {
@@ -616,12 +621,13 @@ func (q *Queries) GetUserGroup(ctx context.Context, arg GetUserGroupParams) (Ela
 		&i.Name,
 		&i.Engine,
 		&i.Status,
+		&i.CloudformationOwner,
 	)
 	return i, err
 }
 
 const listClusters = `-- name: ListClusters :many
-SELECT "partition", account_id, region, kind, name, engine, engine_version, node_type, description, parameter_group, user_group, runtime_id, status, operation, restore_snapshot, shards, replicas, cluster_mode, tls_enabled, memory_bytes, version, created, due FROM elasticache_cluster WHERE partition = ? AND account_id = ? AND region = ? ORDER BY kind, name
+SELECT "partition", account_id, region, kind, name, engine, engine_version, node_type, description, parameter_group, user_group, runtime_id, status, operation, restore_snapshot, shards, replicas, cluster_mode, tls_enabled, memory_bytes, version, created, due, cloudformation_owner FROM elasticache_cluster WHERE partition = ? AND account_id = ? AND region = ? ORDER BY kind, name
 `
 
 type ListClustersParams struct {
@@ -663,6 +669,7 @@ func (q *Queries) ListClusters(ctx context.Context, arg ListClustersParams) ([]E
 			&i.Version,
 			&i.Created,
 			&i.Due,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -828,7 +835,7 @@ func (q *Queries) ListNodes(ctx context.Context, arg ListNodesParams) ([]Elastic
 }
 
 const listParameterGroups = `-- name: ListParameterGroups :many
-SELECT "partition", account_id, region, kind, name, family, description FROM elasticache_parameter_group WHERE partition = ? AND account_id = ? AND region = ? ORDER BY kind, name
+SELECT "partition", account_id, region, kind, name, family, description, cloudformation_owner FROM elasticache_parameter_group WHERE partition = ? AND account_id = ? AND region = ? ORDER BY kind, name
 `
 
 type ListParameterGroupsParams struct {
@@ -854,6 +861,7 @@ func (q *Queries) ListParameterGroups(ctx context.Context, arg ListParameterGrou
 			&i.Name,
 			&i.Family,
 			&i.Description,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -975,7 +983,7 @@ func (q *Queries) ListSnapshots(ctx context.Context, arg ListSnapshotsParams) ([
 }
 
 const listSubnetGroups = `-- name: ListSubnetGroups :many
-SELECT "partition", account_id, region, kind, name, description, vpc_id FROM elasticache_subnet_group WHERE partition = ? AND account_id = ? AND region = ? ORDER BY kind, name
+SELECT "partition", account_id, region, kind, name, description, vpc_id, cloudformation_owner FROM elasticache_subnet_group WHERE partition = ? AND account_id = ? AND region = ? ORDER BY kind, name
 `
 
 type ListSubnetGroupsParams struct {
@@ -1001,6 +1009,7 @@ func (q *Queries) ListSubnetGroups(ctx context.Context, arg ListSubnetGroupsPara
 			&i.Name,
 			&i.Description,
 			&i.VpcID,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -1115,7 +1124,7 @@ func (q *Queries) ListTags(ctx context.Context, arg ListTagsParams) ([]Elasticac
 }
 
 const listUserGroups = `-- name: ListUserGroups :many
-SELECT "partition", account_id, region, kind, name, engine, status FROM elasticache_user_group WHERE partition = ? AND account_id = ? AND region = ? ORDER BY kind, name
+SELECT "partition", account_id, region, kind, name, engine, status, cloudformation_owner FROM elasticache_user_group WHERE partition = ? AND account_id = ? AND region = ? ORDER BY kind, name
 `
 
 type ListUserGroupsParams struct {
@@ -1141,6 +1150,7 @@ func (q *Queries) ListUserGroups(ctx context.Context, arg ListUserGroupsParams) 
 			&i.Name,
 			&i.Engine,
 			&i.Status,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -1156,7 +1166,7 @@ func (q *Queries) ListUserGroups(ctx context.Context, arg ListUserGroupsParams) 
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT "partition", account_id, region, kind, name, user_name, engine, access_string, status, no_password FROM elasticache_user WHERE partition = ? AND account_id = ? AND region = ? ORDER BY kind, name
+SELECT "partition", account_id, region, kind, name, user_name, engine, access_string, status, no_password, cloudformation_owner FROM elasticache_user WHERE partition = ? AND account_id = ? AND region = ? ORDER BY kind, name
 `
 
 type ListUsersParams struct {
@@ -1185,6 +1195,7 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]Elastic
 			&i.AccessString,
 			&i.Status,
 			&i.NoPassword,
+			&i.CloudformationOwner,
 		); err != nil {
 			return nil, err
 		}
@@ -1200,33 +1211,34 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]Elastic
 }
 
 const putCluster = `-- name: PutCluster :exec
-INSERT INTO elasticache_cluster (partition, account_id, region, kind, name, engine, engine_version, node_type, description, parameter_group, user_group, runtime_id, status, operation, restore_snapshot, shards, replicas, cluster_mode, tls_enabled, memory_bytes, version, created, due) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, kind, name) DO UPDATE SET engine = excluded.engine, engine_version = excluded.engine_version, node_type = excluded.node_type, description = excluded.description, parameter_group = excluded.parameter_group, user_group = excluded.user_group, runtime_id = excluded.runtime_id, status = excluded.status, operation = excluded.operation, restore_snapshot = excluded.restore_snapshot, shards = excluded.shards, replicas = excluded.replicas, cluster_mode = excluded.cluster_mode, tls_enabled = excluded.tls_enabled, memory_bytes = excluded.memory_bytes, version = excluded.version, created = excluded.created, due = excluded.due
+INSERT INTO elasticache_cluster (partition, account_id, region, kind, name, engine, engine_version, node_type, description, parameter_group, user_group, runtime_id, status, operation, restore_snapshot, shards, replicas, cluster_mode, tls_enabled, memory_bytes, version, created, due, cloudformation_owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, kind, name) DO UPDATE SET engine = excluded.engine, engine_version = excluded.engine_version, node_type = excluded.node_type, description = excluded.description, parameter_group = excluded.parameter_group, user_group = excluded.user_group, runtime_id = excluded.runtime_id, status = excluded.status, operation = excluded.operation, restore_snapshot = excluded.restore_snapshot, shards = excluded.shards, replicas = excluded.replicas, cluster_mode = excluded.cluster_mode, tls_enabled = excluded.tls_enabled, memory_bytes = excluded.memory_bytes, version = excluded.version, created = excluded.created, due = excluded.due, cloudformation_owner = excluded.cloudformation_owner
 `
 
 type PutClusterParams struct {
-	Partition       string
-	AccountID       string
-	Region          string
-	Kind            string
-	Name            string
-	Engine          string
-	EngineVersion   string
-	NodeType        string
-	Description     string
-	ParameterGroup  string
-	UserGroup       string
-	RuntimeID       string
-	Status          string
-	Operation       string
-	RestoreSnapshot string
-	Shards          int64
-	Replicas        int64
-	ClusterMode     int64
-	TlsEnabled      int64
-	MemoryBytes     int64
-	Version         int64
-	Created         int64
-	Due             int64
+	Partition           string
+	AccountID           string
+	Region              string
+	Kind                string
+	Name                string
+	Engine              string
+	EngineVersion       string
+	NodeType            string
+	Description         string
+	ParameterGroup      string
+	UserGroup           string
+	RuntimeID           string
+	Status              string
+	Operation           string
+	RestoreSnapshot     string
+	Shards              int64
+	Replicas            int64
+	ClusterMode         int64
+	TlsEnabled          int64
+	MemoryBytes         int64
+	Version             int64
+	Created             int64
+	Due                 int64
+	CloudformationOwner string
 }
 
 func (q *Queries) PutCluster(ctx context.Context, arg PutClusterParams) error {
@@ -1254,6 +1266,7 @@ func (q *Queries) PutCluster(ctx context.Context, arg PutClusterParams) error {
 		arg.Version,
 		arg.Created,
 		arg.Due,
+		arg.CloudformationOwner,
 	)
 	return err
 }
@@ -1373,17 +1386,18 @@ func (q *Queries) PutParameter(ctx context.Context, arg PutParameterParams) erro
 }
 
 const putParameterGroup = `-- name: PutParameterGroup :exec
-INSERT INTO elasticache_parameter_group (partition, account_id, region, kind, name, family, description) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, kind, name) DO UPDATE SET family = excluded.family, description = excluded.description
+INSERT INTO elasticache_parameter_group (partition, account_id, region, kind, name, family, description, cloudformation_owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, kind, name) DO UPDATE SET family = excluded.family, description = excluded.description, cloudformation_owner = excluded.cloudformation_owner
 `
 
 type PutParameterGroupParams struct {
-	Partition   string
-	AccountID   string
-	Region      string
-	Kind        string
-	Name        string
-	Family      string
-	Description string
+	Partition           string
+	AccountID           string
+	Region              string
+	Kind                string
+	Name                string
+	Family              string
+	Description         string
+	CloudformationOwner string
 }
 
 func (q *Queries) PutParameterGroup(ctx context.Context, arg PutParameterGroupParams) error {
@@ -1395,6 +1409,7 @@ func (q *Queries) PutParameterGroup(ctx context.Context, arg PutParameterGroupPa
 		arg.Name,
 		arg.Family,
 		arg.Description,
+		arg.CloudformationOwner,
 	)
 	return err
 }
@@ -1488,17 +1503,18 @@ func (q *Queries) PutSubnet(ctx context.Context, arg PutSubnetParams) error {
 }
 
 const putSubnetGroup = `-- name: PutSubnetGroup :exec
-INSERT INTO elasticache_subnet_group (partition, account_id, region, kind, name, description, vpc_id) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, kind, name) DO UPDATE SET description = excluded.description, vpc_id = excluded.vpc_id
+INSERT INTO elasticache_subnet_group (partition, account_id, region, kind, name, description, vpc_id, cloudformation_owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, kind, name) DO UPDATE SET description = excluded.description, vpc_id = excluded.vpc_id, cloudformation_owner = excluded.cloudformation_owner
 `
 
 type PutSubnetGroupParams struct {
-	Partition   string
-	AccountID   string
-	Region      string
-	Kind        string
-	Name        string
-	Description string
-	VpcID       string
+	Partition           string
+	AccountID           string
+	Region              string
+	Kind                string
+	Name                string
+	Description         string
+	VpcID               string
+	CloudformationOwner string
 }
 
 func (q *Queries) PutSubnetGroup(ctx context.Context, arg PutSubnetGroupParams) error {
@@ -1510,6 +1526,7 @@ func (q *Queries) PutSubnetGroup(ctx context.Context, arg PutSubnetGroupParams) 
 		arg.Name,
 		arg.Description,
 		arg.VpcID,
+		arg.CloudformationOwner,
 	)
 	return err
 }
@@ -1542,20 +1559,21 @@ func (q *Queries) PutTag(ctx context.Context, arg PutTagParams) error {
 }
 
 const putUser = `-- name: PutUser :exec
-INSERT INTO elasticache_user (partition, account_id, region, kind, name, user_name, engine, access_string, status, no_password) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, kind, name) DO UPDATE SET user_name = excluded.user_name, engine = excluded.engine, access_string = excluded.access_string, status = excluded.status, no_password = excluded.no_password
+INSERT INTO elasticache_user (partition, account_id, region, kind, name, user_name, engine, access_string, status, no_password, cloudformation_owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, kind, name) DO UPDATE SET user_name = excluded.user_name, engine = excluded.engine, access_string = excluded.access_string, status = excluded.status, no_password = excluded.no_password, cloudformation_owner = excluded.cloudformation_owner
 `
 
 type PutUserParams struct {
-	Partition    string
-	AccountID    string
-	Region       string
-	Kind         string
-	Name         string
-	UserName     string
-	Engine       string
-	AccessString string
-	Status       string
-	NoPassword   int64
+	Partition           string
+	AccountID           string
+	Region              string
+	Kind                string
+	Name                string
+	UserName            string
+	Engine              string
+	AccessString        string
+	Status              string
+	NoPassword          int64
+	CloudformationOwner string
 }
 
 func (q *Queries) PutUser(ctx context.Context, arg PutUserParams) error {
@@ -1570,22 +1588,24 @@ func (q *Queries) PutUser(ctx context.Context, arg PutUserParams) error {
 		arg.AccessString,
 		arg.Status,
 		arg.NoPassword,
+		arg.CloudformationOwner,
 	)
 	return err
 }
 
 const putUserGroup = `-- name: PutUserGroup :exec
-INSERT INTO elasticache_user_group (partition, account_id, region, kind, name, engine, status) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, kind, name) DO UPDATE SET engine = excluded.engine, status = excluded.status
+INSERT INTO elasticache_user_group (partition, account_id, region, kind, name, engine, status, cloudformation_owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, kind, name) DO UPDATE SET engine = excluded.engine, status = excluded.status, cloudformation_owner = excluded.cloudformation_owner
 `
 
 type PutUserGroupParams struct {
-	Partition string
-	AccountID string
-	Region    string
-	Kind      string
-	Name      string
-	Engine    string
-	Status    string
+	Partition           string
+	AccountID           string
+	Region              string
+	Kind                string
+	Name                string
+	Engine              string
+	Status              string
+	CloudformationOwner string
 }
 
 func (q *Queries) PutUserGroup(ctx context.Context, arg PutUserGroupParams) error {
@@ -1597,6 +1617,7 @@ func (q *Queries) PutUserGroup(ctx context.Context, arg PutUserGroupParams) erro
 		arg.Name,
 		arg.Engine,
 		arg.Status,
+		arg.CloudformationOwner,
 	)
 	return err
 }

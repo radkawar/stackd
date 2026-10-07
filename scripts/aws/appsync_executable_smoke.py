@@ -69,7 +69,7 @@ class Application:
 
     def start(self):
         command = [str(Path(self.args.binary).resolve()), "-listen", f"0.0.0.0:{self.port}", "-public-endpoint", self.endpoint,
-                   "-database", str(self.database), "-docker-host", self.args.docker_host, "-rds-runtime",
+                   "-database", str(self.database), "-docker-host", self.args.docker_host, "-lambda-runtime", "-dynamodb-runtime", "-rds-runtime",
                    "-compute-endpoint", f"http://host.docker.internal:{self.port}"]
         if self.args.telemetry_directory:
             command += ["-lambda-telemetry-directory", self.args.telemetry_directory]

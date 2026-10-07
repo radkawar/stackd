@@ -12,7 +12,8 @@ func apiDestination(v sqlcgen.EventbridgeApiDestination) domain.APIDestinationRe
 	out := domain.APIDestinationRecord{
 		Key: domain.APIDestinationKey{Scope: domain.Scope{Partition: v.Partition, Account: v.Account, Region: v.Region}, Name: v.Name},
 		ID:  v.ID, Description: v.Description, ConnectionARN: v.ConnectionArn, Endpoint: v.Endpoint, Method: v.Method,
-		Rate: int(v.Rate), Created: v.Created, Modified: v.Modified, RateCount: int(v.RateCount), Version: uint64(v.Version),
+		CFNOwner: v.CfnOwner,
+		Rate:     int(v.Rate), Created: v.Created, Modified: v.Modified, RateCount: int(v.RateCount), Version: uint64(v.Version),
 	}
 	if v.RateWindow.Valid {
 		out.RateWindow = v.RateWindow.Time
@@ -44,7 +45,8 @@ func (w writer) PutAPIDestination(v domain.APIDestinationRecord) error {
 	return w.q.PutAPIDestination(w.ctx, sqlcgen.PutAPIDestinationParams{
 		Partition: v.Key.Partition, Account: v.Key.Account, Region: v.Key.Region, Name: v.Key.Name,
 		ID: v.ID, Description: v.Description, ConnectionArn: v.ConnectionARN, Endpoint: v.Endpoint, Method: v.Method,
-		Rate: int64(v.Rate), Created: v.Created, Modified: v.Modified,
+		CfnOwner: v.CFNOwner,
+		Rate:     int64(v.Rate), Created: v.Created, Modified: v.Modified,
 		RateWindow: sql.NullTime{Time: v.RateWindow, Valid: !v.RateWindow.IsZero()}, RateCount: int64(v.RateCount), Version: sqlite.Uint64(v.Version),
 	})
 }
