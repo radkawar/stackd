@@ -46,7 +46,7 @@ keeps service-specific accounting and error semantics authoritative.
   Linux ECS cgroup setup for unrelated Lambda/native engines. The documented
   source-built endpoint recipe uses port 4567 and an explicit guest-reachable
   origin. Cross-compilation is not a macOS Docker runtime smoke.
-- [x] Deploy a 67-resource Guard stack through the public endpoint on port 4567:
+- [x] Deploy a 67-resource application stack through the public endpoint on port 4567:
   CREATE_COMPLETE, UPDATE_COMPLETE, SQLite controller restart and DELETE_COMPLETE.
   Native SDK reads verify the owned resources and final absence. Real image and
   provided-runtime customer code exercises DynamoDB/GSI, Kafka/FIFO mappings,
@@ -56,6 +56,48 @@ keeps service-specific accounting and error semantics authoritative.
   while accepted customer execution completes.
   This fixture establishes those local Linux paths, not hosted Google OAuth,
   public DNS, WebSocket message execution or macOS Docker behavior.
+- [x] Record the first reported native macOS/Apple Silicon Docker Desktop run at
+  `54c09a9`: 155-resource creation, real image/provided runtimes, DynamoDB/Kinesis,
+  Cognito/JWKS and SQS/S3/rate delivery, image updates and clean teardown.
+  [Desktop evidence](docs/runtime-containers.md#native-macos-controller-with-docker-desktop)
+  is user-reported, not locally repeated platform execution; CORS readback and
+  cron were not observed in that run.
+- [x] Repair the Desktop report's B1–B8 compatibility boundaries: managed Lambda
+  VPC execution permissions; exact Function/Mapping rejected-create recovery;
+  Python 3.12 amd64 child-manifest pin; typed Cognito missing-SES errors; official
+  Kinesis Streams endpoint name; native GetAZs/YAML; conditional lifecycle
+  policies; generated-shape numeric parameter binding and numeric IpProtocol.
+  Preserve resource failure events and shared-transaction IAM reads. Actual
+  SQLite CLI/SDK and containerd Python RIC execution cover creation/update,
+  rejected rollback, SES mailbox verification and policy changes across restart.
+  Real managed-role Lambda/Kinesis endpoint/NAT packet cases pass on both stores.
+- [x] Enable the existing native nested-stack handler in templates, with actual
+  S3 template/child-output/queue update and exact deletion, plus memory/SQLite
+  child failure and restart regressions. This does not implement arbitrary URLs
+  or custom-resource callbacks.
+- [x] Resolve the retained Kinesis native frame CRC mismatch in
+  `TestKinesisEventStreamNativeFrames/settled-subscribe-split-parent-end`.
+  Foreign-account reservation had rewritten the opaque zero-valued shard ID.
+  Preserve hyphenated identifier boundaries and restore captured shard IDs;
+  the original native CRCs validate without regeneration or decoder changes.
+  Sanitizer regressions, actual publication CLI and full AWSAPI/Kinesis tests pass.
+- [ ] Implement SSM/Secrets Manager dynamic references under current stack
+  caller/execution-role authority, including version semantics and secret
+  masking in retained events/intent. Keep rejecting them until real resolution
+  and credential-safe persistence are implemented.
+- [ ] Implement Cognito SOFTWARE_TOKEN_MFA enrollment, TOTP verification,
+  challenge sessions, factor preferences and required/optional enforcement;
+  accepting `EnabledMfas` without authentication behavior is not support.
+- [ ] Execute Cognito LambdaConfig triggers through real Lambda runtimes with
+  current invocation authority and documented event/response semantics; do not
+  admit inert trigger metadata.
+- [ ] Implement REST API Gateway BinaryMediaTypes with real content negotiation,
+  binary/base64 Lambda proxy request/response handling and deployment persistence.
+- [ ] Add an evidenced EC2 endpoint-service inventory independent of emulated
+  providers, including known `bedrock-runtime` control-plane admission and
+  `DescribeVpcEndpointServices` filtering/scope/pagination. Do not claim a
+  Bedrock inference data plane. The current gap marker is in
+  `internal/services/ec2/vpc_endpoints.go`.
 - [x] Separate native probe accounts and private raw captures from published
   fixtures: explicit `--account` identity guards, valid distinct account aliases,
   recursive encoded/archive redaction and locally regenerated authenticated
@@ -139,7 +181,7 @@ keeps service-specific accounting and error semantics authoritative.
   Native/executable evidence and bounded property support are recorded in
   [deployment behavior](docs/behavior-references.md#cloudformation-deployments).
   Whole-service completion remains open: StackSets, registry/custom resources,
-  nested stacks, remote templates, broad transforms, drift, resource imports,
+  custom-resource callbacks, remote templates, broad transforms, drift, resource imports,
   stack policies/rollback alarms/notification controls and additional resources.
   EventBridge API Destination controls and authenticated HTTPS delivery are
   integrated. The combined executable upgraded schema 222→224, preserved

@@ -93,7 +93,20 @@ func TestNetworkOwnerNativeLifecycleRecovery(t *testing.T) {
 				t.Fatal("gateway endpoint did not own prefix-list route")
 			}
 			expect("DeleteRouteTable", &api.DeleteRouteTableRequest{RouteTableId: &tableID}, "DependencyViolation")
-			interfaceInput := &api.CreateVpcEndpointRequest{VpcId: new(api.VpcId(*vpc.VpcId)), VpcEndpointType: new(api.VpcEndpointType("Interface")), ServiceName: new(api.String("com.amazonaws.us-east-1.logs")), SubnetIds: api.VpcEndpointSubnetIdList{api.SubnetId(*subnet.SubnetId)}, ClientToken: new(api.String("interface-fence"))}
+			interfaceInput := &api.CreateVpcEndpointRequest{VpcId: new(api.VpcId(*vpc.VpcId)), VpcEndpointType: new(api.VpcEndpointType("Interface")), ServiceName: new(api.String("com.amazonaws.us-east-1.kinesis-streams")), SubnetIds: api.VpcEndpointSubnetIdList{api.SubnetId(*subnet.SubnetId)}, ClientToken: new(api.String("interface-fence"))}
+			for _, name := range []string{"com.amazonaws.us-west-2.kinesis-streams", "cn.com.amazonaws.us-east-1.kinesis-streams", "com.amazonaws.us-east-1.not-a-service"} {
+				invalid := ec2.CloneCreateVpcEndpointRequest(*interfaceInput)
+				invalid.ServiceName, invalid.ClientToken = new(api.String(name)), nil
+				expect("CreateVpcEndpoint", &invalid, "InvalidServiceName")
+			}
+			wrongRegion := ec2.CloneCreateVpcEndpointRequest(*interfaceInput)
+			wrongRegion.ServiceRegion, wrongRegion.ClientToken = new(api.String("us-west-2")), nil
+			expect("CreateVpcEndpoint", &wrongRegion, "UnsupportedOperation")
+			wrongType := ec2.CloneCreateVpcEndpointRequest(*interfaceInput)
+			wrongType.VpcEndpointType, wrongType.ClientToken = new(api.VpcEndpointType("Gateway")), nil
+			expect("CreateVpcEndpoint", &wrongType, "InvalidServiceName")
+			wrongType.VpcEndpointType = new(api.VpcEndpointType("GatewayLoadBalancer"))
+			expect("CreateVpcEndpoint", &wrongType, "UnsupportedOperation")
 			endpoint := subnetResult[api.CreateVpcEndpointResult](t, ctx, service, "ec2", "CreateVpcEndpoint", interfaceInput).VpcEndpoint
 			if len(endpoint.NetworkInterfaceIds) != 1 || len(endpoint.Groups) != 1 {
 				t.Fatalf("missing endpoint controls %+v", endpoint)
@@ -107,6 +120,9 @@ func TestNetworkOwnerNativeLifecycleRecovery(t *testing.T) {
 				t.Fatal("NAT association lost on restart")
 			}
 			read := subnetResult[api.DescribeVpcEndpointsResult](t, ctx, service, "ec2", "DescribeVpcEndpoints", &api.DescribeVpcEndpointsRequest{VpcEndpointIds: api.VpcEndpointIdList{endpointID}}).VpcEndpoints[0]
+			if read.ServiceName == nil || *read.ServiceName != *interfaceInput.ServiceName || read.VpcEndpointType == nil || *read.VpcEndpointType != "Interface" || len(read.NetworkInterfaceIds) != 1 {
+				t.Fatalf("official Kinesis interface endpoint lost on restart: %+v", read)
+			}
 			if read.DnsOptions == nil || *read.DnsOptions.DnsRecordIpType != "ipv4" || *read.PolicyDocument != `{"Statement":[{"Effect":"Deny","Principal":"*","Action":"*","Resource":"*"}]}` {
 				t.Fatalf("endpoint settings lost %+v", read)
 			}

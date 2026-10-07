@@ -160,6 +160,9 @@ func (s *Service) prepare(r Reader, stack StackRecord, body string, parameters a
 	if e != nil {
 		return nil, nil, nil, e
 	}
+	if e := t.validateResolvedPolicies(evaluation, s.handlers); e != nil {
+		return nil, nil, nil, e
+	}
 	if e := t.ValidateRules(evaluation); e != nil {
 		return nil, nil, nil, e
 	}
@@ -188,7 +191,7 @@ func (s *Service) prepare(r Reader, stack StackRecord, body string, parameters a
 	return t, params, resolved, nil
 }
 func (s *Service) evaluation(r Reader, stack StackRecord, parameters, resolved map[string]string) (Evaluation, error) {
-	e := Evaluation{Scope: stack.Scope, StackID: stack.ID, StackName: stack.Name, Parameters: parameters, ResolvedParameters: resolved, Resources: map[string]ResourceResult{}, Imports: map[string]string{}}
+	e := Evaluation{Scope: stack.Scope, StackID: stack.ID, StackName: stack.Name, Parameters: parameters, ResolvedParameters: resolved, Resources: map[string]ResourceResult{}, Imports: map[string]string{}, Context: r.Context(), AvailabilityZones: s.availabilityZones}
 	resources, err := r.Resources(stack.ID)
 	if err != nil {
 		return e, err
@@ -244,6 +247,10 @@ func (s *Service) changes(r Reader, stack StackRecord, t *Template, params, reso
 	if e1 != nil {
 		return nil, e1
 	}
+	policies, e1 := t.ResolvePolicies(e)
+	if e1 != nil {
+		return nil, e1
+	}
 	old, e1 := currentResources(r, stack.ID)
 	if e1 != nil {
 		return nil, e1
@@ -272,7 +279,9 @@ func (s *Service) changes(r Reader, stack StackRecord, t *Template, params, reso
 			continue
 		}
 		dependencyChanged := referencesChanged(resource.Properties, affected)
-		changed := dependencyChanged || before.Type != resource.Type || !maps.Equal(params, stack.Parameters) || !maps.Equal(resolved, stack.ResolvedParameters) || !maps.Equal(tags, stack.Tags) || prior == nil || !reflect.DeepEqual(prior.Resources[id], resource)
+		policyChanged := policies[id].DeletionPolicy != before.DeletionPolicy || policies[id].UpdateReplacePolicy != before.UpdateReplacePolicy
+		policyExpressionChanged := prior == nil || !reflect.DeepEqual(prior.Resources[id].DeletionPolicy, resource.DeletionPolicy) || !reflect.DeepEqual(prior.Resources[id].UpdateReplacePolicy, resource.UpdateReplacePolicy)
+		changed := dependencyChanged || policyChanged || before.Type != resource.Type || !maps.Equal(params, stack.Parameters) || !maps.Equal(resolved, stack.ResolvedParameters) || !maps.Equal(tags, stack.Tags) || prior == nil || !reflect.DeepEqual(prior.Resources[id], resource)
 		if !changed {
 			continue
 		}
@@ -288,7 +297,7 @@ func (s *Service) changes(r Reader, stack StackRecord, t *Template, params, reso
 					return nil, e1
 				}
 			}
-			if replacement == "False" && !dependencyChanged && reflect.DeepEqual(props, before.Properties) && maps.Equal(tags, stack.Tags) {
+			if replacement == "False" && !dependencyChanged && !policyChanged && !policyExpressionChanged && reflect.DeepEqual(props, before.Properties) && maps.Equal(tags, stack.Tags) {
 				continue
 			}
 		}
@@ -327,13 +336,17 @@ func (s *Service) begin(tx Transaction, stack StackRecord, kind, body string, pa
 		if e != nil {
 			return e
 		}
+		policies, e := t.ResolvePolicies(evaluation)
+		if e != nil {
+			return e
+		}
 		order, e := t.Order(evaluation)
 		if e != nil {
 			return e
 		}
 		for _, id := range order {
 			before := current[id]
-			after := ResourceRecord{StackID: stack.ID, LogicalID: id, Type: t.Resources[id].Type, Generation: generations[id] + 1, Token: uuid.NewString(), Current: true, DeletionPolicy: t.Resources[id].DeletionPolicy, UpdateReplacePolicy: t.Resources[id].UpdateReplacePolicy}
+			after := ResourceRecord{StackID: stack.ID, LogicalID: id, Type: t.Resources[id].Type, Generation: generations[id] + 1, Token: uuid.NewString(), Current: true, DeletionPolicy: policies[id].DeletionPolicy, UpdateReplacePolicy: policies[id].UpdateReplacePolicy}
 			op.Steps = append(op.Steps, StepRecord{Position: len(op.Steps), LogicalID: id, Action: "UPSERT", State: "PENDING", Before: before, After: after})
 			delete(current, id)
 		}

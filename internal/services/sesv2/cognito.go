@@ -2,6 +2,7 @@ package sesv2
 
 import (
 	"context"
+	"errors"
 	"strings"
 )
 
@@ -15,6 +16,9 @@ func (s *Service) ValidateCognitoIdentity(ctx context.Context, scope Scope, sour
 			return bad("Cognito SourceArn must name an SES identity in the pool account and Region.")
 		}
 		id, e := r.Identity(ResourceKey{scope, strings.TrimPrefix(sourceARN, prefix)})
+		if errors.Is(e, ErrNotFound) {
+			return failure("NotFoundException", "Cognito SourceArn email identity does not exist.", 404)
+		}
 		if e != nil {
 			return e
 		}
@@ -30,6 +34,9 @@ func (s *Service) ValidateCognitoIdentity(ctx context.Context, scope Scope, sour
 		}
 		if configuration != "" {
 			_, e = r.ConfigurationSet(ResourceKey{scope, configuration})
+			if errors.Is(e, ErrNotFound) {
+				return failure("NotFoundException", "Cognito email configuration set does not exist.", 404)
+			}
 			return e
 		}
 		return nil

@@ -32,28 +32,36 @@ type ParameterSource interface {
 	ResolveParameter(context.Context, string) (string, error)
 }
 
+// AvailabilityZoneSource borrows EC2's account-scoped inventory and default
+// subnet filtering under the caller's current authority.
+type AvailabilityZoneSource interface {
+	CloudFormationAvailabilityZones(context.Context, string) ([]string, error)
+}
+
 type Config struct {
-	Repository Repository
-	Authorizer authorization.Authorizer
-	Clock      clock.Clock
-	Handlers   map[string]ResourceHandler
-	Roles      ExecutionRoles
-	Recorder   apievents.Recorder
-	Templates  TemplateSource
-	Parameters ParameterSource
+	Repository        Repository
+	Authorizer        authorization.Authorizer
+	Clock             clock.Clock
+	Handlers          map[string]ResourceHandler
+	Roles             ExecutionRoles
+	Recorder          apievents.Recorder
+	Templates         TemplateSource
+	Parameters        ParameterSource
+	AvailabilityZones AvailabilityZoneSource
 }
 
 type Service struct {
-	repository Repository
-	authorizer authorization.Authorizer
-	clock      clock.Clock
-	handlers   map[string]ResourceHandler
-	roles      ExecutionRoles
-	recorder   apievents.Recorder
-	templates  TemplateSource
-	parameters ParameterSource
-	jobs       *scheduler.Driver
-	operations map[string]func(context.Context) (any, *awswire.Error)
+	repository        Repository
+	authorizer        authorization.Authorizer
+	clock             clock.Clock
+	handlers          map[string]ResourceHandler
+	roles             ExecutionRoles
+	recorder          apievents.Recorder
+	templates         TemplateSource
+	parameters        ParameterSource
+	availabilityZones AvailabilityZoneSource
+	jobs              *scheduler.Driver
+	operations        map[string]func(context.Context) (any, *awswire.Error)
 }
 
 func New(c Config) *Service {
@@ -68,6 +76,7 @@ func New(c Config) *Service {
 	}
 	s := &Service{repository: c.Repository, authorizer: c.Authorizer, clock: c.Clock, handlers: maps.Clone(c.Handlers), roles: c.Roles, recorder: c.Recorder, operations: map[string]func(context.Context) (any, *awswire.Error){}}
 	s.templates, s.parameters = c.Templates, c.Parameters
+	s.availabilityZones = c.AvailabilityZones
 	s.jobs = scheduler.New(c.Clock, deploymentJobs{s})
 	s.registerStacks()
 	s.registerChangeSets()
@@ -82,6 +91,9 @@ func (s *Service) SetHandlers(v map[string]ResourceHandler) { s.handlers = maps.
 // SetTemplateSources completes explicit assembly before accepting requests.
 func (s *Service) SetTemplateSources(templates TemplateSource, parameters ParameterSource) {
 	s.templates, s.parameters = templates, parameters
+}
+func (s *Service) SetAvailabilityZoneSource(source AvailabilityZoneSource) {
+	s.availabilityZones = source
 }
 func (s *Service) Operations() []string         { return slices.Sorted(maps.Keys(s.operations)) }
 func (s *Service) JobDriver() *scheduler.Driver { return s.jobs }

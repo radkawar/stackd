@@ -1,6 +1,7 @@
 package cloudformation
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -39,10 +40,12 @@ type TemplateParameter struct {
 }
 
 type TemplateResource struct {
-	Type, Condition, DeletionPolicy, UpdateReplacePolicy string
-	Properties                                           Properties
-	DependsOn                                            []string
-	Metadata                                             map[string]any
+	Type, Condition string
+	// Policies retain customer expressions; ResourceRecord stores admitted strings.
+	DeletionPolicy, UpdateReplacePolicy any
+	Properties                          Properties
+	DependsOn                           []string
+	Metadata                            map[string]any
 }
 
 type TemplateOutput struct {
@@ -58,6 +61,8 @@ type Evaluation struct {
 	ResolvedParameters map[string]string
 	Resources          map[string]ResourceResult
 	Imports            map[string]string
+	Context            context.Context
+	AvailabilityZones  AvailabilityZoneSource
 }
 
 type OutputValue struct {
@@ -394,23 +399,22 @@ func parseTemplateResource(entry map[string]any, path string) (TemplateResource,
 		return r, err
 	}
 	var err error
-	for key, target := range map[string]*string{"Type": &r.Type, "Condition": &r.Condition, "DeletionPolicy": &r.DeletionPolicy, "UpdateReplacePolicy": &r.UpdateReplacePolicy} {
+	for key, target := range map[string]*string{"Type": &r.Type, "Condition": &r.Condition} {
 		if *target, err = templateString(entry, key, path, key == "Type"); err != nil {
 			return r, err
 		}
 	}
-	if !strings.HasPrefix(r.Type, "AWS::") || r.Type == "AWS::CloudFormation::CustomResource" || r.Type == "AWS::CloudFormation::Stack" {
-		// TODO: Comeback: nested stacks, custom-resource callbacks and registry providers need real lifecycle owners.
+	if !strings.HasPrefix(r.Type, "AWS::") || r.Type == "AWS::CloudFormation::CustomResource" {
+		// TODO: Comeback: custom-resource callbacks and registry providers need real lifecycle owners.
 		return r, fmt.Errorf("%s.Type %q is unsupported", path, r.Type)
 	}
 	for _, key := range []string{"DeletionPolicy", "UpdateReplacePolicy"} {
-		if raw, exists := entry[key]; exists && raw != "Delete" && raw != "Retain" && raw != "Snapshot" {
-			if key == "DeletionPolicy" && raw == "RetainExceptOnCreate" {
-				continue
-			}
-			return r, fmt.Errorf("%s.%s policy %q is unsupported", path, key, raw)
+		if value, exists := entry[key]; exists && value == nil {
+			return r, fmt.Errorf("%s.%s must not be null", path, key)
 		}
 	}
+	r.DeletionPolicy = entry["DeletionPolicy"]
+	r.UpdateReplacePolicy = entry["UpdateReplacePolicy"]
 	if raw, exists := entry["Properties"]; exists {
 		properties, err := templateObject(raw, path+".Properties")
 		if err != nil {
@@ -611,7 +615,7 @@ func (t *Template) ValidateHandlers(handlers map[string]ResourceHandler) error {
 			// TODO: Comeback: add typed resource handlers rather than accepting unsupported resource effects.
 			return fmt.Errorf("resource %s has unsupported type %s", name, resource.Type)
 		}
-		for _, policy := range []string{resource.DeletionPolicy, resource.UpdateReplacePolicy} {
+		for _, policy := range []any{resource.DeletionPolicy, resource.UpdateReplacePolicy} {
 			if policy != "Snapshot" {
 				continue
 			}
@@ -619,7 +623,7 @@ func (t *Template) ValidateHandlers(handlers map[string]ResourceHandler) error {
 			if !ok {
 				return fmt.Errorf("resource %s does not support Snapshot deletion", name)
 			}
-			if err := validator.ValidateDeletionPolicy(policy); err != nil {
+			if err := validator.ValidateDeletionPolicy("Snapshot"); err != nil {
 				return fmt.Errorf("resource %s: %w", name, err)
 			}
 		}

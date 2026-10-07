@@ -32,10 +32,10 @@ func (s *Service) SelectLambdaFunctionSubnet(ctx context.Context, function, inca
 	}
 	err := s.repository.View(ctx, func(tx Reader) error {
 		ctx := tx.Context()
-		for _, action := range []string{"DescribeSubnets", "DescribeSecurityGroups"} {
-			if err := s.authorize(ctx, action, "", "*", nil); err != nil {
-				return err
-			}
+		// Resource verification by the configuring caller is separate from the
+		// execution role's ENI permissions; that role need not describe groups.
+		if err := s.authorize(ctx, "DescribeSubnets", "", "*", nil); err != nil {
+			return err
 		}
 		if len(subnetIDs) == 0 || len(groupIDs) == 0 {
 			return failure("InvalidParameterValue", "Lambda VPC networking requires subnets and security groups.")

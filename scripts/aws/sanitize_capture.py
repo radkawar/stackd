@@ -65,7 +65,8 @@ class Sanitizer:
 
     def _direct(self, text):
         if self.literal_only:
-            return re.sub(r"(?<![A-Za-z0-9])" + self.account + r"(?![A-Za-z0-9])", self.replacement, text)
+            # A hyphen joins an opaque resource ID, not a standalone account.
+            return re.sub(r"(?<![A-Za-z0-9-])" + self.account + r"(?![A-Za-z0-9-])", self.replacement, text)
         self.account_changed |= self.account in text
         text = text.replace(self.account, self.replacement)
         if str(int(self.account)) != self.account:

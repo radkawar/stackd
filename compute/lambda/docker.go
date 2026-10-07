@@ -13,7 +13,7 @@ import (
 // Runtime images are deliberately immutable and platform-specific.
 // Images must already exist in Docker; execution never pulls or contacts a registry.
 const (
-	Python312X8664Image      = "public.ecr.aws/lambda/python@sha256:a89893d9c93a9ffbf9e35ca32d7cadc635cbf3a9aec94480c75ed07150a05daa"
+	Python312X8664Image      = "public.ecr.aws/lambda/python@sha256:e369e098d9db9eafa3238fe827e4756e2016159908b9426b78e2051c08f647e3"
 	Python312ARM64Image      = "public.ecr.aws/lambda/python@sha256:6a1d5d5815a9e754969f1c14f0f6a3ef14a8b094db25e16c1ad5bccc4ee4b99e"
 	Python313X8664Image      = "public.ecr.aws/lambda/python@sha256:1db929eee2769af5a502cb0ac7409245a1f5b8f8cb37f43832e9983f7a0aed53"
 	Python313ARM64Image      = "public.ecr.aws/lambda/python@sha256:48fb06e4f76b6512f055afe0659bffecb2439affd9d0a4d98afba0fdde7bc08f"

@@ -123,7 +123,11 @@ func TestLambdaVpcDockerEndpointsPolicyAndPrivateNatPackets(t *testing.T) {
 			policy := `{"Version":"2012-10-17","Statement":{"Effect":"Allow","Principal":"*","Action":"*","Resource":"*"}}`
 			endpoints := map[string]*string{}
 			for _, service := range []string{"sqs", "kinesis"} {
-				out, err := networks.CreateVpcEndpoint(t.Context(), &ec2.CreateVpcEndpointInput{VpcId: vpcID, VpcEndpointType: ec2types.VpcEndpointTypeInterface, ServiceName: aws.String("com.amazonaws.us-east-1." + service), SubnetIds: []string{aws.ToString(endpointSubnet)}, SecurityGroupIds: []string{aws.ToString(endpointGroup)}, PrivateDnsEnabled: aws.Bool(true), PolicyDocument: aws.String(policy)})
+				endpointService := service
+				if service == "kinesis" {
+					endpointService = "kinesis-streams"
+				}
+				out, err := networks.CreateVpcEndpoint(t.Context(), &ec2.CreateVpcEndpointInput{VpcId: vpcID, VpcEndpointType: ec2types.VpcEndpointTypeInterface, ServiceName: aws.String("com.amazonaws.us-east-1." + endpointService), SubnetIds: []string{aws.ToString(endpointSubnet)}, SecurityGroupIds: []string{aws.ToString(endpointGroup)}, PrivateDnsEnabled: aws.Bool(true), PolicyDocument: aws.String(policy)})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -148,7 +152,10 @@ func TestLambdaVpcDockerEndpointsPolicyAndPrivateNatPackets(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := identity.PutRolePolicy(t.Context(), &iam.PutRolePolicyInput{RoleName: &roleName, PolicyName: aws.String("native-vpc"), PolicyDocument: aws.String(`{"Statement":{"Effect":"Allow","Action":["sqs:SendMessage","kinesis:PutRecord","ec2:CreateNetworkInterface","ec2:DeleteNetworkInterface","ec2:DescribeNetworkInterfaces","ec2:DescribeSubnets","ec2:DescribeSecurityGroups"],"Resource":"*"}}`)}); err != nil {
+			if _, err := identity.AttachRolePolicy(t.Context(), &iam.AttachRolePolicyInput{RoleName: &roleName, PolicyArn: aws.String("arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole")}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := identity.PutRolePolicy(t.Context(), &iam.PutRolePolicyInput{RoleName: &roleName, PolicyName: aws.String("native-vpc"), PolicyDocument: aws.String(`{"Statement":{"Effect":"Allow","Action":["sqs:SendMessage","kinesis:PutRecord"],"Resource":"*"}}`)}); err != nil {
 				t.Fatal(err)
 			}
 			name := aws.String("native-vpc-function")
@@ -216,6 +223,17 @@ func TestLambdaVpcDockerEndpointsPolicyAndPrivateNatPackets(t *testing.T) {
 			records, err := streams.GetRecords(t.Context(), &kinesis.GetRecordsInput{ShardIterator: iterator.ShardIterator})
 			if err != nil || len(records.Records) != 1 || string(records.Records[0].Data) != "private-kinesis" {
 				t.Fatalf("real Kafka-backed record missing: %+v %v", records, err)
+			}
+			if _, err := networks.ModifyVpcEndpoint(t.Context(), &ec2.ModifyVpcEndpointInput{VpcEndpointId: endpoints["kinesis"], PolicyDocument: aws.String(`{"Statement":{"Effect":"Deny","Principal":"*","Action":"*","Resource":"*"}}`)}); err != nil {
+				t.Fatal(err)
+			}
+			invoke("kinesis", "kinesis-endpoint-denied", false, false, "AccessDenied")
+			records, err = streams.GetRecords(t.Context(), &kinesis.GetRecordsInput{ShardIterator: iterator.ShardIterator})
+			if err != nil || len(records.Records) != 1 || string(records.Records[0].Data) != "private-kinesis" {
+				t.Fatalf("denied official Kinesis endpoint wrote a record: %+v %v", records, err)
+			}
+			if _, err := networks.ModifyVpcEndpoint(t.Context(), &ec2.ModifyVpcEndpointInput{VpcEndpointId: endpoints["kinesis"], PolicyDocument: &policy}); err != nil {
+				t.Fatal(err)
 			}
 			if _, err := networks.ModifyVpcEndpoint(t.Context(), &ec2.ModifyVpcEndpointInput{VpcEndpointId: endpoints["sqs"], PolicyDocument: aws.String(`{"Statement":{"Effect":"Deny","Principal":"*","Action":"*","Resource":"*"}}`)}); err != nil {
 				t.Fatal(err)

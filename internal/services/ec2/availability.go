@@ -12,6 +12,7 @@ import (
 
 	api "stackd/internal/awsapi/ec2"
 	"stackd/internal/awscatalog"
+	"stackd/internal/awsctx"
 	"stackd/internal/awswire"
 )
 
@@ -122,6 +123,56 @@ func (s *Service) availableZones(ctx context.Context) (api.AvailabilityZoneList,
 		}
 	}
 	slices.SortFunc(out, func(a, b api.AvailabilityZone) int { return strings.Compare(str(a.ZoneName), str(b.ZoneName)) })
+	return out, nil
+}
+
+// CloudFormationAvailabilityZones uses the same physical inventory and
+// account naming as subnet placement. Default subnets filter standard zones
+// only when this account owns at least one in the requested region.
+func (s *Service) CloudFormationAvailabilityZones(ctx context.Context, region string) ([]string, error) {
+	metadata := awsctx.FromContext(ctx)
+	if region != "" {
+		metadata.Region = region
+	}
+	ctx = awsctx.WithMetadata(ctx, metadata)
+	if len(metadata.CalledVia) == 0 || metadata.CalledVia[len(metadata.CalledVia)-1] != "cloudformation.amazonaws.com" {
+		ctx = awsctx.WithViaService(ctx, "cloudformation.amazonaws.com")
+	}
+	for _, action := range []string{"DescribeAvailabilityZones", "DescribeAccountAttributes", "DescribeSubnets"} {
+		if err := s.authorize(ctx, action, "", "", nil); err != nil {
+			return nil, err
+		}
+	}
+	zones, err := s.availableZones(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defaults := map[string]bool{}
+	err = s.repository.View(ctx, func(r Reader) error {
+		subnets, err := r.Subnets(scopeFor(ctx))
+		if err != nil {
+			return err
+		}
+		for _, subnet := range subnets {
+			if boolValue(subnet.Data.DefaultForAz) {
+				defaults[str(subnet.Data.AvailabilityZone)] = true
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(zones))
+	for _, zone := range zones {
+		if str(zone.ZoneType) != "availability-zone" || str(zone.State) != "available" || str(zone.OptInStatus) == "not-opted-in" {
+			continue
+		}
+		name := str(zone.ZoneName)
+		if len(defaults) == 0 || defaults[name] {
+			out = append(out, name)
+		}
+	}
 	return out, nil
 }
 

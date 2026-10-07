@@ -124,6 +124,25 @@ func Decode(service awscatalog.Service, operation awscatalog.Operation, request 
 	return nil
 }
 
+// DecodeCloudFormationInput binds service commands originating in resource
+// handlers using their established SDK-style document contract. Numeric shapes
+// additionally accept Number parameter Ref strings without changing the public
+// AWS decoder or ordinary Step Functions SDK input normalization.
+func DecodeCloudFormationInput(service awscatalog.Service, operation awscatalog.Operation, payload []byte, input any) error {
+	value := reflect.ValueOf(input)
+	if value.Kind() != reflect.Pointer || value.IsNil() {
+		return errors.New("CloudFormation destination must be a nonnil pointer")
+	}
+	normalized, err := normalizeValue(service, operation.Input, payload, "", awscatalog.Constraints{}, "", documentInput{sdk: true, cloudFormation: true, validate: true, sdkInvokePayload: service.Name == "lambda" && operation.Name == "Invoke"})
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(normalized, input); err != nil {
+		return fmt.Errorf("bind generated %s CloudFormation input: %w", operation.Name, err)
+	}
+	return nil
+}
+
 // BindJSON binds modeled JSON wire types without admitting the command or
 // enforcing Smithy constraints. Rejected-request observers use it to measure
 // typed inputs such as an over-limit collection; ordinary dispatch uses Decode.

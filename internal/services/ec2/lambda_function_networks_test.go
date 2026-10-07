@@ -2,13 +2,16 @@ package ec2_test
 
 import (
 	"database/sql"
+	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"stackd/internal/authorization"
 	api "stackd/internal/awsapi/ec2"
 	iamapi "stackd/internal/awsapi/iam"
 	"stackd/internal/awsctx"
+	"stackd/internal/awswire"
 	"stackd/internal/services/ec2"
 	"stackd/internal/services/iam"
 	"stackd/storage/memory"
@@ -55,14 +58,20 @@ func TestLambdaFunctionNetworkIncarnationAuthorityAndPersistence(t *testing.T) {
 			policy := func(body string) {
 				lambdaEC2Command(t, root, roles, "iam", "PutRolePolicy", &iamapi.PutRolePolicyRequest{RoleName: role.RoleName, PolicyName: new(iamapi.PolicyNameType("network")), PolicyDocument: new(iamapi.PolicyDocumentType(body))})
 			}
-			allow := `{"Statement":{"Effect":"Allow","Action":["ec2:CreateNetworkInterface","ec2:DeleteNetworkInterface","ec2:DescribeNetworkInterfaces","ec2:DescribeSubnets","ec2:DescribeSecurityGroups"],"Resource":"*"}}`
-			policy(allow)
+			allow := `{"Statement":{"Effect":"Deny","Action":"ec2:DescribeSecurityGroups","Resource":"*"}}`
+			policy(`{"Statement":{"Effect":"Allow","Action":"ec2:DescribeSubnets","Resource":"*"}}`)
 			ctx := lambdaEC2RoleContext(root, role)
 			vpc := lambdaEC2Command(t, root, service, "ec2", "CreateVpc", &api.CreateVpcRequest{CidrBlock: new(api.String("10.90.0.0/16"))}).(*api.CreateVpcResult).Vpc
 			subnet := lambdaEC2Command(t, root, service, "ec2", "CreateSubnet", &api.CreateSubnetRequest{VpcId: new(api.VpcId(*vpc.VpcId)), CidrBlock: new(api.String("10.90.1.0/24")), AvailabilityZone: new(api.String("us-east-1a"))}).(*api.CreateSubnetResult).Subnet
 			group := lambdaEC2Command(t, root, service, "ec2", "CreateSecurityGroup", &api.CreateSecurityGroupRequest{VpcId: new(api.VpcId(*vpc.VpcId)), GroupName: new(api.String("function")), Description: new(api.String("function"))}).(*api.CreateSecurityGroupResult)
 			function, incarnation := "arn:aws:lambda:us-east-1:123456789012:function:owned", "function-create-1/environment-1"
 			subnets, groups := []string{string(*subnet.SubnetId)}, []string{string(*group.GroupId)}
+			var denied *awswire.Error
+			if _, err := service.SelectLambdaFunctionSubnet(ctx, function, incarnation, subnets, groups); !errors.As(err, &denied) || denied.Code != "AccessDenied" || !strings.Contains(denied.Message, "ec2:CreateNetworkInterface") || !strings.Contains(denied.Message, "arn:aws:ec2:us-east-1:123456789012:subnet/"+subnets[0]) {
+				t.Fatalf("missing ENI authorization: %v", err)
+			}
+			lambdaEC2Command(t, root, roles, "iam", "AttachRolePolicy", &iamapi.AttachRolePolicyRequest{RoleName: role.RoleName, PolicyArn: new(iamapi.ArnType("arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"))})
+			policy(allow)
 			selected, err := service.SelectLambdaFunctionSubnet(ctx, function, incarnation, subnets, groups)
 			if err != nil {
 				t.Fatal(err)

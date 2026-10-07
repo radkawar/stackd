@@ -361,6 +361,9 @@ func (s *Service) createFunction(ctx context.Context, in *api.CreateFunctionInpu
 	return response, nil
 }
 func (s *Service) getConfiguration(ctx context.Context, in *api.GetFunctionConfigurationInput) (*api.GetFunctionConfigurationOutput, *awswire.Error) {
+	if ctx.Value(functionCreationRecoveryContextKey{}) == true {
+		return s.recoverFunctionCreation(ctx, value(in.FunctionName))
+	}
 	ref, wire := parseFunctionReference(ctx, value(in.FunctionName), value(in.Qualifier))
 	if wire != nil {
 		return nil, wire

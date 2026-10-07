@@ -44,7 +44,10 @@ func cfnEC2SecurityRuleValidate(p map[string]any, egress, inline bool) error {
 	if err := cfnComputeRequired(p, "IpProtocol"); err != nil {
 		return err
 	}
-	if err := cfnComputeStrings(p, "CidrIp", "CidrIpv6", "Description", "IpProtocol", "DestinationSecurityGroupId", "DestinationPrefixListId", "SourceSecurityGroupId", "SourceSecurityGroupName", "SourceSecurityGroupOwnerId", "SourcePrefixListId", "GroupId", "GroupName"); err != nil {
+	if _, err := cfnComputeScalarString(p, "IpProtocol"); err != nil {
+		return err
+	}
+	if err := cfnComputeStrings(p, "CidrIp", "CidrIpv6", "Description", "DestinationSecurityGroupId", "DestinationPrefixListId", "SourceSecurityGroupId", "SourceSecurityGroupName", "SourceSecurityGroupOwnerId", "SourcePrefixListId", "GroupId", "GroupName"); err != nil {
 		return err
 	}
 	if _, ok := p["SourceSecurityGroupName"]; ok {
@@ -83,6 +86,7 @@ func cfnEC2SecurityRuleValidate(p map[string]any, egress, inline bool) error {
 }
 func cfnEC2SecurityPermission(p map[string]any, egress bool) map[string]any {
 	out := cfnComputeCopy(p, "IpProtocol", "FromPort", "ToPort")
+	out["IpProtocol"], _ = cfnComputeScalarString(p, "IpProtocol")
 	if cidr := cfnComputeString(p, "CidrIp"); cidr != "" {
 		out["IpRanges"] = []map[string]any{{"CidrIp": cidr, "Description": cfnComputeDefault(p, "Description", "")}}
 	}
@@ -126,7 +130,8 @@ func cfnEC2SecurityRuleIdentity(p map[string]any) map[string]any {
 	if prefix, err := netip.ParsePrefix(cfnComputeString(p, "CidrIp")); err == nil {
 		out["CidrIp"] = prefix.Masked().String()
 	}
-	protocol := cfnEC2SecurityProtocol(cfnComputeString(p, "IpProtocol"))
+	text, _ := cfnComputeScalarString(p, "IpProtocol")
+	protocol := cfnEC2SecurityProtocol(text)
 	out["IpProtocol"] = protocol
 	if prefix, err := netip.ParsePrefix(cfnComputeString(p, "CidrIpv6")); err == nil {
 		out["CidrIpv6"] = prefix.Masked().String()
@@ -367,13 +372,13 @@ func (h cfnEC2SecurityGroup) Validate(p cloudformation.Properties) error {
 			if !ok {
 				return fmt.Errorf("%s must be a list", key)
 			}
-			for _, entry := range list {
+			for i, entry := range list {
 				rule, ok := cfnComputeObject(entry)
 				if !ok {
-					return fmt.Errorf("%s entries must be objects", key)
+					return fmt.Errorf("%s[%d] must be an object", key, i)
 				}
 				if err := cfnEC2SecurityRuleValidate(rule, key == "SecurityGroupEgress", true); err != nil {
-					return err
+					return fmt.Errorf("%s[%d]: %w", key, i, err)
 				}
 			}
 		}

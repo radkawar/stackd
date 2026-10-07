@@ -691,3 +691,80 @@ func TestCrashAfterReplacementCreationRecoversExactTokenBeforeNativeUndo(t *test
 		t.Fatalf("crashed replacement was not deleted before actual restoration: %+v live=%v", op, h.live)
 	}
 }
+
+type lifecycleAdmissionOwner struct{ *lifecycleOwner }
+
+func (h *lifecycleAdmissionOwner) Validate(p Properties) error {
+	if p["Code"] == nil {
+		return fmt.Errorf("creation requires Code")
+	}
+	return nil
+}
+
+func TestResourceAdmissionFailurePublishesEventWithoutOwnerEffects(t *testing.T) {
+	for _, update := range []bool{false, true} {
+		for _, resolutionFailure := range []bool{false, true} {
+			t.Run(fmt.Sprintf("update=%t/resolve=%t", update, resolutionFailure), func(t *testing.T) {
+				action := "CREATE"
+				if update {
+					action = "UPSERT"
+				}
+				s, r, owner, op := lifecycleFixture(t, action, "APPLY")
+				s.handlers[op.Steps[0].After.Type] = &lifecycleAdmissionOwner{owner}
+				op.Steps[0].Action = "UPSERT"
+				if !update {
+					op.Kind = "CREATE"
+				}
+				if resolutionFailure {
+					op.Template = `{"Resources":{"Association":{"Type":"AWS::EC2::SubnetRouteTableAssociation","Properties":{"SubnetId":{"Fn::Select":[1,["subnet"]]},"RouteTableId":"desired","Code":"present"}}}}`
+				}
+				if err := r.Update(t.Context(), func(tx Transaction) error { return tx.PutOperation(op) }); err != nil {
+					t.Fatal(err)
+				}
+				op = lifecycleRun(t, s, r, op.ID)
+				if op.Phase != "ROLLBACK" || op.Steps[0].State != "SKIPPED" || op.Steps[0].Error == "" {
+					t.Fatalf("rejected admission lost rollback intent: %+v", op)
+				}
+				want := "CREATE_FAILED"
+				if update {
+					want = "UPDATE_FAILED"
+				}
+				if err := r.View(t.Context(), func(reader Reader) error {
+					events, err := reader.Events(op.StackID)
+					if err != nil {
+						return err
+					}
+					for _, event := range events {
+						if event.LogicalID == "Association" && event.Status == want && event.Reason == op.Steps[0].Error {
+							return nil
+						}
+					}
+					return fmt.Errorf("resource admission lacked %s event: %+v", want, events)
+				}); err != nil {
+					t.Fatal(err)
+				}
+				for range 10 {
+					if op.Phase == "DONE" {
+						break
+					}
+					op = lifecycleRun(t, s, r, op.ID)
+				}
+				if op.Phase != "DONE" {
+					t.Fatalf("unadmitted resource prevented rollback completion: %+v", op)
+				}
+				for _, call := range owner.calls {
+					if call != "RESULT" {
+						t.Fatalf("rejected resource triggered a native owner effect: %v", owner.calls)
+					}
+				}
+				if update {
+					if len(owner.live) != 1 || owner.live["assoc-original"]["RouteTableId"] != "original" {
+						t.Fatalf("rejected update modified original owner: %+v", owner.live)
+					}
+				} else if len(owner.live) != 0 {
+					t.Fatalf("rejected create admitted a native owner: %+v", owner.live)
+				}
+			})
+		}
+	}
+}

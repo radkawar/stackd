@@ -59,6 +59,10 @@ reserved fixture alias (normally `999000999000`) so anonymization does not turn 
 cross-account denial into same-account access. Conflicting reserved aliases are
 rejected; choose an unused `--replacement` instead. Longer opaque resource IDs
 and numeric zero values are not account aliases.
+Foreign-account reservation also preserves hyphenated resource identifiers,
+including the twelve-digit suffix of `shardId-000000000000`; that suffix is not
+a standalone account ID.
+
 
 The sanitizer handles direct references, account-bearing AWS identity prefixes,
 masked suffixes, JSON strings, base64/base64url, PEM, gzip, ZIP members and supported
@@ -1592,6 +1596,11 @@ Selected control and data contracts:
   `initial-response` event, then ordinary data/heartbeat events. Terminal frames
   omit ContinuationSequenceNumber despite modeled requiredness. Raw native
   frames and protocol CRCs are retained; no event-stream fixture was synthesized.
+  An account-reservation publishing defect had changed the terminal frame's
+  zero-valued parent shard ID and broken its message CRC. Restoring that opaque
+  identifier validates the original retained native CRC without regenerating it.
+  The sanitizer now preserves hyphenated identifier boundaries; regression tests,
+  actual publication CLI and full AWSAPI/Kinesis package tests pass.
 - Continuation sequence numbers checkpoint progress between records, rather than
   naming the last delivered record. The
   [subscription event contract](https://docs.aws.amazon.com/kinesis/latest/APIReference/API_SubscribeToShardEvent.html)
@@ -3816,6 +3825,73 @@ CloudFormation's generated Smithy Query frontend accepts official SDKs and
 `aws cloudformation deploy`. The service owns JSON/YAML parsing, parameter
 binding/constraints, pseudo parameters, conditions, selected dependency order,
 outputs, exports/imports, change sets, operation tokens and deployment state.
+
+#### Template compatibility and exact rejected-creation recovery
+
+`Fn::GetAZs` and YAML `!GetAZs` read EC2's existing account/region availability-zone
+inventory, not synthesized suffixes. An empty region selects the stack region.
+Standard available zones with owned default subnets are returned when any such
+subnets exist; otherwise all available standard zones are returned. Current
+`ec2:DescribeAvailabilityZones`, `ec2:DescribeAccountAttributes` and
+`ec2:DescribeSubnets` permissions apply, including the stack execution role.
+Retained jobs restore caller/role authority before evaluation; role assumption
+runs outside resource transactions. JSON and YAML placement were exercised
+through the actual SQLite executable and read back through native EC2.
+
+`DeletionPolicy` and `UpdateReplacePolicy` accept parameter `Ref`, `Fn::If` and
+`Fn::FindInMap` expressions without `AWS::LanguageExtensions`. Only
+`AWS::AccountId`, `AWS::Region` and `AWS::Partition` pseudo parameters are
+permitted. Resource references, other pseudo parameters and unsupported
+functions are rejected even in inactive branches or referenced conditions.
+Resolved strings freeze into resource/operation intent; policy-only updates
+are retained. Actual queue updates from Delete to Retain and Retain to Delete
+survived a SQLite controller restart and performed the selected deletion behavior.
+
+CloudFormation service adapters preserve their established internal SDK-style
+document binding, adding numeric-string coercion only at generated Smithy
+numeric shapes. Number parameter `Ref` strings work for mapping batching windows;
+EC2 security-group `IpProtocol` accepts numeric YAML scalars such as `-1`.
+Invalid numeric syntax, integer widths and modeled bounds remain errors.
+Ordinary public AWS JSON inputs and Step Functions SDK binding are unchanged.
+The executable smoke read back `IpProtocol=-1`, mapping windows 5 then 7, and
+the public Lambda API's HTTP 400 `SerializationException` for a numeric string.
+
+Lambda Function and EventSourceMapping creation recovery observes exact private
+incarnation ownership without retrying `Create`. A definitively absent creation
+rolls back normally; a lost admitted reply recovers only that exact owner under
+current read/delete IAM. Copied tags and same-name recreation cannot confer
+ownership. Shared-kernel absence reads reuse their reader context for IAM,
+including SQLite; they cannot open a second transaction while holding a read.
+The actual executable reached `ROLLBACK_COMPLETE` after both rejected creates.
+Memory/SQLite regressions additionally cover partial admission, unknown read
+errors, current IAM denial and foreign recreation.
+
+Resolved-property failures emit resource `CREATE_FAILED`/`UPDATE_FAILED` events
+before stack rollback, without scheduling native recovery for an effect that
+was never attempted. Skipped rollback cursors persist before fenced output
+refresh. The executable rejected an invalid resolved security rule with its
+logical failure event and completed rollback.
+
+Sources: [GetAZs](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/intrinsic-function-reference-getavailabilityzones.html),
+[lifecycle-policy RFC 0011](https://github.com/aws-cloudformation/cfn-language-discussion/blob/main/RFCs/0011-DeletionPolicy.md),
+[Number parameter Ref](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html).
+
+#### Nested stacks
+
+`AWS::CloudFormation::Stack` in templates delegates to the existing native
+stack owner, just as direct Cloud Control stack resources do. Canonical HTTPS
+S3 `TemplateURL` objects are read through S3; child operations inherit parent
+scope/role/capabilities, retain private parent/root/incarnation ownership, and
+stabilize actual child jobs. Child outputs are available through
+`Fn::GetAtt Child.Outputs.<name>`. This is not acceptance of arbitrary remote URLs
+or custom-resource callback execution.
+
+Memory/SQLite SDK workflows cover creation, repeated updates, restart, deletion
+and failed-child rollback. An actual SQLite executable created a child SQS
+queue from an S3 template, read parent/root metadata and output references,
+updated the real queue attribute and removed the exact child resources.
+Source: [stack resource contract](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-cloudformation-stack.html).
+
 Resource handlers invoke the existing typed owners: a stack resource record is
 an incarnation/reference plus deployment intent, not an alternative S3 bucket,
 queue, IAM role or Lambda implementation.
@@ -4234,7 +4310,7 @@ for eligible static retained identifiers: absent targets use normal creation,
 whereas existing targets return an explicit unsupported-import error without
 adoption or retagging. Dynamic names follow the documented automatic-import
 exclusions. Existing-resource adoption, other Rule functions, SecureString/dynamic
-parameter references, arbitrary HTTP/document template sources and nested stacks
+parameter references and arbitrary HTTP/document template sources
 remain unsupported.
 
 `testdata/aws/cloudformation/changeset_name_reuse.json` calibrates executed
@@ -4335,7 +4411,7 @@ native AWS captures.
 Remaining `TODO: Comeback` boundaries are located at the service dispatcher,
 unsupported-input admission, template parser/intrinsic validation and individual
 handler registries. StackSets, registry extension execution, SAM/custom macros,
-nested stacks, custom-resource runtime/callback protocols, arbitrary remote HTTPS templates,
+custom-resource runtime/callback protocols, arbitrary remote HTTPS templates,
 stack/resource imports, drift detection, refactoring, stack policies, rollback
 alarms, notification delivery and unimplemented resource properties are explicit
 errors. This is not whole-service or all-resource conformance.

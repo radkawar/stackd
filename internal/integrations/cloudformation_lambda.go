@@ -230,7 +230,7 @@ func (h cfnLambdaFunction) deploy(ctx context.Context, operation string, p cloud
 	if err != nil {
 		return nil, err
 	}
-	if err := awsapi.DecodeSDKInput(model.Service, model.Operation, body, typed); err != nil {
+	if err := awsapi.DecodeCloudFormationInput(model.Service, model.Operation, body, typed); err != nil {
 		return nil, err
 	}
 	switch request := typed.(type) {
@@ -374,6 +374,28 @@ func (h cfnLambdaFunction) concurrency(ctx context.Context, r cloudformation.Res
 	}
 	return nil
 }
+
+// RecoverCreation reads only the native incarnation carrying this private
+// claim. It never retries deployment or revalidates rejected create properties.
+func (h cfnLambdaFunction) RecoverCreation(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
+	ctx = service.WithFunctionCreationRecovery(ctx, service.FunctionOwner{StackID: r.StackID, LogicalID: r.LogicalID, Token: r.Token})
+	name := r.PhysicalID
+	if name == "" {
+		name = cfnComputeName(r, "FunctionName", 64)
+	}
+	// Rejected public names must not be revalidated before the trusted native
+	// owner observes the private token; ordinary public reads keep their codec.
+	observed, rejected := h.commands.CallTyped(ctx, "lambda", "GetFunctionConfiguration", &api.GetFunctionConfigurationInput{FunctionName: new(api.NamespacedFunctionName(name))})
+	if rejected != nil {
+		return cloudformation.ResourceResult{}, rejected
+	}
+	function, ok := observed.Output.(*api.GetFunctionConfigurationOutput)
+	if !ok {
+		return cloudformation.ResourceResult{}, fmt.Errorf("lambda.GetFunctionConfiguration returned unexpected output %T", observed.Output)
+	}
+	return cfnLambdaResult(function), nil
+}
+
 func (h cfnLambdaFunction) Create(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
 	ctx = cfnLambdaFunctionContext(ctx, r, true)
 	// Recovery first: validation/convergence can reject a replay after the

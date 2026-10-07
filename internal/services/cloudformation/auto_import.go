@@ -21,13 +21,17 @@ func (s *Service) checkAutomaticImports(r Reader, stack StackRecord, t *Template
 	if err != nil {
 		return err
 	}
+	policies, err := t.ResolvePolicies(evaluation)
+	if err != nil {
+		return err
+	}
 	current, err := currentResources(r, stack.ID)
 	if err != nil {
 		return err
 	}
 	for _, logical := range order {
 		resource := t.Resources[logical]
-		if resource.DeletionPolicy != "Retain" && resource.DeletionPolicy != "RetainExceptOnCreate" {
+		if policies[logical].DeletionPolicy != "Retain" && policies[logical].DeletionPolicy != "RetainExceptOnCreate" {
 			continue
 		}
 		if current[logical].PhysicalID != "" {

@@ -9,6 +9,9 @@ compute and database workflows. Use it from AWS CLI, AWS SDKs, or Go tests.
 Read the relevant service guide before depending on a workflow. Unsupported
 operations and unavailable runtime dependencies return errors, not fake success.
 
+Licensed under [Apache-2.0](LICENSE). Vendored dependencies retain their own
+license and attribution notices.
+
 ## Quick start
 
 Requirements: **Go 1.26.5 or newer**. AWS CLI v2 and `curl` are useful for the
@@ -56,8 +59,9 @@ virtual machines, and Kubernetes workloads require their native backends.
 **Use a dedicated, trusted Linux host** for the full runtime setup: rootful Docker,
 systemd/cgroup v2, and KVM for accelerated guests. The API controller also supports
 a native macOS build; opt-in Lambda/DynamoDB/Kinesis on Docker Desktop use its real
-Linux VM, not ECS's local-host contract. This is an intended deployment contract,
-not a claim of an observed macOS run. An API-only deployment needs no Docker.
+Linux VM, not ECS's local-host contract. A user-reported Apple Silicon/Desktop
+run is recorded with its exact scope in the [Desktop recipe](docs/runtime-containers.md#native-macos-controller-with-docker-desktop).
+An API-only deployment needs no Docker.
 
 | Deployment | Prepare first | Enable in the controller |
 | --- | --- | --- |

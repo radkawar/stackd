@@ -88,14 +88,21 @@ class SanitizeCaptureTest(unittest.TestCase):
         self.assertEqual(result["Account"], REPLACEMENT)
 
     def test_foreign_account_remains_distinct_without_rewriting_resource_ids(self):
-        body = json.dumps({"Owner": ACCOUNT, "Foreign": REPLACEMENT, "Snapshot": "snap-" + "0" * 17, "Count": 0})
-        capture = {"Body": body, "MD5OfBody": hashlib.md5(body.encode()).hexdigest()}
+        shard = "shardId-" + REPLACEMENT
+        body = json.dumps({"Owner": ACCOUNT, "Foreign": REPLACEMENT, "Snapshot": "snap-" + "0" * 17, "Shard": shard, "Count": 0})
+        capture = {
+            "Body": body,
+            "MD5OfBody": hashlib.md5(body.encode()).hexdigest(),
+            "binary": base64.b64encode(b"\xff" + shard.encode()).decode(),
+        }
         result = json.loads(Sanitizer(ACCOUNT).capture(json.dumps(capture).encode()))
         changed = json.loads(result["Body"])
         self.assertEqual(changed["Owner"], REPLACEMENT)
         self.assertEqual(changed["Foreign"], "999000999000")
         self.assertEqual(changed["Snapshot"], "snap-" + "0" * 17)
         self.assertEqual(changed["Count"], 0)
+        self.assertEqual(changed["Shard"], shard)
+        self.assertEqual(base64.b64decode(result["binary"]), b"\xff" + shard.encode())
         self.assertEqual(result["MD5OfBody"], hashlib.md5(result["Body"].encode()).hexdigest())
 
     def test_prefix_only_redaction_keeps_already_anonymized_account(self):

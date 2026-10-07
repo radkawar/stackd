@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
 
 	api "stackd/internal/awsapi/lambda"
+	"stackd/internal/awswire"
 	"stackd/internal/services/cloudformation"
 	service "stackd/internal/services/lambda"
 )
@@ -128,6 +129,21 @@ func (h cfnLambdaMapping) find(ctx context.Context, r cloudformation.ResourceReq
 		}
 	}
 }
+
+// RecoverCreation uses the native owner-filtered read, not the public source or
+// tags. A lost UUID can only recover this exact private admission.
+func (h cfnLambdaMapping) RecoverCreation(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
+	r.CloudControl = false
+	mapping, err := h.find(ctx, r)
+	if err != nil {
+		return cloudformation.ResourceResult{}, err
+	}
+	if mapping == nil {
+		return cloudformation.ResourceResult{}, &awswire.Error{Code: "ResourceNotFoundException", Message: "This CloudFormation incarnation has no admitted event source mapping.", StatusCode: 404}
+	}
+	return cfnLambdaMappingResult(mapping), nil
+}
+
 func (h cfnLambdaMapping) Create(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
 	if err := h.Validate(r.Properties); err != nil {
 		return cloudformation.ResourceResult{}, err

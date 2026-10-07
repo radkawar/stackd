@@ -41,11 +41,13 @@ func endpointService(scope Scope, name, kind, region string) error {
 		}
 		return nil
 	}
-	aliases := map[string]string{"monitoring": "cloudwatch", "logs": "logs", "ecr.api": "ecr", "ecr.dkr": "ecr", "s3": "s3", "execute-api": "apigateway", "email-smtp": "ses", "ssmmessages": "ssm", "ec2messages": "ssm"}
+	aliases := map[string]string{"monitoring": "cloudwatch", "logs": "logs", "ecr.api": "ecr", "ecr.dkr": "ecr", "s3": "s3", "execute-api": "apigateway", "email-smtp": "ses", "ssmmessages": "ssm", "ec2messages": "ssm", "kinesis-streams": "kinesis"}
 	if alias := aliases[service]; alias != "" {
 		service = alias
 	}
 	if _, ok := awscatalog.LookupService(service); !ok {
+		// TODO: Comeback: admit documented endpoint services independently of
+		// emulator providers and share that inventory with DescribeVpcEndpointServices.
 		return failure("InvalidServiceName", "Unknown endpoint service.")
 	}
 	return nil

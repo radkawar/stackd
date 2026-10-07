@@ -69,6 +69,38 @@ custom invitation/verification templates, verification links and SMS remain
 explicitly unsupported. Existence-protected missing-user responses do not create
 phantom users, codes or messages.
 
+Missing `DEVELOPER` source identities or configuration sets return
+`InvalidParameterException` (HTTP 400), not an opaque internal error. An existing
+unverified identity still returns `MessageRejected`; repository faults remain
+`InternalErrorException` (HTTP 500). The missing-resource classification follows
+the documented configuration and modeled client-error contracts; the exact
+native AWS code for this missing-identity case has not been captured.
+
+To complete **local SES email-identity verification**, configure the capture
+directory above, then:
+
+```sh
+aws --endpoint-url http://127.0.0.1:4567 --region us-east-2 \
+  sesv2 create-email-identity --email-identity sender@example.com
+```
+
+Open its captured `Amazon SES Email Address Verification Request` message.
+Decode the MIME body (it can be quoted-printable), and open the advertised
+`/_stackd/ses/verify-email-identity?token=...` URL. The first use succeeds; replay
+or use after 24 hours of service time fails. `get-email-identity` then reports
+`VerifiedForSendingStatus=true`. Set the pool's `SourceArn` to
+`arn:aws:ses:us-east-2:000000000000:identity/sender@example.com`.
+SES sandbox restrictions still apply to recipients: verify the recipient too,
+or use an SES mailbox-simulator address. Identities are not auto-verified.
+
+The actual SQLite executable smoke verified the one-use link, a `DEVELOPER`
+pool's captured signup mail, confirmation and password login. Memory/SQLite
+regressions additionally preserve unchanged pool state after invalid updates and
+distinguish absent resources from repository failures.
+Sources: [Cognito email configuration](https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/API_EmailConfigurationType.html),
+[CreateUserPool errors](https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/API_CreateUserPool.html),
+[SES email identity verification](https://docs.aws.amazon.com/ses/latest/APIReference-V2/API_CreateEmailIdentity.html).
+
 The [SES executable capture](../testdata/integration/sesv2_cognito_verified.json)
 exercises AWS CLI simple mail, SDK raw/template/bulk
 mail, MIME parsing, malformed MIME rejection, sender/sandbox/IAM isolation,

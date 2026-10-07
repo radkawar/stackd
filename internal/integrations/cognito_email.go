@@ -8,6 +8,7 @@ import (
 	api "stackd/internal/awsapi/sesv2"
 	"stackd/internal/awscatalog"
 	"stackd/internal/awsctx"
+	"stackd/internal/awswire"
 	"stackd/internal/services/cognitoidp"
 	"stackd/internal/services/iam"
 	"stackd/internal/services/sesv2"
@@ -42,7 +43,16 @@ func (a *CognitoEmail) PrepareEmail(ctx context.Context, pool cognitoidp.PoolKey
 	if from == "" {
 		_, from, _ = strings.Cut(c.SourceARN, ":identity/")
 	}
-	return a.SES.ValidateCognitoIdentity(ctx, sesv2.Scope{Partition: pool.Partition, AccountID: pool.AccountID, Region: pool.Region}, c.SourceARN, from, c.ConfigurationSet)
+	err := a.SES.ValidateCognitoIdentity(ctx, sesv2.Scope{Partition: pool.Partition, AccountID: pool.AccountID, Region: pool.Region}, c.SourceARN, from, c.ConfigurationSet)
+	var rejected *awswire.Error
+	if errors.As(err, &rejected) && rejected.Code == "NotFoundException" {
+		// SourceArn must identify a verified SES sender; an absent sender or
+		// configuration set is invalid pool configuration, not a storage fault.
+		// TODO: Comeback — capture native Cognito missing-identity/configuration
+		// error codes; this modeled client error is documentation-derived.
+		return &awswire.Error{Code: "InvalidParameterException", Message: rejected.Message, StatusCode: 400}
+	}
+	return err
 }
 func (a *CognitoEmail) QueueEmail(ctx context.Context, m cognitoidp.EmailMessage) error {
 	if a.SES == nil {

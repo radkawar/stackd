@@ -45,7 +45,7 @@ func cfnComputeCall[T any](ctx context.Context, c StepFunctionsCommands, service
 	if err != nil {
 		return nil, err
 	}
-	out, rejected := c.Call(ctx, service, operation, body)
+	out, rejected := c.callCloudFormation(ctx, service, operation, body)
 	if rejected != nil {
 		return nil, rejected
 	}
@@ -61,7 +61,7 @@ func cfnComputeRun(ctx context.Context, c StepFunctionsCommands, service, operat
 	if err != nil {
 		return err
 	}
-	_, rejected := c.Call(ctx, service, operation, body)
+	_, rejected := c.callCloudFormation(ctx, service, operation, body)
 	if rejected != nil {
 		return rejected
 	}
@@ -142,6 +142,26 @@ func cfnComputeStrings(p map[string]any, keys ...string) error {
 		}
 	}
 	return nil
+}
+
+// cfnComputeScalarString is deliberately scoped to CFN properties such as
+// IpProtocol whose string schema also accepts a YAML numeric scalar.
+func cfnComputeScalarString(p map[string]any, key string) (string, error) {
+	value, found := p[key]
+	if !found {
+		return "", nil
+	}
+	if text, ok := value.(string); ok {
+		return text, nil
+	}
+	switch value.(type) {
+	case json.Number, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
+		data, err := json.Marshal(value)
+		if err == nil {
+			return string(data), nil
+		}
+	}
+	return "", fmt.Errorf("%s must be a string or numeric scalar", key)
 }
 func cfnComputeStringList(p map[string]any, key string) ([]string, error) {
 	v, found := p[key]

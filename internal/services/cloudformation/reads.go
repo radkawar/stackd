@@ -412,9 +412,17 @@ func (s *Service) describeChangeSet(tx Transaction, in *api.DescribeChangeSetInp
 	if e != nil {
 		return nil, e
 	}
+	evaluation, e := s.evaluation(tx, stack, v.Parameters, v.ResolvedParameters)
+	if e != nil {
+		return nil, e
+	}
+	policies, e := template.ResolvePolicies(evaluation)
+	if e != nil {
+		return nil, e
+	}
 	for _, c := range rows {
 		resource := changeProperties(c, truth(in.IncludePropertyValues), s.handlers[c.Type], stack.Scope)
-		if c.Replacement == "True" && template.Resources[c.LogicalID].UpdateReplacePolicy == "Retain" {
+		if c.Replacement == "True" && policies[c.LogicalID].UpdateReplacePolicy == "Retain" {
 			resource.PolicyAction = new(api.PolicyAction("ReplaceAndRetain"))
 		}
 		out.Changes = append(out.Changes, api.Change{Type: new(api.ChangeType("Resource")), ResourceChange: resource})

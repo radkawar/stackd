@@ -1645,6 +1645,20 @@ removing them changes no ownership. `TestCloudFormationNetworkOwnerPrivateClaims
 covers tag forgery/removal, lost replies, IAM revocation, scope isolation,
 delete/recreate and SQLite reopen.
 
+Interface endpoint admission accepts the official Kinesis Data Streams name
+`com.amazonaws.<region>.kinesis-streams`. Reads retain that service name; Lambda
+packet routing resolves it to the existing Kinesis owner without bypassing
+endpoint policy or ENI/SG/NACL authority.
+
+Known AWS services without local providers (including `bedrock-runtime`) remain
+outside this endpoint catalog, and `DescribeVpcEndpointServices` remains
+unsupported. The next boundary is an evidenced EC2 endpoint-service inventory
+shared by discovery and admission, independent of executable service providers.
+Admitting a known control-plane endpoint must not claim Bedrock inference
+execution. Sources: [Kinesis PrivateLink](https://docs.aws.amazon.com/streams/latest/dev/vpc.html),
+[EC2 endpoint discovery](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVpcEndpointServices.html),
+[Bedrock interface endpoints](https://docs.aws.amazon.com/bedrock/latest/userguide/vpc-interface-endpoints.html).
+
 ### CloudFormation compute ownership
 
 Instances, launch templates and key pairs use the same private native claim and

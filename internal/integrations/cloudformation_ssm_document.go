@@ -195,7 +195,7 @@ func (h cfnSSMDocument) replace(ctx context.Context, name string, p cfnSSMDocume
 		return fmt.Errorf("SSM CreateDocument model unavailable")
 	}
 	in := &api.CreateDocumentRequest{}
-	if err := awsapi.DecodeSDKInput(provider.model, op, raw, in); err != nil {
+	if err := awsapi.DecodeCloudFormationInput(provider.model, op, raw, in); err != nil {
 		return err
 	}
 	_, rejected := owner.CloudFormationReplaceDocument(ctx, in)

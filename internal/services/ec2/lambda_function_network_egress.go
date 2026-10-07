@@ -128,6 +128,9 @@ func lambdaFunctionNetworkSpecification(ctx context.Context, tx Reader, eni Netw
 		}
 		service := str(endpoint.Data.ServiceName)
 		service = service[strings.LastIndexByte(service, '.')+1:]
+		if service == "kinesis-streams" {
+			service = "kinesis"
+		}
 		if service != "s3" && service != "dynamodb" && service != "kinesis" && service != "sqs" && service != "logs" && service != "lambda" && service != "bedrock-runtime" {
 			continue
 		}

@@ -216,7 +216,6 @@ func TestTemplateRejectsUnsupportedOrAmbiguousEffects(t *testing.T) {
 		"update-policy":                "Resources: {Queue: {Type: AWS::SQS::Queue, UpdatePolicy: {Anything: true}}}",
 		"retain-except-replacement":    "Resources: {Queue: {Type: AWS::SQS::Queue, UpdateReplacePolicy: RetainExceptOnCreate}}",
 		"custom-resource":              "Resources: {Queue: {Type: 'Custom::Queue'}}",
-		"nested-stack":                 "Resources: {Queue: {Type: AWS::CloudFormation::Stack}}",
 		"dynamic-reference":            "Resources: {Queue: {Type: AWS::SQS::Queue, Properties: {QueueName: '{{resolve:ssm:secret}}'}}}",
 		"unknown-inactive-intrinsic":   "Conditions: {Never: !Equals [a, b]}\nResources: {Queue: {Type: AWS::SQS::Queue, Properties: {Value: !If [Never, {Fn::Unknown: ignored}, accepted]}}}",
 		"condition-resource-reference": "Conditions: {Invalid: !Equals [!Ref Queue, x]}\nResources: {Queue: {Type: AWS::SQS::Queue}}",
@@ -384,5 +383,21 @@ Resources:
 		if (err != nil) != row.rejected {
 			t.Fatalf("%+v: %v", row, err)
 		}
+	}
+}
+
+func TestTemplateGetAZsRejectsInvalidRegionExpressions(t *testing.T) {
+	for _, argument := range []string{"[us-east-1]", "{Fn::Sub: us-east-1}", "{Ref: Missing}", "42", "null", "{Ref: 'AWS::Region', Extra: ignored}"} {
+		body := "Resources: {Subnet: {Type: 'AWS::EC2::Subnet', Properties: {AvailabilityZone: {Fn::Select: [0, {Fn::GetAZs: " + argument + "}]}}}}"
+		if _, err := ParseTemplate(body); err == nil {
+			t.Fatalf("invalid GetAZs argument %s admitted", argument)
+		}
+	}
+	template, err := ParseTemplate("Resources: {Subnet: {Type: 'AWS::EC2::Subnet', Properties: {AvailabilityZone: !Select [0, !GetAZs '']}}}")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := template.ResolveResource("Subnet", Evaluation{Scope: Scope{Region: "us-east-1"}}); err == nil {
+		t.Fatal("missing native EC2 owner synthesized availability zones")
 	}
 }

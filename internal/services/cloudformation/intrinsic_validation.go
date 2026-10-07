@@ -62,6 +62,14 @@ func (t *Template) validateExpressions() error {
 		if err := t.validateExpression(resource.Metadata, true, false); err != nil {
 			return fmt.Errorf("resource %s metadata: %w", name, err)
 		}
+		for key, expression := range map[string]any{"DeletionPolicy": resource.DeletionPolicy, "UpdateReplacePolicy": resource.UpdateReplacePolicy} {
+			if expression == nil {
+				continue
+			}
+			if err := t.validatePolicyExpression(expression, key, true, false, map[string]bool{}); err != nil {
+				return fmt.Errorf("resource %s %s: %w", name, key, err)
+			}
+		}
 	}
 	for _, name := range templateKeys(t.Outputs) {
 		output := t.Outputs[name]
@@ -184,6 +192,19 @@ func (t *Template) validateFunction(name string, argument any, resources, condit
 			return fmt.Errorf("undefined resource %s", resource)
 		}
 		return nil
+	case "Fn::GetAZs":
+		if _, ok := argument.(string); ok {
+			return nil
+		}
+		object, ok := argument.(map[string]any)
+		if !ok || len(object) != 1 {
+			return fmt.Errorf("region must be a string or Ref")
+		}
+		ref, ok := object["Ref"]
+		if !ok {
+			return fmt.Errorf("only Ref is supported for the region")
+		}
+		return t.validateFunction("Ref", ref, resources, conditions)
 	case "Fn::Sub":
 		text, variables, err := templateSub(argument)
 		if err != nil {

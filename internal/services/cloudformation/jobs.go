@@ -55,7 +55,39 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 	var stack StackRecord
 	var step StepRecord
 	var execute, finalize, beforeCleanup, planning bool
-	err := s.repository.Update(ctx, func(tx Transaction) error {
+	// Resolve the retained caller's current execution authority before opening a
+	// state transaction. Intrinsic owner reads and native effects use the same
+	// authority; role assumption must not run inside the shared transaction.
+	err := s.repository.View(ctx, func(reader Reader) error {
+		var err error
+		op, err = reader.Operation(job.Key)
+		return err
+	})
+	if errors.Is(err, ErrNotFound) {
+		return nil
+	}
+	if err != nil || op.Phase == "DONE" || op.Revision != job.Version {
+		return err
+	}
+	caller := op.Caller
+	caller.InvokedBy = "cloudformation.amazonaws.com"
+	caller.SourceIP, caller.UserAgent = caller.InvokedBy, caller.InvokedBy
+	caller.TransportKnown, caller.SecureTransport = true, true
+	commandCtx := awsctx.WithMetadata(ctx, caller)
+	commandCtx = awsctx.WithViaService(commandCtx, caller.InvokedBy)
+	var authorityErr error
+	if op.RoleARN != "" {
+		if s.roles == nil {
+			authorityErr = invalid("CloudFormation execution-role authority is unavailable")
+		} else {
+			var authorized context.Context
+			authorized, authorityErr = s.roles.Context(commandCtx, op.StackID, op.RoleARN)
+			if authorityErr == nil {
+				commandCtx = authorized
+			}
+		}
+	}
+	err = s.repository.Update(commandCtx, func(tx Transaction) error {
 		var e error
 		op, e = tx.Operation(job.Key)
 		if errors.Is(e, ErrNotFound) {
@@ -111,7 +143,9 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 					return s.finishRollback(tx, &stack, &op)
 				}
 				execute, finalize = true, true
-				return nil
+				// The output refresh is revision/cursor fenced. Retain the
+				// skipped rollback cursor before running that external phase.
+				return tx.PutOperation(op)
 			}
 			step = op.Steps[op.Cursor]
 			if step.State == "RUNNING" && !step.AdmissionPending && step.After.PhysicalID == "" && (step.Action == "CREATE" || step.Action == "REPLACE") {
@@ -142,6 +176,9 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 		}
 		if step.State == "PENDING" {
 			if step.Action == "UPSERT" {
+				if authorityErr != nil {
+					return s.failResourceAdmission(tx, &stack, &op, step, authorityErr)
+				}
 				t, e := ParseTemplate(op.Template)
 				if e != nil {
 					return s.failOperation(tx, &stack, &op, e)
@@ -152,11 +189,13 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 				}
 				props, e := t.ResolveResource(step.LogicalID, evaluation)
 				if e != nil {
-					return s.failOperation(tx, &stack, &op, e)
+					return s.failResourceAdmission(tx, &stack, &op, step, e)
 				}
+				step.After.Properties = props
+				step.After.EventProperties = t.eventProperties(step.LogicalID, evaluation, props)
 				h := s.handlers[step.After.Type]
 				if h == nil {
-					return s.failOperation(tx, &stack, &op, invalid("Resource handler is unavailable: "+step.After.Type))
+					return s.failResourceAdmission(tx, &stack, &op, step, invalid("Resource handler is unavailable: "+step.After.Type))
 				}
 				updateValidator, validatesUpdate := h.(ResourceUpdateValidator)
 				validatesUpdate = validatesUpdate && step.Before.PhysicalID != "" && step.Before.Type == step.After.Type
@@ -166,10 +205,8 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 					e = h.Validate(props)
 				}
 				if e != nil {
-					return s.failOperation(tx, &stack, &op, e)
+					return s.failResourceAdmission(tx, &stack, &op, step, e)
 				}
-				step.After.Properties = props
-				step.After.EventProperties = t.eventProperties(step.LogicalID, evaluation, props)
 				replace := step.Before.PhysicalID != "" && step.Before.Type != step.After.Type
 				if step.Before.PhysicalID != "" && !replace {
 					if _, contextual := h.(ResourceContextualReplacementPlanner); contextual {
@@ -184,15 +221,15 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 					}
 					replace, e = RequiresReplacement(h, stack.Scope, step.Before.Properties, props)
 					if e != nil {
-						return s.failOperation(tx, &stack, &op, e)
+						return s.failResourceAdmission(tx, &stack, &op, step, e)
 					}
 				}
 				if e = resolveStepAction(&step, replace); e != nil {
-					return s.failOperation(tx, &stack, &op, e)
+					return s.failResourceAdmission(tx, &stack, &op, step, e)
 				}
 				if step.Action == "REPLACE" && validatesUpdate {
 					if e = h.Validate(props); e != nil {
-						return s.failOperation(tx, &stack, &op, e)
+						return s.failResourceAdmission(tx, &stack, &op, step, e)
 					}
 				}
 				if step.Action == "UPDATE" && reflect.DeepEqual(props, step.Before.Properties) && maps.Equal(op.Tags, stack.Tags) {
@@ -276,19 +313,7 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 	if err != nil || !execute {
 		return err
 	}
-	caller := op.Caller
-	caller.InvokedBy = "cloudformation.amazonaws.com"
-	caller.SourceIP, caller.UserAgent = caller.InvokedBy, caller.InvokedBy
-	caller.TransportKnown, caller.SecureTransport = true, true
-	commandCtx := awsctx.WithMetadata(ctx, caller)
-	commandCtx = awsctx.WithViaService(commandCtx, caller.InvokedBy)
-	if op.RoleARN != "" {
-		if s.roles == nil {
-			err = invalid("CloudFormation execution-role authority is unavailable")
-		} else {
-			commandCtx, err = s.roles.Context(commandCtx, stack.ID, op.RoleARN)
-		}
-	}
+	err = authorityErr
 	if finalize {
 		return s.finalizeDefinition(ctx, commandCtx, stack, op, beforeCleanup, err)
 	}
@@ -537,7 +562,7 @@ func (s *Service) planReplacement(ctx, commandCtx context.Context, stack StackRe
 			}
 		}
 		if cause != nil {
-			return s.failOperation(tx, &stack, &op, cause)
+			return s.failResourceAdmission(tx, &stack, &op, step, cause)
 		}
 		step.State = "PENDING"
 		position := op.Cursor
@@ -676,6 +701,24 @@ func (s *Service) startRollback(tx Transaction, stack *StackRecord, op *Operatio
 	}
 	return tx.PutOperation(*op)
 }
+
+// failResourceAdmission records a rejected logical resource without scheduling
+// recovery or undo for an owner effect that was never attempted.
+func (s *Service) failResourceAdmission(tx Transaction, stack *StackRecord, op *OperationRecord, step StepRecord, cause error) error {
+	step.State, step.Error = "SKIPPED", cause.Error()
+	op.Steps[op.Cursor] = step
+	resource := step.After
+	resource.Current = false
+	status := "CREATE_FAILED"
+	if step.Before.PhysicalID != "" {
+		status = "UPDATE_FAILED"
+	}
+	if err := s.resourceEvent(tx, stack, *op, resource, status, cause.Error()); err != nil {
+		return err
+	}
+	return s.failOperation(tx, stack, op, cause)
+}
+
 func (s *Service) failOperation(tx Transaction, stack *StackRecord, op *OperationRecord, cause error) error {
 	if op.Kind == "DELETE" || op.DisableRollback {
 		op.Phase = "DONE"

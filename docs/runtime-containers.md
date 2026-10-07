@@ -87,7 +87,19 @@ All later launch snippets are **alternatives**, not controllers to run concurren
 
 ### Native macOS controller with Docker Desktop
 
-The native macOS controller build is supported. Opt-in Lambda, DynamoDB and Kinesis are intended to use Docker Desktop's **real Linux daemon VM**, not synthetic execution on macOS. The Linux host used for this documentation work did not provide an actual macOS/Desktop run; this recipe describes the implementation contract, not observed platform evidence. ECS is intentionally omitted: its local Linux/rootful/systemd/cgroup-v2 admission is not a reason to disable these separate owners. EC2/EKS/ALB retain their original local Linux host-security contract.
+The native macOS controller build is supported. Opt-in Lambda, DynamoDB and Kinesis use Docker Desktop's **real Linux daemon VM**, not synthetic execution on macOS. ECS is intentionally omitted: its local Linux/rootful/systemd/cgroup-v2 admission is not a reason to disable these separate owners. EC2/EKS/ALB retain their original local Linux host-security contract.
+
+**Reported Desktop evidence at `54c09a9`:** macOS Darwin 24.6.0 on Apple Silicon,
+Docker Desktop Engine 29.8.1 with the containerd image store and amd64 Rosetta
+execution, using this native-controller recipe on port 4568. The reported
+155-resource stack reached `CREATE_COMPLETE` in 88 seconds; actual DynamoDB
+(16 GSIs, TTL and stream), on-demand Kinesis, Cognito password login/JWKS,
+image-RIC and `provided.al2023` execution, SQS/Kinesis mappings, suffix-filtered
+S3 notification, and `rate(1 minute)` delivery worked. Ten image-code updates
+completed successfully; stack deletion and controller shutdown left no containers.
+This is user-reported platform evidence, not a locally repeated macOS run.
+CORS readback and `cron()` were not exercised there. The report also identified
+the compatibility bugs described in [CloudFormation deployments](behavior-references.md#cloudformation-deployments).
 
 Cross-building the controller does not boot macOS, contact Docker Desktop or establish VM capability/readiness. The portable EC2 control plane remains usable without `-ec2-state-directory`; explicitly enabling the native EC2 backend on a non-Linux controller returns `QEMU capability unavailable: guest and native disk execution requires a local Linux controller`. It does not substitute a Docker container for an EC2 guest. Keep that flag out of the Desktop recipe.
 
@@ -145,6 +157,12 @@ Here `"$DESKTOP_DOCKER_HOST"` is the discovered `unix://<actualDesktopSocket>`, 
 
 The real RIC/bootstrap uses `AWS_LAMBDA_RUNTIME_API` for the separate [Lambda Runtime API](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-api.html) callback listener, **not** the AWS API at port 4567. `-lambda-runtime-listen 0.0.0.0:0` allocates a listener port per environment; `-lambda-callback-host host.docker.internal` advertises that port through [Desktop's built-in container-to-host DNS](https://docs.docker.com/desktop/features/networking/networking-how-tos/). No host-side resolution or shadow `/etc/hosts` mapping is installed for that name. Permit the Desktop backend to reach the host API and these allocated callback ports, while restricting all-interface listeners to trusted networks. Changing only the API port does not make the callbacks reachable.
 
+In the reported Desktop run, Lambda containers used Docker's default `bridge`
+network and reached host-published services through `host.docker.internal`.
+That bridge is inside Desktop's Linux VM, not the macOS host network. Use the
+configured compute origin and Runtime API callback origin; container loopback
+does not reach the host controller.
+
 The host-only public origin above is **not** suitable for returned URLs later consumed inside containers. For that topology, configure a shared hostname (for example `stackd.local`) to resolve to a reachable Mac-host IPv4 address from both host clients and containers before provisioning resources. Desktop's special `host.docker.internal` DNS name alone does not configure host-client DNS. With that prerequisite satisfied, replace the launch's two origin flags with:
 
 ```sh
@@ -173,7 +191,7 @@ Prepare the Lambda storage helper, static Linux telemetry binaries and, for VPC 
 
 ```sh
 # python3.12 / x86_64
-docker pull --platform linux/amd64 public.ecr.aws/lambda/python@sha256:a89893d9c93a9ffbf9e35ca32d7cadc635cbf3a9aec94480c75ed07150a05daa
+docker pull --platform linux/amd64 public.ecr.aws/lambda/python@sha256:e369e098d9db9eafa3238fe827e4756e2016159908b9426b78e2051c08f647e3
 # python3.12 / arm64
 docker pull --platform linux/arm64 public.ecr.aws/lambda/python@sha256:6a1d5d5815a9e754969f1c14f0f6a3ef14a8b094db25e16c1ad5bccc4ee4b99e
 # python3.13 / x86_64
@@ -189,6 +207,12 @@ docker pull --platform linux/amd64 public.ecr.aws/lambda/provided@sha256:0439bff
 # provided.al2023 / arm64
 docker pull --platform linux/arm64 public.ecr.aws/lambda/provided@sha256:b501fd60cfbd920688576f5cfd6040bf3533a15ce160673758c77ca2dabd312e
 ```
+
+The Python 3.12/x86_64 pin is the **Linux/amd64 child manifest**, not its former
+multi-platform index. With the containerd image store, inspecting an index can
+return empty OS/architecture fields even after a platform pull. Install the
+child digest shown above; platform validation remains strict and execution
+still never pulls images.
 
 Use the shared Lambda-only controller launch with `-lambda-runtime`. Deploy an IAM execution role and ZIP code through `CreateFunction`, wait for function readiness via `GetFunctionConfiguration`, then `Invoke`; [Lambda's current application path](lambda.md#current-application-path) specifies supported packaging, roles and invocation behavior. Execution uses the actual container RIC/bootstrap and stackd Runtime API, not a synthetic handler or RIE invocation proxy. `provided.al2023` needs your executable `bootstrap` implementing that API; the base image alone is not your handler. `-lambda-keep-alive` defaults to `10m`; `0` forces cold invocations. Optional `-lambda-storage-image` must be an installed immutable compatible storage helper. Hot-reload code/layer flags are development mounts, not durable deployment storage. Managed-instance Lambda uses guest-installed images and an agent instead: follow [VM deployment](runtime-vms.md), not these host-container commands.
 

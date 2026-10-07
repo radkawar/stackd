@@ -41,7 +41,7 @@ func cfnGatewayV2Call(ctx context.Context, commands StepFunctionsCommands, opera
 	if err != nil {
 		return nil, err
 	}
-	out, rejected := commands.Call(ctx, "apigatewayv2", operation, body)
+	out, rejected := commands.callCloudFormation(ctx, "apigatewayv2", operation, body)
 	if rejected != nil {
 		return nil, rejected
 	}

@@ -57,7 +57,7 @@ func (s *Service) finalizeDefinition(ctx, commandCtx context.Context, stack Stac
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	return s.repository.Update(ctx, func(tx Transaction) error {
+	return s.repository.Update(commandCtx, func(tx Transaction) error {
 		current, err := tx.Operation(op.ID)
 		if err != nil {
 			return err

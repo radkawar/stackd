@@ -60,7 +60,7 @@ func (h cfnRESTGateway) call(ctx context.Context, action string, input map[strin
 	if err != nil {
 		return nil, err
 	}
-	out, rejected := h.commands.Call(ctx, "apigateway", action, body)
+	out, rejected := h.commands.callCloudFormation(ctx, "apigateway", action, body)
 	if rejected != nil {
 		return nil, rejected
 	}

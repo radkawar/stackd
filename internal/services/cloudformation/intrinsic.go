@@ -194,6 +194,26 @@ func (e *templateEvaluator) function(name string, argument any) (any, error) {
 			return nil, err
 		}
 		return e.attribute(resource, attribute)
+	case "Fn::GetAZs":
+		region, err := e.text(argument)
+		if err != nil {
+			return nil, err
+		}
+		if region == "" {
+			region = e.input.Scope.Region
+		}
+		if e.input.AvailabilityZones == nil {
+			return nil, failure("NotImplementedException", "EC2 availability zone owner is unavailable.", 501)
+		}
+		zones, err := e.input.AvailabilityZones.CloudFormationAvailabilityZones(e.input.Context, region)
+		if err != nil {
+			return nil, err
+		}
+		result := make([]any, len(zones))
+		for i, zone := range zones {
+			result[i] = zone
+		}
+		return result, nil
 	case "Fn::Sub":
 		text, variables, err := templateSub(argument)
 		if err != nil {
@@ -464,7 +484,7 @@ func (t *Template) ResolveOutputs(input Evaluation) (map[string]OutputValue, []s
 
 func templateIntrinsic(name string) bool {
 	switch name {
-	case "Ref", "Condition", "Fn::GetAtt", "Fn::Sub", "Fn::Join", "Fn::Split", "Fn::Select", "Fn::FindInMap", "Fn::If", "Fn::Equals", "Fn::And", "Fn::Or", "Fn::Not", "Fn::ImportValue", "Fn::Base64", "Fn::Length":
+	case "Ref", "Condition", "Fn::GetAtt", "Fn::GetAZs", "Fn::Sub", "Fn::Join", "Fn::Split", "Fn::Select", "Fn::FindInMap", "Fn::If", "Fn::Equals", "Fn::And", "Fn::Or", "Fn::Not", "Fn::ImportValue", "Fn::Base64", "Fn::Length":
 		return true
 	}
 	return false

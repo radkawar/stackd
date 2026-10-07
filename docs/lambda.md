@@ -23,7 +23,7 @@ Runtime Interface Client (RIC). There is no imported-handler or RIE HTTP proxy
 fallback. The default runtime images are pinned separately:
 
 ```text
-python3.12 x86_64: public.ecr.aws/lambda/python@sha256:a89893d9c93a9ffbf9e35ca32d7cadc635cbf3a9aec94480c75ed07150a05daa
+python3.12 x86_64: public.ecr.aws/lambda/python@sha256:e369e098d9db9eafa3238fe827e4756e2016159908b9426b78e2051c08f647e3
 python3.12 arm64:  public.ecr.aws/lambda/python@sha256:6a1d5d5815a9e754969f1c14f0f6a3ef14a8b094db25e16c1ad5bccc4ee4b99e
 python3.13 x86_64: public.ecr.aws/lambda/python@sha256:1db929eee2769af5a502cb0ac7409245a1f5b8f8cb37f43832e9983f7a0aed53
 python3.13 arm64:  public.ecr.aws/lambda/python@sha256:48fb06e4f76b6512f055afe0659bffecb2439affd9d0a4d98afba0fdde7bc08f
@@ -32,6 +32,12 @@ nodejs22.x arm64:  public.ecr.aws/lambda/nodejs@sha256:2f80915b7e49e3ae37a84be11
 provided.al2023 x86_64: public.ecr.aws/lambda/provided@sha256:0439bff81ff967d34c098fa6d23a0059ff90d339dc8984f1dda007bde039a44f
 provided.al2023 arm64:  public.ecr.aws/lambda/provided@sha256:b501fd60cfbd920688576f5cfd6040bf3533a15ce160673758c77ca2dabd312e
 ```
+
+The Python 3.12/x86_64 digest is its Linux/amd64 child manifest. The former
+manifest-list digest could expose empty platform metadata in Docker's
+containerd image store. The child pin was installed and ran an actual Python
+RIC handler on Linux/amd64 with that image store; this does not independently
+verify a new macOS run.
 
 Pull the required platform explicitly before offline use. The executor never
 pulls an image. `compute/lambda.DockerConfig.Images` is keyed by
@@ -44,7 +50,7 @@ ZIP and callback workflow on memory and SQLite. Its arm64 digest is pinned from
 the official multi-platform manifest but is not exercised by that replay.
 
 ```sh
-docker pull --platform linux/amd64 public.ecr.aws/lambda/python@sha256:a89893d9c93a9ffbf9e35ca32d7cadc635cbf3a9aec94480c75ed07150a05daa
+docker pull --platform linux/amd64 public.ecr.aws/lambda/python@sha256:e369e098d9db9eafa3238fe827e4756e2016159908b9426b78e2051c08f647e3
 docker pull --platform linux/arm64 public.ecr.aws/lambda/python@sha256:6a1d5d5815a9e754969f1c14f0f6a3ef14a8b094db25e16c1ad5bccc4ee4b99e
 docker pull nicolaka/netshoot@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed283572f47c970c780c03b61
 docker pull ubuntu@sha256:2edbbc5dc405e9612ba3584ce95480277e3eb374407b5505fe26f17df77c7dbc
@@ -220,6 +226,16 @@ Current EC2 security-group/NACL policy is installed before customer execution
 and refreshed while the environment lives. There is no metadata-only VPC or
 permission-free network fallback.
 
+The embedded `AWSLambdaVPCAccessExecutionRole` policy is sufficient for the
+execution-role ENI boundary; it does not need an added
+`ec2:DescribeSecurityGroups` grant. Function subnet selection checks
+`DescribeSubnets` and actual `CreateNetworkInterface` authority while still
+validating every subnet/group and VPC/account relationship. AWS documents
+`DescribeSecurityGroups` and its other resource-verification permissions for
+the **caller**, separately from execution-role permissions. This repair does not
+expand the existing public CreateFunction caller-admission checks.
+Source: [Lambda VPC permission split](https://docs.aws.amazon.com/lambda/latest/dg/configuration-vpc.html).
+
 VPC execution additionally requires the configured native function-network
 runtime, the installed pinned networking toolkit, a rootful Linux Docker daemon
 with bridge/veth and nftables capabilities, and execution-role EC2 network
@@ -238,6 +254,12 @@ available public NAT, its retained EIP and an attached internet gateway through
 the authoritative route topology; the daemon performs actual NAT forwarding.
 The native dependency smoke exercises SQS and the pinned Kafka-backed Kinesis
 runtime, including endpoint/SG/NACL/NAT withdrawal:
+
+The official interface endpoint name
+`com.amazonaws.<region>.kinesis-streams` is preserved by EC2 and maps to the same
+real Kinesis packet destination and endpoint policy as the local Kinesis owner.
+Managed-role packet success and policy/route withdrawal were exercised on memory
+and SQLite, not just endpoint registration.
 
 ```sh
 STACKD_LAMBDA_DOCKER=1 STACKD_KINESIS_DOCKER=1 go test ./integration \

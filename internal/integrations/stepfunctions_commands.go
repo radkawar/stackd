@@ -91,16 +91,22 @@ func sdkEventStream(service awscatalog.Service, id awscatalog.ShapeID) bool {
 }
 
 func (c StepFunctionsCommands) Call(ctx context.Context, service, operation string, parameters json.RawMessage) (StepFunctionsCommandResult, *awswire.Error) {
-	return c.call(ctx, service, operation, parameters, false)
+	return c.call(ctx, service, operation, parameters, awsapi.DecodeSDKInput, false)
 }
 
 // CallResponse additionally retains the service-owned response for optimized
 // integrations. Ordinary SDK tasks do not need a second wire serialization.
 func (c StepFunctionsCommands) CallResponse(ctx context.Context, service, operation string, parameters json.RawMessage) (StepFunctionsCommandResult, *awswire.Error) {
-	return c.call(ctx, service, operation, parameters, true)
+	return c.call(ctx, service, operation, parameters, awsapi.DecodeSDKInput, true)
 }
 
-func (c StepFunctionsCommands) call(ctx context.Context, service, operation string, parameters json.RawMessage, response bool) (StepFunctionsCommandResult, *awswire.Error) {
+// callCloudFormation keeps resource scalar normalization separate from the
+// Step Functions SDK input contract, while retaining the same service owner.
+func (c StepFunctionsCommands) callCloudFormation(ctx context.Context, service, operation string, parameters json.RawMessage) (StepFunctionsCommandResult, *awswire.Error) {
+	return c.call(ctx, service, operation, parameters, awsapi.DecodeCloudFormationInput, false)
+}
+
+func (c StepFunctionsCommands) call(ctx context.Context, service, operation string, parameters json.RawMessage, decodeInput func(awscatalog.Service, awscatalog.Operation, []byte, any) error, response bool) (StepFunctionsCommandResult, *awswire.Error) {
 	provider, result, wireErr := c.resolve(service, operation)
 	if wireErr != nil {
 		return result, wireErr
@@ -109,7 +115,7 @@ func (c StepFunctionsCommands) call(ctx context.Context, service, operation stri
 	if err != nil {
 		return result, &awswire.Error{Code: "NotImplemented", Message: err.Error(), StatusCode: 501}
 	}
-	if err := awsapi.DecodeSDKInput(result.Service, result.Operation, parameters, input); err != nil {
+	if err := decodeInput(result.Service, result.Operation, parameters, input); err != nil {
 		return result, &awswire.Error{Code: "ValidationException", Message: err.Error(), StatusCode: 400}
 	}
 	return c.execute(ctx, provider, result, input, parameters, response)

@@ -20,6 +20,7 @@ type documentInput struct {
 	wireJSON             bool
 	validate             bool
 	sdk                  bool
+	cloudFormation       bool
 	allowMissingRequired bool
 	mockResponse         bool
 	sdkInvokePayload     bool
@@ -218,6 +219,18 @@ func normalizeValue(service awscatalog.Service, id awscatalog.ShapeID, raw json.
 		if err := decoder.Decode(&parsed); err != nil || !json.Valid(raw) {
 			return invalid("expected a number")
 		}
+		numericString := false
+		if mode.cloudFormation {
+			if text, ok := parsed.(string); ok {
+				// Accept only JSON number syntax; ParseFloat alone also accepts
+				// NaN, infinities and hexadecimal values.
+				if text == "" || text != strings.TrimSpace(text) || (text[0] != '-' && (text[0] < '0' || text[0] > '9')) || !json.Valid([]byte(text)) {
+					return invalid("expected a numeric string")
+				}
+				parsed = json.Number(text)
+				numericString = true
+			}
+		}
 		number, ok := parsed.(json.Number)
 		if !ok {
 			return nil, &ValidationError{Path: path, Reason: "expected a number", TypeMismatch: true}
@@ -225,7 +238,7 @@ func normalizeValue(service awscatalog.Service, id awscatalog.ShapeID, raw json.
 		text := number.String()
 		bits := map[awscatalog.ShapeKind]int{"byte": 8, "short": 16, "integer": 32, "long": 64, "intEnum": 32}[shape.Kind]
 		if bits != 0 {
-			if shape.JSONIntegerCoercion {
+			if shape.JSONIntegerCoercion && !numericString {
 				var err error
 				text, err = coerceJSONInteger(text, bits)
 				if err != nil {
