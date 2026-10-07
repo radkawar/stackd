@@ -18,7 +18,7 @@ func TestPrivateNATAdmissionKeepsBlackholesAndNoInboundNAT(t *testing.T) {
 		}
 		blackhole := "ip " + field + " 192.0.2.0/24 counter drop"
 		admitted := "ip " + field + " 0.0.0.0/0 jump nat_" + direction + "_1"
-		if strings.Index(text, blackhole) < 0 || strings.Index(text, blackhole) > strings.Index(text, admitted) {
+		if !strings.Contains(text, blackhole) || strings.Index(text, blackhole) > strings.Index(text, admitted) {
 			t.Fatalf("more-specific blackhole was bypassed: %s", text)
 		}
 		if direction == "to" && !strings.Contains(text, "ct state established,related "+admitted) {

@@ -66,6 +66,13 @@ keeps service-specific accounting and error semantics authoritative.
   guest/worker import, reachable endpoints, TLS, readiness and retained-state
   shutdown. Built binaries and the local STS/S3/SQS SQLite restart path were
   exercised; this documentation update did not boot guests or start native engines.
+- [ ] Resolve native subnet-route association replacement progress after
+  delete-before-create retirement. Both `TestCloudFormationDeleteFirstReplacementRollback`
+  and `TestCloudFormationRejectedExclusiveReplacementRestoresFreshNativeOwner`
+  timed out on memory/SQLite; an actual SQLite CLI/public SDK smoke also stalled
+  after the old association's `DELETE_COMPLETE`. The restoration result-read
+  regression and affected package/static checks pass; they do not resolve this
+  separate native replacement workflow failure.
 - [ ] Resolve integration failures reproduced on the pre-anonymization snapshot:
   `TestCloudFormationKMSAliasStackDiscovery`, `TestCloudTrailKMSNativeReplay`,
   `TestServiceJobsSDKDrainAndRecovery`,

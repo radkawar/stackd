@@ -78,10 +78,10 @@ func (b *Bridges) VerifyPrivateEgress(ctx context.Context, networkID string) err
 		return err
 	}
 	if info.Options["com.docker.network.bridge.enable_ip_masquerade"] == "false" {
-		return errors.New("Lambda private NAT egress requires the owned Docker bridge's real MASQUERADE")
+		return errors.New("lambda private NAT egress requires the owned Docker bridge's real MASQUERADE")
 	}
 	if mode := info.Options["com.docker.network.bridge.gateway_mode_ipv4"]; mode != "" && mode != "nat" {
-		return errors.New("Lambda private NAT egress requires IPv4 Docker NAT bridge mode")
+		return errors.New("lambda private NAT egress requires IPv4 Docker NAT bridge mode")
 	}
 	return nil
 }

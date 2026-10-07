@@ -3891,6 +3891,9 @@ ownership token. If current authority prevents recovery, the stack remains
 after authority is restored, rather than reporting success and abandoning it.
 A recovered physical identity is checkpointed even when subsequent configuration
 fails, so cleanup does not require successfully reprovisioning that resource.
+Rollback restoration also retains its admitted identity when the post-stabilization
+result read fails. That failure prevents publishing `UPDATE_COMPLETE` for the
+restored resource and leaves the stack in `UPDATE_ROLLBACK_FAILED`.
 A removed failed-create resource with no physical identity is detached without
 calling its owner to create or delete anything, including an unrelated resource
 that now has the same name.

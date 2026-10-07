@@ -870,9 +870,9 @@ func (s *Service) undoDeletedReplacement(ctx context.Context, stack StackRecord,
 			if !ok {
 				return ResourceResult{}, false, invalid("Retained restoration stabilizer is unavailable")
 			}
-			ready, err := waiter.Stabilize(ctx, request)
-			if err != nil || !ready {
-				return result, !ready, err
+			ready, stabilizeErr := waiter.Stabilize(ctx, request)
+			if stabilizeErr != nil || !ready {
+				return result, !ready, stabilizeErr
 			}
 			result, err = stabilizedResourceResult(ctx, h, request, result)
 		} else {

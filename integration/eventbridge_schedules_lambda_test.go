@@ -238,7 +238,7 @@ func TestEventBridgeScheduledDockerLambda(t *testing.T) {
 				}
 				cloud.server.Close()
 				closeDatabase()
-				backends, closeDatabase = openSQLiteBackends(t, path)
+				backends, _ = openSQLiteBackends(t, path)
 				previous := cloud
 				cloud = lambdaEventsConnect(t, backends, source)
 				cloud.functionName, cloud.functionARN = previous.functionName, previous.functionARN

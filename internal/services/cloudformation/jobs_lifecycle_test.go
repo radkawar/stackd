@@ -41,6 +41,7 @@ type lifecycleOwner struct {
 	pendingAction      string
 	pending            int
 	readError          error
+	resultError        error
 	failCreate         bool
 	admitBeforeFailure bool
 	next               int
@@ -171,6 +172,9 @@ func (h *lifecycleOwner) StabilizeDeletion(_ context.Context, r ResourceRequest)
 func (h *lifecycleOwner) Result(_ context.Context, r ResourceRequest) (ResourceResult, error) {
 	if err := h.command("RESULT", r); err != nil {
 		return ResourceResult{}, err
+	}
+	if h.resultError != nil {
+		return ResourceResult{}, h.resultError
 	}
 	if _, exists := h.live[r.PhysicalID]; !exists {
 		return ResourceResult{}, &awswire.Error{Code: "Resource.NotFound"}
@@ -318,6 +322,52 @@ func TestDeleteFirstRollbackWaitsForNativeRestorationAndRefreshesOutputs(t *test
 			}
 		}
 		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDeleteFirstRollbackRejectsRestorationResultReadFailure(t *testing.T) {
+	s, r, h, op := lifecycleFixture(t, "REPLACE", "APPLY")
+	for i := 0; i < 12 && op.Cursor == 0; i++ {
+		op = lifecycleRun(t, s, r, op.ID)
+	}
+	if op.Cursor != 1 || !op.Steps[0].BeforeDeleted {
+		t.Fatalf("replacement did not complete native deletion: %+v", op)
+	}
+	op.Phase, op.Cursor = "ROLLBACK", 0
+	if err := r.Update(t.Context(), func(tx Transaction) error { return tx.PutOperation(op) }); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 12 && op.Steps[0].State != "RESTORE_STABILIZING"; i++ {
+		op = lifecycleRun(t, s, r, op.ID)
+	}
+	if op.Steps[0].State != "RESTORE_STABILIZING" {
+		t.Fatalf("rollback did not retain pending native restoration: %+v", op)
+	}
+	restoredID := op.Steps[0].Restore.PhysicalID
+	h.resultError = &awswire.Error{Code: "AccessDenied", Message: "current caller lost restored-owner read authority"}
+	for i := 0; i < 12 && op.Phase != "DONE"; i++ {
+		op = lifecycleRun(t, s, r, op.ID)
+	}
+	if op.Phase != "DONE" || h.live[restoredID]["RouteTableId"] != "original" {
+		t.Fatalf("result-read rejection lost the admitted restoration: %+v live=%v", op, h.live)
+	}
+	if err := r.View(t.Context(), func(reader Reader) error {
+		stack, err := reader.Stack("stack")
+		if err == nil && stack.Status != "UPDATE_ROLLBACK_FAILED" {
+			t.Fatalf("unreadable restoration reported successful rollback: %+v", stack)
+		}
+		if err != nil {
+			return err
+		}
+		resources, err := reader.Resources("stack")
+		for _, resource := range resources {
+			if resource.PhysicalID == restoredID && resource.Status == "UPDATE_COMPLETE" {
+				t.Fatalf("unreadable restored owner was published as complete: %+v", resource)
+			}
+		}
+		return err
 	}); err != nil {
 		t.Fatal(err)
 	}
