@@ -28,26 +28,28 @@ type LoggingConfiguration interface {
 }
 
 type Config struct {
-	Repository   Repository
-	Authorizer   authorization.Authorizer
-	PolicyBinder authorization.PolicyBinder
-	Recorder     apievents.Recorder
-	Clock        clock.Clock
-	Endpoint     string
-	Metrics      MetricPublisher
-	Logs         LoggingConfiguration
+	Repository     Repository
+	Authorizer     authorization.Authorizer
+	PolicyBinder   authorization.PolicyBinder
+	Recorder       apievents.Recorder
+	Clock          clock.Clock
+	Endpoint       string
+	EndpointDomain string
+	Metrics        MetricPublisher
+	Logs           LoggingConfiguration
 }
 type Service struct {
-	repository Repository
-	authorizer authorization.Authorizer
-	recorder   apievents.Recorder
-	clock      clock.Clock
-	endpoint   string
-	operations map[string]func(context.Context) (any, *awswire.Error)
-	usage      usageAdmission
-	metrics    MetricPublisher
-	logs       LoggingConfiguration
-	jobs       *scheduler.Driver
+	repository     Repository
+	authorizer     authorization.Authorizer
+	recorder       apievents.Recorder
+	clock          clock.Clock
+	endpoint       string
+	endpointDomain string
+	operations     map[string]func(context.Context) (any, *awswire.Error)
+	usage          usageAdmission
+	metrics        MetricPublisher
+	logs           LoggingConfiguration
+	jobs           *scheduler.Driver
 }
 
 func New(c Config) *Service {
@@ -61,6 +63,7 @@ func New(c Config) *Service {
 		c.Authorizer = authorization.NewWithClock(nil, nil, c.Clock)
 	}
 	s := &Service{repository: c.Repository, authorizer: c.Authorizer, recorder: c.Recorder, clock: c.Clock, endpoint: strings.TrimRight(c.Endpoint, "/"), operations: map[string]func(context.Context) (any, *awswire.Error){}}
+	s.endpointDomain = c.EndpointDomain
 	s.metrics = c.Metrics
 	s.logs = c.Logs
 	s.jobs = scheduler.New(c.Clock, metricJobs{s})

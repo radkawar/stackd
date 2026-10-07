@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	api "stackd/internal/awsapi/opensearch"
+	"stackd/internal/endpoints"
 )
 
 func (s *Service) createDomain(ctx context.Context, tx Transaction, in *api.CreateDomainRequest) (*api.CreateDomainResponse, error) {
@@ -188,7 +189,15 @@ func (s *Service) domainStatus(ctx context.Context, v Domain) (*api.DomainStatus
 		out.AdvancedOptions[api.String(k)] = api.String(v)
 	}
 	if v.NativeEndpoint != "" && v.Status != "deleting" {
-		out.Endpoint = new(api.ServiceUrl(strings.TrimPrefix(strings.TrimPrefix(s.endpoint, "http://"), "https://") + domainPath(v)))
+		endpoint := strings.TrimPrefix(strings.TrimPrefix(s.endpoint, "http://"), "https://") + domainPath(v)
+		if s.endpointDomain != "" {
+			origin, err := endpoints.ResourceURL(s.endpoint, s.endpointDomain, "opensearch", v.Key.Region, v.Incarnation)
+			if err != nil {
+				return nil, err
+			}
+			endpoint = strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(origin, "http://"), "https://"), "/")
+		}
+		out.Endpoint = new(api.ServiceUrl(endpoint))
 	}
 	return out, nil
 }

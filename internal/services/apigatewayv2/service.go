@@ -19,26 +19,28 @@ import (
 )
 
 type Config struct {
-	Repository   Repository
-	Authorizer   authorization.Authorizer
-	PolicyBinder authorization.PolicyBinder
-	Recorder     apievents.Recorder
-	Clock        clock.Clock
-	Endpoint     string
-	Logs         apigatewayexec.LoggingConfiguration
-	Certificates DomainCertificates
-	Truststores  DomainTruststores
+	Repository     Repository
+	Authorizer     authorization.Authorizer
+	PolicyBinder   authorization.PolicyBinder
+	Recorder       apievents.Recorder
+	Clock          clock.Clock
+	Endpoint       string
+	EndpointDomain string
+	Logs           apigatewayexec.LoggingConfiguration
+	Certificates   DomainCertificates
+	Truststores    DomainTruststores
 }
 type Service struct {
-	repository   Repository
-	authorizer   authorization.Authorizer
-	recorder     apievents.Recorder
-	clock        clock.Clock
-	endpoint     string
-	logs         apigatewayexec.LoggingConfiguration
-	certificates DomainCertificates
-	truststores  DomainTruststores
-	operations   map[string]func(context.Context) (any, *awswire.Error)
+	repository     Repository
+	authorizer     authorization.Authorizer
+	recorder       apievents.Recorder
+	clock          clock.Clock
+	endpoint       string
+	endpointDomain string
+	logs           apigatewayexec.LoggingConfiguration
+	certificates   DomainCertificates
+	truststores    DomainTruststores
+	operations     map[string]func(context.Context) (any, *awswire.Error)
 }
 
 func New(c Config) *Service {
@@ -52,6 +54,7 @@ func New(c Config) *Service {
 		c.Authorizer = authorization.NewWithClock(nil, nil, c.Clock)
 	}
 	s := &Service{repository: c.Repository, authorizer: c.Authorizer, recorder: c.Recorder, clock: c.Clock, endpoint: strings.TrimRight(c.Endpoint, "/"), logs: c.Logs, certificates: c.Certificates, truststores: c.Truststores, operations: map[string]func(context.Context) (any, *awswire.Error){}}
+	s.endpointDomain = c.EndpointDomain
 	register(s, "CreateApi", s.createAPI)
 	register(s, "GetApi", s.getAPI)
 	register(s, "GetApis", s.getAPIs)

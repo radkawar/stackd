@@ -10,6 +10,7 @@ import (
 	"stackd/internal/authorization"
 	"stackd/internal/awsctx"
 	"stackd/internal/awswire"
+	"stackd/internal/endpoints"
 )
 
 const DataPrefix = "/_stackd/opensearch/"
@@ -36,6 +37,12 @@ func dataPath(path string) (Key, string, string, bool) {
 // Smithy decoding. That gateway still owns SigV4, bounded bodies and transport
 // metadata; an unsigned request obtains no implicit account-root authority.
 func (s *Service) DataPlaneRegion(r *http.Request) (string, bool) {
+	if id, region, matched := endpoints.ResourceHost(r.Host, s.endpointDomain, "opensearch"); matched {
+		if id == "" {
+			region = ""
+		}
+		return region, true
+	}
 	if !strings.HasPrefix(r.URL.Path, DataPrefix) {
 		return "", false
 	}
@@ -97,6 +104,18 @@ var nativeProxy = &httputil.ReverseProxy{
 func (s *Service) ServeDataPlane(w http.ResponseWriter, r *http.Request) {
 	k, incarnation, path, ok := dataPath(r.URL.Path)
 	reject := func(e error) { awswire.JSONError(w, r, wireError(e)) }
+	_, _, resourceHost := endpoints.ResourceHost(r.Host, s.endpointDomain, "opensearch")
+	if resourceHost {
+		domain, err := s.resourceDomain(r.Context(), r.Host)
+		if err != nil {
+			reject(err)
+			return
+		}
+		k, incarnation, path, ok = domain.Key, domain.Incarnation, r.URL.Path, true
+		if path == "" {
+			path = "/"
+		}
+	}
 	if !ok {
 		reject(failure("ValidationException", "Invalid OpenSearch endpoint."))
 		return
@@ -156,7 +175,9 @@ func (s *Service) ServeDataPlane(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rawPath := ""
-	if r.URL.RawPath != "" {
+	if resourceHost {
+		rawPath = r.URL.RawPath
+	} else if r.URL.RawPath != "" {
 		prefix := domainPath(domain)
 		if !strings.HasPrefix(r.URL.EscapedPath(), prefix) {
 			reject(failure("ValidationException", "Encoded domain routing components are not supported."))

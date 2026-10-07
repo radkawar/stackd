@@ -47,6 +47,7 @@ type FunctionNetworkRuntime struct {
 	serviceMu                        sync.Mutex
 	services                         map[string]*functionServiceNode
 	controllerListen, controllerHost string
+	dns                              []string
 }
 
 func NewFunctionNetworkRuntime(client *docker.Client, bridges *network.Bridges, namespace string) (*FunctionNetworkRuntime, error) {

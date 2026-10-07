@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
 	"sync"
 	"time"
 
@@ -52,6 +53,11 @@ type RuntimePlatform struct {
 // an installed immutable Linux image providing util-linux and e2fsprogs; the
 // default is StorageImage. Storage helpers require a rootful Docker daemon with
 // privileged containers, loop devices and ext4 support, not a privileged client.
+// Networking selects resolvers for non-VPC environments and the AWS SDK CA
+// bundle for every new environment (see docker.Networking). VPC environments
+// take resolvers from EC2 DHCP through FunctionNetworkRuntime.SetRuntimeDNS.
+// Explicit DNS replaces Docker Desktop's resolver, so it requires a CallbackHost
+// other than host.docker.internal.
 type DockerConfig struct {
 	Client           *docker.Client
 	Namespace        string
@@ -62,6 +68,7 @@ type DockerConfig struct {
 	HotReload        map[string]HotReloadDirectories
 	TelemetryHelpers map[string]string
 	StartupTimeout   time.Duration
+	Networking       docker.Networking
 }
 
 type DockerExecutor struct {
@@ -99,6 +106,13 @@ func NewDockerExecutor(ctx context.Context, config DockerConfig) (*DockerExecuto
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	if err := config.Networking.Validate(); err != nil {
+		return nil, fmt.Errorf("lambda runtime networking: %w", err)
+	}
+	if len(config.Networking.DNS) != 0 && config.CallbackHost == "host.docker.internal" {
+		return nil, fmt.Errorf("lambda runtime DNS replaces Docker Desktop's host.docker.internal resolver; select an explicit reachable CallbackHost")
+	}
+	config.Networking.DNS = slices.Clone(config.Networking.DNS)
 	if config.ListenAddress == "" {
 		config.ListenAddress = "0.0.0.0:0"
 	}

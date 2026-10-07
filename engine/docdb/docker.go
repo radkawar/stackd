@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	"stackd/compute/docker"
+	"stackd/compute/ports"
 
 	"github.com/xdg-go/stringprep"
 )
@@ -31,10 +31,12 @@ const replicaSet = "stackd"
 // DockerConfig selects an explicitly installed immutable image and stable
 // installation namespace. One controller owns a namespace. Client is borrowed;
 // Host is used only when Client is absent. The daemon must expose local loopback.
+// PortRange bounds new automatic endpoints, never explicit or retained ports.
 type DockerConfig struct {
 	Host, Namespace, Image string
 	Client                 *docker.Client
 	StartupTimeout         time.Duration
+	PortRange              ports.Range
 }
 
 type Docker struct {
@@ -42,6 +44,7 @@ type Docker struct {
 	ownsClient       bool
 	namespace, image string
 	startupTimeout   time.Duration
+	portRange        ports.Range
 	gate             chan struct{}
 	mu               sync.Mutex
 	closed           bool
@@ -51,6 +54,9 @@ var _ Runtime = (*Docker)(nil)
 var immutableImage = regexp.MustCompile(`^(?:[^\s@]+@)?sha256:[a-f0-9]{64}$`)
 
 func NewDocker(config DockerConfig) (*Docker, error) {
+	if err := config.PortRange.Validate(); err != nil {
+		return nil, err
+	}
 	if config.Namespace == "" {
 		return nil, errors.New("DocumentDB Docker namespace is required and must survive controller restart")
 	}
@@ -93,7 +99,7 @@ func NewDocker(config DockerConfig) (*Docker, error) {
 		}
 		return nil, fmt.Errorf("DocumentDB image must be installed locally (%s): %w", config.Image, err)
 	}
-	return &Docker{client: client, ownsClient: owned, namespace: config.Namespace, image: image.ID, startupTimeout: config.StartupTimeout, gate: make(chan struct{}, 1)}, nil
+	return &Docker{client: client, ownsClient: owned, namespace: config.Namespace, image: image.ID, startupTimeout: config.StartupTimeout, portRange: config.PortRange, gate: make(chan struct{}, 1)}, nil
 }
 
 // Close detaches without changing retained native resources.
@@ -168,19 +174,6 @@ func validatePassword(password string) error {
 		return errors.New("native document database password is not valid for SCRAM-SHA-256")
 	}
 	return nil
-}
-func allocatePort() (int32, error) {
-	listener, err := net.Listen("tcp4", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
-	}
-	port := listener.Addr().(*net.TCPAddr).Port
-	if err := listener.Close(); err != nil {
-		return 0, err
-	}
-	// Docker performs the authoritative reservation. A competing bind fails the
-	// create/start rather than silently changing the durable replica endpoint.
-	return int32(port), nil
 }
 func portString(port int32) string { return strconv.Itoa(int(port)) }
 func strconvPort(value string) (int32, error) {

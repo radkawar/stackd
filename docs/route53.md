@@ -24,7 +24,9 @@ that DNS publication succeeded. Retained reads and cleanup remain available.
 
 DNS clients must select the resolver themselves, for example
 `dig @127.0.0.1 -p 1053 app.example.test A` and the same command with `+tcp`.
-The listener is authoritative only; it does not provide Internet recursion.
+The listener is authoritative only by default. Explicit selected upstreams and
+client-scoped recursion are available through the [networking configuration](networking.md#dns-authority-and-optional-forwarding);
+owned negative, delegated and error answers are never forwarded.
 
 `route53.New(Config)` accepts the service-owned `Repository`, the current shared
 IAM `Authorizer`, API-event `Recorder`, shared `Clock`, `DNSAuthority` and an

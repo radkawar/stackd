@@ -6,12 +6,15 @@ import "context"
 
 // Specification identifies one immutable database incarnation. Password is only
 // used at the native boundary and must not be persisted in control-plane state.
-// Port is the host-side port; zero asks Docker to allocate one. Parameters are
-// native server settings, validated against the supported engine settings.
+// Port is the host-side port; zero selects one from the configured pool (or OS
+// ephemeral ports without a pool). Parameters are validated native server settings.
 type Specification struct {
 	ID, Engine, Database, Username, Password string
 	Port                                     int32
-	Parameters                               map[string]string
+	// RetainedPort is the last committed owner endpoint, used only when an
+	// automatic incarnation has lost its container. Live bindings take precedence.
+	RetainedPort int32
+	Parameters   map[string]string
 }
 
 type Endpoint struct {

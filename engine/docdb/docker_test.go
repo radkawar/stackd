@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"net"
 	"net/http"
 	"net/url"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"stackd/compute/docker"
+	"stackd/compute/ports"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -53,6 +55,13 @@ func documentValue(t *testing.T, ctx context.Context, client *mongo.Client, want
 
 func TestNativeTLSAuthenticationChangesAndRetainedLifecycle(t *testing.T) {
 	d := nativeRuntime(t)
+	reservation, err := (ports.Range{}).Listen(t.Context(), "127.0.0.1", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	selected := uint16(reservation.Addr().(*net.TCPAddr).Port)
+	reservation.Close()
+	d.portRange = ports.Range{First: selected, Last: selected}
 	ctx, cancel := context.WithTimeout(t.Context(), 4*time.Minute)
 	defer cancel()
 	spec := Specification{ID: rand.Text(), Username: "master", Password: "initial'\\東京"}
@@ -67,6 +76,21 @@ func TestNativeTLSAuthenticationChangesAndRetainedLifecycle(t *testing.T) {
 	endpoint, err := d.Ensure(ctx, spec)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if endpoint.Port != int32(selected) {
+		t.Fatalf("native document endpoint %d escaped singleton pool %d", endpoint.Port, selected)
+	}
+	competing := spec
+	competing.ID = rand.Text()
+	t.Cleanup(func() {
+		cleanup, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		if err := d.Delete(cleanup, competing.ID); err != nil {
+			t.Error(err)
+		}
+	})
+	if _, err := d.Ensure(ctx, competing); !errors.Is(err, ports.ErrExhausted) {
+		t.Fatalf("native document pool exhaustion: %v", err)
 	}
 	client := nativeClient(t, ctx, endpoint, spec)
 	collection := client.Database("application").Collection("documents")
@@ -154,7 +178,7 @@ func TestNativeTLSAuthenticationChangesAndRetainedLifecycle(t *testing.T) {
 	if err := d.Close(); err != nil {
 		t.Fatal(err)
 	}
-	d, err = NewDocker(DockerConfig{Host: os.Getenv("DOCKER_HOST"), Namespace: d.namespace})
+	d, err = NewDocker(DockerConfig{Host: os.Getenv("DOCKER_HOST"), Namespace: d.namespace, PortRange: ports.Range{First: 1, Last: 1}})
 	if err != nil {
 		t.Fatal(err)
 	}

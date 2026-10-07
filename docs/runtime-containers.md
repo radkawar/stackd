@@ -83,6 +83,15 @@ The CLI derives `http://host.docker.internal:4566` as the execution-facing endpo
 
 `-public-endpoint` advertises resource URLs; `-compute-endpoint` selects the execution AWS origin; neither changes the listener. When Lambda, ECS, CodeBuild, Glue or EC2 guest execution requests the default compute origin, a loopback listener without an explicit compute endpoint is rejected. Transport-only or DynamoDB/Kinesis-only selection does not impose that check. Explicitly using a loopback compute origin does not make it reachable from containers. Lambda Runtime API callbacks are separate: `-lambda-runtime-listen` defaults to `0.0.0.0:0`, and empty `-lambda-callback-host` uses Linux host-gateway. Explicit `host.docker.internal` uses Docker Desktop's container DNS; stackd does not resolve it on the controller or inject a shadow host mapping. Permit only intended Docker networks to reach callback ports. Athena also has its own callback listener described below.
 
+Alternatively configure an explicit native gateway namespace, runtime resolver
+and scoped development CA using the [networking recipes](networking.md).
+Runtime DNS does not install host DNS or bypass EC2 DHCP/SG/NACL policy; public
+CA delivery uses Engine archives rather than a controller-directory bind mount.
+Explicit DNS replaces Desktop's special resolver, so numeric reachable Runtime
+API callbacks are required in that mode. `-native-ports FIRST-LAST` optionally
+pools new automatic customer SQL/document/Kafka/Valkey/MQ TCP allocations;
+retained and explicitly requested ports stay exact outside a changed pool.
+
 All later launch snippets are **alternatives**, not controllers to run concurrently against the same SQLite file. Combine desired flags into one controller. Boolean engine flags default to false; empty image overrides select the pinned defaults below. Use an absolute, stable SQLite path: native ownership is derived from it. Do not run two controllers with that same database/namespace or move the database independently of owned native state.
 
 ### Native macOS controller with Docker Desktop

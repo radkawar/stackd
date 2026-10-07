@@ -91,7 +91,7 @@ func TestRetainedAuthorityAcrossSQLiteRestartAndRollback(t *testing.T) {
 			t.Fatal(e)
 		}
 		repo = backend.New(db)
-		server, e = dns.Listen("127.0.0.1:0")
+		server, e = dns.Listen(dns.Config{Address: "127.0.0.1:0"})
 		if e != nil {
 			t.Fatal(e)
 		}

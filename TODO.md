@@ -35,6 +35,27 @@ keeps service-specific accounting and error semantics authoritative.
   copied customer tags do not adopt them. SQL schemas through 402 persist the
   new owner families without promoting legacy public tags.
   [Private creation-claim boundaries](docs/sqlite-state.md#private-cloudformation-creation-claims).
+- [x] Add opt-in native gateway DNS, ordered explicit upstream forwarding with
+  actual-peer ACL/loop protection, and managed Lambda/ECS/CodeBuild resolver
+  selection without bypassing EC2 DHCP or packet policy. Owner-backed Lambda,
+  API Gateway, SQS and OpenSearch hostnames preserve public/compute origins.
+- [x] Add persistent scoped development CA issuance/public export, Engine-delivered
+  customer trust, loopback diagnostics and host/container/Desktop/remote recipes.
+  Real Lambda/ECS/CodeBuild commands resolve the gateway and publish signed,
+  verified HTTPS SDK messages; customer CA overrides and EC2 DHCP/SG/NACL
+  denial remain effective. CodeBuild credentials use its localhost proxy with
+  independently verified HTTPS upstream trust, not disabled SDK verification.
+  Standard AWS HTTPS routing is an isolated allowed-peer opt-in with unchanged
+  signing bytes and current IAM; no global resolver/trust interception.
+- [x] Add inclusive native SQL/document/Kafka/Valkey/MQ customer port pools with
+  real socket reservations, explicit exhaustion and exact retained endpoint/data
+  recovery outside changed pools. Actual Linux native protocol smokes cover all
+  five families, including AMQP and OpenWire.
+- [x] Add reversible explicit Linux/macOS host split DNS with durable ownership
+  receipts and external-mutation preservation. Native Linux resolved 255 remote
+  per-link lookup/restore/conflict cases pass; local automatic routing explicitly
+  requires resolved 256+. macOS native behavior remains unexercised locally.
+  See [networking boundaries and evidence](docs/networking.md).
 - [x] Execute local Docker Lambda image deployment, retag isolation, publication,
   hot swap, SQLite reopen, accepted cold calls and actual native artifact cleanup.
   Real Python RIC/Kafka fixtures also verify LATEST checkpoints, batching windows,

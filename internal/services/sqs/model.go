@@ -10,6 +10,7 @@ import (
 	api "stackd/internal/awsapi/sqs"
 	"stackd/internal/awsctx"
 	"stackd/internal/awswire"
+	"stackd/internal/endpoints"
 )
 
 type queueKey struct{ partition, account, region, name string }
@@ -106,15 +107,22 @@ func (k queueKey) canonicalURL() string {
 	}
 	return "https://sqs." + k.region + "." + suffix + "/" + k.account + "/" + k.name
 }
-func localURL(r *http.Request, k queueKey) string {
+func (s *Service) localURL(r *http.Request, k queueKey) (string, *awswire.Error) {
+	if s.endpointDomain != "" {
+		origin, err := endpoints.ResourceURL(s.publicEndpoint, s.endpointDomain, "sqs", k.region, "")
+		if err != nil {
+			return "", &awswire.Error{Code: "InternalError", Message: err.Error(), StatusCode: 500}
+		}
+		return origin + k.account + "/" + k.name, nil
+	}
 	if r.Host == "" {
-		return k.canonicalURL()
+		return k.canonicalURL(), nil
 	}
 	scheme := "http"
 	if r.TLS != nil {
 		scheme = "https"
 	}
-	return scheme + "://" + r.Host + "/" + k.account + "/" + k.name
+	return scheme + "://" + r.Host + "/" + k.account + "/" + k.name, nil
 }
 func (s *Service) queueFor(r *http.Request, raw string) (*queue, *awswire.Error) {
 	u, err := url.Parse(raw)
@@ -127,6 +135,9 @@ func (s *Service) queueFor(r *http.Request, raw string) (*queue, *awswire.Error)
 	}
 	key := requestKey(r, parts[1])
 	key.account = parts[0]
+	if id, region, matched := endpoints.ResourceHost(u.Host, s.endpointDomain, "sqs"); matched && (id != "" || region == "" || region != key.region) {
+		return nil, failure("InvalidAddress", "QueueUrl region does not match the request.")
+	}
 	q, wire := s.queueByKey(key)
 	if wire != nil {
 		return nil, wire

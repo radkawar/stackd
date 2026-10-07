@@ -27,18 +27,20 @@ type Config struct {
 	Runtime        Runtime
 	Metrics        MetricPublisher
 	PublicEndpoint string
+	EndpointDomain string
 }
 type Service struct {
-	repository Repository
-	authorizer authorization.Authorizer
-	binder     authorization.PolicyBinder
-	recorder   apievents.Recorder
-	clock      clock.Clock
-	runtime    Runtime
-	metrics    MetricPublisher
-	endpoint   string
-	jobs       *scheduler.Driver
-	operations map[string]func(context.Context) (any, *awswire.Error)
+	repository     Repository
+	authorizer     authorization.Authorizer
+	binder         authorization.PolicyBinder
+	recorder       apievents.Recorder
+	clock          clock.Clock
+	runtime        Runtime
+	metrics        MetricPublisher
+	endpoint       string
+	endpointDomain string
+	jobs           *scheduler.Driver
+	operations     map[string]func(context.Context) (any, *awswire.Error)
 }
 
 func New(c Config) *Service {
@@ -55,6 +57,7 @@ func New(c Config) *Service {
 		c.PolicyBinder, _ = c.Authorizer.(authorization.PolicyBinder)
 	}
 	s := &Service{repository: c.Repository, authorizer: c.Authorizer, binder: c.PolicyBinder, recorder: c.Recorder, clock: c.Clock, runtime: c.Runtime, metrics: c.Metrics, endpoint: strings.TrimRight(c.PublicEndpoint, "/"), operations: map[string]func(context.Context) (any, *awswire.Error){}}
+	s.endpointDomain = c.EndpointDomain
 	s.jobs = scheduler.New(c.Clock, domainJobs{s})
 	register(s, "CreateDomain", s.createDomain)
 	register(s, "DescribeDomain", s.describeDomain)

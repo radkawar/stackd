@@ -74,7 +74,11 @@ func (s *Service) createQueue(r *http.Request, in *api.CreateQueueInput) (*api.C
 				return nil, failure("QueueNameExists", "A queue with this name already exists with different attributes.")
 			}
 		}
-		return &api.CreateQueueOutput{QueueUrl: str(localURL(r, key))}, nil
+		endpoint, wire := s.localURL(r, key)
+		if wire != nil {
+			return nil, wire
+		}
+		return &api.CreateQueueOutput{QueueUrl: str(endpoint)}, nil
 	}
 	now := s.now()
 	if deleted := s.deletedAt(key); !deleted.IsZero() && now.Before(deleted.Add(time.Minute)) {
@@ -88,7 +92,11 @@ func (s *Service) createQueue(r *http.Request, in *api.CreateQueueInput) (*api.C
 	q.creationOwner = queueOwner(r.Context())
 	s.queues[key] = q
 	s.runtimes[q.id] = q.queueRuntime
-	return &api.CreateQueueOutput{QueueUrl: str(localURL(r, key))}, nil
+	endpoint, wire := s.localURL(r, key)
+	if wire != nil {
+		return nil, wire
+	}
+	return &api.CreateQueueOutput{QueueUrl: str(endpoint)}, nil
 }
 func (s *Service) getQueueURL(r *http.Request, in *api.GetQueueUrlInput) (*api.GetQueueUrlOutput, *awswire.Error) {
 	key := requestKey(r, value(in.QueueName))
@@ -98,7 +106,11 @@ func (s *Service) getQueueURL(r *http.Request, in *api.GetQueueUrlInput) (*api.G
 	if s.lookupQueue(key) == nil {
 		return nil, failure("QueueDoesNotExist", "The specified queue does not exist.")
 	}
-	return &api.GetQueueUrlOutput{QueueUrl: str(localURL(r, key))}, nil
+	endpoint, wire := s.localURL(r, key)
+	if wire != nil {
+		return nil, wire
+	}
+	return &api.GetQueueUrlOutput{QueueUrl: str(endpoint)}, nil
 }
 func (s *Service) deleteQueue(r *http.Request, in *api.DeleteQueueInput) (*api.DeleteQueueOutput, *awswire.Error) {
 	q, err := s.queueFor(r, value(in.QueueUrl))

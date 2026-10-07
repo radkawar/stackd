@@ -2,17 +2,31 @@ package apigatewayv2
 
 import (
 	api "stackd/internal/awsapi/apigatewayv2"
+	"stackd/internal/endpoints"
 	"strings"
 )
 
-func (s *Service) apiOutput(v APIRecord) api.Api {
+func (s *Service) apiOutput(v APIRecord) (api.Api, error) {
 	out := api.Api{CreatedDate: new(v.Created)}
 	endpoint := s.endpoint
 	if v.ProtocolType == "WEBSOCKET" {
 		endpoint = strings.Replace(endpoint, "https://", "wss://", 1)
 		endpoint = strings.Replace(endpoint, "http://", "ws://", 1)
 	}
-	text(&out.ApiEndpoint, endpoint+"/_stackd/execute-api/"+v.Key.ID)
+	endpoint += "/_stackd/execute-api/" + v.Key.ID
+	if s.endpointDomain != "" {
+		origin := s.endpoint
+		if v.ProtocolType == "WEBSOCKET" {
+			origin = strings.Replace(strings.Replace(origin, "https://", "wss://", 1), "http://", "ws://", 1)
+		}
+		var err error
+		endpoint, err = endpoints.ResourceURL(origin, s.endpointDomain, "execute-api", v.Key.Region, v.Key.ID)
+		if err != nil {
+			return api.Api{}, err
+		}
+		endpoint = strings.TrimSuffix(endpoint, "/")
+	}
+	text(&out.ApiEndpoint, endpoint)
 	text(&out.ApiId, v.Key.ID)
 	text(&out.Name, v.Name)
 	text(&out.ProtocolType, v.ProtocolType)
@@ -27,7 +41,7 @@ func (s *Service) apiOutput(v APIRecord) api.Api {
 		text(&out.Version, v.Version)
 	}
 	stringMap(&out.Tags, v.Tags)
-	return out
+	return out, nil
 }
 func validateAPI(in *api.CreateApiInput) error {
 	if value(in.Name) == "" {
@@ -61,7 +75,8 @@ func (s *Service) createAPI(tx Transaction, in *api.CreateApiInput) (*api.Create
 	if v, found, err := recoverOwnedResource(tx, scopeFor(tx.Context()), tx.APIs); err != nil {
 		return nil, err
 	} else if found {
-		return new(api.CreateApiOutput(s.apiOutput(v))), nil
+		out, err := s.apiOutput(v)
+		return new(api.CreateApiOutput(out)), err
 	}
 	id, err := controlID()
 	if err != nil {
@@ -76,14 +91,16 @@ func (s *Service) createAPI(tx Transaction, in *api.CreateApiInput) (*api.Create
 	if err := tx.PutAPI(v); err != nil {
 		return nil, err
 	}
-	return new(api.CreateApiOutput(s.apiOutput(v))), nil
+	out, err := s.apiOutput(v)
+	return new(api.CreateApiOutput(out)), err
 }
 func (s *Service) getAPI(tx Transaction, in *api.GetApiInput) (*api.GetApiOutput, error) {
 	v, err := s.ownedAPI(tx, "GET", value(in.ApiId), "")
 	if err != nil {
 		return nil, err
 	}
-	return new(api.GetApiOutput(s.apiOutput(v))), nil
+	out, err := s.apiOutput(v)
+	return new(api.GetApiOutput(out)), err
 }
 func (s *Service) getAPIs(tx Transaction, in *api.GetApisInput) (*api.GetApisOutput, error) {
 	if err := s.authorize(tx, "GET", "/apis", nil, nil, nil); err != nil {
@@ -99,7 +116,11 @@ func (s *Service) getAPIs(tx Transaction, in *api.GetApisInput) (*api.GetApisOut
 	}
 	out := &api.GetApisOutput{}
 	for _, v := range rows {
-		out.Items = append(out.Items, s.apiOutput(v))
+		item, err := s.apiOutput(v)
+		if err != nil {
+			return nil, err
+		}
+		out.Items = append(out.Items, item)
 	}
 	if out.Items == nil {
 		out.Items = []api.Api{}
@@ -143,7 +164,8 @@ func (s *Service) updateAPI(tx Transaction, in *api.UpdateApiInput) (*api.Update
 	if err := s.autoDeploy(tx, v.Key); err != nil {
 		return nil, err
 	}
-	return new(api.UpdateApiOutput(s.apiOutput(v))), nil
+	out, err := s.apiOutput(v)
+	return new(api.UpdateApiOutput(out)), err
 }
 func (s *Service) deleteAPI(tx Transaction, in *api.DeleteApiInput) (*api.DeleteApiOutput, error) {
 	v, err := s.ownedAPI(tx, "DELETE", value(in.ApiId), "")

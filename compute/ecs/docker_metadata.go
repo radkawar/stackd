@@ -29,8 +29,11 @@ const (
 type dockerMetadataSpec struct {
 	TaskARN, NetworkName, Image, MACAddress string
 	Address, Gateway                        netip.Addr
-	Handler                                 http.Handler
-	Configure                               func(context.Context, string, string) error
+	// DNS and DNSSearch apply only to a fresh anchor. A reattached anchor keeps
+	// the resolvers its live namespace was created with.
+	DNS, DNSSearch []string
+	Handler        http.Handler
+	Configure      func(context.Context, string, string) error
 }
 
 // dockerMetadata owns an Engine anchor independently of this process's listener.
@@ -170,7 +173,8 @@ func prepareMetadata(ctx context.Context, client *docker.Client, spec dockerMeta
 				CapDrop: []string{"ALL"}, CapAdd: []string{"NET_ADMIN"},
 				SecurityOpt: []string{"no-new-privileges:true"},
 				ExtraHosts:  []string{"host.docker.internal:host-gateway"},
-				LogConfig:   docker.ContainerLogConfig{Type: "none"},
+				DNS:         spec.DNS, DNSSearch: spec.DNSSearch,
+				LogConfig: docker.ContainerLogConfig{Type: "none"},
 			},
 		}
 		var created struct {

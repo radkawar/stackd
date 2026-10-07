@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"stackd/compute/docker"
 )
 
 const dockerImageDigestLabel = "stackd.ecs.image-digest"
@@ -13,6 +15,7 @@ const dockerImageDigestLabel = "stackd.ecs.image-digest"
 type dockerImage struct {
 	ID, Os, Architecture string
 	RepoDigests          []string
+	Config               struct{ Env []string }
 	Digest               string `json:"-"`
 }
 
@@ -41,11 +44,23 @@ func (d *DockerExecutor) resolveImages(ctx context.Context, spec Specification) 
 			if err := existing.ownedBy(spec.TaskARN); err != nil {
 				return nil, err
 			}
-			// A mutable local tag must not retarget a surviving task on recovery.
-			resolved[container.Name] = dockerContainer{id: existing.ID, image: dockerImage{ID: existing.Image, Digest: existing.Config.Labels[dockerImageDigestLabel]}}
-			continue
-		}
-		if !dockerNotFound(err) {
+			// A crash between create and trust installation leaves a never-started
+			// container whose bundle is absent. Recreate it rather than start it.
+			missing := false
+			if existing.State.Status == "created" {
+				if missing, err = docker.TrustMissing(ctx, d.client, existing.ID, existing.Config.Labels, existing.Config.Env); err != nil {
+					return nil, fmt.Errorf("inspect retained ECS container %s trust: %w", container.Name, err)
+				}
+			}
+			if !missing {
+				// A mutable local tag must not retarget a surviving task on recovery.
+				resolved[container.Name] = dockerContainer{id: existing.ID, image: dockerImage{ID: existing.Image, Digest: existing.Config.Labels[dockerImageDigestLabel]}}
+				continue
+			}
+			if err := d.client.RemoveContainer(ctx, existing.ID); err != nil {
+				return nil, fmt.Errorf("remove incompletely prepared ECS container %s: %w", container.Name, err)
+			}
+		} else if !dockerNotFound(err) {
 			return nil, fmt.Errorf("inspect retained ECS container %s: %w", container.Name, err)
 		}
 		image, found := byReference[container.Image]

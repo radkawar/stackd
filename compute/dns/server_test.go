@@ -66,7 +66,7 @@ func exchange(t *testing.T, server *Server, protocol, name string, typ dnsmessag
 }
 
 func TestAuthoritativeUDPAndTCPWithdrawal(t *testing.T) {
-	s, err := Listen("127.0.0.1:0")
+	s, err := Listen(Config{Address: "127.0.0.1:0"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +112,7 @@ func TestAuthoritativeUDPAndTCPWithdrawal(t *testing.T) {
 }
 
 func TestTruncatedUDPHasCompleteTCPAnswer(t *testing.T) {
-	s, err := Listen("127.0.0.1:0")
+	s, err := Listen(Config{Address: "127.0.0.1:0"})
 	if err != nil {
 		t.Fatal(err)
 	}

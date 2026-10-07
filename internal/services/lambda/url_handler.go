@@ -17,6 +17,7 @@ import (
 	api "stackd/internal/awsapi/lambda"
 	"stackd/internal/awsctx"
 	"stackd/internal/awswire"
+	"stackd/internal/endpoints"
 	"stackd/internal/gateway"
 )
 
@@ -42,16 +43,24 @@ func NewFunctionURLHandler(service *Service, authenticator FunctionURLAuthentica
 
 // ServeFunctionURL reports whether this public route owns the request.
 func (h *FunctionURLHandler) ServeFunctionURL(w http.ResponseWriter, r *http.Request) bool {
+	if id, region, matched := endpoints.ResourceHost(r.Host, h.service.endpointDomain, "lambda-url"); matched {
+		if id == "" || region == "" {
+			writeFunctionURLJSONFailure(w, http.StatusForbidden, nil)
+			return true
+		}
+		h.serve(w, r, id, r.URL.EscapedPath(), region)
+		return true
+	}
 	path, matched := strings.CutPrefix(r.URL.EscapedPath(), functionURLPrefix)
 	if !matched {
 		return false
 	}
 	id, customerPath, _ := strings.Cut(path, "/")
-	h.serve(w, r, id, "/"+customerPath)
+	h.serve(w, r, id, "/"+customerPath, "")
 	return true
 }
 
-func (h *FunctionURLHandler) serve(w http.ResponseWriter, r *http.Request, id, customerPath string) {
+func (h *FunctionURLHandler) serve(w http.ResponseWriter, r *http.Request, id, customerPath, region string) {
 	s := h.service
 	requestID := uuid.NewString()
 	w.Header().Set("X-Amzn-Requestid", requestID)
@@ -60,6 +69,9 @@ func (h *FunctionURLHandler) serve(w http.ResponseWriter, r *http.Request, id, c
 	err := s.repository.View(r.Context(), func(reader Reader) error {
 		var err error
 		record, err = reader.FunctionURLByID(id)
+		if err == nil && region != "" && record.Key.Region != region {
+			return ErrNotFound
+		}
 		return err
 	})
 	if err != nil {

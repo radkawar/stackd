@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"time"
 
 	"stackd/compute/docker"
@@ -144,6 +146,34 @@ func (d *Docker) Restore(ctx context.Context, spec Specification, snapshot strin
 		if target.Labels[labelPrefix+"snapshot"] != snapshot || target.Labels[labelPrefix+"engine"] != spec.Engine || target.Labels[labelPrefix+"username"] != spec.Username || target.Labels[labelPrefix+"database"] != spec.Database {
 			return Endpoint{}, errors.New("refusing to restore over a different native database")
 		}
+		if spec.Port == 0 {
+			retained, inspectErr := d.inspect(ctx, d.name(spec.ID, "database"))
+			if inspectErr == nil {
+				if err := d.checkDatabase(retained, spec); err != nil {
+					return Endpoint{}, err
+				}
+				spec.Port, err = retained.retainedPort(spec.Engine)
+				wire, _, _ := nativeLayout(spec.Engine)
+				binding := retained.HostConfig.PortBindings[wire][0]
+				if err != nil && !retained.State.Running && (binding.HostPort == "" || binding.HostPort == "0") && spec.RetainedPort != 0 {
+					spec.Port, err = spec.RetainedPort, nil
+				}
+			} else if dockerStatus(inspectErr, http.StatusNotFound) {
+				value := uint64(spec.RetainedPort)
+				if value == 0 {
+					value, err = strconv.ParseUint(target.Labels[labelPrefix+"port"], 10, 16)
+				}
+				if value == 0 && err == nil {
+					err = errors.New("restore destination has no retained native database port")
+				}
+				spec.Port = int32(value)
+			} else {
+				err = inspectErr
+			}
+			if err != nil {
+				return Endpoint{}, err
+			}
+		}
 		state, err := d.createDatabase(ctx, spec)
 		if err != nil {
 			return Endpoint{}, err
@@ -170,11 +200,21 @@ func (d *Docker) Restore(ctx context.Context, spec Specification, snapshot strin
 	if backup.Labels[labelPrefix+"source"] == spec.ID {
 		return Endpoint{}, errors.New("snapshot restoration requires a different database incarnation")
 	}
+	var reservation net.Listener
+	if target.Name == "" {
+		reservation, err = d.portRange.Listen(ctx, "127.0.0.1", uint16(spec.Port))
+		if err != nil {
+			return Endpoint{}, err
+		}
+		defer reservation.Close()
+		spec.Port = int32(reservation.Addr().(*net.TCPAddr).Port)
+	}
 	labels := d.labels(spec.ID, "data")
 	labels[labelPrefix+"engine"] = spec.Engine
 	labels[labelPrefix+"snapshot"] = snapshot
 	labels[labelPrefix+"username"] = spec.Username
 	labels[labelPrefix+"database"] = spec.Database
+	labels[labelPrefix+"port"] = strconv.Itoa(int(spec.Port))
 	volume, err := d.volume(ctx, spec.ID, "data", labels, true)
 	if err != nil {
 		return Endpoint{}, err
@@ -184,6 +224,11 @@ func (d *Docker) Restore(ctx context.Context, spec Specification, snapshot strin
 	}
 	if err := d.finishRestore(ctx, spec, snapshot); err != nil {
 		return Endpoint{}, err
+	}
+	if reservation != nil {
+		if err := reservation.Close(); err != nil {
+			return Endpoint{}, err
+		}
 	}
 	startup, cancel := context.WithTimeout(ctx, d.startupTimeout)
 	defer cancel()

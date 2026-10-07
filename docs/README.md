@@ -12,6 +12,7 @@ they are not a claim of complete AWS parity.
 | --- | --- |
 | [Getting started](getting-started.md) | Build from source, start the API, use AWS CLI/SDKs, exercise S3/SQS and restart. |
 | [Configuration](configuration.md) | Credentials and IAM, accounts/regions, listener/advertised/compute endpoints, TLS, SQLite and manual time. |
+| [Networking](networking.md) | Opt-in gateway/resource DNS, forwarding, scoped development CA/runtime trust, deployment recipes, native port pools, isolated AWS HTTPS routing and reversible host split DNS. |
 | [Runtime overview](runtimes.md), [containers and engines](runtime-containers.md), [QEMU/KVM and k3d](runtime-vms.md) | Install dependencies/images, deploy real backends, configure networking, provision workloads and retain state. |
 | [Operations](operations.md) | Diagnostics, shutdown, retained infrastructure, backups, resets and troubleshooting. |
 | [Native probe privacy](behavior-references.md#publishing-sanitized-probe-captures) | Explicit account guards, private raw captures, sanitized publication and authenticated fixture limits. |

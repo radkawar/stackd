@@ -56,7 +56,11 @@ func (s *Service) queuePage(r *http.Request, filter string, keys []queueKey, max
 			}
 			break
 		}
-		out = append(out, api.String(localURL(r, key)))
+		endpoint, wire := s.localURL(r, key)
+		if wire != nil {
+			return nil, nil, wire
+		}
+		out = append(out, api.String(endpoint))
 		after = key.name
 	}
 	return out, next, nil

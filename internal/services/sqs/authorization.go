@@ -44,7 +44,11 @@ func (s *Service) permissions(r *http.Request, action string, input any) ([]auth
 		if owner := value(in.QueueOwnerAWSAccountId); owner != "" {
 			key.account = owner
 		}
-		rawURL = localURL(r, key)
+		var wire *awswire.Error
+		rawURL, wire = s.localURL(r, key)
+		if wire != nil {
+			return nil, wire
+		}
 	case *api.DeleteQueueInput:
 		rawURL = value(in.QueueUrl)
 	case *api.GetQueueAttributesInput:

@@ -138,6 +138,10 @@ These examples broaden the API listener beyond loopback. Restrict network access
 and configure origins reachable by both your host clients and workloads before
 provisioning resources; container loopback is not the host. See
 [runtime networking](docs/runtimes.md#networking-before-execution).
+For opt-in gateway DNS, explicit forwarding, managed resolver/CA trust,
+native-engine port pools, diagnostics and reversible host split DNS, use the
+[native networking recipes](docs/networking.md). Standard AWS HTTPS routing is
+an isolated opt-in mode, not a global DNS or trust change.
 Dependencies are prepared explicitly, not downloaded at execution time.
 Stopping the controller does **not** necessarily stop persistent guests, clusters,
 or engines; follow [owned-infrastructure shutdown](docs/operations.md#stop-all-infrastructure-belonging-to-one-instance).
@@ -149,6 +153,7 @@ or engines; follow [owned-infrastructure shutdown](docs/operations.md#stop-all-i
 | Install, start, make requests, and try S3/SQS | [Getting started](docs/getting-started.md) |
 | Configure credentials, endpoints, TLS, persistence, and service time | [Configuration](docs/configuration.md) |
 | Deploy containers, databases, QEMU/KVM guests, and k3d clusters | [Runtime deployment overview](docs/runtimes.md), [container recipes](docs/runtime-containers.md), [VM/Kubernetes recipes](docs/runtime-vms.md) |
+| Configure native DNS, local CA trust, runtime networking, port pools, and reversible host split DNS | [Native networking](docs/networking.md) |
 | Restart, back up, inspect, troubleshoot, and shut down | [Operations](docs/operations.md) |
 | Find service-specific support and setup | [Documentation index](docs/README.md) |
 | Embed stackd in Go tests | [Embedding reference](docs/implementation-reference.md#embed-in-go-tests) |

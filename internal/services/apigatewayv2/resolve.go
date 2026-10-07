@@ -24,8 +24,8 @@ func (s *Service) Resolve(ctx context.Context, apiID, stage, method, path string
 		if owner.ProtocolType == "WEBSOCKET" {
 			return apigatewayexec.ErrUnknownAPI
 		}
-		_, custom := apigatewayexec.CustomExecutionTarget(ctx)
-		if owner.Disabled && !custom {
+		target, custom := apigatewayexec.CustomExecutionTarget(ctx)
+		if owner.Disabled && (!custom || target.DefaultEndpoint) {
 			return failure("ForbiddenException", "Forbidden", 403)
 		}
 		if path == "" {
@@ -111,8 +111,8 @@ func (s *Service) ResolveWebSocket(ctx context.Context, apiID, stage, routeKey s
 		if owner.ProtocolType != "WEBSOCKET" {
 			return apigatewayexec.ErrUnknownAPI
 		}
-		_, custom := apigatewayexec.CustomExecutionTarget(ctx)
-		if owner.Disabled && !custom {
+		target, custom := apigatewayexec.CustomExecutionTarget(ctx)
+		if owner.Disabled && (!custom || target.DefaultEndpoint) {
 			return failure("ForbiddenException", "Forbidden", 403)
 		}
 		selected, err := r.Stage(ResourceKey{owner.Key, stage})

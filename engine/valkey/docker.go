@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"stackd/compute/docker"
+	"stackd/compute/ports"
 )
 
 // Image is installed explicitly. Runtime creation and API calls never pull.
@@ -26,9 +27,11 @@ const labelPrefix = "stackd.valkey."
 // DockerConfig addresses a local Docker daemon. The caller supplies a trusted
 // server certificate for TLS deployments. Native files are sensitive local
 // storage, not an emulation of AWS-managed physical storage encryption.
+// PortRange bounds new client endpoints; private cluster buses stay ephemeral.
 type DockerConfig struct {
 	Host, Namespace, Image, TLSCertificate, TLSKey string
 	StartupTimeout                                 time.Duration
+	PortRange                                      ports.Range
 }
 type Docker struct {
 	client           *docker.Client
@@ -36,6 +39,7 @@ type Docker struct {
 	certificate, key []byte
 	tlsConfig        *tls.Config
 	startupTimeout   time.Duration
+	portRange        ports.Range
 	gate             chan struct{}
 	mu               sync.Mutex
 	closed           bool
@@ -45,6 +49,9 @@ var immutableImage = regexp.MustCompile(`^(?:[^\s@]+@)?sha256:[a-f0-9]{64}$`)
 var _ Runtime = (*Docker)(nil)
 
 func NewDocker(c DockerConfig) (*Docker, error) {
+	if err := c.PortRange.Validate(); err != nil {
+		return nil, err
+	}
 	if c.Namespace == "" {
 		return nil, errors.New("valkey requires a stable unique namespace")
 	}
@@ -63,7 +70,7 @@ func NewDocker(c DockerConfig) (*Docker, error) {
 	if c.StartupTimeout < 0 {
 		return nil, errors.New("valkey startup timeout must be positive")
 	}
-	d := &Docker{namespace: c.Namespace, startupTimeout: c.StartupTimeout, gate: make(chan struct{}, 1)}
+	d := &Docker{namespace: c.Namespace, startupTimeout: c.StartupTimeout, portRange: c.PortRange, gate: make(chan struct{}, 1)}
 	if (c.TLSCertificate == "") != (c.TLSKey == "") {
 		return nil, errors.New("valkey TLS certificate and key must be configured together")
 	}

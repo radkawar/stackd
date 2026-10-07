@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"slices"
@@ -187,14 +188,15 @@ func (d *Docker) ensure(ctx context.Context, spec Specification) (Endpoint, erro
 	if inspectErr != nil && !dockerStatus(inspectErr, http.StatusNotFound) {
 		return Endpoint{}, inspectErr
 	}
+	var reservation net.Listener
 	volume, err := d.volume(ctx, spec.ID, "data", nil, false)
 	if dockerStatus(err, http.StatusNotFound) && dockerStatus(inspectErr, http.StatusNotFound) {
-		if spec.Port == 0 {
-			spec.Port, err = allocatePort()
-			if err != nil {
-				return Endpoint{}, err
-			}
+		reservation, err = d.portRange.Listen(ctx, "127.0.0.1", uint16(spec.Port))
+		if err != nil {
+			return Endpoint{}, err
 		}
+		defer reservation.Close()
+		spec.Port = int32(reservation.Addr().(*net.TCPAddr).Port)
 		labels := d.labels(spec.ID, "data")
 		labels[labelPrefix+"username"] = spec.Username
 		labels[labelPrefix+"image"] = d.image
@@ -212,6 +214,13 @@ func (d *Docker) ensure(ctx context.Context, spec Specification) (Endpoint, erro
 	if inspectErr == nil {
 		err = d.checkDatabase(state, spec)
 	} else {
+		if reservation == nil {
+			reservation, err = d.portRange.Listen(ctx, "127.0.0.1", uint16(spec.Port))
+			if err != nil {
+				return Endpoint{}, err
+			}
+			defer reservation.Close()
+		}
 		state, err = d.createDatabase(ctx, spec)
 	}
 	if err != nil {
@@ -237,6 +246,11 @@ func (d *Docker) ensure(ctx context.Context, spec Specification) (Endpoint, erro
 	ca, err := d.readFile(ctx, state.ID, "/data/db/security/ca.pem")
 	if err != nil {
 		return Endpoint{}, err
+	}
+	if reservation != nil {
+		if err := reservation.Close(); err != nil {
+			return Endpoint{}, err
+		}
 	}
 	if err := d.start(ctx, state); err != nil {
 		return Endpoint{}, err

@@ -5,11 +5,9 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
-	"io"
 	"net"
 	"net/netip"
 	"strings"
-	"time"
 
 	"golang.org/x/net/dns/dnsmessage"
 )
@@ -45,12 +43,12 @@ func (c *Client) LookupCNAME(ctx context.Context, name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	response, err := c.exchange(ctx, "udp4", packet, request.ID, question)
+	response, err := exchangeDNS(ctx, "udp4", c.address, packet, request.ID, question)
 	if err != nil {
 		return "", err
 	}
 	if response.Truncated {
-		response, err = c.exchange(ctx, "tcp4", packet, request.ID, question)
+		response, err = exchangeDNS(ctx, "tcp4", c.address, packet, request.ID, question)
 		if err != nil {
 			return "", err
 		}
@@ -59,7 +57,7 @@ func (c *Client) LookupCNAME(ctx context.Context, name string) (string, error) {
 		return "", &net.DNSError{Name: name, Server: c.address, Err: response.RCode.String(), IsNotFound: response.RCode == dnsmessage.RCodeNameError || response.RCode == dnsmessage.RCodeRefused, IsTemporary: response.RCode == dnsmessage.RCodeServerFailure}
 	}
 	for _, resource := range response.Answers {
-		if resource.Header.Class != dnsmessage.ClassINET || !strings.EqualFold(resource.Header.Name.String(), name) {
+		if resource.Header.Class != dnsmessage.ClassINET || !equalDNSName(resource.Header.Name.String(), name) {
 			continue
 		}
 		if cname, ok := resource.Body.(*dnsmessage.CNAMEResource); ok {
@@ -67,57 +65,4 @@ func (c *Client) LookupCNAME(ctx context.Context, name string) (string, error) {
 		}
 	}
 	return "", &net.DNSError{Name: name, Server: c.address, Err: "no CNAME record", IsNotFound: true}
-}
-
-func (c *Client) exchange(ctx context.Context, network string, packet []byte, id uint16, question dnsmessage.Question) (dnsmessage.Message, error) {
-	var response dnsmessage.Message
-	dialer := net.Dialer{Timeout: 3 * time.Second}
-	connection, err := dialer.DialContext(ctx, network, c.address)
-	if err != nil {
-		return response, err
-	}
-	defer connection.Close()
-	deadline := time.Now().Add(3 * time.Second)
-	if requested, ok := ctx.Deadline(); ok && requested.Before(deadline) {
-		deadline = requested
-	}
-	if err := connection.SetDeadline(deadline); err != nil {
-		return response, err
-	}
-	cancel := context.AfterFunc(ctx, func() { _ = connection.Close() })
-	defer cancel()
-	var length [2]byte
-	if network == "tcp4" {
-		binary.BigEndian.PutUint16(length[:], uint16(len(packet)))
-		if _, err := connection.Write(length[:]); err != nil {
-			return response, err
-		}
-	}
-	if _, err := connection.Write(packet); err != nil {
-		return response, err
-	}
-	buffer := make([]byte, 512)
-	var n int
-	if network == "tcp4" {
-		if _, err := io.ReadFull(connection, length[:]); err != nil {
-			return response, err
-		}
-		n = int(binary.BigEndian.Uint16(length[:]))
-		if n > len(buffer) {
-			buffer = make([]byte, n)
-		}
-		_, err = io.ReadFull(connection, buffer[:n])
-	} else {
-		n, err = connection.Read(buffer)
-	}
-	if err != nil {
-		return response, err
-	}
-	if err := response.Unpack(buffer[:n]); err != nil {
-		return response, err
-	}
-	if response.ID != id || !response.Response || response.OpCode != 0 || len(response.Questions) != 1 || response.Questions[0] != question || network == "tcp4" && response.Truncated {
-		return response, errors.New("DNS response does not match the query")
-	}
-	return response, nil
 }

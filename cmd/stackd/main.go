@@ -65,6 +65,10 @@ func main() {
 }
 
 func run() (result error) {
+	if len(os.Args) > 1 && os.Args[1] == "network" {
+		return runNetworkCommand(os.Args[2:])
+	}
+	networking := registerNetworkingFlags(flag.CommandLine)
 	listen := flag.String("listen", "127.0.0.1:4566", "AWS endpoint listen address")
 	https := flag.Bool("tls", false, "serve HTTPS using live ACM custom-domain certificates; optional tls-cert/tls-key fallback for the ordinary API endpoint")
 	tlsCert := flag.String("tls-cert", "", "PEM certificate chain for HTTPS; requires -tls-key")
@@ -242,6 +246,24 @@ func run() (result error) {
 		eksConfig.PodIdentityCA = certificatePEM
 		scheme = "https"
 	}
+	tlsConfig, err := networking.prepareTLS(context.Background(), *listen, tlsConfig, *dnsListen)
+	if err != nil {
+		return err
+	}
+	if tlsConfig != nil {
+		scheme = "https"
+	}
+	if networking.authority != nil {
+		eksConfig.PodIdentityCA = networking.authority.CACertificate()
+	}
+	rdsConfig.PortRange, docdbConfig.PortRange = networking.portRange, networking.portRange
+	mskConfig.PortRange, mqConfig.PortRange, valkeyConfig.PortRange = networking.portRange, networking.portRange, networking.portRange
+	if len(guestDNS) == 0 {
+		for _, value := range networking.runtimeDNS {
+			address, _ := netip.ParseAddr(value)
+			guestDNS = append(guestDNS, address)
+		}
+	}
 	if len(hotReload) != 0 && *dockerHost == "" {
 		return fmt.Errorf("lambda hot reload requires an explicit docker-host")
 	}
@@ -354,6 +376,9 @@ func run() (result error) {
 		if address.IP.IsUnspecified() {
 			host = "localhost"
 		}
+		if networking.domain != "" {
+			host = networking.domain
+		}
 		*publicEndpoint = scheme + "://" + net.JoinHostPort(host, fmt.Sprint(address.Port))
 	}
 	var executor lambdaruntime.Executor
@@ -384,6 +409,9 @@ func run() (result error) {
 		buildNamespace = fmt.Sprintf("stackd-codebuild-%x", sum[:12])
 	}
 	if *dockerHost != "" {
+		if *computeEndpoint == "" && networking.domain != "" {
+			*computeEndpoint = scheme + "://" + net.JoinHostPort(networking.domain, fmt.Sprint(listener.Addr().(*net.TCPAddr).Port))
+		}
 		if containerRuntimes.Lambda || containerRuntimes.ECS || containerRuntimes.CodeBuild || *glueEnabled || guestConfig.StateDirectory != "" {
 			*computeEndpoint, err = containerEndpoint(scheme, *computeEndpoint, listener.Addr().(*net.TCPAddr))
 			if err != nil {
@@ -413,6 +441,9 @@ func run() (result error) {
 				err = lambdaFunctionNetworkRuntime.SetControllerAddress(*lambdaRuntimeListen, *lambdaCallbackHost)
 			}
 			if err == nil {
+				err = lambdaFunctionNetworkRuntime.SetRuntimeDNS(networking.runtimeNetworking())
+			}
+			if err == nil {
 				lambdaSourceNetworks, err = lambdaruntime.NewSourceNetworkRuntime(engine, lambdaNetworks, strings.Replace(buildNamespace, "stackd-codebuild-", "stackd-lambda-sources-", 1))
 			}
 			if err == nil {
@@ -432,7 +463,7 @@ func run() (result error) {
 						"arm64":  filepath.Join(telemetryDirectory, "lambda-telemetry-arm64"),
 					}
 					var dockerExecutor *lambdaruntime.DockerExecutor
-					dockerExecutor, err = lambdaruntime.NewDockerExecutor(runtimeContext, lambdaruntime.DockerConfig{Client: engine, Namespace: strings.Replace(buildNamespace, "stackd-codebuild-", "stackd-lambda-", 1), StorageImage: *lambdaStorageImage, ListenAddress: *lambdaRuntimeListen, CallbackHost: *lambdaCallbackHost, HotReload: hotReload, TelemetryHelpers: telemetryHelpers})
+					dockerExecutor, err = lambdaruntime.NewDockerExecutor(runtimeContext, lambdaruntime.DockerConfig{Client: engine, Namespace: strings.Replace(buildNamespace, "stackd-codebuild-", "stackd-lambda-", 1), StorageImage: *lambdaStorageImage, ListenAddress: *lambdaRuntimeListen, CallbackHost: *lambdaCallbackHost, HotReload: hotReload, TelemetryHelpers: telemetryHelpers, Networking: networking.runtimeNetworking()})
 					if err == nil {
 						executor = dockerExecutor
 						defer func() {
@@ -445,10 +476,10 @@ func run() (result error) {
 			}
 		}
 		if err == nil && containerRuntimes.ECS {
-			taskExecutor, err = ecsruntime.NewDockerExecutor(runtimeContext, ecsruntime.DockerConfig{Client: engine, Networks: networks})
+			taskExecutor, err = ecsruntime.NewDockerExecutor(runtimeContext, ecsruntime.DockerConfig{Client: engine, Networks: networks, Networking: networking.runtimeNetworking()})
 		}
 		if err == nil && containerRuntimes.CodeBuild {
-			buildExecutor, err = codebuildruntime.NewDockerExecutor(engine, codebuildruntime.DockerConfig{Namespace: buildNamespace, FleetImage: *codebuildFleetImage})
+			buildExecutor, err = codebuildruntime.NewDockerExecutor(engine, codebuildruntime.DockerConfig{Namespace: buildNamespace, FleetImage: *codebuildFleetImage, Networking: networking.runtimeNetworking()})
 		}
 		if err == nil && containerRuntimes.DynamoDB {
 			dynamoRuntime, err = dynamoruntime.NewDocker(runtimeContext, dynamoruntime.DockerConfig{Client: engine})
@@ -611,6 +642,7 @@ func run() (result error) {
 		*sesEmailDirectory = *database + ".ses"
 	}
 	config := stackd.Config{AccountID: *account, PublicEndpoint: *publicEndpoint, OrganizationAccountQuotas: accountQuotas, EmailSender: emailSender, Storage: backends, Clock: source, LambdaExecutor: executor, ECSExecutor: taskExecutor, CodeBuildFleetImage: *codebuildFleetImage, DynamoDBRuntime: dynamoRuntime, KinesisRuntime: kinesisRuntime, InventoryORC: inventoryORC, ComputeEndpoint: *computeEndpoint, LambdaKeepAlive: *lambdaKeepAlive}
+	networking.configure(&config, listener.Addr().String(), tlsConfig != nil)
 	config.SESEmailDirectory = *sesEmailDirectory
 	config.SSOUserPoolClientID = *ssoUserPoolClientID
 	if buildExecutor != nil {
@@ -659,9 +691,22 @@ func run() (result error) {
 		tlsConfig = handler.TLSConfig(tlsConfig)
 	}
 	server := &http.Server{Handler: handler, TLSConfig: tlsConfig, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second, IdleTimeout: 2 * time.Minute}
+	defer server.Close()
+	serveErr := make(chan error, 2)
+	var transparentServer *http.Server
+	if networking.transparentListen != "" {
+		transparentListener, err := net.Listen("tcp4", networking.transparentListen)
+		if err != nil {
+			return fmt.Errorf("listen for isolated AWS HTTPS routing: %w", err)
+		}
+		defer transparentListener.Close()
+		transparentServer = &http.Server{Handler: networking.transparentHandler(handler), TLSConfig: tlsConfig, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second, IdleTimeout: 2 * time.Minute}
+		defer transparentServer.Close()
+		go func() { serveErr <- transparentServer.ServeTLS(transparentListener, "", "") }()
+		slog.Info("Isolated AWS HTTPS routing listening", "address", transparentListener.Addr().String(), "domains", networking.transparentDomains, "clients", networking.transparentClients)
+	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	serveErr := make(chan error, 1)
 	go func() {
 		if tlsConfig != nil {
 			serveErr <- server.ServeTLS(listener, "", "")
@@ -685,6 +730,11 @@ func run() (result error) {
 		}
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
+		if transparentServer != nil {
+			if err := transparentServer.Shutdown(shutdownCtx); err != nil {
+				return err
+			}
+		}
 		if err := server.Shutdown(shutdownCtx); err != nil {
 			_ = server.Close()
 			return err

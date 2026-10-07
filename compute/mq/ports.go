@@ -1,34 +1,46 @@
 package mq
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"net"
 	"net/url"
+	"os"
+	"path/filepath"
 	service "stackd/internal/services/mq"
+	"strconv"
 )
 
 // Keep fresh ports reserved until Docker has accepted the immutable container
 // configuration. Docker binds them at start, after the reservations are released;
 // a competing host process causes a real startup error, never endpoint drift.
-func reserveNativePort(endpoint string) (string, func(), error) {
-	address := "127.0.0.1:0"
-	if endpoint != "" {
-		parsed, err := url.Parse(endpoint)
-		if err != nil || parsed.Hostname() != "127.0.0.1" || parsed.Port() == "" || parsed.Port() == "0" {
-			return "", nil, errors.New("invalid retained native MQ endpoint")
-		}
-		address = parsed.Host
-	}
-	listener, err := net.Listen("tcp4", address)
+func (r *Runtime) reserveNativePort(ctx context.Context, endpoint string) (string, func(), error) {
+	requested, err := endpointPort(endpoint)
 	if err != nil {
 		return "", nil, err
 	}
-	_, port, err := net.SplitHostPort(listener.Addr().String())
+	listener, err := r.config.PortRange.Listen(ctx, "127.0.0.1", requested)
 	if err != nil {
-		listener.Close()
 		return "", nil, err
 	}
+	port := strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)
 	return port, func() { _ = listener.Close() }, nil
+}
+
+func endpointPort(endpoint string) (uint16, error) {
+	if endpoint == "" {
+		return 0, nil
+	}
+	parsed, err := url.Parse(endpoint)
+	if err != nil || parsed.Hostname() != "127.0.0.1" || parsed.Port() == "" {
+		return 0, errors.New("invalid retained native MQ endpoint")
+	}
+	value, err := strconv.ParseUint(parsed.Port(), 10, 16)
+	if err != nil || value == 0 {
+		return 0, errors.New("invalid retained native MQ endpoint port")
+	}
+	return uint16(value), nil
 }
 
 func nativeDynamicPorts(native inspection) bool {
@@ -43,7 +55,7 @@ func nativeDynamicPorts(native inspection) bool {
 }
 
 func retainNativePorts(v *service.BrokerRecord, native inspection) error {
-	if !native.State.Running && v.Endpoint.Address != "" {
+	if !native.State.Running && nativeDynamicPorts(native) && v.Endpoint.Address != "" {
 		// Docker clears NetworkSettings ports while stopped. The durable
 		// endpoint is then the source of truth for the one-time cutover.
 		return nil
@@ -72,4 +84,58 @@ func retainNativePorts(v *service.BrokerRecord, native inspection) error {
 		v.Endpoint.ConsoleURL = "https://" + net.JoinHostPort("127.0.0.1", bindings[0].HostPort)
 	}
 	return nil
+}
+
+// The private record precedes container creation and owner transaction commit.
+// Losing a container or an interrupted API transition cannot reallocate ports.
+type nativePortRecord struct {
+	ARN, ID, Engine, Address, ConsoleURL string
+}
+
+func loadNativePorts(dir string, v *service.BrokerRecord) error {
+	path := filepath.Join(dir, "ports.json")
+	info, err := os.Lstat(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() {
+		return errors.New("refusing non-regular MQ native port record")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var record nativePortRecord
+	if err := json.Unmarshal(data, &record); err != nil {
+		return err
+	}
+	if record.ARN != v.ARN || record.ID != v.ID || record.Engine != v.Engine || record.Address == "" {
+		return errors.New("conflicting MQ native port record owner")
+	}
+	if _, err := endpointPort(record.Address); err != nil {
+		return err
+	}
+	if _, err := endpointPort(record.ConsoleURL); err != nil {
+		return err
+	}
+	if (v.Endpoint.Address != "" && v.Endpoint.Address != record.Address) || (v.Endpoint.ConsoleURL != "" && v.Endpoint.ConsoleURL != record.ConsoleURL) {
+		return errors.New("conflicting retained MQ native endpoints")
+	}
+	v.Endpoint.Address, v.Endpoint.ConsoleURL = record.Address, record.ConsoleURL
+	return nil
+}
+
+func (r *Runtime) persistNativePorts(v service.BrokerRecord) error {
+	dir, err := r.ownedDirectory(v)
+	if err != nil {
+		return err
+	}
+	data, err := json.Marshal(nativePortRecord{ARN: v.ARN, ID: v.ID, Engine: v.Engine, Address: v.Endpoint.Address, ConsoleURL: v.Endpoint.ConsoleURL})
+	if err != nil {
+		return err
+	}
+	return atomicNativeFile(dir, "ports.json", data, 0600)
 }

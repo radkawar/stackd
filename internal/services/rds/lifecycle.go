@@ -13,8 +13,9 @@ import (
 
 const healthInterval = 30 * time.Second
 
-// Start distrusts retained endpoints until the actual native process has been
-// reattached and authenticated. It never starts a second controller loop.
+// Start withholds retained endpoints until the actual native process has been
+// reattached and authenticated. The last endpoint remains a private port-recovery
+// hint while public reads are gated by status. It never starts a second loop.
 func (s *Service) Start() error {
 	e := s.repository.Update(context.Background(), func(tx Transaction) error {
 		all, e := tx.AllDatabases()
@@ -29,7 +30,6 @@ func (s *Service) Start() error {
 			if v.Status == "available" {
 
 				v.Status = "starting"
-				v.Endpoint = engine.Endpoint{}
 				v.Operation = "reconcile"
 				v.Due = s.clock.Now()
 				v.Version++
@@ -66,7 +66,7 @@ func (s *Service) specification(ctx context.Context, v Database) (engine.Specifi
 	if e != nil {
 		return engine.Specification{}, e
 	}
-	return engine.Specification{ID: v.RuntimeID, Engine: v.Engine, Database: v.DatabaseName, Username: user, Password: password, Port: v.RequestedPort, Parameters: v.Parameters}, nil
+	return engine.Specification{ID: v.RuntimeID, Engine: v.Engine, Database: v.DatabaseName, Username: user, Password: password, Port: v.RequestedPort, RetainedPort: v.Endpoint.Port, Parameters: v.Parameters}, nil
 }
 
 func jobKey(raw string) (Key, error) {

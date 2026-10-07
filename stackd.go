@@ -223,6 +223,12 @@ type Config struct {
 	// fetchable origin. Keep it stable when reusing Storage. Empty leaves those
 	// features unconfigured; other AWS APIs remain available.
 	PublicEndpoint string
+	// GatewayDomain selects an explicitly owned development DNS namespace.
+	// Empty preserves existing path-based endpoint URLs.
+	GatewayDomain string
+	// GatewayAddresses are the reachable addresses returned for GatewayDomain.
+	// They are explicit because host, container and remote origins differ.
+	GatewayAddresses []netip.Addr
 	// OutboundHTTP supplies instance-owned transport for Connection OAuth and
 	// HTTP Tasks. Nil uses the standard client; each caller owns its deadline.
 	OutboundHTTP *http.Client
@@ -284,6 +290,17 @@ type Config struct {
 	// DNSListenAddress binds the owned authoritative UDP/TCP DNS endpoint.
 	// Empty uses loopback with an ephemeral port when ELBV2Runtime is configured.
 	DNSListenAddress string
+	// DNSUpstreams forward only unowned queries; empty keeps DNS offline.
+	DNSUpstreams []netip.AddrPort
+	// DNSAllowedClients restrict upstream recursion. Empty allows loopback only.
+	DNSAllowedClients []netip.Prefix
+	// TransparentDomains and addresses redirect only explicitly allowed peers.
+	// Native service and hosted-zone authority always take precedence.
+	TransparentDomains   []string
+	TransparentAddresses []netip.Addr
+	TransparentClients   []netip.Prefix
+	// NetworkDiagnostics explicitly enables local read-only network inspection.
+	NetworkDiagnostics *NetworkingInfo
 	// ECRScanner supplies explicitly configured offline vulnerability analysis.
 	// Nil leaves scan execution unavailable; no clean-image findings are invented.
 	ECRScanner ecr.Scanner
@@ -330,6 +347,24 @@ func New(config Config) (stack *Stack, err error) {
 		origin.Path, origin.RawPath = "", ""
 		config.PublicEndpoint = origin.String()
 	}
+	if config.DNSListenAddress == "" && (config.GatewayDomain != "" || len(config.DNSUpstreams) != 0 || len(config.DNSAllowedClients) != 0 || len(config.TransparentDomains) != 0) {
+		return nil, fmt.Errorf("configured DNS namespaces, forwarding and access rules require an explicit DNS listener")
+	}
+	var fallbackResolvers []dnsruntime.Resolver
+	if config.GatewayDomain != "" {
+		resolver, namespaceErr := dnsruntime.NewNamespace(config.GatewayDomain, config.GatewayAddresses)
+		if namespaceErr != nil {
+			return nil, fmt.Errorf("configure gateway DNS namespace: %w", namespaceErr)
+		}
+		fallbackResolvers = append(fallbackResolvers, resolver)
+	}
+	for _, domain := range config.TransparentDomains {
+		resolver, redirectErr := dnsruntime.NewRedirect(domain, config.TransparentAddresses, config.TransparentClients)
+		if redirectErr != nil {
+			return nil, fmt.Errorf("configure transparent DNS: %w", redirectErr)
+		}
+		fallbackResolvers = append(fallbackResolvers, resolver)
+	}
 	issuerCertificate, _ := config.EKSRuntime.(integrations.EKSServiceAccountIssuerCertificate)
 	oidcDiscovery, err := integrations.NewEKSServiceAccountIssuers(issuerCertificate, config.OIDCDiscovery, config.Clock)
 	if err != nil {
@@ -354,7 +389,7 @@ func New(config Config) (stack *Stack, err error) {
 		if address == "" {
 			address = "127.0.0.1:0"
 		}
-		dnsServer, err = dnsruntime.Listen(address)
+		dnsServer, err = dnsruntime.Listen(dnsruntime.Config{Address: address, Upstreams: config.DNSUpstreams, AllowedClients: config.DNSAllowedClients})
 		if err != nil {
 			return nil, fmt.Errorf("listen for service DNS: %w", err)
 		}
@@ -421,7 +456,7 @@ func New(config Config) (stack *Stack, err error) {
 	alarmActions := &integrations.CloudWatchAlarmActions{}
 	cloudwatchService := cloudwatch.New(cloudwatch.Config{Repository: backends.CloudWatch, Authorizer: authorizer, APIEvents: apiEvents, Clock: config.Clock, Events: integrations.CloudWatchEvents{Publisher: servicePublisher}, Actions: alarmActions})
 	servicePublisher.Metrics = cloudwatchService
-	sqsService := sqs.NewWithConfig(sqs.Config{Repository: backends.SQS, KMS: integrations.ServiceDataKeys{KMS: kmsService, Activity: iamService, Service: "sqs"}, Authorizer: authorizer, Clock: config.Clock, Journal: backends.Journal, APIEvents: apiEvents, Metrics: cloudwatchService})
+	sqsService := sqs.NewWithConfig(sqs.Config{Repository: backends.SQS, KMS: integrations.ServiceDataKeys{KMS: kmsService, Activity: iamService, Service: "sqs"}, Authorizer: authorizer, Clock: config.Clock, Journal: backends.Journal, APIEvents: apiEvents, Metrics: cloudwatchService, EndpointDomain: config.GatewayDomain, PublicEndpoint: config.PublicEndpoint})
 	logSubscriptions := &integrations.LogsSubscriptions{}
 	logsService := logs.New(logs.Config{Repository: backends.Logs, Authorizer: authorizer, APIEvents: apiEvents, Clock: config.Clock, Subscriptions: logSubscriptions, Events: backends.Journal, Metrics: cloudwatchService})
 	s3Notifications := &integrations.S3Notifications{SQS: sqsService}
@@ -463,7 +498,8 @@ func New(config Config) (stack *Stack, err error) {
 		StreamTargets:        lambdaOutcomes, Logs: integrations.LambdaLogs{Logs: logsService, Credentials: credentials, Clock: config.Clock},
 		Targets: lambdaOutcomes, Metrics: cloudwatchService, Authorizer: authorizer, Clock: config.Clock,
 		Endpoint: config.ComputeEndpoint, PublicEndpoint: config.PublicEndpoint, KeepAlive: config.LambdaKeepAlive,
-		Events: backends.Journal, APIEvents: apiEvents,
+		EndpointDomain: config.GatewayDomain,
+		Events:         backends.Journal, APIEvents: apiEvents,
 	})
 	secretsManagerService := secretsmanager.New(secretsmanager.Config{Repository: backends.SecretsManager, Authorizer: authorizer, PolicyBinder: authorizer, Recorder: apiEvents, Clock: config.Clock, Regions: accountService, Keys: integrations.ServiceDataKeys{KMS: kmsService, Activity: iamService, Service: "secretsmanager"}, Rotation: integrations.SecretRotation{Lambda: lambdaService}})
 	lambdaDocuments.Secrets = secretsManagerService
@@ -495,7 +531,7 @@ func New(config Config) (stack *Stack, err error) {
 	pipelineArtifacts := integrations.CodePipelineArtifacts{Repository: backends.CodePipeline}
 	buildService := codebuild.New(codebuild.Config{PipelineArtifacts: pipelineArtifacts, Repository: backends.CodeBuild, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, Executor: config.CodeBuildExecutor, Roles: integrations.CodeBuildRoles{ServiceRoles: serviceRoles}, Objects: integrations.CodeBuildObjects{S3: s3Service}, SourceBuckets: integrations.CodeBuildSourceBuckets{Repository: backends.S3}, Secrets: integrations.CodeBuildSecrets{Secrets: secretsManagerService}, Parameters: integrations.CodeBuildParameters{Parameters: parameterService}, Cipher: integrations.CodeBuildCredentialCipher{Keys: integrations.ServiceDataKeys{KMS: kmsService, Activity: iamService, Service: "codebuild"}}, Logs: integrations.CodeBuildLogs{Logs: logsService}, Registry: integrations.CodeBuildRegistry{ECR: ecrService, Endpoint: config.PublicEndpoint}, Events: integrations.CodeBuildEvents{Publisher: servicePublisher}, Endpoint: config.ComputeEndpoint, FleetImage: config.CodeBuildFleetImage})
 	gatewayLogs := &integrations.GatewayLogs{Logs: logsService, Roles: serviceRoles}
-	apiGatewayService := apigateway.New(apigateway.Config{Repository: backends.APIGateway, Authorizer: authorizer, PolicyBinder: authorizer, Recorder: apiEvents, Clock: config.Clock, Endpoint: config.PublicEndpoint, Metrics: cloudwatchService, Logs: gatewayLogs})
+	apiGatewayService := apigateway.New(apigateway.Config{Repository: backends.APIGateway, Authorizer: authorizer, PolicyBinder: authorizer, Recorder: apiEvents, Clock: config.Clock, Endpoint: config.PublicEndpoint, Metrics: cloudwatchService, Logs: gatewayLogs, EndpointDomain: config.GatewayDomain})
 	wafService := wafv2.New(wafv2.Config{Repository: backends.WAFv2, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, Resources: integrations.WAFRESTStages{Gateway: apiGatewayService}, Metrics: cloudwatchService})
 	gatewayLogs.Accounts = apiGatewayService
 	certificateUsage := &integrations.ELBV2CertificateUsage{}
@@ -503,7 +539,7 @@ func New(config Config) (stack *Stack, err error) {
 	acmService := acm.New(acm.Config{Repository: backends.ACM, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, DNS: certificateDNS, Usage: acmCertificateUsage})
 	acmJobs := scheduler.New(config.Clock, acmService.JobSource())
 	acmService.SetWake(acmJobs.Wake)
-	apiGatewayV2Service := apigatewayv2.New(apigatewayv2.Config{Repository: backends.APIGatewayV2, Authorizer: authorizer, PolicyBinder: authorizer, Recorder: apiEvents, Clock: config.Clock, Endpoint: config.PublicEndpoint, Logs: gatewayLogs, Certificates: acmService, Truststores: integrations.APIGatewayV2Truststores{S3: s3Service}})
+	apiGatewayV2Service := apigatewayv2.New(apigatewayv2.Config{Repository: backends.APIGatewayV2, Authorizer: authorizer, PolicyBinder: authorizer, Recorder: apiEvents, Clock: config.Clock, Endpoint: config.PublicEndpoint, Logs: gatewayLogs, Certificates: acmService, Truststores: integrations.APIGatewayV2Truststores{S3: s3Service}, EndpointDomain: config.GatewayDomain})
 	acmCertificateUsage.APIGateway = apiGatewayV2Service
 	gatewayInvocationRoles := integrations.GatewayInvocationRoles{Roles: serviceRoles, Clock: config.Clock}
 	apiGatewayWebSocketService := apigatewaywebsocket.New(apigatewaywebsocket.Config{Resolver: apiGatewayV2Service, Functions: lambdaService, Roles: gatewayInvocationRoles, Authorization: authorizer, Clock: config.Clock, Metrics: apiGatewayService, Logs: gatewayLogs})
@@ -637,7 +673,7 @@ func New(config Config) (stack *Stack, err error) {
 		Sources: &integrations.AppSyncSources{Roles: serviceRoles, Lambda: lambdaService, DynamoDB: dynamoService, RDSData: rdsDataService, HTTPClient: config.OutboundHTTP},
 		Auth:    appsync.NewAuthenticator(appsync.AuthConfig{Clock: config.Clock, IAM: appsyncIAM, Keys: integrations.AppSyncKeys{Cognito: cognitoService, Discovery: config.OIDCDiscovery}}),
 	})
-	searchService := opensearch.New(opensearch.Config{Repository: backends.OpenSearch, Authorizer: authorizer, PolicyBinder: authorizer, Recorder: apiEvents, Clock: config.Clock, Runtime: config.OpenSearchRuntime, PublicEndpoint: config.PublicEndpoint, Metrics: integrations.OpenSearchMetrics{Metrics: cloudwatchService}})
+	searchService := opensearch.New(opensearch.Config{Repository: backends.OpenSearch, Authorizer: authorizer, PolicyBinder: authorizer, Recorder: apiEvents, Clock: config.Clock, Runtime: config.OpenSearchRuntime, PublicEndpoint: config.PublicEndpoint, Metrics: integrations.OpenSearchMetrics{Metrics: cloudwatchService}, EndpointDomain: config.GatewayDomain})
 	kafkaService := kafka.New(kafka.Config{
 		Repository: backends.Kafka, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock,
 		Runtime: config.MSKRuntime, Secrets: integrations.KafkaSecrets{Secrets: secretsManagerService, KMS: kmsService, Activity: iamService},
@@ -712,6 +748,12 @@ func New(config Config) (stack *Stack, err error) {
 	if err != nil {
 		_ = closeServices()
 		return nil, fmt.Errorf("register Route 53 DNS authority: %w", err)
+	}
+	for _, resolver := range fallbackResolvers {
+		if _, registerErr := dnsServer.Register(resolver); registerErr != nil {
+			_ = closeServices()
+			return nil, fmt.Errorf("register configured DNS namespace: %w", registerErr)
+		}
 	}
 	if err := iamService.RegisterServiceLinkedRole(integrations.SSMRoleTemplate(), integrations.SSMRoleUsage{Commands: ssmCommands}); err != nil {
 		_ = closeServices()
@@ -923,6 +965,9 @@ func New(config Config) (stack *Stack, err error) {
 	sesVerification := sesService.VerificationHandler()
 	ssoAuthorization := identityCenterService.AuthorizationHandler()
 	ordinaryHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if functionURLs.ServeFunctionURL(w, r) {
+			return
+		}
 		// Browser authorization shares this listener with S3. Do not reserve a
 		// valid bucket/object name or intercept signed and presigned API calls.
 		if r.URL.Path == identitycenter.AuthorizePath && r.Header.Get("Authorization") == "" && r.Header.Get("X-Amz-Target") == "" {
@@ -984,12 +1029,10 @@ func New(config Config) (stack *Stack, err error) {
 		if lambdaService.ServeCodeDownload(w, r) {
 			return
 		}
-		if functionURLs.ServeFunctionURL(w, r) {
-			return
-		}
 		endpoint.ServeHTTP(w, r)
 	})
-	handler := apiGatewayV2Service.DomainDispatcher(apiExecution, websocketExecution, ordinaryHandler)
+	resourceHandler := apiExecution.ResourceDispatcher(websocketExecution, ordinaryHandler)
+	handler := apiGatewayV2Service.DomainDispatcher(apiExecution, websocketExecution, resourceHandler)
 	lambdaFunctionNetworks.SetHandler(handler)
 	sqsService.StartWorkers()
 	organizationsService.StartWorkers()
@@ -1075,21 +1118,22 @@ func New(config Config) (stack *Stack, err error) {
 		_ = closeServices()
 		return nil, fmt.Errorf("resume MemoryDB engines: %w", err)
 	}
-	return &Stack{handler: handler, tlsConfig: apiGatewayV2Service.DomainTLSConfig, close: closeServices, clock: config.Clock, journal: backends.Journal, jobs: jobs, dns: dnsServer}, nil
+	return &Stack{handler: handler, tlsConfig: apiGatewayV2Service.DomainTLSConfig, close: closeServices, clock: config.Clock, journal: backends.Journal, jobs: jobs, dns: dnsServer, networking: networkingInfo(config, dnsServer)}, nil
 }
 
 // Stack is an isolated HTTP endpoint and its background service workers. Close
 // stops workers and detaches retained ECS tasks; callers own their HTTP listeners.
 type Stack struct {
-	handler   http.Handler
-	tlsConfig func(*tls.Config) *tls.Config
-	close     func() error
-	once      sync.Once
-	err       error
-	clock     clock.Clock
-	journal   journal.Storage
-	jobs      *scheduler.Driver
-	dns       *dnsruntime.Server
+	handler    http.Handler
+	tlsConfig  func(*tls.Config) *tls.Config
+	close      func() error
+	once       sync.Once
+	err        error
+	clock      clock.Clock
+	journal    journal.Storage
+	jobs       *scheduler.Driver
+	dns        *dnsruntime.Server
+	networking *NetworkingInfo
 }
 
 func (s *Stack) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -1100,6 +1144,8 @@ func (s *Stack) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.serveClock(w, r)
 	case "/_stackd/jobs/drain":
 		s.serveJobDrain(w, r)
+	case "/_stackd/network":
+		s.serveNetworking(w, r)
 	default:
 		s.handler.ServeHTTP(w, r)
 	}

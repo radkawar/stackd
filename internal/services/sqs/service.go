@@ -36,25 +36,27 @@ type Service struct {
 	runtimes   map[string]*queueRuntime
 	keyWork    *keyWork
 
-	mu          sync.Mutex
-	kms         KMS
-	authorizer  authorization.Authorizer
-	journal     MessageJournal
-	apiEvents   apievents.Recorder
-	metrics     MetricPublisher
-	tasks       map[string]*MoveTaskRecord
-	jobs        *scheduler.Driver
-	jobsChanged bool
-	polls       sync.WaitGroup
-	effects     sync.WaitGroup
-	closed      bool
-	nextMove    uint64
-	lifetime    context.Context
-	stop        context.CancelFunc
-	queues      map[queueKey]*queue
-	deleted     map[queueKey]time.Time
-	operations  map[string]operation
-	clock       clock.Clock
+	mu             sync.Mutex
+	kms            KMS
+	authorizer     authorization.Authorizer
+	journal        MessageJournal
+	apiEvents      apievents.Recorder
+	metrics        MetricPublisher
+	tasks          map[string]*MoveTaskRecord
+	jobs           *scheduler.Driver
+	jobsChanged    bool
+	polls          sync.WaitGroup
+	effects        sync.WaitGroup
+	closed         bool
+	nextMove       uint64
+	lifetime       context.Context
+	stop           context.CancelFunc
+	queues         map[queueKey]*queue
+	deleted        map[queueKey]time.Time
+	operations     map[string]operation
+	clock          clock.Clock
+	publicEndpoint string
+	endpointDomain string
 	// transactionTime is sampled once per repository callback while mu is held.
 	transactionTime time.Time
 	tokenKey        [32]byte
@@ -70,13 +72,15 @@ func New() *Service {
 // Nil dependencies select isolated memory, root authorization and real time;
 // KMS-backed queues require an explicitly supplied KMS implementation.
 type Config struct {
-	Repository Repository
-	KMS        KMS
-	Authorizer authorization.Authorizer
-	Clock      clock.Clock
-	Journal    MessageJournal
-	APIEvents  apievents.Recorder
-	Metrics    MetricPublisher
+	Repository     Repository
+	KMS            KMS
+	Authorizer     authorization.Authorizer
+	Clock          clock.Clock
+	Journal        MessageJournal
+	APIEvents      apievents.Recorder
+	Metrics        MetricPublisher
+	PublicEndpoint string
+	EndpointDomain string
 }
 
 // MessageJournal appends accepted sends in the queue's resource transaction.
@@ -107,6 +111,7 @@ func NewWithConfig(config Config) *Service {
 	s.journal = config.Journal
 	s.apiEvents = config.APIEvents
 	s.metrics = config.Metrics
+	s.publicEndpoint, s.endpointDomain = config.PublicEndpoint, config.EndpointDomain
 	s.tasks = make(map[string]*MoveTaskRecord)
 	s.jobs = scheduler.New(config.Clock, moveJobs{s}, metricJobs{s}, queueMetricJobs{s})
 	s.registerPermissions()

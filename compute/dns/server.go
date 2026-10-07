@@ -1,10 +1,11 @@
-// Package dns serves authoritative owner-provided records over UDP and TCP.
-// Resource state stays with the service owner; this endpoint has no record store,
-// recursive forwarder, host resolver dependency, or host configuration effects.
+// Package dns serves owner-provided records and explicitly configured upstreams
+// over UDP and TCP. Resource state stays with its service owner; this endpoint
+// has no record store, host resolver dependency, or host configuration effects.
 package dns
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -32,6 +33,14 @@ type Resolver interface {
 	LookupDNS(context.Context, dnsmessage.Question) (Result, error)
 }
 
+// Config installs no upstream by default. When forwarding is configured, an
+// empty AllowedClients permits only loopback peers. Forwarding requires RD.
+type Config struct {
+	Address        string
+	Upstreams      []netip.AddrPort
+	AllowedClients []netip.Prefix
+}
+
 type registration struct{ resolver Resolver }
 
 type Server struct {
@@ -44,30 +53,61 @@ type Server struct {
 	connections map[net.Conn]struct{}
 	closed      bool
 	workers     sync.WaitGroup
+	closeOnce   sync.Once
+	closeDone   chan struct{}
+	closeErr    error
+	upstreams   []netip.AddrPort
+	clients     []netip.Prefix
+	loopToken   [16]byte
 }
 
 // Listen binds the same explicit IPv4 host:port for UDP and TCP. Port zero
 // selects a shared ephemeral port. No default listener or resolver is installed.
-func Listen(address string) (*Server, error) {
-	endpoint, err := netip.ParseAddrPort(address)
+func Listen(config Config) (*Server, error) {
+	endpoint, err := netip.ParseAddrPort(config.Address)
 	if err != nil {
 		return nil, err
 	}
-	if !endpoint.Addr().Is4() {
+	if !endpoint.Addr().Is4() || endpoint.Addr().IsMulticast() {
 		return nil, errors.New("DNS requires an explicit IPv4 listen address")
+	}
+	clients, err := clientPrefixes(config.AllowedClients)
+	if err != nil {
+		return nil, err
+	}
+	upstreams := make([]netip.AddrPort, len(config.Upstreams))
+	for i, upstream := range config.Upstreams {
+		if !upstream.IsValid() || upstream.Port() == 0 || !usableAddress(upstream.Addr()) {
+			return nil, errors.New("DNS upstream requires an explicit unicast address and nonzero port")
+		}
+		upstreams[i] = netip.AddrPortFrom(upstream.Addr().Unmap(), upstream.Port())
+	}
+	var loopToken [16]byte
+	if len(upstreams) != 0 {
+		if _, err := rand.Read(loopToken[:]); err != nil {
+			return nil, err
+		}
 	}
 	tcp, err := net.ListenTCP("tcp4", net.TCPAddrFromAddrPort(endpoint))
 	if err != nil {
 		return nil, err
 	}
 	bound := tcp.Addr().(*net.TCPAddr)
+	if err := rejectSelfUpstreams(bound.AddrPort(), upstreams); err != nil {
+		_ = tcp.Close()
+		return nil, err
+	}
 	udp, err := net.ListenUDP("udp4", &net.UDPAddr{IP: bound.IP, Port: bound.Port})
 	if err != nil {
-		tcp.Close()
+		_ = tcp.Close()
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	s := &Server{udp: udp, tcp: tcp, ctx: ctx, cancel: cancel, connections: map[net.Conn]struct{}{}}
+	s := &Server{
+		udp: udp, tcp: tcp, ctx: ctx, cancel: cancel,
+		connections: map[net.Conn]struct{}{}, closeDone: make(chan struct{}),
+		upstreams: upstreams, clients: clients, loopToken: loopToken,
+	}
 	for range 8 {
 		s.workers.Add(1)
 		go s.serveUDP()
@@ -79,8 +119,10 @@ func Listen(address string) (*Server, error) {
 
 func (s *Server) Address() string { return s.tcp.Addr().String() }
 
-// Register attaches a service authority, not copied resource records. The
-// returned release detaches only this registration and waits for its readers.
+// Register attaches a service authority, not copied resource records. Native
+// owners always precede NewNamespace/NewRedirect fallbacks, even when registered
+// later. The returned release detaches only this registration and waits for its
+// readers, so the owner can safely close its retained state afterwards.
 func (s *Server) Register(resolver Resolver) (func(), error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -88,13 +130,26 @@ func (s *Server) Register(resolver Resolver) (func(), error) {
 		return nil, errors.New("DNS endpoint is closed or resolver is absent")
 	}
 	entry := &registration{resolver: resolver}
-	s.owners = append(s.owners, entry)
+	index := len(s.owners)
+	if _, fallback := resolver.(*namespace); !fallback {
+		for i, owner := range s.owners {
+			if _, fallback := owner.resolver.(*namespace); fallback {
+				index = i
+				break
+			}
+		}
+	}
+	s.owners = append(s.owners, nil)
+	copy(s.owners[index+1:], s.owners[index:])
+	s.owners[index] = entry
 	return func() {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		for i, owner := range s.owners {
 			if owner == entry {
-				s.owners = append(s.owners[:i], s.owners[i+1:]...)
+				copy(s.owners[i:], s.owners[i+1:])
+				s.owners[len(s.owners)-1] = nil
+				s.owners = s.owners[:len(s.owners)-1]
 				return
 			}
 		}
@@ -102,20 +157,22 @@ func (s *Server) Register(resolver Resolver) (func(), error) {
 }
 
 func (s *Server) Close() error {
-	s.mu.Lock()
-	if s.closed {
+	s.closeOnce.Do(func() {
+		// Cancel before waiting for owner readers: a resolver may itself be
+		// waiting for this context before it releases its registration read.
+		s.cancel()
+		s.mu.Lock()
+		s.closed = true
+		s.closeErr = errors.Join(s.udp.Close(), s.tcp.Close())
+		for connection := range s.connections {
+			_ = connection.Close()
+		}
 		s.mu.Unlock()
-		return nil
-	}
-	s.closed = true
-	s.cancel()
-	err := errors.Join(s.udp.Close(), s.tcp.Close())
-	for connection := range s.connections {
-		_ = connection.Close()
-	}
-	s.mu.Unlock()
-	s.workers.Wait()
-	return err
+		s.workers.Wait()
+		close(s.closeDone)
+	})
+	<-s.closeDone
+	return s.closeErr
 }
 
 func (s *Server) serveUDP() {
@@ -126,7 +183,7 @@ func (s *Server) serveUDP() {
 		if err != nil {
 			return
 		}
-		response := s.answer(buffer[:n], true)
+		response := s.answer(withPeerAddress(s.ctx, peer.Addr()), buffer[:n], true)
 		if len(response) != 0 {
 			_, _ = s.udp.WriteToUDPAddrPort(response, peer)
 		}
@@ -153,7 +210,7 @@ func (s *Server) serveTCP() {
 	}
 }
 
-func (s *Server) serveConnection(connection net.Conn) {
+func (s *Server) serveConnection(connection *net.TCPConn) {
 	defer s.workers.Done()
 	defer func() {
 		_ = connection.Close()
@@ -161,6 +218,7 @@ func (s *Server) serveConnection(connection net.Conn) {
 		delete(s.connections, connection)
 		s.mu.Unlock()
 	}()
+	ctx := withPeerAddress(s.ctx, connection.RemoteAddr().(*net.TCPAddr).AddrPort().Addr())
 	var length [2]byte
 	buffer := make([]byte, 65535)
 	for {
@@ -172,47 +230,47 @@ func (s *Server) serveConnection(connection net.Conn) {
 		if _, err := io.ReadFull(connection, buffer[:n]); err != nil {
 			return
 		}
-		response := s.answer(buffer[:n], false)
-		if len(response) == 0 {
-			return
-		}
-		binary.BigEndian.PutUint16(length[:], uint16(len(response)))
-		if _, err := connection.Write(length[:]); err != nil {
-			return
-		}
-		if _, err := connection.Write(response); err != nil {
+		response := s.answer(ctx, buffer[:n], false)
+		if len(response) == 0 || writeTCPMessage(connection, response) != nil {
 			return
 		}
 	}
 }
 
-func (s *Server) answer(packet []byte, udp bool) []byte {
+func (s *Server) answer(peerCtx context.Context, packet []byte, udp bool) []byte {
 	var parser dnsmessage.Parser
 	header, err := parser.Start(packet)
 	if err != nil || header.Response {
 		return nil
 	}
 	response := dnsmessage.Message{Header: dnsmessage.Header{ID: header.ID, Response: true, OpCode: header.OpCode, RecursionDesired: header.RecursionDesired}}
-	questions, err := parser.AllQuestions()
-	if err != nil || len(questions) != 1 {
+	var request dnsmessage.Message
+	if err := request.Unpack(packet); err != nil || len(request.Questions) != 1 {
 		response.RCode = dnsmessage.RCodeFormatError
 	} else if header.OpCode != 0 {
 		response.RCode = dnsmessage.RCodeNotImplemented
 	} else {
-		response.Questions = questions
+		response.Questions = request.Questions
 		response.RCode = dnsmessage.RCodeRefused
-		if questions[0].Class == dnsmessage.ClassINET {
-			ctx, cancel := context.WithTimeout(s.ctx, 3*time.Second)
+		peer, ok := PeerAddress(peerCtx)
+		canForward := len(s.upstreams) != 0 && ok && allowsClient(s.clients, peer, true)
+		response.RecursionAvailable = canForward
+		if request.Questions[0].Class == dnsmessage.ClassINET {
+			ctx, cancel := context.WithTimeout(peerCtx, 3*time.Second)
 			s.mu.RLock()
+			owned := false
 			for _, owner := range s.owners {
-				result, lookupErr := owner.resolver.LookupDNS(ctx, questions[0])
+				result, lookupErr := owner.resolver.LookupDNS(ctx, request.Questions[0])
 				if lookupErr != nil {
+					response.Authoritative = result.Authoritative
 					response.RCode = dnsmessage.RCodeServerFailure
+					owned = true
 					break
 				}
 				if !result.Authoritative && !result.Referral {
 					continue
 				}
+				owned = true
 				response.Authoritative = result.Authoritative
 				response.RCode = dnsmessage.RCodeSuccess
 				if !result.Exists && !result.Referral {
@@ -224,20 +282,35 @@ func (s *Server) answer(packet []byte, udp bool) []byte {
 				break
 			}
 			s.mu.RUnlock()
+			if !owned && canForward && header.RecursionDesired {
+				forwarded, err := s.forward(ctx, request, !udp)
+				if err != nil {
+					response.RCode = dnsmessage.RCodeServerFailure
+				} else {
+					response = forwarded
+					response.ID = header.ID
+					response.RecursionDesired = header.RecursionDesired
+					response.RecursionAvailable = true
+				}
+			}
 			cancel()
 		}
 	}
 	encoded, err := response.Pack()
-	if err != nil {
-		return nil
+	if err != nil || !udp && len(encoded) > 65535 {
+		// Invalid owner/upstream data is an error response, not a hung client.
+		response.RCode = dnsmessage.RCodeServerFailure
+		response.Answers, response.Authorities, response.Additionals = nil, nil, nil
+		encoded, err = response.Pack()
+		if err != nil {
+			return nil
+		}
 	}
-	// A 512-byte UDP ceiling works with both classic and EDNS clients; larger
-	// answers set TC and are available in full over the same TCP endpoint.
+	// The conservative classic UDP ceiling applies even to EDNS clients.
+	// Complete answers remain available over the same TCP endpoint.
 	if udp && len(encoded) > 512 {
 		response.Truncated = true
-		response.Answers = nil
-		response.Authorities = nil
-		response.Additionals = nil
+		response.Answers, response.Authorities, response.Additionals = nil, nil, nil
 		encoded, _ = response.Pack()
 	}
 	return encoded

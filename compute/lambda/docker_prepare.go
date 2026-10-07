@@ -6,10 +6,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -106,6 +108,7 @@ func (d *DockerExecutor) Prepare(ctx context.Context, spec Specification) (Envir
 		Architecture string
 		Config       struct {
 			Entrypoint []string
+			Env        []string
 			Labels     map[string]string
 		}
 	}
@@ -241,6 +244,10 @@ func (d *DockerExecutor) Prepare(ctx context.Context, spec Specification) (Envir
 			{Type: "volume", Source: e.helperVolume, Target: "/stackd", VolumeOptions: docker.ContainerVolumeOptions{NoCopy: true, Labels: labels}},
 		},
 	}}
+	if len(d.config.Networking.DNS) != 0 {
+		// The keeper owns the namespace; runtime containers share its resolv.conf.
+		stageConfig.HostConfig.DNS = slices.Clone(d.config.Networking.DNS)
+	}
 	if archive != nil {
 		stageConfig.HostConfig.Mounts = append(stageConfig.HostConfig.Mounts, docker.ContainerMount{Type: "volume", Source: e.volume, Target: "/var/task", VolumeOptions: docker.ContainerVolumeOptions{NoCopy: true, Labels: labels}})
 	}
@@ -377,6 +384,16 @@ func (d *DockerExecutor) Prepare(ctx context.Context, spec Specification) (Envir
 		Mounts:    mounts,
 		LogConfig: docker.ContainerLogConfig{Type: "none"},
 	}}
+	// The installer's /stackd volume is writable only before customer code runs
+	// and is read-only for every runtime incarnation of this environment.
+	e.runtimeConfig.Labels = maps.Clone(labels)
+	trust, err := d.config.Networking.PrepareTrust(&e.runtimeConfig, imageInfo.Config.Env, "/stackd")
+	if err != nil {
+		return failed(err)
+	}
+	if err := trust.Install(startupCtx, d.engine, e.staging); err != nil {
+		return failed(err)
+	}
 	if err := e.startContainer(startupCtx); err != nil {
 		return failed(err)
 	}

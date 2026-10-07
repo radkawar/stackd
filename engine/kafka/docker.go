@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"stackd/compute/docker"
+	"stackd/compute/ports"
 	msk "stackd/internal/services/kafka"
 )
 
@@ -28,6 +29,7 @@ const adminUser = "__stackd_native_admin"
 var immutableImage = regexp.MustCompile(`^(?:[^\s@]+@)?sha256:[a-f0-9]{64}$`)
 
 // DockerConfig selects an already installed image; the client remains caller-owned.
+// PortRange bounds new public client ports; private administration stays ephemeral.
 type DockerConfig struct {
 	Client *docker.Client
 	// Image may name the pinned image by immutable ID or digest, never different
@@ -39,6 +41,7 @@ type DockerConfig struct {
 	// StartupTimeout bounds native creation, configuration and readiness.
 	// Zero selects three minutes.
 	StartupTimeout time.Duration
+	PortRange      ports.Range
 }
 
 // Docker retains exact incarnation-owned containers, volumes and one network.
@@ -49,6 +52,7 @@ type Docker struct {
 	image, imageID, endpointHost string
 	imageEnv                     []string
 	startupTimeout               time.Duration
+	portRange                    ports.Range
 	gate                         chan struct{}
 	closed                       bool
 }
@@ -56,6 +60,9 @@ type Docker struct {
 var _ msk.Runtime = (*Docker)(nil)
 
 func NewDocker(ctx context.Context, cfg DockerConfig) (*Docker, error) {
+	if err := cfg.PortRange.Validate(); err != nil {
+		return nil, err
+	}
 	if cfg.Client == nil {
 		return nil, errors.New("MSK Docker client is required")
 	}
@@ -102,7 +109,7 @@ func NewDocker(ctx context.Context, cfg DockerConfig) (*Docker, error) {
 			return nil, errors.New("kafka 3.7.1 requires the pinned Apache image content")
 		}
 	}
-	return &Docker{client: cfg.Client, image: DockerImage, imageID: image.ID, imageEnv: image.Config.Env, endpointHost: cfg.EndpointHost, startupTimeout: cfg.StartupTimeout, gate: make(chan struct{}, 1)}, nil
+	return &Docker{client: cfg.Client, image: DockerImage, imageID: image.ID, imageEnv: image.Config.Env, endpointHost: cfg.EndpointHost, startupTimeout: cfg.StartupTimeout, portRange: cfg.PortRange, gate: make(chan struct{}, 1)}, nil
 }
 
 func resourceName(spec msk.Specification, role string) string {

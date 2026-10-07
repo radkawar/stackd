@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -57,6 +58,12 @@ func (d *Docker) Ensure(ctx context.Context, spec msk.Specification) (endpoint m
 		return empty, err
 	}
 	fresh := m == nil
+	var held []net.Listener
+	defer func() {
+		for _, listener := range held {
+			listener.Close()
+		}
+	}()
 	if fresh {
 		if hasBroker {
 			return empty, errors.New("MSK retained broker lost native identity material")
@@ -65,9 +72,16 @@ func (d *Docker) Ensure(ctx context.Context, spec msk.Specification) (endpoint m
 		if err != nil {
 			return empty, err
 		}
+		held, err = d.reserveBrokerPorts(ctx, spec.Brokers, m)
+		if err != nil {
+			return empty, err
+		}
 	}
 	if len(m.Nodes) != int(spec.Brokers) || m.ClusterID == "" || m.AdminPassword == "" {
 		return empty, errors.New("MSK retained native material conflicts with broker count or identity")
+	}
+	if err := m.validatePorts(); err != nil {
+		return empty, err
 	}
 	if _, err = d.network(ctx, spec, true); err != nil {
 		return empty, err
@@ -103,6 +117,14 @@ func (d *Docker) Ensure(ctx context.Context, spec msk.Specification) (endpoint m
 		}
 		if e = d.checkContainer(state, spec, role, m); e != nil {
 			return empty, e
+		}
+		if fresh {
+			// Keep every other broker's sockets held until its own handoff.
+			for _, listener := range held[node*2 : node*2+2] {
+				if err := listener.Close(); err != nil {
+					return empty, err
+				}
+			}
 		}
 		if e = d.start(ctx, state); e != nil {
 			return empty, d.failure(ctx, state.ID, e)

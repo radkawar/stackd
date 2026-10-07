@@ -79,17 +79,18 @@ func (s *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	apiID, path, _ := strings.Cut(path, "/")
 	path = "/" + path
 	stage := ""
-	if target, ok := CustomExecutionTarget(r.Context()); ok {
+	target, bound := CustomExecutionTarget(r.Context())
+	if bound {
 		apiID, stage, path = target.APIID, target.Stage, target.Path
 	}
 	var route *Route
 	err := ErrUnknownAPI
-	if s.http != nil {
+	if s.http != nil && !(bound && target.DefaultEndpoint && target.REST) {
 		route, err = s.http.Resolve(r.Context(), apiID, stage, r.Method, path)
 	}
 	rest := false
-	if errors.Is(err, ErrUnknownAPI) && s.rest != nil {
-		route, err = s.rest.Resolve(r.Context(), apiID, "", r.Method, path)
+	if errors.Is(err, ErrUnknownAPI) && s.rest != nil && !(bound && target.DefaultEndpoint && !target.REST) {
+		route, err = s.rest.Resolve(r.Context(), apiID, stage, r.Method, path)
 		rest = !errors.Is(err, ErrUnknownAPI)
 	}
 	observation := newRequestObservation(r, at, rest)

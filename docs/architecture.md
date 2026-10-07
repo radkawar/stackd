@@ -106,13 +106,21 @@ configuration is explicit and does not change the host's DNS settings.
 The [ALB evidence and limits](behavior-references.md#application-load-balancer-kernel)
 describe its concrete packet path and unsupported service surface.
 [Route 53](route53.md) attaches its typed hosted-zone/record authority to this same
-endpoint after managed service namespaces. Atomic changes, negative answers,
+endpoint beside managed service owners, ahead of generic namespace fallbacks. Atomic changes, negative answers,
 wildcards, delegation, weighted/multivalue routing and owner-resolved aliases
 read one retained state. Private VPC zones are rejected rather than exposed on
 the public listener. [ACM](acm.md) uses actual CNAME wire queries against it,
 performs DNS and cryptographic effects outside storage transactions, and commits
 version-fenced certificates through the shared scheduler and repositories.
 Its durable signing authority is explicitly local trust, not an AWS/public CA.
+The opt-in [networking configuration](networking.md) adds explicit gateway
+namespaces and actual-peer-scoped forwarding without copying resource state.
+Native negative/delegated/error answers remain authoritative. Scoped development
+CA issuance is separate from ACM material; managed containers receive public trust
+through Engine archives and retain their EC2 DNS/packet policy. Native TCP pools
+hold actual socket reservations and preserve committed endpoint identity.
+Transparent AWS HTTPS uses a separate allowed-peer listener without SigV4
+rewriting. Host split DNS is a separate reversible command, never startup behavior.
 EBS owns typed snapshot/volume metadata, sparse block layers, sharing grants,
 recipient-private tags and regional encryption/public-access settings; EC2's
 consumer-defined `SnapshotControl` and `VolumeControl` delegate to that owner. Published Organizations

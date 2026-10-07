@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"stackd/compute/docker"
+	"stackd/compute/ports"
 )
 
 // These upstream images are installed explicitly; this runtime never pulls.
@@ -29,11 +30,13 @@ const (
 // Client, when supplied, remains caller-owned. Host is used only without Client.
 // EndpointHost addresses the daemon's loopback via a caller-established route;
 // an empty value uses 127.0.0.1. Images must implement the pinned upstream layout.
+// PortRange bounds new automatic SQL endpoints, never explicit or retained ports.
 type DockerConfig struct {
 	Host, Namespace, PostgresImage, MySQLImage string
 	Client                                     *docker.Client
 	EndpointHost                               string
 	StartupTimeout                             time.Duration
+	PortRange                                  ports.Range
 }
 
 // Docker serializes native lifecycle effects; one controller owns a namespace.
@@ -44,6 +47,7 @@ type Docker struct {
 	namespace, endpointHost   string
 	postgresImage, mysqlImage string
 	startupTimeout            time.Duration
+	portRange                 ports.Range
 	gate                      chan struct{}
 	mu                        sync.Mutex
 	closed                    bool
@@ -54,6 +58,9 @@ var immutableImage = regexp.MustCompile(`^(?:[^\s@]+@)?sha256:[a-f0-9]{64}$`)
 var sqlName = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]{0,62}$`)
 
 func NewDocker(config DockerConfig) (*Docker, error) {
+	if err := config.PortRange.Validate(); err != nil {
+		return nil, err
+	}
 	if config.Namespace == "" {
 		return nil, errors.New("RDS Docker namespace is required and must survive controller restart")
 	}
@@ -92,7 +99,7 @@ func NewDocker(config DockerConfig) (*Docker, error) {
 			return nil, err
 		}
 	}
-	d := &Docker{client: client, ownsClient: owned, namespace: config.Namespace, endpointHost: config.EndpointHost, startupTimeout: config.StartupTimeout, gate: make(chan struct{}, 1)}
+	d := &Docker{client: client, ownsClient: owned, namespace: config.Namespace, endpointHost: config.EndpointHost, startupTimeout: config.StartupTimeout, portRange: config.PortRange, gate: make(chan struct{}, 1)}
 	for _, item := range []struct {
 		reference string
 		target    *string
@@ -190,7 +197,7 @@ func validateSpecification(spec Specification) error {
 	if spec.Password == "" || strings.IndexByte(spec.Password, 0) >= 0 {
 		return errors.New("native password must be nonempty and contain no NUL")
 	}
-	if spec.Port < 0 || spec.Port > 65535 {
+	if spec.Port < 0 || spec.Port > 65535 || spec.RetainedPort < 0 || spec.RetainedPort > 65535 {
 		return errors.New("invalid native database port")
 	}
 	return ValidateParameters(spec.Engine, spec.Parameters)

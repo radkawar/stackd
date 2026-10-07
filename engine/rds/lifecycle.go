@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"slices"
@@ -122,11 +123,7 @@ func (d *Docker) databaseConfig(spec Specification) containerConfig {
 	config.HostConfig.LogConfig = docker.ContainerLogConfig{Type: "none"}
 	config.HostConfig.PidsLimit = 512
 	config.HostConfig.SecurityOpt = []string{"no-new-privileges"}
-	published := ""
-	if spec.Port != 0 {
-		published = strconv.Itoa(int(spec.Port))
-	}
-	config.HostConfig.PortBindings = map[string][]portBinding{port: {{HostIP: "127.0.0.1", HostPort: published}}}
+	config.HostConfig.PortBindings = map[string][]portBinding{port: {{HostIP: "127.0.0.1", HostPort: strconv.Itoa(int(spec.Port))}}}
 	return config
 }
 func (d *Docker) checkDatabase(state containerState, spec Specification) error {
@@ -160,6 +157,25 @@ func (s containerState) endpoint(host, engine string) (Endpoint, error) {
 		return Endpoint{}, errors.New("native database has invalid published port")
 	}
 	return Endpoint{Address: host, Port: int32(value)}, nil
+}
+
+// retainedPort uses immutable Docker bindings even while NetworkSettings is
+// cleared for a stopped container. Legacy dynamic bindings require a live port.
+func (s containerState) retainedPort(engine string) (int32, error) {
+	wire, _, _ := nativeLayout(engine)
+	bindings := s.HostConfig.PortBindings[wire]
+	if len(bindings) != 1 || bindings[0].HostIP != "127.0.0.1" {
+		return 0, errors.New("native database has no retained loopback SQL binding")
+	}
+	if bindings[0].HostPort == "" || bindings[0].HostPort == "0" {
+		endpoint, err := s.endpoint("127.0.0.1", engine)
+		return endpoint.Port, err
+	}
+	value, err := strconv.ParseUint(bindings[0].HostPort, 10, 16)
+	if err != nil || value == 0 {
+		return 0, errors.New("invalid retained native database port")
+	}
+	return int32(value), nil
 }
 func (d *Docker) volume(ctx context.Context, id, role string, labels map[string]string, create bool) (volumeState, error) {
 	name := d.name(id, role)
@@ -219,6 +235,9 @@ func (d *Docker) initializeContainer(ctx context.Context, state containerState, 
 	return response.Body.Close()
 }
 func (d *Docker) createDatabase(ctx context.Context, spec Specification) (containerState, error) {
+	if spec.Port == 0 {
+		return containerState{}, errors.New("native database creation requires an exact reserved port")
+	}
 	var result struct {
 		ID string `json:"Id"`
 	}
@@ -301,28 +320,44 @@ func (d *Docker) ensure(ctx context.Context, spec Specification) (Endpoint, erro
 		if err := d.checkDatabase(state, spec); err != nil {
 			return Endpoint{}, err
 		}
+		if spec.Port == 0 {
+			spec.Port, err = state.retainedPort(spec.Engine)
+			// Legacy dynamic Docker bindings disappear from NetworkSettings
+			// on stop. Only the exact committed owner endpoint can recover them.
+			wire, _, _ := nativeLayout(spec.Engine)
+			binding := state.HostConfig.PortBindings[wire][0]
+			if err != nil && !state.State.Running && (binding.HostPort == "" || binding.HostPort == "0") && spec.RetainedPort != 0 {
+				spec.Port, err = spec.RetainedPort, nil
+			}
+			if err != nil {
+				return Endpoint{}, err
+			}
+		}
 	}
-	labels := d.labels(spec.ID, "data")
-	labels[labelPrefix+"engine"] = spec.Engine
-	volume, err := d.volume(ctx, spec.ID, "data", labels, !exists)
-	if err != nil {
+	volume, err := d.volume(ctx, spec.ID, "data", nil, false)
+	newVolume := dockerStatus(err, http.StatusNotFound) && !exists
+	if err != nil && !newVolume {
 		return Endpoint{}, fmt.Errorf("native database durable volume: %w", err)
 	}
-	if volume.Labels[labelPrefix+"engine"] != spec.Engine {
+	if !newVolume && volume.Labels[labelPrefix+"engine"] != spec.Engine {
 		return Endpoint{}, errors.New("native volume engine mismatch")
+	}
+	if !exists && spec.Port == 0 {
+		spec.Port = spec.RetainedPort
+	}
+	if !exists && !newVolume && spec.Port == 0 {
+		value, parseErr := strconv.ParseUint(volume.Labels[labelPrefix+"port"], 10, 16)
+		if parseErr != nil || value == 0 {
+			return Endpoint{}, errors.New("native database durable volume has no retained published port")
+		}
+		spec.Port = int32(value)
 	}
 	if exists {
 		config := d.databaseConfig(spec)
 		port, _, _ := nativeLayout(spec.Engine)
 		bindings := state.HostConfig.PortBindings[port]
-		changedPort := spec.Port != 0 && bindings[0].HostPort != strconv.Itoa(int(spec.Port))
+		changedPort := bindings[0].HostPort != strconv.Itoa(int(spec.Port))
 		if !slices.Equal(state.Config.Cmd, config.Cmd) || changedPort {
-			if spec.Port == 0 {
-				endpoint, err := state.endpoint(d.endpointHost, spec.Engine)
-				if err == nil {
-					spec.Port = endpoint.Port
-				}
-			}
 			if err := d.stop(ctx, state); err != nil {
 				return Endpoint{}, err
 			}
@@ -330,6 +365,27 @@ func (d *Docker) ensure(ctx context.Context, spec Specification) (Endpoint, erro
 				return Endpoint{}, err
 			}
 			exists = false
+		}
+	}
+	var reservation net.Listener
+	if !exists {
+		reservation, err = d.portRange.Listen(ctx, "127.0.0.1", uint16(spec.Port))
+		if err != nil {
+			return Endpoint{}, err
+		}
+		defer reservation.Close()
+		spec.Port = int32(reservation.Addr().(*net.TCPAddr).Port)
+	}
+	if newVolume {
+		labels := d.labels(spec.ID, "data")
+		labels[labelPrefix+"engine"] = spec.Engine
+		labels[labelPrefix+"port"] = strconv.Itoa(int(spec.Port))
+		volume, err = d.volume(ctx, spec.ID, "data", labels, true)
+		if err != nil {
+			return Endpoint{}, fmt.Errorf("native database durable volume: %w", err)
+		}
+		if volume.Labels[labelPrefix+"port"] != strconv.Itoa(int(spec.Port)) || volume.Labels[labelPrefix+"engine"] != spec.Engine {
+			return Endpoint{}, errors.New("conflicting native database durable port allocation")
 		}
 	}
 	if !exists {
@@ -349,6 +405,11 @@ func (d *Docker) ensure(ctx context.Context, spec Specification) (Endpoint, erro
 		}
 		if !complete {
 			return Endpoint{}, errors.New("native restore is incomplete; retry Restore before Ensure")
+		}
+	}
+	if reservation != nil {
+		if err := reservation.Close(); err != nil {
+			return Endpoint{}, err
 		}
 	}
 	if err := d.start(ctx, state); err != nil {

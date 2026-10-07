@@ -84,3 +84,40 @@ func TestFunctionPacketPolicyExemptsOnlyRuntimeCallback(t *testing.T) {
 		t.Fatal("private function acquired ambient public routing")
 	}
 }
+
+func TestFunctionDNSAdaptsOnlyEnabledAmazonProvidedDNS(t *testing.T) {
+	runtime := &FunctionNetworkRuntime{}
+	if err := runtime.SetRuntimeDNS(docker.Networking{DNS: []string{"127.0.0.1"}}); err == nil {
+		t.Fatal("unreachable loopback runtime resolver accepted")
+	}
+	if err := runtime.SetRuntimeDNS(docker.Networking{DNS: []string{"192.0.2.53"}}); err != nil {
+		t.Fatal(err)
+	}
+	// A nil Engine proves no daemon discovery helper runs once resolvers are explicit.
+	attachment := &FunctionNetworkAttachment{runtime: runtime}
+	provider, custom := netip.MustParseAddr("10.90.0.2"), netip.MustParseAddr("10.90.7.53")
+	for _, test := range []struct {
+		dns     []netip.Addr
+		enabled bool
+		want    string
+	}{
+		{[]netip.Addr{provider}, true, "192.0.2.53"},
+		{[]netip.Addr{custom}, true, "10.90.7.53"},
+		{[]netip.Addr{custom, provider}, false, "10.90.7.53"},
+		{[]netip.Addr{provider}, false, "127.0.0.1"},
+	} {
+		spec := functionNetworkSpecification()
+		spec.DNS, spec.DNSSupport = test.dns, test.enabled
+		servers, err := attachment.functionDNS(t.Context(), spec)
+		if err != nil || strings.Join(servers, ",") != test.want {
+			t.Fatalf("DHCP %v enabled %v rendered %v, %v; want %s", test.dns, test.enabled, servers, err, test.want)
+		}
+	}
+}
+
+func TestLambdaRuntimeDNSRejectsDesktopResolverDependency(t *testing.T) {
+	_, err := NewDockerExecutor(t.Context(), DockerConfig{Client: &docker.Client{}, Namespace: "desktop-dns", CallbackHost: "host.docker.internal", Networking: docker.Networking{DNS: []string{"192.0.2.53"}}})
+	if err == nil || !strings.Contains(err.Error(), "host.docker.internal") {
+		t.Fatalf("explicit DNS silently removed Desktop callback resolution: %v", err)
+	}
+}

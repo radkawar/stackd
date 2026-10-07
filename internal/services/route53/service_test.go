@@ -42,7 +42,7 @@ func reject(t *testing.T, s *Service, ctx context.Context, op string, in any, co
 func testService(t *testing.T) (*Service, *clock.Manual) {
 	t.Helper()
 	at := clock.NewManual(time.Date(2035, 1, 2, 3, 4, 5, 0, time.UTC))
-	server, e := dns.Listen("127.0.0.1:0")
+	server, e := dns.Listen(dns.Config{Address: "127.0.0.1:0"})
 	if e != nil {
 		t.Fatal(e)
 	}

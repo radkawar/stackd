@@ -180,7 +180,7 @@ func TestDNSCurrentOwnershipScopeAndWithdrawal(t *testing.T) {
 }
 
 func TestDNSLegacyMigrationAndServiceReopen(t *testing.T) {
-	endpoint, err := dns.Listen("127.0.0.1:0")
+	endpoint, err := dns.Listen(dns.Config{Address: "127.0.0.1:0"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,7 +232,7 @@ func TestDNSIndependentEndpoints(t *testing.T) {
 	var names []string
 	var resolvers []*net.Resolver
 	for _, vpc := range []string{"vpc-store-a", "vpc-store-b"} {
-		endpoint, err := dns.Listen("127.0.0.1:0")
+		endpoint, err := dns.Listen(dns.Config{Address: "127.0.0.1:0"})
 		if err != nil {
 			t.Fatal(err)
 		}

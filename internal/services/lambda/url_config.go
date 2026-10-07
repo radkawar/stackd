@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	api "stackd/internal/awsapi/lambda"
 	"stackd/internal/awswire"
+	"stackd/internal/endpoints"
 )
 
 const functionURLPrefix = "/_stackd/lambda/urls/"
@@ -80,16 +81,24 @@ func functionURLCORSOutput(in *FunctionURLCORS) *api.Cors {
 	return out
 }
 
-func (s *Service) functionURLConfiguration(v FunctionURLRecord) api.FunctionUrlConfig {
+func (s *Service) functionURLConfiguration(v FunctionURLRecord) (api.FunctionUrlConfig, error) {
+	endpoint := s.publicEndpoint + functionURLPrefix + v.ID + "/"
+	if s.endpointDomain != "" {
+		var err error
+		endpoint, err = endpoints.ResourceURL(s.publicEndpoint, s.endpointDomain, "lambda-url", v.Key.Region, v.ID)
+		if err != nil {
+			return api.FunctionUrlConfig{}, err
+		}
+	}
 	return api.FunctionUrlConfig{
-		FunctionUrl:      new(api.FunctionUrl(s.publicEndpoint + functionURLPrefix + v.ID + "/")),
+		FunctionUrl:      new(api.FunctionUrl(endpoint)),
 		FunctionArn:      new(api.FunctionArn(v.Key.ARN())),
 		AuthType:         new(api.FunctionUrlAuthType(v.Settings.AuthType)),
 		InvokeMode:       new(api.InvokeMode(v.Settings.InvokeMode)),
 		Cors:             functionURLCORSOutput(v.Settings.Cors),
 		CreationTime:     new(api.Timestamp(v.Created.UTC().Format(time.RFC3339Nano))),
 		LastModifiedTime: new(api.Timestamp(v.Modified.UTC().Format(time.RFC3339Nano))),
-	}
+	}, nil
 }
 
 func functionURLNotFound(err error, function bool) *awswire.Error {
@@ -139,7 +148,10 @@ func (s *Service) createFunctionURL(ctx context.Context, in *api.CreateFunctionU
 			if err := requireAdditionalOwner(tx.Context(), current.Owner); err != nil {
 				return err
 			}
-			config := s.functionURLConfiguration(current)
+			config, err := s.functionURLConfiguration(current)
+			if err != nil {
+				return err
+			}
 			out = &api.CreateFunctionUrlConfigOutput{FunctionUrl: config.FunctionUrl, FunctionArn: config.FunctionArn, AuthType: config.AuthType, InvokeMode: config.InvokeMode, Cors: config.Cors, CreationTime: config.CreationTime}
 			return s.recordCall(tx.Context(), "CreateFunctionUrlConfig", in, out, nil)
 		} else if !errors.Is(err, ErrNotFound) {
@@ -158,7 +170,10 @@ func (s *Service) createFunctionURL(ctx context.Context, in *api.CreateFunctionU
 		if err := tx.PutFunctionURL(v); err != nil {
 			return err
 		}
-		config := s.functionURLConfiguration(v)
+		config, err := s.functionURLConfiguration(v)
+		if err != nil {
+			return err
+		}
 		out = &api.CreateFunctionUrlConfigOutput{FunctionUrl: config.FunctionUrl, FunctionArn: config.FunctionArn, AuthType: config.AuthType, Cors: config.Cors, CreationTime: config.CreationTime}
 		if in.InvokeMode != nil {
 			out.InvokeMode = config.InvokeMode
@@ -194,7 +209,11 @@ func (s *Service) getFunctionURL(ctx context.Context, in *api.GetFunctionUrlConf
 	if err != nil {
 		return nil, functionURLNotFound(err, false)
 	}
-	out := api.GetFunctionUrlConfigOutput(s.functionURLConfiguration(v))
+	config, err := s.functionURLConfiguration(v)
+	if err != nil {
+		return nil, wireError(err)
+	}
+	out := api.GetFunctionUrlConfigOutput(config)
 	return &out, nil
 }
 
@@ -238,7 +257,11 @@ func (s *Service) updateFunctionURL(ctx context.Context, in *api.UpdateFunctionU
 		if err := tx.PutFunctionURL(v); err != nil {
 			return err
 		}
-		config := api.UpdateFunctionUrlConfigOutput(s.functionURLConfiguration(v))
+		current, err := s.functionURLConfiguration(v)
+		if err != nil {
+			return err
+		}
+		config := api.UpdateFunctionUrlConfigOutput(current)
 		if in.InvokeMode == nil {
 			config.InvokeMode = nil
 		}
@@ -325,7 +348,11 @@ func (s *Service) listFunctionURLs(ctx context.Context, in *api.ListFunctionUrlC
 				out.NextMarker = new(api.String(base64.RawURLEncoding.EncodeToString([]byte(ref.ARN() + "/url/" + last))))
 				break
 			}
-			out.FunctionUrlConfigs = append(out.FunctionUrlConfigs, s.functionURLConfiguration(v))
+			config, err := s.functionURLConfiguration(v)
+			if err != nil {
+				return err
+			}
+			out.FunctionUrlConfigs = append(out.FunctionUrlConfigs, config)
 			last = v.Key.Qualifier
 		}
 		return nil

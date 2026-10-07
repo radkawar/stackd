@@ -50,6 +50,7 @@ type Config struct {
 	Endpoint             string
 	// PublicEndpoint is the trusted origin serving code downloads and function URLs.
 	PublicEndpoint string
+	EndpointDomain string
 	// KeepAlive zero forces a cold environment for each invocation.
 	KeepAlive time.Duration
 }
@@ -90,6 +91,7 @@ type Service struct {
 	clock                clock.Clock
 	endpoint             string
 	publicEndpoint       string
+	endpointDomain       string
 	keepAlive            time.Duration
 	operations           map[string]func(context.Context, any) (any, *awswire.Error)
 	mu                   sync.Mutex
@@ -128,6 +130,7 @@ func New(config Config) *Service {
 	s.binder, s.events = config.PolicyBinder, config.Events
 	s.apiEvents = config.APIEvents
 	s.publicEndpoint = config.PublicEndpoint
+	s.endpointDomain = config.EndpointDomain
 	s.logs = config.Logs
 	s.targets, s.metrics = config.Targets, config.Metrics
 	s.codeSource = config.CodeSource

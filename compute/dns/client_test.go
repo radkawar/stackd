@@ -10,7 +10,7 @@ import (
 )
 
 func TestValidationCNAMEUsesMatchingOwnerAndTCP(t *testing.T) {
-	server, err := Listen("127.0.0.1:0")
+	server, err := Listen(Config{Address: "127.0.0.1:0"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestValidationCNAMEUsesMatchingOwnerAndTCP(t *testing.T) {
 }
 
 func TestNegativeAuthorityAndDelegationSections(t *testing.T) {
-	server, err := Listen("127.0.0.1:0")
+	server, err := Listen(Config{Address: "127.0.0.1:0"})
 	if err != nil {
 		t.Fatal(err)
 	}

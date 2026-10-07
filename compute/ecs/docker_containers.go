@@ -15,11 +15,14 @@ import (
 )
 
 type dockerContainerInspection struct {
-	ID         string `json:"Id"`
-	Image      string
-	Name       string
-	Created    time.Time
-	Config     struct{ Labels map[string]string }
+	ID      string `json:"Id"`
+	Image   string
+	Name    string
+	Created time.Time
+	Config  struct {
+		Labels map[string]string
+		Env    []string
+	}
 	HostConfig struct{ CPUShares, Memory int64 }
 	State      struct {
 		Status                                       string
@@ -80,11 +83,21 @@ func (e *dockerEnvironment) prepareContainers(ctx context.Context) error {
 				VolumeOptions: docker.ContainerVolumeOptions{NoCopy: true},
 			})
 		}
+		trust, err := e.executor.networking.PrepareTrust(&config, image.Config.Env, "")
+		if err != nil {
+			return fmt.Errorf("prepare ECS container %s trust: %w", spec.Name, err)
+		}
 		var created struct {
 			ID string `json:"Id"`
 		}
 		if err := e.executor.client.JSON(ctx, http.MethodPost, "/containers/create?name="+url.QueryEscape(name), config, &created); err != nil {
 			return fmt.Errorf("create ECS container %s: %w", spec.Name, err)
+		}
+		// A never-started container without its bundle is removed, not adopted.
+		if err := trust.Install(ctx, e.executor.client, created.ID); err != nil {
+			cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+			defer cancel()
+			return errors.Join(fmt.Errorf("install ECS container %s trust: %w", spec.Name, err), e.executor.client.RemoveContainer(cleanup, created.ID))
 		}
 		container.id = created.ID
 		e.containers[spec.Name] = container

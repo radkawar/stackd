@@ -75,26 +75,6 @@ func newMaterial(spec msk.Specification, host string) (*material, error) {
 		return nil, err
 	}
 	m := &material{ClusterID: base64.RawURLEncoding.EncodeToString(id), CAPEM: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caDER}), CertPEM: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), KeyPEM: pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pk}), AdminPassword: base64.RawURLEncoding.EncodeToString(password), UserHashes: map[string]string{}}
-	// Hold all reservations until every node has a distinct port. Docker claims
-	// those exact ports on start; a competing claimant produces a real error.
-	var reservations []net.Listener
-	defer func() {
-		for _, l := range reservations {
-			l.Close()
-		}
-	}()
-	for range spec.Brokers {
-		var ports nodePorts
-		for _, target := range []*int{&ports.Client, &ports.Admin} {
-			l, err := net.Listen("tcp", net.JoinHostPort(host, "0"))
-			if err != nil {
-				return nil, err
-			}
-			reservations = append(reservations, l)
-			*target = l.Addr().(*net.TCPAddr).Port
-		}
-		m.Nodes = append(m.Nodes, ports)
-	}
 	return m, nil
 }
 

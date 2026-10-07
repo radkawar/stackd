@@ -4,7 +4,7 @@ Start with [Getting started](getting-started.md), then use this guide to choose 
 
 ## Baseline and configuration interface
 
-The executable takes command-line flags, not a general YAML/JSON configuration file. `./bin/stackd -h` lists the flags supported by your build; the authoritative declarations are in [`cmd/stackd/main.go`](../cmd/stackd/main.go). AWS environment variables configure your **client**, not the stackd listener or its storage.
+The executable takes command-line flags, not a general YAML/JSON configuration file. `./bin/stackd -h` lists the flags supported by your build; the authoritative declarations are in [`cmd/stackd/main.go`](../cmd/stackd/main.go) and [`cmd/stackd/networking_flags.go`](../cmd/stackd/networking_flags.go). AWS environment variables configure your **client**, not the stackd listener or its storage.
 
 ```sh
 mkdir -p bin data
@@ -22,7 +22,13 @@ This runs in the foreground. The basic API emulator needs no Docker. Omit `-data
 | `-public-endpoint` | derived from listener | Advertised HTTP(S) origin, not a bind address. |
 | `-clock-start` | empty | Initialize manual service time at an RFC3339 instant; saved SQLite time wins. |
 | `-tls-cert`, `-tls-key` | both empty | PEM certificate chain and private key for HTTPS; supply both. |
-| `-dns-listen` | empty | Separate authoritative UDP/TCP DNS address. With ALB execution, empty instead selects an ephemeral loopback port. |
+| `-dns-listen` | empty | Separate UDP/TCP DNS address, authoritative-only by default. With ALB execution, empty instead selects an ephemeral loopback port. |
+| `-gateway-domain`, `-gateway-address` | empty | Explicit native gateway suffix and repeatable DNS answer addresses; do not configure the host resolver. |
+| `-dns-upstream`, `-dns-allow-client` | empty | Repeatable numeric upstream `IP:port` and recursion-client CIDRs. Forwarding remains off without an upstream; an empty recursion ACL permits only loopback. |
+| `-runtime-dns`, `-runtime-ca` | empty | Reachable managed-runtime resolver IPv4 address and scoped public CA PEM file; preserve customer trust and VPC/DHCP policy. |
+| `-dev-ca-directory` | empty | Opt-in private development CA state; issues scoped HTTPS certificates and selects its public CA for managed runtime trust. |
+| `-native-ports` | empty | Inclusive native-engine customer port pool `FIRST-LAST`; empty retains ephemeral allocation. |
+| `-network-diagnostics` | false | Enable loopback-only `/_stackd/network` configuration reporting, not a readiness guarantee. |
 
 ## Credentials, IAM and regions
 
@@ -36,7 +42,7 @@ unset AWS_SESSION_TOKEN
 aws --endpoint-url http://127.0.0.1:4566 sts get-caller-identity
 ```
 
-These fixture credentials are a bootstrap **local root identity**, not an authentication-off mode. The default account is `000000000000`. To select another local account, use its 12-digit account ID as the access key, with secret `test`; `-account-id` only changes which account the `test` key selects. Do not use real AWS credentials. Do not omit `--endpoint-url` from local commands.
+These fixture credentials are a bootstrap **local root identity**, not an authentication-off mode. The default account is `000000000000`. To select another local account, use its 12-digit account ID as the access key, with secret `test`; `-account-id` only changes which account the `test` key selects. Do not use real AWS credentials. Keep explicit local endpoints unless you deliberately configure the isolated [standard AWS HTTPS routing](networking.md#isolated-opt-in-standard-aws-https-routing) path.
 
 For strict permission scenarios, bootstrap IAM users/roles and policies, create local IAM access keys or obtain STS session credentials, then switch the client to those credentials. Set `AWS_SESSION_TOKEN` for STS credentials; unset it when returning to long-lived keys. IAM users start without permissions. Local signatures, key status, expiry and session tokens are checked, and implemented operations enforce applicable identity/resource policies, boundaries, session policies and Organizations controls. There is no CLI `-strict` or `-disable-iam` switch: use the appropriate identity rather than treating bootstrap root success as evidence that a limited user is authorized. See [IAM evaluation](iam-evaluation.md), [resource controls](iam-resource-controls.md) and [role assumption/federation](oidc-federation.md).
 
@@ -59,13 +65,15 @@ It applies across regions and recovered account-creation jobs. Reducing it does 
 | `-public-endpoint` | Clients receiving advertised URLs | Federation issuer, SNS certificate/notification URLs, Lambda Function URLs and deployment downloads. |
 | `-compute-endpoint` | Lambda/ECS/CodeBuild and other configured execution integrations | AWS API origin reachable from execution containers. Does not open a socket or make loopback reachable. |
 
-With no explicit public endpoint, stackd uses the listener's actual port and HTTP/HTTPS scheme. An unspecified bind address is advertised as `localhost`, not `0.0.0.0`. An explicit public endpoint must be an absolute HTTP(S) origin without credentials, a path prefix, query or fragment.
+With no explicit public endpoint, stackd uses the listener's actual port and HTTP/HTTPS scheme. A configured `-gateway-domain` supplies its advertised hostname; otherwise an unspecified bind address is advertised as `localhost`, not `0.0.0.0`. An explicit public endpoint must be an absolute HTTP(S) origin without credentials, a path prefix, query or fragment. Public and compute origins remain independently configurable.
 
 For host-only use, keep the baseline `http://127.0.0.1:4566`. For a shared instance, choose a hostname/address that its clients actually resolve, configure `-public-endpoint` accordingly, and restrict access at the host/network boundary. The bootstrap credentials and local administration endpoints make this unsuitable as an untrusted public service. Merely setting an advertised hostname does not configure DNS, TLS trust, a proxy or a firewall.
 
 Containers have their own loopback: `127.0.0.1` inside a normal task is not your host. `-docker-host` selects Engine transport only; each of `-lambda-runtime`, `-ecs-runtime`, `-codebuild-runtime`, `-dynamodb-runtime`, `-kinesis-runtime` and `-inventory-orc-runtime` defaults to false and independently enables its owner. When Lambda/ECS/CodeBuild/Glue or EC2 guest execution requests a default compute origin, a loopback listener is rejected; a non-loopback listener defaults to `http://host.docker.internal:<port>` (HTTPS with TLS). Transport-only or DynamoDB/Kinesis-only selection does not require that default. Explicit origins are your responsibility to make reachable; loopback does not solve container networking. A native macOS controller with opt-in Desktop Lambda/DynamoDB/Kinesis uses real Linux VM backends, not ECS's local Linux/systemd/cgroup-v2 contract. For Desktop Lambda, explicit `-lambda-callback-host host.docker.internal` preserves container DNS without host-side resolution or a shadow mapping; use static **Linux**, not Darwin, telemetry helpers. See [runtime networking](runtimes.md#networking-before-execution) and the [Desktop recipe](runtime-containers.md#native-macos-controller-with-docker-desktop), including evidence limits and resource-URL routing.
 
 DNS is a separate UDP/TCP listener. Set `-dns-listen` explicitly for DNS-only use. With native ALB enabled, an omitted value binds an ephemeral loopback DNS port printed at startup. Clients must use that resolver explicitly: stackd does not modify the host resolver. See [Route 53 DNS scope](route53.md#dns-resolution-and-delegation-boundary) and [ACM trust](acm.md#trust-boundary).
+
+See [Networking](networking.md) for resource hostnames, explicit forwarding and recursion access control, managed-runtime DNS/CA behavior, native port pools, and host/container/Desktop/remote recipes. The isolated standard-AWS HTTPS listener and reversible `network dns setup` host split-DNS command are separate opt-ins; neither runs as a server-start side effect.
 
 ## Persistence and state directories
 
@@ -102,6 +110,8 @@ curl -H 'Content-Type: application/json' -d '{"advance":"2m"}' \
 An acknowledged advance is saved with SQLite. Restart restores the saved instant, even without `-clock-start`; a different initial value does not reset it. Advances accept nonnegative Go durations and notify timers, but do not wait for service jobs to finish. Wall-clock instances reject advances with HTTP 409. Real execution/startup deadlines still use wall time; advancing service time does not fast-forward customer code. See [manual service time](sqlite-state.md#manual-service-time).
 
 ## HTTPS
+
+For scoped local development trust, use `-dev-ca-directory` with an explicit `-gateway-domain`, `-dev-ca-domain` or `-dev-ca-ip` identity scope, then export only the public CA with `stackd network ca export`. This is mutually exclusive with the static certificate/key flags below. It does not install global host trust; configure the selected SDK/application trust bundle. See [development CA and trust](networking.md#development-ca-and-scoped-trust).
 
 Supply your own certificate and key, with a certificate valid for the hostname/IP clients use:
 

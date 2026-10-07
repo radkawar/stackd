@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/url"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -18,12 +19,14 @@ import (
 const metadataLabel = "stackd.codebuild.metadata"
 const metadataTargetLabel = "stackd.codebuild.metadata.target"
 const metadataIDLabel = "stackd.codebuild.metadata.id"
+const metadataTLSLabel = "stackd.codebuild.metadata.tls"
 const metadataPort = "51679"
 
-// The proxy is the network-namespace anchor, started before the build joins it.
-// It forwards unmodified HTTP bytes; the shared service still owns capability
-// validation and role credential issuance. It never receives host credentials,
-// a Docker socket, a filesystem mount, or the build's authorization token.
+// The proxy anchors the build network namespace and exposes localhost HTTP to
+// SDK credential providers, which do not all consume AWS_CA_BUNDLE. HTTPS
+// upstreams are independently verified using scoped public CA trust. It forwards
+// request bytes; the service still owns capability validation and role issuance.
+// No host credentials, Docker socket or build authorization token are installed.
 func (d *DockerExecutor) prepareMetadata(ctx context.Context, arn string, environment []string) (string, []string, error) {
 	index := -1
 	var endpoint *url.URL
@@ -35,9 +38,6 @@ func (d *DockerExecutor) prepareMetadata(ctx context.Context, arn string, enviro
 		if err != nil || parsed.Host == "" || parsed.User != nil || parsed.Fragment != "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
 			return "", nil, fmt.Errorf("invalid build role credential endpoint")
 		}
-		if parsed.Scheme == "https" {
-			return "", environment, nil
-		}
 		endpoint, index = parsed, i
 		break
 	}
@@ -47,6 +47,9 @@ func (d *DockerExecutor) prepareMetadata(ctx context.Context, arn string, enviro
 	host, port := endpoint.Hostname(), endpoint.Port()
 	if port == "" {
 		port = "80"
+		if endpoint.Scheme == "https" {
+			port = "443"
+		}
 	}
 	number, err := strconv.Atoi(port)
 	if err != nil || number < 1 || number > 65535 {
@@ -70,11 +73,17 @@ func (d *DockerExecutor) prepareMetadata(ctx context.Context, arn string, enviro
 		if state.Config.Labels[namespaceLabel] != d.config.Namespace || state.Config.Labels[arnLabel] != arn || state.Config.Labels[metadataLabel] != "true" || state.Config.Labels[metadataTargetLabel] != target {
 			return "", nil, fmt.Errorf("retained build credential proxy ownership or target mismatch")
 		}
+		if (state.Config.Labels[metadataTLSLabel] == "true") != (endpoint.Scheme == "https") {
+			return "", nil, fmt.Errorf("retained build credential proxy TLS mode mismatch")
+		}
 		if !state.State.Running {
 			return "", nil, fmt.Errorf("retained build credential proxy is not running; cannot replace its live network namespace")
 		}
 	} else {
-		var image struct{ ID string }
+		var image struct {
+			ID     string
+			Config struct{ Env []string }
+		}
 		if err := d.client.JSON(ctx, "GET", "/images/"+url.PathEscape(docker.ToolkitImage)+"/json", nil, &image); err != nil {
 			return "", nil, fmt.Errorf("CodeBuild role credential proxy requires installed %s: %w", docker.ToolkitImage, err)
 		}
@@ -82,11 +91,29 @@ func (d *DockerExecutor) prepareMetadata(ctx context.Context, arn string, enviro
 		if ip := net.ParseIP(host); ip != nil && ip.To4() == nil {
 			transport = "TCP6:"
 		}
+		upstream := transport + target + ",connect-timeout=5"
+		if endpoint.Scheme == "https" {
+			ca := "/etc/ssl/certs/ca-certificates.crt"
+			if d.config.Networking.CAFile != "" {
+				ca = path.Join(docker.RuntimeTrustDirectory, "ca-bundle.pem")
+			}
+			upstream = "OPENSSL:" + target + ",connect-timeout=5,verify=1,cafile=" + ca + ",cn=" + host
+			if net.ParseIP(host) == nil {
+				upstream += ",snihost=" + host
+			}
+		}
 		config := docker.ContainerConfig{
-			Image: docker.ToolkitImage, Entrypoint: []string{"socat"}, Cmd: []string{"TCP4-LISTEN:" + metadataPort + ",bind=127.0.0.1,reuseaddr,fork", transport + target + ",connect-timeout=5"},
-			Labels: map[string]string{namespaceLabel: d.config.Namespace, arnLabel: arn, metadataLabel: "true", metadataTargetLabel: target},
+			Image: docker.ToolkitImage, Entrypoint: []string{"socat"}, Cmd: []string{"TCP4-LISTEN:" + metadataPort + ",bind=127.0.0.1,reuseaddr,fork", upstream},
+			Labels: map[string]string{namespaceLabel: d.config.Namespace, arnLabel: arn, metadataLabel: "true", metadataTargetLabel: target, metadataTLSLabel: strconv.FormatBool(endpoint.Scheme == "https")},
 			HostConfig: docker.ContainerHostConfig{NetworkMode: d.config.Network, ReadonlyRootfs: true, Memory: 64 << 20, MemorySwap: 64 << 20, CPUPeriod: 100000, CPUQuota: 10000, PidsLimit: 64,
-				CapDrop: []string{"ALL"}, SecurityOpt: []string{"no-new-privileges:true"}, ExtraHosts: []string{"host.docker.internal:host-gateway"}, LogConfig: docker.ContainerLogConfig{Type: "none"}},
+				CapDrop: []string{"ALL"}, SecurityOpt: []string{"no-new-privileges:true"}, ExtraHosts: []string{"host.docker.internal:host-gateway"}, DNS: d.config.Networking.DNS, LogConfig: docker.ContainerLogConfig{Type: "none"}},
+		}
+		var trust *docker.Trust
+		if endpoint.Scheme == "https" {
+			trust, err = d.config.Networking.PrepareTrust(&config, image.Config.Env, "")
+			if err != nil {
+				return "", nil, fmt.Errorf("prepare credential proxy TLS trust: %w", err)
+			}
 		}
 		var created struct {
 			ID string `json:"Id"`
@@ -95,6 +122,12 @@ func (d *DockerExecutor) prepareMetadata(ctx context.Context, arn string, enviro
 			return "", nil, fmt.Errorf("creating build credential proxy: %w", err)
 		}
 		state.ID = created.ID
+		if err := trust.Install(ctx, d.client, state.ID); err != nil {
+			cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+			defer cancel()
+			_ = d.client.RemoveContainer(cleanup, state.ID)
+			return "", nil, fmt.Errorf("install credential proxy TLS trust: %w", err)
+		}
 		if err := d.client.JSON(ctx, "POST", "/containers/"+url.PathEscape(state.ID)+"/start", nil, nil); err != nil {
 			cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 			defer cancel()
@@ -111,6 +144,7 @@ func (d *DockerExecutor) prepareMetadata(ctx context.Context, arn string, enviro
 		return "", nil, err
 	}
 	rewritten := *endpoint
+	rewritten.Scheme = "http"
 	rewritten.Host = "127.0.0.1:" + metadataPort
 	environment[index] = "AWS_CONTAINER_CREDENTIALS_FULL_URI=" + rewritten.String()
 	return state.ID, environment, nil

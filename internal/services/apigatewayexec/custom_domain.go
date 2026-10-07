@@ -2,8 +2,14 @@ package apigatewayexec
 
 import "context"
 
-// ExecutionTarget binds a custom domain without changing the signed request URL.
-type ExecutionTarget struct{ APIID, Stage, Path string }
+// ExecutionTarget binds an owned host without changing the signed request URL.
+type ExecutionTarget struct {
+	APIID, Stage, Path string
+	// DefaultEndpoint retains execute-api endpoint disablement and distinguishes
+	// resource hosts from custom-domain mappings.
+	DefaultEndpoint bool
+	REST            bool
+}
 type executionTargetKey struct{}
 
 func WithExecutionTarget(ctx context.Context, target ExecutionTarget) context.Context {

@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,8 +30,13 @@ const arnLabel = "stackd.codebuild.arn"
 // DockerConfig isolates native resources by a stable stack namespace. Network
 // may name an isolated Docker network, never host or another container's network.
 // Images are explicit: local images are used; a missing image is pulled from its
-// named registry without inheriting any host Docker credentials.
-type DockerConfig struct{ Namespace, Network, FleetImage string }
+// named registry without inheriting any host Docker credentials. Networking
+// selects build resolvers and the AWS SDK CA bundle for new builds (see
+// docker.Networking); empty DNS keeps the daemon's resolver configuration.
+type DockerConfig struct {
+	Namespace, Network, FleetImage string
+	Networking                     docker.Networking
+}
 type DockerExecutor struct {
 	client  *docker.Client
 	config  DockerConfig
@@ -48,6 +54,10 @@ func NewDockerExecutor(client *docker.Client, config DockerConfig) (*DockerExecu
 	if config.Network == "host" || strings.HasPrefix(config.Network, "container:") {
 		return nil, fmt.Errorf("CodeBuild cannot share host or container networking")
 	}
+	if err := config.Networking.Validate(); err != nil {
+		return nil, fmt.Errorf("CodeBuild runtime networking: %w", err)
+	}
+	config.Networking.DNS = slices.Clone(config.Networking.DNS)
 	return &DockerExecutor{client: client, config: config}, nil
 }
 func (d *DockerExecutor) name(arn string) string {
@@ -73,7 +83,7 @@ func (d *DockerExecutor) containerConfig(spec Specification) (docker.ContainerCo
 		Image: spec.Image, User: "0", WorkingDir: "/codebuild/src", Entrypoint: []string{"/bin/sh"}, Cmd: []string{"/codebuild/control/run.sh"},
 		Labels: map[string]string{namespaceLabel: d.config.Namespace, arnLabel: spec.ARN},
 		HostConfig: docker.ContainerHostConfig{NetworkMode: d.config.Network, Memory: memory, MemorySwap: memory, CPUPeriod: 100000, CPUQuota: quota, PidsLimit: 256,
-			CapDrop: []string{"ALL"}, CapAdd: []string{"CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"}, SecurityOpt: []string{"no-new-privileges:true"}, ExtraHosts: []string{"host.docker.internal:host-gateway"}, LogConfig: docker.ContainerLogConfig{Type: "json-file"}},
+			CapDrop: []string{"ALL"}, CapAdd: []string{"CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"}, SecurityOpt: []string{"no-new-privileges:true"}, ExtraHosts: []string{"host.docker.internal:host-gateway"}, DNS: d.config.Networking.DNS, LogConfig: docker.ContainerLogConfig{Type: "json-file"}},
 	}, nil
 }
 
@@ -176,6 +186,10 @@ func (d *DockerExecutor) Prepare(ctx context.Context, spec Specification) (Execu
 	if err := d.ensureImage(ctx, spec); err != nil {
 		return nil, err
 	}
+	var image struct{ Config struct{ Env []string } }
+	if err := d.client.JSON(ctx, "GET", "/images/"+url.PathEscape(spec.Image)+"/json", nil, &image); err != nil {
+		return nil, fmt.Errorf("inspecting build image: %w", err)
+	}
 	source, err := prepareSource(spec.SourceZIP, spec.SourceFiles)
 	if err != nil {
 		return nil, err
@@ -255,9 +269,18 @@ func (d *DockerExecutor) Prepare(ctx context.Context, spec Specification) (Execu
 	}
 	config.Env = environment
 	if proxyID != "" {
+		// The proxy owns the namespace and its resolv.conf; Docker rejects
+		// per-container DNS in container network mode.
 		config.HostConfig.NetworkMode = "container:" + proxyID
 		config.HostConfig.ExtraHosts = nil
+		config.HostConfig.DNS = nil
 		config.Labels[metadataIDLabel] = proxyID
+	}
+	trust, err := d.config.Networking.PrepareTrust(&config, image.Config.Env, "")
+	if err != nil {
+		release()
+		_ = d.restoreBuildSlot(ctx, labels)
+		return nil, err
 	}
 	if parsed.Env.Shell == "bash" {
 		config.Entrypoint = []string{"/bin/bash"}
@@ -285,6 +308,10 @@ func (d *DockerExecutor) Prepare(ctx context.Context, spec Specification) (Execu
 			_ = d.restoreBuildSlot(cleanup, labels)
 		}
 	}()
+	// Install before control files: retained spec.json proves a complete build.
+	if err := trust.Install(ctx, d.client, created.ID); err != nil {
+		return nil, err
+	}
 	if err := execution.selectRuntimes(ctx, &parsed, environment); err != nil {
 		return nil, err
 	}

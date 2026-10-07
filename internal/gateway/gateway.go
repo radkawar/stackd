@@ -98,17 +98,22 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if g.serveDataPlane(w, r) {
 		return
 	}
+	resourceService, resourceRegion, resourceMatched := g.resourceEndpoint(r)
+	if resourceMatched && !hasSigningMaterial(r.Header, r.URL.Query()) {
+		awswire.JSONError(w, r, &awswire.Error{Code: "MissingAuthenticationToken", Message: "Request must contain a valid AWS signature.", StatusCode: http.StatusForbidden})
+		return
+	}
 	// S3 preflight is anonymous even when a browser includes signing fields.
-	if r.Method == http.MethodOptions && g.serveS3CORS(w, r, nil, g.config.UnsignedRegion) {
+	if !resourceMatched && r.Method == http.MethodOptions && g.serveS3CORS(w, r, nil, g.config.UnsignedRegion) {
 		return
 	}
-	if g.serveCognitoDiscovery(w, r) {
+	if !resourceMatched && g.serveCognitoDiscovery(w, r) {
 		return
 	}
-	if g.servePublicJSON(w, r) {
+	if !resourceMatched && g.servePublicJSON(w, r) {
 		return
 	}
-	if g.servePublicIdentityREST(w, r) {
+	if !resourceMatched && g.servePublicIdentityREST(w, r) {
 		return
 	}
 	if !hasSigningMaterial(r.Header, r.URL.Query()) {
@@ -118,7 +123,13 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	scope, err := parseCredential(r)
-	service, routeErr := g.route(r, scope.service)
+	var service *Service
+	var routeErr *awswire.Error
+	if resourceMatched {
+		service, routeErr = selectProtocol(r, resourceService)
+	} else {
+		service, routeErr = g.route(r, scope.service)
+	}
 	if err != nil && service == nil {
 		service = g.s3Service(r)
 	}
@@ -159,6 +170,10 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeError(failure)
 			return
 		}
+	}
+	if resourceMatched && (scope.service != service.SigningName || scope.region != resourceRegion) {
+		writeError(&awswire.Error{Code: "SignatureDoesNotMatch", Message: "Credential scope does not match the requested endpoint", StatusCode: http.StatusForbidden})
+		return
 	}
 	if err != nil {
 		writeError(&awswire.Error{Code: "IncompleteSignature", Message: err.Error(), StatusCode: 400})

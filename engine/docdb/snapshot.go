@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"slices"
@@ -139,12 +140,12 @@ func (d *Docker) Restore(ctx context.Context, spec Specification, snapshot strin
 	if backup.Labels[labelPrefix+"image"] != d.image || backup.Labels[labelPrefix+"username"] != spec.Username || backup.Labels[labelPrefix+"source"] == spec.ID {
 		return Endpoint{}, errors.New("snapshot restore requires matching image/user and a distinct database incarnation")
 	}
-	if spec.Port == 0 {
-		spec.Port, err = allocatePort()
-		if err != nil {
-			return Endpoint{}, err
-		}
+	reservation, err := d.portRange.Listen(ctx, "127.0.0.1", uint16(spec.Port))
+	if err != nil {
+		return Endpoint{}, err
 	}
+	defer reservation.Close()
+	spec.Port = int32(reservation.Addr().(*net.TCPAddr).Port)
 	labels := d.labels(spec.ID, "data")
 	labels[labelPrefix+"snapshot"] = snapshot
 	labels[labelPrefix+"username"] = spec.Username
@@ -167,6 +168,9 @@ func (d *Docker) Restore(ctx context.Context, spec Specification, snapshot strin
 		return Endpoint{}, err
 	}
 	if err := d.client.RemoveContainer(ctx, helper.ID); err != nil {
+		return Endpoint{}, err
+	}
+	if err := reservation.Close(); err != nil {
 		return Endpoint{}, err
 	}
 	startup, cancel := context.WithTimeout(ctx, d.startupTimeout)

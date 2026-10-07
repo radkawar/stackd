@@ -19,6 +19,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"stackd/compute/docker"
+	"stackd/compute/ports"
 )
 
 type nativeNode struct{ Port, BusPort int32 }
@@ -109,23 +110,35 @@ func (d *Docker) containerConfig(spec Specification) docker.ContainerConfig {
 	config.HostConfig.CPUQuota = 200000
 	return config
 }
-func newManifest(spec Specification) (manifest, []net.Listener, error) {
+func (d *Docker) newManifest(ctx context.Context, spec Specification) (manifest, []net.Listener, error) {
 	m := manifest{ID: spec.ID, Secret: rand.Text(), Shards: spec.Shards, Replicas: spec.Replicas, ClusterMode: spec.ClusterMode, TLSEnabled: spec.TLSEnabled, MemoryBytes: spec.MemoryBytes}
-	var held []net.Listener
-	for range spec.Shards * (spec.Replicas + 1) {
-		n := nativeNode{}
-		for _, dst := range []*int32{&n.Port, &n.BusPort} {
-			l, err := net.Listen("tcp4", "127.0.0.1:0")
-			if err != nil {
-				for _, v := range held {
-					v.Close()
-				}
-				return m, nil, err
-			}
-			held = append(held, l)
-			*dst = int32(l.Addr().(*net.TCPAddr).Port)
+	m.Nodes = make([]nativeNode, int(spec.Shards*(spec.Replicas+1)))
+	held := make([]net.Listener, 0, len(m.Nodes)*2)
+	fail := func(err error) (manifest, []net.Listener, error) {
+		for _, listener := range held {
+			listener.Close()
 		}
-		m.Nodes = append(m.Nodes, n)
+		return m, nil, err
+	}
+	for node := range m.Nodes {
+		listener, err := d.portRange.Listen(ctx, "127.0.0.1", 0)
+		if err != nil {
+			return fail(err)
+		}
+		held = append(held, listener)
+		m.Nodes[node].Port = int32(listener.Addr().(*net.TCPAddr).Port)
+	}
+	if spec.ClusterMode {
+		for node := range m.Nodes {
+			// The private cluster bus is not a customer endpoint. Keep its
+			// distinct exact ephemeral port in the same retained manifest.
+			listener, err := (ports.Range{}).Listen(ctx, "127.0.0.1", 0)
+			if err != nil {
+				return fail(err)
+			}
+			held = append(held, listener)
+			m.Nodes[node].BusPort = int32(listener.Addr().(*net.TCPAddr).Port)
+		}
 	}
 	return m, held, nil
 }
@@ -192,6 +205,9 @@ func (d *Docker) readManifest(ctx context.Context, s containerState, spec Specif
 	}
 	if m.ID != spec.ID || m.Shards != spec.Shards || m.Replicas != spec.Replicas || m.ClusterMode != spec.ClusterMode || m.TLSEnabled != spec.TLSEnabled || m.MemoryBytes != spec.MemoryBytes || m.Secret == "" || len(m.Nodes) != int(m.Shards*(m.Replicas+1)) {
 		return m, errors.New("native Valkey topology or identity differs from retained intent")
+	}
+	if err := m.validatePorts(); err != nil {
+		return m, err
 	}
 	return m, nil
 }
@@ -276,7 +292,7 @@ func (d *Docker) ensure(ctx context.Context, spec Specification) (Deployment, er
 	m, err := d.readManifest(ctx, s, spec)
 	if dockerStatus(err, 404) && s.State.Status == "created" {
 		var held []net.Listener
-		m, held, err = newManifest(spec)
+		m, held, err = d.newManifest(ctx, spec)
 		if err != nil {
 			return Deployment{}, err
 		}

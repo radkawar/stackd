@@ -210,6 +210,7 @@ func removeNativeConfiguration(dir string) error {
 		return err
 	}
 	allowed := map[string]bool{"owner": true, "configured": true, "cert.pem": true, "key.pem": true, "definitions.json": true, "enabled_plugins": true, "rabbitmq.conf": true, "advanced.config": true, "broker.p12": true, "activemq.xml": true, "jetty-realm.properties": true, "log4j2.properties": true}
+	allowed["ports.json"] = true
 	allowed["StackdMQMetrics.class"] = true
 	for _, entry := range entries {
 		if !allowed[entry.Name()] && !strings.HasPrefix(entry.Name(), ".mq-config-") && !strings.HasPrefix(entry.Name(), ".mq-keystore-") {

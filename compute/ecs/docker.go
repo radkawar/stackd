@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 
@@ -27,20 +28,28 @@ type Networks interface {
 	RemovePolicy(context.Context, string, string) error
 }
 
+// DockerConfig selects the Engine and VPC bridge owner. Networking.DNS replaces
+// only an enabled EC2-selected AmazonProvidedDNS entry; with Networking.DNS set,
+// custom DHCP servers stay exact and disabled VPC DNS answers nothing. Empty DNS
+// keeps the daemon's resolver configuration. Networking.CAFile adds a scoped
+// AWS SDK bundle to new customer containers (see docker.Networking). Retained
+// tasks keep the DNS and trust their native resources were created with.
 type DockerConfig struct {
 	// Client remains caller-owned and must outlive all task environments.
-	Client   *docker.Client
-	Networks Networks
+	Client     *docker.Client
+	Networks   Networks
+	Networking docker.Networking
 }
 
 // DockerExecutor uses a local rootful Linux Engine with systemd/cgroup v2.
 // Preparation/removal serialize native shared-network ownership, not execution
 // of customer processes. It does not install images or change daemon settings.
 type DockerExecutor struct {
-	client   *docker.Client
-	networks Networks
-	mu       sync.Mutex
-	tasks    map[string]*dockerEnvironment
+	client     *docker.Client
+	networks   Networks
+	networking docker.Networking
+	mu         sync.Mutex
+	tasks      map[string]*dockerEnvironment
 }
 
 func NewDockerExecutor(ctx context.Context, config DockerConfig) (*DockerExecutor, error) {
@@ -49,6 +58,9 @@ func NewDockerExecutor(ctx context.Context, config DockerConfig) (*DockerExecuto
 	}
 	if config.Networks == nil {
 		return nil, errors.New("ECS shared native network owner is required")
+	}
+	if err := config.Networking.Validate(); err != nil {
+		return nil, fmt.Errorf("ECS runtime networking: %w", err)
 	}
 	var info struct {
 		OSType, CgroupDriver, CgroupVersion string
@@ -69,7 +81,8 @@ func NewDockerExecutor(ctx context.Context, config DockerConfig) (*DockerExecuto
 	if err := config.Client.JSON(ctx, http.MethodGet, "/images/"+url.PathEscape(docker.ToolkitImage)+"/json", nil, &image); err != nil {
 		return nil, fmt.Errorf("ECS toolkit image must be installed locally (%s): %w", docker.ToolkitImage, err)
 	}
-	return &DockerExecutor{client: config.Client, networks: config.Networks, tasks: make(map[string]*dockerEnvironment)}, nil
+	config.Networking.DNS = slices.Clone(config.Networking.DNS)
+	return &DockerExecutor{client: config.Client, networks: config.Networks, networking: config.Networking, tasks: make(map[string]*dockerEnvironment)}, nil
 }
 
 func (d *DockerExecutor) Prepare(ctx context.Context, spec Specification) (Environment, error) {
@@ -80,6 +93,10 @@ func (d *DockerExecutor) Prepare(ctx context.Context, spec Specification) (Envir
 	}
 	if spec.TaskARN == "" || spec.CPUUnits <= 0 || spec.MemoryBytes <= 0 || len(spec.Containers) == 0 || spec.Metadata == nil {
 		return nil, errors.New("ECS execution requires a task identity, positive aggregate limits, containers and metadata handler")
+	}
+	dns, search, err := d.taskDNS(spec.Network)
+	if err != nil {
+		return nil, err
 	}
 	containers, err := d.resolveImages(ctx, spec)
 	if err != nil {
@@ -98,6 +115,7 @@ func (d *DockerExecutor) Prepare(ctx context.Context, spec Specification) (Envir
 		e.metadata, err = prepareMetadata(ctx, d.client, dockerMetadataSpec{
 			TaskARN: spec.TaskARN, NetworkName: bridge.Name, Image: docker.ToolkitImage,
 			Address: spec.Network.Address, Gateway: spec.Network.Gateway, MACAddress: spec.Network.MAC,
+			DNS: dns, DNSSearch: search,
 			Handler:   spec.Metadata,
 			Configure: e.configureNetwork,
 		})
@@ -148,4 +166,22 @@ func (e *dockerEnvironment) Close() error {
 		delete(e.executor.tasks, e.spec.TaskARN)
 	}
 	return e.metadata.close()
+}
+
+// taskDNS renders resolvers for a fresh namespace anchor. Customer containers
+// join that namespace and share its resolv.conf; Docker rejects per-container
+// DNS in container network mode.
+func (d *DockerExecutor) taskDNS(spec network.Specification) ([]string, []string, error) {
+	if len(d.networking.DNS) == 0 {
+		return nil, nil, nil
+	}
+	servers, err := d.networking.SelectedDNS(spec.DNS, spec.Pool.Masked().Addr().Next().Next(), spec.DNSSupport, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	search := strings.Fields(spec.DomainName)
+	if len(search) == 0 {
+		search = []string{"."}
+	}
+	return servers, search, nil
 }

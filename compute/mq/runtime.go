@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"slices"
 	"stackd/compute/docker"
+	"stackd/compute/ports"
 	service "stackd/internal/services/mq"
 	"strings"
 	"sync"
@@ -30,9 +31,11 @@ const ActiveMQImage = "apache/activemq-classic@sha256:65814d0a18a16bef9096ce7829
 
 // Config requires explicit native TLS trust and a stable private state directory.
 // Images must be installed beforehand. Runtime/API calls never download images.
+// PortRange bounds new protocol and management endpoints, not retained ports.
 type Config struct {
 	Host, Namespace, DataDir, TLSCertificate, TLSKey, Java string
 	StartupTimeout                                         time.Duration
+	PortRange                                              ports.Range
 }
 type Runtime struct {
 	client    *docker.Client
@@ -47,6 +50,9 @@ type Runtime struct {
 var _ service.Runtime = (*Runtime)(nil)
 
 func New(c Config) (*Runtime, error) {
+	if err := c.PortRange.Validate(); err != nil {
+		return nil, err
+	}
 	if c.Namespace == "" || c.DataDir == "" || c.TLSCertificate == "" || c.TLSKey == "" {
 		return nil, errors.New("MQ requires namespace, private DataDir and TLS certificate/key")
 	}
@@ -224,6 +230,9 @@ func (r *Runtime) ensure(ctx context.Context, v service.BrokerRecord) (service.E
 		if err = retainNativePorts(&v, i); err != nil {
 			return service.Endpoint{}, err
 		}
+		if err = r.persistNativePorts(v); err != nil {
+			return service.Endpoint{}, err
+		}
 		// Upgrade only the checked owned container. Configuration uses current
 		// users, never their pending passwords, groups or console grants.
 		if v.Engine == "ACTIVEMQ" {
@@ -277,7 +286,8 @@ func (r *Runtime) ensure(ctx context.Context, v service.BrokerRecord) (service.E
 			}
 			e = r.nativeReady(ctx, v, endpoint)
 			if e == nil {
-				return endpoint, nil
+				v.Endpoint = endpoint
+				return endpoint, r.persistNativePorts(v)
 			}
 		}
 		select {
@@ -302,6 +312,9 @@ func (r *Runtime) create(ctx context.Context, v service.BrokerRecord) error {
 		return err
 	}
 	if _, err := r.ownedDirectory(v); err != nil {
+		return err
+	}
+	if err := loadNativePorts(dir, &v); err != nil {
 		return err
 	}
 	var err error
@@ -357,32 +370,42 @@ func (r *Runtime) create(ctx context.Context, v service.BrokerRecord) error {
 		cmd = []string{"activemq", "console", "xbean:file:/stackd/activemq.xml"}
 	}
 	exposed := map[string]any{port: struct{}{}}
-	hostPort, releasePort, err := reserveNativePort(v.Endpoint.Address)
+	hostPort, releasePort, err := r.reserveNativePort(ctx, v.Endpoint.Address)
 	if err != nil {
 		return err
 	}
 	defer releasePort()
+	scheme := "amqps"
+	if v.Engine == "ACTIVEMQ" {
+		scheme = "ssl"
+	}
+	v.Endpoint.Address = scheme + "://" + net.JoinHostPort("127.0.0.1", hostPort)
 	ports := map[string]any{port: []map[string]string{{"HostIp": "127.0.0.1", "HostPort": hostPort}}}
 	if v.Engine == "RABBITMQ" {
 		if _, err := os.Stat(filepath.Join(dir, "enabled_plugins")); err == nil {
 			exposed["15671/tcp"] = struct{}{}
-			managementPort, releaseManagement, err := reserveNativePort(v.Endpoint.ConsoleURL)
+			managementPort, releaseManagement, err := r.reserveNativePort(ctx, v.Endpoint.ConsoleURL)
 			if err != nil {
 				return err
 			}
 			defer releaseManagement()
 			ports["15671/tcp"] = []map[string]string{{"HostIp": "127.0.0.1", "HostPort": managementPort}}
+			v.Endpoint.ConsoleURL = "https://" + net.JoinHostPort("127.0.0.1", managementPort)
 		} else if !os.IsNotExist(err) {
 			return err
 		}
 	} else {
 		exposed[activeMQConsolePort] = struct{}{}
-		consolePort, releaseConsole, err := reserveNativePort(v.Endpoint.ConsoleURL)
+		consolePort, releaseConsole, err := r.reserveNativePort(ctx, v.Endpoint.ConsoleURL)
 		if err != nil {
 			return err
 		}
 		defer releaseConsole()
 		ports[activeMQConsolePort] = []map[string]string{{"HostIp": "127.0.0.1", "HostPort": consolePort}}
+		v.Endpoint.ConsoleURL = "https://" + net.JoinHostPort("127.0.0.1", consolePort)
+	}
+	if err := r.persistNativePorts(v); err != nil {
+		return err
 	}
 	input := map[string]any{"Image": image, "Cmd": cmd, "Env": env, "Labels": r.labels(v), "ExposedPorts": exposed, "HostConfig": map[string]any{"Memory": int64(768 << 20), "MemorySwap": int64(768 << 20), "CPUPeriod": 100000, "CPUQuota": 100000, "PidsLimit": 512, "PortBindings": ports, "Mounts": []docker.ContainerMount{{Type: "bind", Source: dir, Target: "/stackd", ReadOnly: true}, {Type: "volume", Source: volume, Target: target}}, "LogConfig": docker.ContainerLogConfig{Type: "json-file", Config: map[string]string{"max-size": "1m", "max-file": "2"}}}}
 	return r.client.JSON(ctx, "POST", "/containers/create?name="+url.QueryEscape(name), input, nil)
@@ -415,6 +438,9 @@ func (r *Runtime) Reboot(ctx context.Context, v service.BrokerRecord) (service.E
 	// credentials and published ports.
 	if needsNativeReplacement(v, i) {
 		if err = retainNativePorts(&v, i); err != nil {
+			return service.Endpoint{}, err
+		}
+		if err = r.persistNativePorts(v); err != nil {
 			return service.Endpoint{}, err
 		}
 		if i.State.Running {
