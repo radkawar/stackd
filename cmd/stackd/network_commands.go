@@ -81,7 +81,7 @@ func runNetworkDNS(ctx context.Context, args []string) error {
 	switch args[0] {
 	case "setup":
 		address := flags.String("address", "", "reachable resolver IP:port")
-		iface := flags.String("interface", "", "Linux link for split DNS; empty creates a dedicated owned dummy link")
+		iface := flags.String("interface", "", "Linux link for split DNS; empty creates an owned dummy link with an isolated scope address")
 		var domains []string
 		flags.Func("domain", "repeatable explicit DNS suffix routed to this resolver; no global resolver replacement", func(value string) error { domains = append(domains, value); return nil })
 		if err := parseNetworkFlags(flags, args[1:]); err != nil {

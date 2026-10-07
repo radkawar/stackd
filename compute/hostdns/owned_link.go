@@ -48,8 +48,8 @@ func plannedLink(c Config) (ownedLink, error) {
 	return ownedLink{Name: automaticName(c), Alias: "stackd-hostdns:" + hex.EncodeToString(token[5:]), Address: net.HardwareAddr(mac[:]).String(), Kind: "dummy", MTU: 1500, TXQueueLen: 1000, Group: "0", Flags: []string{"BROADCAST", "NOARP"}, Addresses: []json.RawMessage{}, Routes: []json.RawMessage{}}, nil
 }
 
-func automaticChanges(c Config, link ownedLink) []change {
-	changes := []change{{Key: "Interface", Before: encoded(nil), After: encoded(link)}, {Key: "Activated", Before: encoded(false), After: encoded(true)}, {Key: "DefaultRoute", Before: encoded(true), After: encoded(false)}}
+func automaticChanges(c Config, link ownedLink, address string) []change {
+	changes := []change{{Key: "Interface", Before: encoded(nil), After: encoded(link)}, {Key: "Incarnation", Before: encoded(""), After: encoded(link.Alias)}, {Key: "ScopeAddress", Before: encoded(nil), After: encoded(address)}, {Key: "Activated", Before: encoded(false), After: encoded(true)}, {Key: "DefaultRoute", Before: encoded(true), After: encoded(false)}}
 	for _, ch := range resolvedAfter(c) {
 		ch.Before = encoded([]any{})
 		changes = append(changes, ch)
@@ -58,7 +58,7 @@ func automaticChanges(c Config, link ownedLink) []change {
 }
 
 func validateAutomatic(r receipt) error {
-	if r.Target != automaticName(r.Config) || len(r.Changes) != 5 {
+	if r.Target != automaticName(r.Config) || len(r.Changes) != 7 {
 		return errors.New("hostdns: invalid automatic interface receipt")
 	}
 	var link ownedLink
@@ -72,8 +72,12 @@ func validateAutomatic(r receipt) error {
 	if token, err := hex.DecodeString(strings.TrimPrefix(link.Alias, "stackd-hostdns:")); err != nil || len(token) != 16 {
 		return errors.New("hostdns: invalid owned link alias")
 	}
+	var address string
+	if err := json.Unmarshal(r.Changes[2].After, &address); err != nil || !isScopeAddress(address) {
+		return errors.New("hostdns: invalid owned scope address")
+	}
 	baseline := ownedLink{Name: r.Target, Alias: link.Alias, Address: mac.String(), Kind: "dummy", MTU: 1500, TXQueueLen: 1000, Group: "0", Flags: []string{"BROADCAST", "NOARP"}, Addresses: []json.RawMessage{}, Routes: []json.RawMessage{}}
-	expected := automaticChanges(r.Config, baseline)
+	expected := automaticChanges(r.Config, baseline, address)
 	for i, ch := range r.Changes {
 		if ch.Key != expected[i].Key || !bytes.Equal(ch.Before, expected[i].Before) || !bytes.Equal(ch.After, expected[i].After) {
 			return errors.New("hostdns: altered automatic interface ownership receipt")
@@ -221,11 +225,46 @@ func (b resolvedBackend) automaticRead(ctx context.Context, r receipt, key strin
 		return nil, false, err
 	}
 	exists := !bytes.Equal(actual, encoded(nil))
+	scopeValue := encoded(nil)
+	aliasValue := encoded("")
+	if exists {
+		var state ownedLink
+		if err := json.Unmarshal(actual, &state); err != nil {
+			return nil, exists, err
+		}
+		aliasValue = encoded(state.Alias)
+		var planned ownedLink
+		if err := json.Unmarshal(r.Changes[0].After, &planned); err != nil {
+			return nil, exists, err
+		}
+		if state.Alias != "" && state.Alias != planned.Alias {
+			return nil, exists, conflict("Interface incarnation")
+		}
+		state.Alias = planned.Alias
+		var address string
+		if err := json.Unmarshal(r.Changes[2].After, &address); err != nil {
+			return nil, exists, err
+		}
+		present, err := stripScopeAddress(&state, address)
+		if err != nil {
+			return nil, exists, err
+		}
+		if present {
+			scopeValue = encoded(address)
+		}
+		actual = encoded(state)
+	}
 	if key == "Interface" {
 		return actual, exists, nil
 	}
 	if exists && !bytes.Equal(actual, r.Changes[0].After) {
 		return nil, exists, conflict("Interface identity/settings")
+	}
+	if key == "Incarnation" {
+		return aliasValue, exists, nil
+	}
+	if key == "ScopeAddress" {
+		return scopeValue, exists, nil
 	}
 	if key == "Activated" {
 		return encoded(up), exists, nil
@@ -240,6 +279,35 @@ func (b resolvedBackend) automaticRead(ctx context.Context, r receipt, key strin
 }
 
 func (b resolvedBackend) automaticWrite(ctx context.Context, r receipt, key string, desired json.RawMessage) error {
+	if key == "Incarnation" {
+		var alias string
+		if err := json.Unmarshal(desired, &alias); err != nil {
+			return err
+		}
+		_, err := b.ipCommand(ctx, "link", "set", "dev", r.Target, "alias", alias)
+		return err
+	}
+	if key == "ScopeAddress" {
+		var address string
+		if err := json.Unmarshal(r.Changes[2].After, &address); err != nil {
+			return err
+		}
+		if bytes.Equal(desired, encoded(nil)) {
+			_, err := b.ipCommand(ctx, "address", "delete", address+"/32", "dev", r.Target)
+			return err
+		}
+		// Recheck immediately before assignment; the receipt never authorizes
+		// stealing an address or overriding a preexisting route.
+		available, err := b.scopeAddressAvailable(ctx, address)
+		if err != nil {
+			return err
+		}
+		if !available {
+			return errors.New("hostdns: selected scope address became occupied; teardown and retry")
+		}
+		_, err = b.ipCommand(ctx, "address", "add", address+"/32", "dev", r.Target, "scope", "global", "noprefixroute")
+		return err
+	}
 	if key == "Activated" {
 		var up bool
 		if err := json.Unmarshal(desired, &up); err != nil {
@@ -249,7 +317,14 @@ func (b resolvedBackend) automaticWrite(ctx context.Context, r receipt, key stri
 		if up {
 			state = "up"
 		}
-		_, err := b.ipCommand(ctx, "link", "set", "dev", r.Target, "addrgenmode", "none", state)
+		if up {
+			// Set the generation mode before bringing the link up. Combining
+			// both attributes can generate a link-local address first.
+			if _, err := b.ipCommand(ctx, "link", "set", "dev", r.Target, "addrgenmode", "none"); err != nil {
+				return err
+			}
+		}
+		_, err := b.ipCommand(ctx, "link", "set", "dev", r.Target, state)
 		return err
 	}
 	if bytes.Equal(desired, encoded(nil)) {
@@ -260,6 +335,6 @@ func (b resolvedBackend) automaticWrite(ctx context.Context, r receipt, key stri
 	if err := json.Unmarshal(desired, &link); err != nil {
 		return err
 	}
-	_, err := b.ipCommand(ctx, "link", "add", "name", link.Name, "address", link.Address, "alias", link.Alias, "mtu", "1500", "txqueuelen", "1000", "group", "0", "multicast", "off", "type", "dummy")
+	_, err := b.ipCommand(ctx, "link", "add", "name", link.Name, "address", link.Address, "mtu", "1500", "txqueuelen", "1000", "group", "0", "multicast", "off", "type", "dummy")
 	return err
 }

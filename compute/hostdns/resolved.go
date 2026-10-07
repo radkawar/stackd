@@ -175,7 +175,11 @@ func (b resolvedBackend) plan(ctx context.Context, c Config) (string, []change, 
 		if len(conflicts) != 0 {
 			return "", nil, fmt.Errorf("hostdns: unowned resolver scopes: %s", strings.Join(conflicts, "; "))
 		}
-		return r.Target, automaticChanges(c, link), nil
+		address, err := b.planScopeAddress(ctx)
+		if err != nil {
+			return "", nil, err
+		}
+		return r.Target, automaticChanges(c, link, address), nil
 	}
 	iface, err := net.InterfaceByName(c.Interface)
 	if err != nil {
@@ -186,15 +190,6 @@ func (b resolvedBackend) plan(ctx context.Context, c Config) (string, []change, 
 	}
 	if iface.Flags&net.FlagUp == 0 {
 		return "", nil, errors.New("hostdns: explicit dedicated interface must already be up")
-	}
-	local, err := assignedDNSAddress(netip.MustParseAddrPort(c.Address).Addr())
-	if err != nil {
-		return "", nil, err
-	}
-	if local {
-		if err := b.localDNSVersion(ctx); err != nil {
-			return "", nil, err
-		}
 	}
 	r := receipt{Config: c, Target: strconv.Itoa(iface.Index)}
 	defaultRoute, err := b.read(ctx, r, "DefaultRoute")
@@ -248,7 +243,7 @@ func (b resolvedBackend) validate(r receipt) error {
 func (b resolvedBackend) read(ctx context.Context, r receipt, key string) (json.RawMessage, error) {
 	if r.Config.Interface == "" {
 		value, exists, err := b.automaticRead(ctx, r, key)
-		if err != nil || !exists || key == "Interface" || key == "Activated" {
+		if err != nil || !exists || key == "Interface" || key == "Incarnation" || key == "ScopeAddress" || key == "Activated" {
 			return value, err
 		}
 	}
@@ -336,7 +331,7 @@ func (b resolvedBackend) write(ctx context.Context, r receipt, key string, expec
 	if !bytes.Equal(current, expected) {
 		return conflict(key)
 	}
-	if key == "Interface" || key == "Activated" {
+	if key == "Interface" || key == "Incarnation" || key == "ScopeAddress" || key == "Activated" {
 		return b.automaticWrite(ctx, r, key, desired)
 	}
 	args, err := resolvedWriteArgs(key, desired)

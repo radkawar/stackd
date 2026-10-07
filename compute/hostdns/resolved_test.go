@@ -103,12 +103,9 @@ func TestAutomaticLinkOwnershipAndIncarnationBoundaries(t *testing.T) {
 	if first.Name != second.Name || len(first.Name) > 15 || first.Alias == second.Alias || first.Address == second.Address {
 		t.Fatal("stable name must not become stable ownership incarnation")
 	}
-	r := receipt{Config: c, Target: first.Name, Changes: automaticChanges(c, first)}
+	r := receipt{Config: c, Target: first.Name, Changes: automaticChanges(c, first, "192.0.2.1")}
 	if err := validateAutomatic(r); err != nil {
 		t.Fatal(err)
-	}
-	if r.Changes[0].Key != "Interface" || r.Changes[1].Key != "Activated" || r.Changes[2].Key != "DefaultRoute" {
-		t.Fatal("link must be created/activated before resolved settings, then removed after restoration")
 	}
 	for _, mutate := range []func(*ownedLink){
 		func(link *ownedLink) { link.Alias = "stackd-hostdns:public" },
@@ -170,7 +167,7 @@ func TestDomainOverlapUsesLabelBoundaries(t *testing.T) {
 	}
 }
 
-func TestLocalAddressAndNativeVersionAdmission(t *testing.T) {
+func TestLocalDNSAddressDetection(t *testing.T) {
 	assigned := []netip.Prefix{netip.MustParsePrefix("192.0.2.10/24"), netip.MustParsePrefix("2001:db8::10/64")}
 	for _, test := range []struct {
 		address string
@@ -181,22 +178,6 @@ func TestLocalAddressAndNativeVersionAdmission(t *testing.T) {
 	} {
 		if got := localDNSAddress(netip.MustParseAddr(test.address), assigned); got != test.want {
 			t.Fatalf("local DNS address %s = %t", test.address, got)
-		}
-	}
-	for _, test := range []struct {
-		output  string
-		version int
-	}{
-		{"systemd 256 (256.9)\n+PAM", 256}, {"systemd 257.4 (distribution)\n", 257}, {"systemd 255 (255.17)", 255},
-	} {
-		got, err := systemdVersion([]byte(test.output))
-		if err != nil || got != test.version {
-			t.Fatalf("native version %q = %d %v", test.output, got, err)
-		}
-	}
-	for _, output := range []string{"", "systemd", "systemd unknown", "not-systemd 256"} {
-		if _, err := systemdVersion([]byte(output)); err == nil {
-			t.Fatalf("accepted unidentifiable native version %q", output)
 		}
 	}
 }

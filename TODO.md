@@ -52,9 +52,11 @@ keeps service-specific accounting and error semantics authoritative.
   recovery outside changed pools. Actual Linux native protocol smokes cover all
   five families, including AMQP and OpenWire.
 - [x] Add reversible explicit Linux/macOS host split DNS with durable ownership
-  receipts and external-mutation preservation. Native Linux resolved 255 remote
-  per-link lookup/restore/conflict cases pass; local automatic routing explicitly
-  requires resolved 256+. macOS native behavior remains unexercised locally.
+  receipts and external-mutation preservation. Native Linux resolved 255 local
+  automatic and remote per-link lookup/restore/conflict cases pass. An owned,
+  unused `/32` activates the dedicated local DNS scope without subnet/default
+  routes; complete native UDP-to-TCP fallback is exercised. macOS native behavior
+  remains unexercised locally.
   See [networking boundaries and evidence](docs/networking.md).
 - [x] Execute local Docker Lambda image deployment, retag isolation, publication,
   hot swap, SQLite reopen, accepted cold calls and actual native artifact cleanup.

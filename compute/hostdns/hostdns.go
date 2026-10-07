@@ -19,8 +19,9 @@ import (
 )
 
 // Config describes an opt-in native resolver installation. Address is a literal
-// IP or IP:port (IPv6 ports require brackets). Linux creates an owned dummy link
-// when Interface is empty; an explicit link must have no DNS/domains and must
+// IP or IP:port (IPv6 ports require brackets). With Interface empty, Linux creates
+// an owned dummy link and an unused documentation-range /32 to activate its DNS
+// scope without a subnet route. An explicit link must have no DNS/domains and must
 // already have DefaultRoute=no. StateDirectory must remain private and retained
 // until teardown succeeds; its receipt is the authority to restore settings.
 type Config struct {

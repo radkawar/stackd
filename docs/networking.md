@@ -271,15 +271,21 @@ sudo ./bin/stackd network dns teardown -state-directory "$PWD/data/host-dns"
 ```
 
 Linux uses active systemd-resolved/system bus and native `busctl` DNSEx/routing-only
-domains. An empty interface creates a dedicated owned dummy link with native `ip`;
-local per-link DNS requires **systemd-resolved 256+**, because older versions bind
-local queries to the wrong interface. The automatic link requires DNS on loopback
-or an IP actually assigned to this host. For remote DNS use `-interface NAME` on
-a real up, non-loopback routed link with no DNS/domains and already
-`DefaultRoute=no`; existing DNS settings are unowned conflicts, not overwritten.
-Root/native link privileges are explicit prerequisites. See the
+domains. An empty interface creates a dedicated owned dummy link with native `ip`
+and an unused documentation-range IPv4 `/32`. Resolved needs a usable unicast
+address on that link to activate its DNS scope, including on **resolved 255**.
+The address is selected only outside existing non-default routes and is installed
+with `noprefixroute`: no connected subnet route or default route is added. Its
+native address/local-route metadata and the link incarnation are receipt-owned,
+with separate transitions for interrupted setup and exact teardown.
+
+The automatic link requires DNS on loopback or an IP actually assigned to this
+host. For remote DNS use `-interface NAME` on a real up, non-loopback routed link
+with no DNS/domains and already `DefaultRoute=no`; existing DNS settings are
+unowned conflicts, not overwritten. Root/native link privileges are explicit
+prerequisites. See the
 [resolved D-Bus interface](https://www.freedesktop.org/software/systemd/man/247/org.freedesktop.resolve1.html)
-and [local-address scope behavior in v256](https://raw.githubusercontent.com/systemd/systemd/v256/src/resolve/resolved-dns-scope.c).
+and [usable DNS scope address criteria in v255](https://raw.githubusercontent.com/systemd/systemd/v255/src/resolve/resolved-link.c).
 
 macOS uses atomic per-domain `/etc/resolver` files, not global resolver replacement.
 Existing files and overlapping scopes are conflicts. Inspect `scutil --dns` and
@@ -293,6 +299,16 @@ If setup was interrupted, run teardown with its receipt; do not delete the recei
 and expect safe restoration. Restoring an intentional external mutation to the
 recorded owned state allows teardown to finish. No command replaces `/etc/resolv.conf`,
 sets a global DNS route or installs global CA trust.
+
+Native Linux regression (explicit root/native-network mutation opt-in):
+
+```sh
+go test -c -o /tmp/stackd-hostdns-tests ./compute/hostdns
+sudo env STACKD_HOSTDNS_NATIVE=1 /tmp/stackd-hostdns-tests \
+  -test.run '^TestNativeLocalScopedLookupAndTeardown$' -test.v
+rm /tmp/stackd-hostdns-tests
+```
+
 
 ## Observational diagnostics and exercised boundaries
 
@@ -327,7 +343,9 @@ TLS hostnames; deletion makes those same hostnames return 403 and 404 respective
 Stock SDK standard-AWS-host requests exercise current IAM deny/allow/revocation
 and signature rejection. Real SQL, TLS document, Kafka, TLS Valkey and
 AMQP/OpenWire engines cover pooled allocation/exhaustion, changed-pool reopen,
-retained endpoints and data. Linux resolved 255 exercises remote per-link native
-lookup, exact teardown, external-change preservation and the explicit 256+ local
-refusal. These are bounded networking scenarios, not whole-service or
-unexercised platform conformance claims.
+retained endpoints and data. Linux resolved 255 exercises local automatic and
+remote per-link native lookup, complete UDP-to-TCP fallback answers, a signed
+TLS-verified hostname-based AWS CLI STS identity call, exact restoration of the
+original resolver server/domain tables, and external-change preservation.
+These are bounded networking scenarios, not whole-service or unexercised
+platform conformance claims.
