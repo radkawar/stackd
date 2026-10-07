@@ -110,6 +110,9 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !resourceMatched && g.serveCognitoDiscovery(w, r) {
 		return
 	}
+	if !resourceMatched && g.serveCognitoOAuth(w, r) {
+		return
+	}
 	if !resourceMatched && g.servePublicJSON(w, r) {
 		return
 	}

@@ -8,8 +8,9 @@ import (
 
 func poolRow(row sqlcgen.CognitoidpPool) (domain.PoolRecord, error) {
 	out := domain.PoolRecord{
-		Key:       domain.PoolKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.PoolID},
-		IssuerURL: row.IssuerUrl,
+		Key:                     domain.PoolKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.PoolID},
+		IssuerURL:               row.IssuerUrl,
+		SoftwareTokenMFAEnabled: row.SoftwareTokenMfaEnabled,
 		Data: api.UserPoolType{
 			Id:                        new(api.UserPoolIdType(row.PoolID)),
 			Arn:                       stringPointer[api.ArnType](row.Arn),
@@ -105,6 +106,7 @@ func (w writer) PutPool(v domain.PoolRecord) error {
 	row := sqlcgen.PutPoolParams{
 		Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, PoolID: k.ID,
 		IssuerUrl:                 v.IssuerURL,
+		SoftwareTokenMfaEnabled:   v.SoftwareTokenMFAEnabled,
 		Arn:                       nullableString(v.Data.Arn),
 		CreationDate:              nullableTime(v.Data.CreationDate),
 		CustomDomain:              nullableString(v.Data.CustomDomain),

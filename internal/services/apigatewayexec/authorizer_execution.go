@@ -222,6 +222,9 @@ func writeAuthorizerRejection(w http.ResponseWriter, rejected *rejection, rest b
 		code = "AccessDeniedException"
 	}
 	w.Header().Set("x-amzn-ErrorType", code)
+	if custom, ok := w.(interface{ writeGatewayRejection(*rejection) bool }); ok && custom.writeGatewayRejection(rejected) {
+		return
+	}
 	if rejected.Status == http.StatusUnauthorized {
 		writeRejection(w, rejected)
 		return

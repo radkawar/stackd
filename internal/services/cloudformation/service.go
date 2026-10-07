@@ -32,6 +32,12 @@ type ParameterSource interface {
 	ResolveParameter(context.Context, string) (string, error)
 }
 
+// ParameterVersionSource exposes the selected ordinary parameter version so
+// deployment retries retain selectors, never resolved plaintext.
+type ParameterVersionSource interface {
+	ResolveParameterVersion(context.Context, string) (string, int64, error)
+}
+
 // AvailabilityZoneSource borrows EC2's account-scoped inventory and default
 // subnet filtering under the caller's current authority.
 type AvailabilityZoneSource interface {

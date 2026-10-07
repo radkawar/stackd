@@ -2211,7 +2211,53 @@ remain the primary specifications. These original deployed routes do not
 establish binary payloads, custom scopes, access logging or WebSocket semantics.
 Lambda authorizer evidence and its separate boundaries are recorded below.
 
-The REST/HTTP baseline implements 36 REST and 33 HTTP targeted operations,
+### Swagger deployment and REST execution
+
+CloudFormation `AWS::ApiGateway::RestApi.Body` imports Swagger 2.0 into the
+existing typed REST API/resource/method/integration/authorizer owners. Native
+`ImportRestApi` and `PutRestApi` use the same importer. Import admission is atomic:
+invalid definitions leave neither a partial API nor partially replaced methods.
+Explicit merge and overwrite remain distinct; CloudFormation's omitted modern
+Mode overwrites the definition while merging binary-media container settings.
+
+The reported SAM-shaped definition executes Lambda `AWS_PROXY` methods and
+literal static `MOCK` OPTIONS responses, including their CORS headers. Cognito
+security definitions use the existing validated JWT authorizer. Default 4xx/5xx
+gateway responses apply to gateway failures, including unauthorized requests,
+malformed proxy responses and throttling; they do not rewrite valid backend errors.
+Binary media types from the property and Swagger extension govern incoming
+base64 encoding and outgoing first-Accept negotiation. Deployment snapshots
+retain methods, authorizers and static MOCK responses; stage method throttles
+and gateway responses remain live settings.
+
+Schema 404 retains typed imported method/integration response, gateway-response
+and stage-limit state. Wildcard/path/method burst and rate overrides use shared
+service time and the existing process-local admission buckets, independently
+of optional API keys. Explicit zero is not omission. Rejected patches roll back;
+reopening retains settings, not process-local burst consumption.
+
+An actual SQLite CLI deployed the combined reported definition with native
+Python Lambda and a real Cognito pool. Before/after restart, SDK/HTTP calls prove
+static OPTIONS CORS, unauthorized 401 CORS, validated Cognito invocation,
+byte-exact binary roundtrip, malformed Lambda response 502 CORS, and a live
+stage-limit update producing 429 CORS. Memory/SQLite fixtures cover import
+rollback, merge/overwrite, owned deletion, snapshot persistence, throttle
+precedence and deterministic refill. These are local executable observations;
+they are not new native AWS captures or distributed quota guarantees.
+
+Only Swagger 2.0 JSON/CloudFormation Body objects and the documented literal
+MOCK subset are admitted. OpenAPI 3, BodyS3Location, general VTL, other backend
+integration families, exports and full CORS/quick-create remain unsupported.
+
+Sources: [CloudFormation REST API](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-apigateway-restapi.html),
+[ImportRestApi](https://docs.aws.amazon.com/apigateway/latest/api/API_ImportRestApi.html),
+[integration extensions](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-swagger-extensions-integration.html),
+[Cognito authorizer extension](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-swagger-extensions-authorizer.html),
+[gateway responses](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-swagger-extensions-gateway-responses.html),
+[binary payloads](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-payload-encodings.html),
+[throttling](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-request-throttling.html).
+
+The original REST/HTTP baseline implemented 36 REST and 33 HTTP targeted operations,
 plus the application-driven authorizer cache flush/reset commands, for typed
 APIs, resources/routes, methods/integrations, authorizers, stages, deployments
 and tags. WebSocket routing reuses the v2 controls and adds five route-response
@@ -2964,12 +3010,12 @@ silently replace an existing account-wide logging role or policy.
 
 These deployed application checkpoints do not establish complete Gateway or
 service parity. Intentional gaps remain: literal incoming header spelling,
-opaque native connection-ID admission, custom domains, imports/exports, VPC
-links/private/edge endpoints, CORS/quick-create, Marketplace usage plans,
-optional CUSTOM-authorizer key semantics, quota calendar/offset calibration,
-models/validators and regional cache/deployment propagation,
-mappings/non-Lambda integrations, configurable
-REST/HTTP deadlines, binary REST negotiation, canaries, account/stage throttling,
+opaque native connection-ID admission, custom domains, OpenAPI 3/import/export
+depth beyond the Swagger subset above, VPC links/private/edge endpoints,
+full CORS/quick-create, Marketplace usage plans, optional CUSTOM-authorizer key
+semantics, quota calendar/offset calibration, models/validators and regional
+cache/deployment propagation, general VTL and non-Lambda/non-static-MOCK
+integrations, configurable REST/HTTP deadlines, canaries, account/fleet throttling,
 access/execution logs and the metric boundaries above. Integration-specific STS session/cache behavior and
 broader cross-account/region conformance remain unmeasured.
 Unsupported active configurations return errors rather than inert

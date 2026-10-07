@@ -74,6 +74,12 @@ func (b *Bridges) runNativeOperation(ctx context.Context, owner string, environm
 			LogConfig: docker.ContainerLogConfig{Type: "json-file", Config: map[string]string{"max-size": "1m", "max-file": "1"}},
 		},
 	}
+	if b.daemonOwned {
+		// Desktop's VM need not have /run/lock yet. Mount its existing parent
+		// separately from the helper's own /run and create the shared directory
+		// in the daemon-side bootstrap, preserving the local controller's inode.
+		config.HostConfig.Mounts[0] = docker.ContainerMount{Type: "bind", Source: "/run", Target: "/stackd-host-run"}
+	}
 	if b.daemonOwned || bridge || strings.HasPrefix(owner, "stackd_eks_workers_") {
 		config.HostConfig.Mounts = append(config.HostConfig.Mounts, docker.ContainerMount{Type: "bind", Source: "/var/run/docker.sock", Target: "/var/run/docker.sock", ReadOnly: true})
 	}

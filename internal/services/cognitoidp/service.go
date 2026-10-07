@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"slices"
+	"time"
 
 	"stackd/clock"
 	"stackd/internal/apievents"
@@ -23,6 +24,8 @@ type Config struct {
 	PublicEndpoint string
 	EmailSender    EmailSender
 	EmailSetup     EmailSetup
+	TriggerInvoker TriggerInvoker
+	HTTPClient     *http.Client
 }
 
 type Service struct {
@@ -33,6 +36,8 @@ type Service struct {
 	publicEndpoint string
 	emailSender    EmailSender
 	emailSetup     EmailSetup
+	triggerInvoker TriggerInvoker
+	httpClient     *http.Client
 	operations     map[string]func(context.Context) (any, *awswire.Error)
 }
 
@@ -46,7 +51,10 @@ func New(c Config) *Service {
 	if c.Authorizer == nil {
 		c.Authorizer = authorization.NewWithClock(nil, nil, c.Clock)
 	}
-	s := &Service{repository: c.Repository, authorizer: c.Authorizer, recorder: c.Recorder, clock: c.Clock, publicEndpoint: c.PublicEndpoint, emailSender: c.EmailSender, emailSetup: c.EmailSetup, operations: map[string]func(context.Context) (any, *awswire.Error){}}
+	if c.HTTPClient == nil {
+		c.HTTPClient = &http.Client{Timeout: 15 * time.Second}
+	}
+	s := &Service{repository: c.Repository, authorizer: c.Authorizer, recorder: c.Recorder, clock: c.Clock, publicEndpoint: c.PublicEndpoint, emailSender: c.EmailSender, emailSetup: c.EmailSetup, triggerInvoker: c.TriggerInvoker, httpClient: c.HTTPClient, operations: map[string]func(context.Context) (any, *awswire.Error){}}
 	registerControl(s)
 	registerGroups(s)
 	registerFederation(s)
@@ -117,8 +125,18 @@ func runCommand[I, O any](s *Service, ctx context.Context, action string, in *I,
 	if s.recorder != nil {
 		ctx = context.WithValue(ctx, cognitoAuditKey{}, &cognitoAudit{})
 	}
+	prepared := &triggerCommand{}
+	ctx = context.WithValue(ctx, triggerCommandKey{}, prepared)
+	if err = prepareCommandTriggers(s, ctx, in, fn, prepared); err != nil {
+		rejected := wireError(err)
+		if recordErr := s.recordCall(ctx, action, in, nil, rejected); recordErr != nil {
+			return nil, wireError(recordErr)
+		}
+		return nil, rejected
+	}
 	var out *O
 	err = s.repository.Attempt(ctx, func(tx Transaction) error {
+		prepared.post = nil
 		replay, finish, err := s.ownedCommand(tx, action, in)
 		if err != nil {
 			return err
@@ -141,6 +159,11 @@ func runCommand[I, O any](s *Service, ctx context.Context, action string, in *I,
 		return s.recordCall(tx.Context(), action, in, out, nil)
 	})
 	if err == nil {
+		for _, call := range prepared.post {
+			if _, triggerErr := s.invokeTrigger(ctx, call.pool, call.arn, call.event); triggerErr != nil {
+				return nil, wireError(triggerErr)
+			}
+		}
 		return out, nil
 	}
 	rejected := wireError(err)

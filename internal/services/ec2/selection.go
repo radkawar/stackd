@@ -111,6 +111,8 @@ func allowedFilters(op string) map[string]bool {
 		fields = "nat-gateway-id subnet-id vpc-id state connectivity-type nat-gateway-address.allocation-id nat-gateway-address.private-ip nat-gateway-address.public-ip"
 	case "DescribeVpcEndpoints":
 		fields = "vpc-endpoint-id vpc-id service-name vpc-endpoint-type state subnet-id route-table-id group-id owner-id"
+	case "DescribeVpcEndpointServices":
+		fields = "owner service-name service-region service-type supported-ip-address-types"
 	case "DescribeLaunchTemplates":
 		fields = "create-time launch-template-name"
 	case "DescribeLaunchTemplateVersions":
@@ -153,6 +155,9 @@ func allowedFilters(op string) map[string]bool {
 	out := map[string]bool{}
 	if op != "DescribeInstanceStatus" && op != "DescribeIamInstanceProfileAssociations" && op != "DescribeLaunchTemplateVersions" {
 		out["tag-key"], out["tag-value"], out["tag:"] = true, true, true
+	}
+	if op == "DescribeVpcEndpointServices" {
+		delete(out, "tag-value")
 	}
 	for _, f := range strings.Fields(fields) {
 		out[f] = true

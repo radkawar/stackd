@@ -45,7 +45,7 @@ func (e *Error) Error() string {
 }
 
 // New validates Linux and memory, swap and CPU CFS limit support. It selects the
-// lowest common API in the supported 1.41–1.44 range using the Engine's advertised
+// highest common API in the supported 1.41–1.44 range using the Engine's advertised
 // minimum and maximum. Validation is bounded by ctx and a 30-second timeout;
 // the returned client does not retain the constructor's context.
 func New(ctx context.Context, config Config) (*Client, error) {
@@ -124,7 +124,10 @@ func compatibleAPIVersion(maximum, minimum string) (string, error) {
 	if !ok || major < 1 || (major == 1 && minor < 41) {
 		return "", fmt.Errorf("requires Docker API >=1.41; engine reports %q", maximum)
 	}
-	selected := 41
+	selected := 44
+	if major == 1 {
+		selected = min(selected, minor)
+	}
 	if minimum != "" {
 		minMajor, minMinor, valid := parseAPIVersion(minimum)
 		if !valid || minMajor < 1 || minMajor > major || (minMajor == major && minMinor > minor) {
@@ -133,10 +136,6 @@ func compatibleAPIVersion(maximum, minimum string) (string, error) {
 		if minMajor > 1 || minMinor > 44 {
 			return "", fmt.Errorf("docker engine requires API %s; client supports 1.41–1.44", minimum)
 		}
-		selected = max(selected, minMinor)
-	}
-	if selected == 41 {
-		return "/v1.41", nil
 	}
 	return "/v1." + strconv.Itoa(selected), nil
 }

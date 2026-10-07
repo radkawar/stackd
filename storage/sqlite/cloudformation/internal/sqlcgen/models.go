@@ -234,6 +234,7 @@ type CloudformationResource struct {
 	EventProperties     string
 	Attributes          string
 	Updated             time.Time
+	DynamicReferences   string
 }
 
 type CloudformationStack struct {
@@ -338,4 +339,6 @@ type CloudformationStep struct {
 	AfterEventProperties      string
 	AfterAttributes           string
 	AfterUpdated              time.Time
+	BeforeDynamicReferences   string
+	AfterDynamicReferences    string
 }

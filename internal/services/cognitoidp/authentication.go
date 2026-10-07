@@ -28,6 +28,12 @@ func registerAuthentication(s *Service) {
 	register(s, "UpdateUserAttributes", s.updateUserAttributes)
 	register(s, "DeleteUserAttributes", s.deleteUserAttributes)
 	register(s, "DeleteUser", s.deleteUser)
+	register(s, "AssociateSoftwareToken", s.associateSoftwareToken)
+	register(s, "VerifySoftwareToken", s.verifySoftwareToken)
+	register(s, "SetUserMFAPreference", s.setUserMFAPreference)
+	register(s, "AdminSetUserMFAPreference", s.adminSetUserMFAPreference)
+	register(s, "SetUserPoolMfaConfig", s.setUserPoolMfaConfig)
+	register(s, "GetUserPoolMfaConfig", s.getUserPoolMfaConfig)
 }
 
 func (s *Service) authClient(tx Transaction, action, poolID, clientID string) (PoolRecord, ClientRecord, error) {
@@ -157,9 +163,6 @@ func (s *Service) authUserStatus(user UserRecord) error {
 }
 
 func loginFeatures(pool PoolRecord, client ClientRecord) error {
-	if value(pool.Data.MfaConfiguration) == "ON" {
-		return failure("InvalidParameterException", "MFA authentication is not supported.")
-	}
 	if pool.Data.DeviceConfiguration != nil {
 		return failure("InvalidParameterException", "Device authentication is not supported.")
 	}
@@ -212,6 +215,9 @@ func (s *Service) beginAuth(tx Transaction, pool PoolRecord, client ClientRecord
 	if err != nil {
 		var missing *awswire.Error
 		if value(client.Data.PreventUserExistenceErrors) == "ENABLED" && (errors.Is(err, ErrNotFound) || errors.As(err, &missing) && missing.Code == "UserNotFoundException") {
+			if err := s.preAuthenticationMissing(tx, pool, client, username); err != nil {
+				return nil, err
+			}
 			if flow == "USER_SRP_AUTH" {
 				return s.missingUserSRP(tx, pool, canonicalUsername(pool, username), string(params["SRP_A"]))
 			}
@@ -220,6 +226,9 @@ func (s *Service) beginAuth(tx Transaction, pool PoolRecord, client ClientRecord
 		return nil, err
 	}
 	if err := s.authUserStatus(user); err != nil {
+		return nil, err
+	}
+	if err := s.preAuthentication(tx, pool, client, user); err != nil {
 		return nil, err
 	}
 	if flow == "USER_SRP_AUTH" {
@@ -275,6 +284,9 @@ func (s *Service) passwordAccepted(tx Transaction, pool PoolRecord, client Clien
 		}
 		return &api.InitiateAuthOutput{ChallengeName: str[api.ChallengeNameType](challenge.Kind), Session: str[api.SessionType](token), ChallengeParameters: api.ChallengeParametersType{"USER_ID_FOR_SRP": api.StringType(user.Key.Username), "requiredAttributes": api.StringType(requiredJSON), "userAttributes": api.StringType(attributesJSON)}}, nil
 	}
+	if out, err := s.mfaAfterPassword(tx, pool, client, user); out != nil || err != nil {
+		return out, err
+	}
 	result, err := s.newSession(tx, pool, client, user)
 	if err != nil {
 		return nil, err
@@ -307,7 +319,7 @@ func (s *Service) adminRespondToAuthChallenge(tx Transaction, input *api.AdminRe
 }
 
 func (s *Service) completeChallenge(tx Transaction, pool PoolRecord, client ClientRecord, kind, token string, responses api.ChallengeResponsesType) (*api.InitiateAuthOutput, error) {
-	if kind != "PASSWORD_VERIFIER" && kind != "NEW_PASSWORD_REQUIRED" {
+	if kind != "PASSWORD_VERIFIER" && kind != "NEW_PASSWORD_REQUIRED" && kind != "SOFTWARE_TOKEN_MFA" && kind != "MFA_SETUP" {
 		return nil, failure("InvalidParameterException", "Authentication challenge "+kind+" is not supported.")
 	}
 	if err := loginFeatures(pool, client); err != nil {
@@ -354,6 +366,9 @@ func (s *Service) completeChallenge(tx Transaction, pool PoolRecord, client Clie
 	}
 	if err := s.authUserStatus(user); err != nil {
 		return nil, err
+	}
+	if kind == "SOFTWARE_TOKEN_MFA" || kind == "MFA_SETUP" {
+		return s.completeMFA(tx, pool, client, user, challenge, responses)
 	}
 	if kind == "PASSWORD_VERIFIER" {
 		if !authFlowEnabled(client, "USER_SRP_AUTH") {

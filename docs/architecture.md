@@ -436,8 +436,12 @@ the same schema, client-permission and transactional persistence owners as admin
 commands; user lookup itself does not imply authentication or audit attribution.
 Schema 167 retains historical refresh-token ownership, fixed retry grace and
 generation origins, distinguishing family revocation from global sign-out.
-[Cognito](cognito.md) owns the 47-operation application scope, native
-login/group/profile/rotation/admission/audit evidence and unsupported delivery/authentication paths.
+Schema 403 adds typed MFA secrets/preferences/replay counters and single-use
+federation state/codes. Native Cognito triggers run outside transactions and
+revalidate current user/function authority before publication; federated claims
+come from validated upstream identity, not retained provider metadata.
+[Cognito](cognito.md) owns the current application scope, behavioral evidence and
+unsupported delivery/authentication paths.
 
 [Identity Store](identity-store.md) supplies typed directory membership to
 [Identity Center](identity-center.md). Permission sets provision real IAM roles

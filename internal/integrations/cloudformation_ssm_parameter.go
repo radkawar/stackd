@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	api "stackd/internal/awsapi/ssm"
+	"stackd/internal/awswire"
 	"stackd/internal/services/cloudformation"
 	"stackd/internal/services/ssm"
 	"stackd/internal/services/ssmdocuments"
@@ -270,7 +271,7 @@ func (h cfnSSMParameter) List(ctx context.Context, r cloudformation.ResourceRequ
 	}
 }
 
-// CloudFormationParameterSource resolves template parameter types, not resources.
+// CloudFormationParameterSource reads ordinary parameters through their SSM owner.
 type CloudFormationParameterSource struct{ Commands StepFunctionsCommands }
 
 func (a CloudFormationParameterSource) ResolveParameter(ctx context.Context, name string) (string, error) {
@@ -285,4 +286,27 @@ func (a CloudFormationParameterSource) ResolveParameter(ctx context.Context, nam
 		return "", fmt.Errorf("SecureString template parameters are unsupported")
 	}
 	return cfnComputeValue(out.Parameter.Value), nil
+}
+
+func (a CloudFormationParameterSource) ResolveParameterVersion(ctx context.Context, name string) (string, int64, error) {
+	out, err := cfnComputeCall[api.GetParametersOutput](ctx, a.Commands, "ssm", "GetParameters", map[string]any{"Names": []string{name}})
+	if err != nil {
+		return "", 0, err
+	}
+	if len(out.Parameters) != 1 {
+		code := "ParameterNotFound"
+		if strings.Contains(name, ":") {
+			code = "ParameterVersionNotFound"
+		}
+		return "", 0, &awswire.Error{Code: code, Message: "The referenced SSM parameter or version was not found.", StatusCode: 400}
+	}
+	parameter := out.Parameters[0]
+	if cfnComputeValue(parameter.Type) != "String" {
+		return "", 0, &awswire.Error{Code: "ValidationError", Message: "Plain SSM dynamic references require a String parameter; SecureString is unsupported.", StatusCode: 400}
+	}
+	var version int64
+	if parameter.Version != nil {
+		version = int64(*parameter.Version)
+	}
+	return cfnComputeValue(parameter.Value), version, nil
 }

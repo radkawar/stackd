@@ -17,6 +17,8 @@ type (
 	ResourceOwner    = domain.ResourceOwner
 	ProviderKey      = domain.ProviderKey
 	ProviderRecord   = domain.ProviderRecord
+	OAuthKey         = domain.OAuthKey
+	OAuthRecord      = domain.OAuthRecord
 	ClientKey        = domain.ClientKey
 	UserKey          = domain.UserKey
 	GroupKey         = domain.GroupKey

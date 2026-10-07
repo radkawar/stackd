@@ -74,6 +74,12 @@ func New(c Config) *Service {
 	register(s, "GetRestApis", s.getRestAPIs)
 	register(s, "UpdateRestApi", s.updateRestAPI)
 	register(s, "DeleteRestApi", s.deleteRestAPI)
+	register(s, "ImportRestApi", s.importRestAPI)
+	register(s, "PutRestApi", s.putRestAPI)
+	register(s, "PutGatewayResponse", s.putGatewayResponse)
+	register(s, "GetGatewayResponse", s.getGatewayResponse)
+	register(s, "GetGatewayResponses", s.getGatewayResponses)
+	register(s, "DeleteGatewayResponse", s.deleteGatewayResponse)
 	register(s, "CreateResource", s.createResource)
 	register(s, "GetResource", s.getResource)
 	register(s, "GetResources", s.getResources)
@@ -87,6 +93,8 @@ func New(c Config) *Service {
 	register(s, "GetIntegration", s.getIntegration)
 	register(s, "UpdateIntegration", s.updateIntegration)
 	register(s, "DeleteIntegration", s.deleteIntegration)
+	register(s, "PutMethodResponse", s.putMethodResponse)
+	register(s, "PutIntegrationResponse", s.putIntegrationResponse)
 	register(s, "CreateAuthorizer", s.createAuthorizer)
 	register(s, "GetAuthorizer", s.getAuthorizer)
 	register(s, "GetAuthorizers", s.getAuthorizers)
@@ -160,8 +168,8 @@ func (s *Service) ExecuteCommand(ctx context.Context, decoded awsapi.DecodedRequ
 	action := string(decoded.Operation.Name)
 	fn, ok := s.operations[action]
 	if !ok {
-		// TODO: Comeback implement the remaining REST control plane, including
-		// custom domains, OpenAPI imports, models and nonproxy data-plane owners.
+		// Remaining custom domains, models and general nonproxy mappings need
+		// their own execution owners before admission.
 		e := failure("NotImplementedException", "API Gateway operation is not implemented: "+action, 501)
 		if err := s.RecordRequestError(ctx, decoded, e); err != nil {
 			return nil, wireError(err)

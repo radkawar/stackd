@@ -7,6 +7,7 @@ package sqlcgen
 
 import (
 	"context"
+	"database/sql"
 )
 
 const deleteMethodSettings = `-- name: DeleteMethodSettings :exec
@@ -34,7 +35,7 @@ func (q *Queries) DeleteMethodSettings(ctx context.Context, arg DeleteMethodSett
 }
 
 const listMethodSettings = `-- name: ListMethodSettings :many
-SELECT method_key, metrics_enabled, logging_level, data_trace_enabled FROM apigateway_method_settings
+SELECT method_key, metrics_enabled, logging_level, data_trace_enabled, throttling_burst_limit, throttling_rate_limit FROM apigateway_method_settings
 WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND stage = ?
 ORDER BY method_key
 `
@@ -48,10 +49,12 @@ type ListMethodSettingsParams struct {
 }
 
 type ListMethodSettingsRow struct {
-	MethodKey        string
-	MetricsEnabled   bool
-	LoggingLevel     string
-	DataTraceEnabled bool
+	MethodKey            string
+	MetricsEnabled       bool
+	LoggingLevel         string
+	DataTraceEnabled     bool
+	ThrottlingBurstLimit sql.NullInt64
+	ThrottlingRateLimit  sql.NullFloat64
 }
 
 func (q *Queries) ListMethodSettings(ctx context.Context, arg ListMethodSettingsParams) ([]ListMethodSettingsRow, error) {
@@ -74,6 +77,8 @@ func (q *Queries) ListMethodSettings(ctx context.Context, arg ListMethodSettings
 			&i.MetricsEnabled,
 			&i.LoggingLevel,
 			&i.DataTraceEnabled,
+			&i.ThrottlingBurstLimit,
+			&i.ThrottlingRateLimit,
 		); err != nil {
 			return nil, err
 		}
@@ -89,20 +94,22 @@ func (q *Queries) ListMethodSettings(ctx context.Context, arg ListMethodSettings
 }
 
 const putMethodSettings = `-- name: PutMethodSettings :exec
-INSERT INTO apigateway_method_settings (partition, account_id, region, api_id, stage, method_key, metrics_enabled, logging_level, data_trace_enabled)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO apigateway_method_settings (partition, account_id, region, api_id, stage, method_key, metrics_enabled, logging_level, data_trace_enabled, throttling_burst_limit, throttling_rate_limit)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type PutMethodSettingsParams struct {
-	Partition        string
-	AccountID        string
-	Region           string
-	ApiID            string
-	Stage            string
-	MethodKey        string
-	MetricsEnabled   bool
-	LoggingLevel     string
-	DataTraceEnabled bool
+	Partition            string
+	AccountID            string
+	Region               string
+	ApiID                string
+	Stage                string
+	MethodKey            string
+	MetricsEnabled       bool
+	LoggingLevel         string
+	DataTraceEnabled     bool
+	ThrottlingBurstLimit sql.NullInt64
+	ThrottlingRateLimit  sql.NullFloat64
 }
 
 func (q *Queries) PutMethodSettings(ctx context.Context, arg PutMethodSettingsParams) error {
@@ -116,6 +123,8 @@ func (q *Queries) PutMethodSettings(ctx context.Context, arg PutMethodSettingsPa
 		arg.MetricsEnabled,
 		arg.LoggingLevel,
 		arg.DataTraceEnabled,
+		arg.ThrottlingBurstLimit,
+		arg.ThrottlingRateLimit,
 	)
 	return err
 }

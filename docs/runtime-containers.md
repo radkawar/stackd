@@ -107,8 +107,32 @@ image-RIC and `provided.al2023` execution, SQS/Kinesis mappings, suffix-filtered
 S3 notification, and `rate(1 minute)` delivery worked. Ten image-code updates
 completed successfully; stack deletion and controller shutdown left no containers.
 This is user-reported platform evidence, not a locally repeated macOS run.
-CORS readback and `cron()` were not exercised there. The report also identified
-the compatibility bugs described in [CloudFormation deployments](behavior-references.md#cloudformation-deployments).
+The follow-up report at `0a531a1` confirms the B1–B8 compatibility fixes and
+three rendered Guard deployments: 156 resources in 89 seconds, retained nested
+cron stacks in 102 seconds, and retained developer email after captured-mail
+verification in 97 seconds. It also observes exact S3 CORS readback, two real
+`cron(* * * * ? *)` Lambda deliveries 54 seconds apart with constant input,
+SSM SecureString decrypted/ciphertext API reads, and a WebSocket-shaped stack
+reaching `CREATE_COMPLETE`. WebSocket message execution was not tested.
+These remain user-reported Desktop results, not locally repeated macOS runs.
+
+Daemon-owned Lambda networking mounts the VM's existing `/run` at
+`/stackd-host-run` and creates its missing `lock` directory before acquiring
+the regular `stackd-public-network.lock` inode. No manual VM `/run/lock` setup
+is required. Local and daemon-owned controllers still use the same host inode;
+the helper verifies the selected Engine socket while holding the lock. This
+writable daemon-host mount belongs only to the trusted privileged setup helper,
+not customer containers. Docker-socket access already grants host-root authority.
+Function endpoints set MAC addresses through `NetworkingConfig.EndpointsConfig`,
+with all running/owner/network/IP/MAC/single-network authority checks retained.
+Docker's [API version history](https://docs.docker.com/reference/api/engine/version-history/)
+documents per-endpoint MAC support from API 1.44 and removal of legacy
+`Config.MacAddress` in API 1.52. The client selects the highest common supported
+API up to 1.44. Linux Engine 29.5 smoke evidence covers missing-directory
+creation, exclusive inode retention, wrong-Engine rejection, actual kernel MAC
+and rejection of a mismatched MAC or extra network; it is not a native Desktop run.
+See [CloudFormation deployments](behavior-references.md#cloudformation-deployments)
+for the retained compatibility boundaries.
 
 Cross-building the controller does not boot macOS, contact Docker Desktop or establish VM capability/readiness. The portable EC2 control plane remains usable without `-ec2-state-directory`; explicitly enabling the native EC2 backend on a non-Linux controller returns `QEMU capability unavailable: guest and native disk execution requires a local Linux controller`. It does not substitute a Docker container for an EC2 guest. Keep that flag out of the Desktop recipe.
 

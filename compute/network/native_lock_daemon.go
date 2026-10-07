@@ -20,8 +20,12 @@ class Engine(http.client.HTTPConnection):
         self.sock.settimeout(10)
         self.sock.connect("/var/run/docker.sock")
 
-path = "/run/lock/stackd-public-network.lock"
-fd = os.open(path, os.O_RDONLY | os.O_CREAT | os.O_NOFOLLOW, 0o644)
+directory = "/stackd-host-run/lock"
+os.makedirs(directory, mode=0o755, exist_ok=True)
+if not stat.S_ISDIR(os.stat(directory, follow_symlinks=False).st_mode):
+    raise SystemExit("native network lock directory must be a regular daemon-host directory")
+path = directory + "/stackd-public-network.lock"
+fd = os.open(path, os.O_RDONLY | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o644)
 try:
     observed = os.fstat(fd)
     if not stat.S_ISREG(observed.st_mode):
@@ -40,7 +44,7 @@ try:
         raise SystemExit("daemon-host native network lock inode changed")
     connection = Engine("localhost", timeout=10)
     try:
-        connection.request("GET", "/v1.41/info")
+        connection.request("GET", "/info")
         response = connection.getresponse()
         engine = json.load(response)
         if response.status != 200 or engine.get("ID") != os.environ["NATIVE_ENGINE_ID"] or engine.get("OSType") != "linux":

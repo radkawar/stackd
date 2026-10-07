@@ -101,6 +101,15 @@ type ApigatewayAuthorizerPool struct {
 	Arn          string
 }
 
+type ApigatewayBinaryMediaType struct {
+	Partition string
+	AccountID string
+	Region    string
+	ApiID     string
+	Ordinal   int64
+	MediaType string
+}
+
 type ApigatewayClientKey struct {
 	Partition      string
 	AccountID      string
@@ -183,6 +192,35 @@ type ApigatewayDeploymentRoute struct {
 	ApiKeyRequired                 bool
 }
 
+type ApigatewayGatewayHeader struct {
+	Partition    string
+	AccountID    string
+	Region       string
+	ApiID        string
+	ResponseType string
+	Name         string
+	Value        string
+}
+
+type ApigatewayGatewayResponse struct {
+	Partition    string
+	AccountID    string
+	Region       string
+	ApiID        string
+	ResponseType string
+	StatusCode   int64
+}
+
+type ApigatewayGatewayTemplate struct {
+	Partition    string
+	AccountID    string
+	Region       string
+	ApiID        string
+	ResponseType string
+	MediaType    string
+	Template     string
+}
+
 type ApigatewayIntegration struct {
 	Partition      string
 	AccountID      string
@@ -211,6 +249,28 @@ type ApigatewayMethod struct {
 	CfnIncarnation    string
 }
 
+type ApigatewayMethodResponse struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	ApiID      string
+	ResourceID string
+	HttpMethod string
+	StatusCode string
+}
+
+type ApigatewayMethodResponseHeader struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	ApiID      string
+	ResourceID string
+	HttpMethod string
+	StatusCode string
+	Name       string
+	Required   bool
+}
+
 type ApigatewayMethodScope struct {
 	Partition  string
 	AccountID  string
@@ -223,15 +283,17 @@ type ApigatewayMethodScope struct {
 }
 
 type ApigatewayMethodSetting struct {
-	Partition        string
-	AccountID        string
-	Region           string
-	ApiID            string
-	Stage            string
-	MethodKey        string
-	MetricsEnabled   bool
-	LoggingLevel     string
-	DataTraceEnabled bool
+	Partition            string
+	AccountID            string
+	Region               string
+	ApiID                string
+	Stage                string
+	MethodKey            string
+	MetricsEnabled       bool
+	LoggingLevel         string
+	DataTraceEnabled     bool
+	ThrottlingBurstLimit sql.NullInt64
+	ThrottlingRateLimit  sql.NullFloat64
 }
 
 type ApigatewayMetricSample struct {
@@ -249,6 +311,52 @@ type ApigatewayMetricSample struct {
 	MetricName   string
 	Value        float64
 	SampleCount  int64
+}
+
+type ApigatewayMockIntegration struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	ApiID      string
+	ResourceID string
+	HttpMethod string
+	StatusCode int64
+	Body       string
+}
+
+type ApigatewayMockIntegrationHeader struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	ApiID      string
+	ResourceID string
+	HttpMethod string
+	Name       string
+	Value      string
+}
+
+type ApigatewayMockRoute struct {
+	Partition    string
+	AccountID    string
+	Region       string
+	ApiID        string
+	DeploymentID string
+	ResourceID   string
+	HttpMethod   string
+	StatusCode   int64
+	Body         string
+}
+
+type ApigatewayMockRouteHeader struct {
+	Partition    string
+	AccountID    string
+	Region       string
+	ApiID        string
+	DeploymentID string
+	ResourceID   string
+	HttpMethod   string
+	Name         string
+	Value        string
 }
 
 type ApigatewayResource struct {

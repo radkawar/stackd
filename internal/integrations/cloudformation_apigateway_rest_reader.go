@@ -121,7 +121,7 @@ func cfnRESTReadMethodSettings(v any) []any {
 			continue
 		}
 		setting, _ := settings[key].(map[string]any)
-		item := map[string]any(cfnRESTProject(setting, "MetricsEnabled", "LoggingLevel", "DataTraceEnabled"))
+		item := map[string]any(cfnRESTProject(setting, "MetricsEnabled", "LoggingLevel", "DataTraceEnabled", "ThrottlingBurstLimit", "ThrottlingRateLimit"))
 		item["ResourcePath"], item["HttpMethod"] = "/"+strings.TrimPrefix(key[:separator], "/"), key[separator+1:]
 		if key[:separator] == "*" {
 			item["ResourcePath"] = "/*"
@@ -151,7 +151,7 @@ func (h cfnRESTGateway) read(ctx context.Context, r cloudformation.ResourceReque
 	var p cloudformation.Properties
 	switch h.kind {
 	case "RestApi":
-		p = cfnRESTProject(out, "Name", "Description", "DisableExecuteApiEndpoint", "Version", "SecurityPolicy")
+		p = cfnRESTProject(out, "Name", "Description", "DisableExecuteApiEndpoint", "Version", "SecurityPolicy", "BinaryMediaTypes")
 		p["RestApiId"], p["RootResourceId"], p["ApiKeySourceType"] = out["id"], out["rootResourceId"], out["apiKeySource"]
 		p["EndpointConfiguration"] = cfnRESTNested(out["endpointConfiguration"])
 	case "Resource":

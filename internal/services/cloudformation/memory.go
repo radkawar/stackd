@@ -115,6 +115,7 @@ func cloneStack(v StackRecord) StackRecord {
 func cloneResource(v ResourceRecord) ResourceRecord {
 	v.Properties = cloneProperties(v.Properties)
 	v.EventProperties = cloneProperties(v.EventProperties)
+	v.DynamicReferences = maps.Clone(v.DynamicReferences)
 	v.Attributes = cloneDocument(v.Attributes).(map[string]any)
 	return v
 }

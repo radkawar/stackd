@@ -10,7 +10,6 @@ type ContainerConfig struct {
 	Labels               map[string]string
 	OpenStdin, StdinOnce bool                       `json:",omitempty"`
 	NetworkDisabled      bool                       `json:",omitempty"`
-	MacAddress           string                     `json:",omitempty"`
 	NetworkingConfig     *ContainerNetworkingConfig `json:",omitempty"`
 	Healthcheck          *ContainerHealthConfig     `json:",omitempty"`
 	HostConfig           ContainerHostConfig
@@ -42,6 +41,7 @@ type ContainerNetworkingConfig struct {
 }
 
 type ContainerEndpointConfig struct {
+	MacAddress string `json:",omitempty"`
 	IPAMConfig ContainerEndpointIPAMConfig
 }
 

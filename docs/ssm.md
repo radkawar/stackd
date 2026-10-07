@@ -83,6 +83,39 @@ verifies current permission tags, exact permission/share ARN denials, source and
 target replacement denials without mutation, successful replacement and a newly
 applied denial before token replay.
 
+### CloudFormation ordinary dynamic references
+
+CloudFormation resource properties support `{{resolve:ssm:parameter-name}}` and
+`{{resolve:ssm:parameter-name:version}}` for String parameters, including strings
+assembled with `Fn::Sub` or `Fn::Join`. Parsing, validation and change-set
+planning retain references without reading Parameter Store. During resource
+create/update execution, CloudFormation calls the actual SSM `GetParameters`
+owner using its retained caller or current stack execution-role authority.
+
+Unversioned references select the latest version for that resource operation.
+Before native effects, a durable resolution intent retains only the selected
+version, so retries reauthorize the pinned version instead of refreshing the
+value. Subsequent resource updates select a new latest version; changing an SSM
+parameter alone does not mutate an existing resource. The raw stack template,
+retained resource properties and stack events never contain the fetched value.
+Resolved values exist only in the native owner's resource input/state; owner
+failure messages are redacted before CloudFormation retains them.
+
+Plain `ssm` references reject SecureString without requesting decryption.
+`ssm-secure`, Secrets Manager dynamic references, labels and cross-account
+references remain unsupported. Missing parameters, missing versions and IAM
+denials fail the operation rather than admitting a resource with reference text.
+See [AWS plaintext dynamic references](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/dynamic-references-ssm.html)
+for syntax and `ssm:GetParameters` permissions.
+
+The combined SQLite CLI deployment resolves the reported Google `client_secret`
+from a real String parameter and verifies the provider's exact value. AWS CLI
+template/event reads contain no resolved value. Memory/SQLite owner fixtures
+cover subsequent version selection, current authority, redacted errors and
+actual KMS-encrypted SecureString rejection. These are local executable
+observations, not native AWS CloudFormation captures.
+
+
 ## Stateless Secrets Manager references
 
 `GetParameter` and `GetParameters` recognize

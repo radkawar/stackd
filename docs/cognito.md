@@ -1,9 +1,9 @@
 # Cognito user pools
 
 The generated AWS JSON 1.1 `cognitoidp` frontend models 132 operations and uses
-`cognito-idp` as its signing name. The current application kernel implements 54
-pool, app-client, user, group, authentication and email operations. Other modeled operations
-return explicit protocol errors, not empty successes. This is not complete
+`cognito-idp` as its signing name. The current application kernel registers 70
+pool, client, user, group, authentication, email, MFA and federation operations.
+Other modeled operations return explicit protocol errors, not empty successes. This is not complete
 Cognito, and it does not implement Cognito Identity pools.
 
 This document owns the current behavior and evidence boundaries;
@@ -18,14 +18,79 @@ This document owns the current behavior and evidence boundaries;
 | App clients (5) | `CreateUserPoolClient`, `DescribeUserPoolClient`, `UpdateUserPoolClient`, `DeleteUserPoolClient`, `ListUserPoolClients` |
 | Administrative users (10) | `AdminCreateUser`, `AdminGetUser`, `AdminDeleteUser`, `AdminEnableUser`, `AdminDisableUser`, `AdminSetUserPassword`, `AdminConfirmSignUp`, `AdminUpdateUserAttributes`, `AdminDeleteUserAttributes`, `ListUsers` |
 | Groups and membership (9) | `CreateGroup`, `GetGroup`, `UpdateGroup`, `DeleteGroup`, `ListGroups`, `AdminAddUserToGroup`, `AdminRemoveUserFromGroup`, `AdminListGroupsForUser`, `ListUsersInGroup` |
-| Authentication and public users (13) | `InitiateAuth`, `AdminInitiateAuth`, `RespondToAuthChallenge`, `AdminRespondToAuthChallenge`, `RevokeToken`, `GlobalSignOut`, `AdminUserGlobalSignOut`, `GetUser`, `ChangePassword`, `SignUp`, `UpdateUserAttributes`, `DeleteUserAttributes`, `DeleteUser` |
+| Authentication and public users (14) | `InitiateAuth`, `AdminInitiateAuth`, `RespondToAuthChallenge`, `AdminRespondToAuthChallenge`, `GetTokensFromRefreshToken`, `RevokeToken`, `GlobalSignOut`, `AdminUserGlobalSignOut`, `GetUser`, `ChangePassword`, `SignUp`, `UpdateUserAttributes`, `DeleteUserAttributes`, `DeleteUser` |
 | Email verification and recovery (7) | `ConfirmSignUp`, `ResendConfirmationCode`, `ForgotPassword`, `ConfirmForgotPassword`, `GetUserAttributeVerificationCode`, `VerifyUserAttribute`, `AdminResetUserPassword` |
+| Software-token MFA (6) | `AssociateSoftwareToken`, `VerifySoftwareToken`, `SetUserMFAPreference`, `AdminSetUserMFAPreference`, `GetUserPoolMfaConfig`, `SetUserPoolMfaConfig` |
+| Social providers (6) | `CreateIdentityProvider`, `UpdateIdentityProvider`, `DeleteIdentityProvider`, `DescribeIdentityProvider`, `GetIdentityProviderByIdentifier`, `ListIdentityProviders` |
+| Prefix domains (4) | `CreateUserPoolDomain`, `DescribeUserPoolDomain`, `UpdateUserPoolDomain`, `DeleteUserPoolDomain` |
 
 Pool configuration includes password policies, user schema, supported username and
 alias settings, tags and deletion protection. App clients govern enabled login
 flows, attribute visibility/writes, secret hashes, token lifetimes and user
 existence protection. Unsupported active configurations are rejected rather than
 retained as promises of behavior.
+
+## Software-token MFA
+
+CloudFormation `EnabledMfas: [SOFTWARE_TOKEN_MFA]` configures the same typed pool
+factor owner as `SetUserPoolMfaConfig`. Enrollment uses `AssociateSoftwareToken`,
+then `VerifySoftwareToken` with a real RFC 6238 SHA-1, six-digit, 30-second TOTP.
+The verifier accepts the adjacent time steps and atomically retains the consumed
+counter; verification and login cannot reuse it. Factor preferences require a
+verified enrollment and are exposed by `GetUser` and `AdminGetUser`.
+
+`OPTIONAL` permits ordinary login before enrollment and challenges an enabled
+factor. `ON` sends a nonenrolled password-authenticated user through `MFA_SETUP`:
+associate with the challenge session, verify with the returned session, then
+respond with the verification session. Sessions rotate, expire and bind the
+pool, user, client and authentication state. Password, SRP and temporary-password
+flows cannot issue tokens before their required MFA transition completes.
+
+The executable SQLite workflow exercises public SDK enrollment, preferences,
+wrong-code rejection, successful challenge completion and consumed-session
+rejection across a real CLI restart. Memory/SQLite regressions cover required
+setup, expiry, replay, concurrent authority changes and retained secrets/counters.
+This is local behavior evidence, not an AWS MFA capture. Database contents include
+TOTP secrets; protect the database. SMS, email and WebAuthn MFA remain unsupported.
+
+Sources: [RFC 6238](https://www.rfc-editor.org/rfc/rfc6238),
+[enrollment](https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/API_AssociateSoftwareToken.html),
+[verification](https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/API_VerifySoftwareToken.html),
+[preferences](https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/API_SetUserMFAPreference.html),
+[challenge completion](https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/API_RespondToAuthChallenge.html).
+
+## Native Lambda triggers and federation
+
+`PreSignUp`, `PreAuthentication` and `PostConfirmation` invoke real configured
+Lambda runtimes through the existing Runtime API owner. Invocation uses the
+Cognito service principal and exact pool source ARN, with current function
+resource-policy authority. Calls run outside repository transactions; admission
+and current user state are revalidated before state/token publication.
+PreSignUp auto-confirm/verification flags apply to signup, not administrative
+creation. PostConfirmation failure does not undo an already committed confirmation.
+
+Essentials/Plus pools admit `InboundFederation` with `LambdaVersion: V1_0`.
+`/oauth2/authorize`, `/oauth2/idpresponse` and `/oauth2/token` execute social-provider
+authorization-code federation, not fabricated provider responses. Google/Apple
+JWTs require validated signatures, issuer, audience, expiry and nonce; Facebook
+and Login with Amazon use their documented credential-bound exchanges. Social
+provider authority is canonical, not configurable through arbitrary URL/issuer
+overrides. Authorization state and codes expire, are single-use and bind client,
+redirect URI, scopes and S256 PKCE where requested.
+
+InboundFederation runs after upstream validation and before attribute mapping
+and token issuance; its response changes the retained user and signed JWT claims.
+Memory/SQLite native Python fixtures exercise classic triggers and this full
+flow using an operator-controlled TLS provider/JWKS transport at the explicit
+outbound HTTP boundary. They reject forged JWTs, missing/revoked invocation
+permission and replayed codes. This is not a live Google-account sign-in capture.
+
+Sources: [PreSignUp](https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-pre-sign-up.html),
+[PreAuthentication](https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-pre-authentication.html),
+[PostConfirmation](https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-post-confirmation.html),
+[InboundFederation](https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-inbound-federation.html),
+[authorization endpoint](https://docs.aws.amazon.com/cognito/latest/developerguide/authorization-endpoint.html),
+[token endpoint](https://docs.aws.amazon.com/cognito/latest/developerguide/token-endpoint.html).
 
 ## Captured email delivery
 
@@ -304,7 +369,7 @@ the origin while initial access tokens omit it; rotated access tokens include it
 Private-client secrets are checked before token/user attribution. Public clients
 ignore an extra secret. Lite rejects rotation, explicit legacy refresh conflicts
 with it, and enabled clients prevent a pool downgrade to Lite. Unsupported device
-tracking and Lambda triggers remain separate configuration boundaries.
+tracking and triggers other than the four documented above remain separate boundaries.
 
 The native corpus contains 110 calls and 109 exact-request-ID audit records;
 the missing-client request was absent from bounded history lookup. Successful
@@ -472,6 +537,10 @@ or pool deletion but surviving app-client deletion. Schema **234** owns SES
 identities, templates, configuration sets, tags and durable MIME/capture state.
 Schema **260** adds sending-policy documents, bound principal IDs and the resolved
 accepted-message source identity ARN, preserving earlier captured bytes.
+Schema **403** adds typed software-token secrets, preferences, consumed counters,
+setup/challenge bindings and one-use federation state/code records. Pool/client
+deletion cascades their owned federation records; a reopened database retains
+factor preferences, replay state and existing signing keys.
 An actual schema 259→260 executable upgrade retains verified identities,
 templates, configuration and MIME, then consumes them through the classic API.
 The new shared sending policy and both message captures survive another restart;
@@ -588,15 +657,14 @@ These observations do not justify retaining deleted clients indefinitely.
 
 ## Remaining boundaries
 
-SMTP/Internet delivery, SMS invitation/verification/recovery, custom message
-templates, MFA, remembered devices,
-external federated sign-in, hosted UI, OAuth endpoints/custom domains, Lambda
-triggers/custom authentication and signing-key rotation
-are deferred. So are advanced security/analytics, imported client secrets,
-customer-managed pool keys and remaining modeled operations. Broader
-quotas, error precedence, schema/alias conformance and partition behavior remain
-incomplete. Unsupported execution operations fail explicitly; configuring OAuth
-and identity providers does not synthesize external authentication or OAuth tokens.
+SMTP/Internet delivery, SMS invitation/verification/recovery, remembered devices,
+SMS/email/WebAuthn MFA, native-user hosted sign-in pages, implicit grants,
+`/oauth2/userInfo`, custom domains, OIDC/SAML provider CRUD, other Lambda triggers,
+custom authentication and signing-key rotation remain deferred. So are advanced
+security/analytics, imported client secrets, customer-managed pool keys and
+remaining modeled operations. Broader quotas, error precedence, schema/alias
+conformance and partition behavior remain incomplete. Unsupported execution
+operations fail explicitly; retained provider metadata alone never authenticates.
 
 SES capture does not implement suppression/contact lists, event destinations,
 delivery analytics, DNS/DKIM domain verification, custom MAIL FROM, dedicated IPs
@@ -622,8 +690,11 @@ These rules follow the [AWS CreateUserPoolClient contract](https://docs.aws.amaz
 
 Intentional `TODO: Comeback` markers currently live in:
 
-- `internal/services/cognitoidp/pools.go`: real triggers, SMS, MFA, devices,
-  customer-managed keys and advanced security before admitting active settings.
+- `internal/services/cognitoidp/pools.go`: SMS, devices, customer-managed keys
+  and advanced security before admitting active settings.
+- `internal/services/cognitoidp/triggers.go`: other Lambda trigger families.
+- `internal/services/cognitoidp/oauth.go`: native-user hosted pages, implicit
+  grants and userInfo.
 - `internal/services/cognitoidp/email.go`: selected SMS recovery delivery.
 - `internal/services/sesv2/service.go`: remaining SES operation families and
   external delivery owners.

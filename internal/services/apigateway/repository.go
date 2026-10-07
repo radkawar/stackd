@@ -51,6 +51,8 @@ type APIRecord struct {
 	EffectiveDisabled                          bool
 	APIKeySource                               string
 	Tags                                       map[string]string
+	BinaryMediaTypes                           []string
+	GatewayResponses                           map[string]apigatewayexec.GatewayResponse
 }
 type ResourceRecord struct {
 	Ownership                Ownership
@@ -63,12 +65,15 @@ type MethodRecord struct {
 	AuthorizationType, AuthorizerID, OperationName string
 	Scopes                                         []string
 	APIKeyRequired                                 bool
+	Responses                                      map[string]MethodResponse
 }
+type MethodResponse struct{ Headers map[string]bool }
 type IntegrationRecord struct {
 	Key            MethodKey
 	URI            string
 	CredentialsARN string
 	TimeoutMillis  int32
+	Mock           *apigatewayexec.MockIntegration
 }
 type AuthorizerRecord struct {
 	Ownership        Ownership
@@ -88,6 +93,7 @@ type DeploymentRoute struct {
 	TimeoutMillis                                                int32
 	LambdaAuthorizer                                             *apigatewayexec.LambdaAuthorizer
 	APIKeyRequired                                               bool
+	Mock                                                         *apigatewayexec.MockIntegration
 }
 type DeploymentResource struct{ ResourceID, Path string }
 type DeploymentRecord struct {
@@ -101,9 +107,11 @@ type DeploymentRecord struct {
 }
 
 type MethodSettings struct {
-	MetricsEnabled   bool
-	LoggingLevel     string
-	DataTraceEnabled bool
+	MetricsEnabled       bool
+	LoggingLevel         string
+	DataTraceEnabled     bool
+	ThrottlingBurstLimit *int32
+	ThrottlingRateLimit  *float64
 }
 type StageRecord struct {
 	Ownership Ownership

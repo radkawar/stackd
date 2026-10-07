@@ -50,9 +50,10 @@ type SigningKey struct {
 }
 type PoolSigningKeys struct{ Access, ID SigningKey }
 type PoolRecord struct {
-	Key       PoolKey
-	Data      api.UserPoolType
-	IssuerURL string
+	Key                     PoolKey
+	Data                    api.UserPoolType
+	IssuerURL               string
+	SoftwareTokenMFAEnabled bool
 }
 type ClientRecord struct {
 	Key  ClientKey
@@ -67,10 +68,17 @@ type GroupRecord struct {
 // Direct password authentication checks the same verifier used by SRP.
 type PasswordVerifier struct{ Salt, Verifier []byte }
 type UserRecord struct {
-	Key             UserKey
-	Data            api.UserType
-	Password        PasswordVerifier
-	PasswordExpires *time.Time
+	Key                         UserKey
+	Data                        api.UserType
+	Password                    PasswordVerifier
+	PasswordExpires             *time.Time
+	SoftwareTokenSecret         string
+	SoftwareTokenPendingSecret  string
+	SoftwareTokenPendingExpires time.Time
+	SoftwareTokenLastCounter    int64
+	SoftwareTokenEnabled        bool
+	SoftwareTokenPreferred      bool
+	SoftwareTokenDeviceName     string
 }
 
 // ChallengeRecord retains an issued, single-use authentication challenge.
@@ -81,6 +89,8 @@ type ChallengeRecord struct {
 	ClientID, Username, Kind string
 	Expires                  time.Time
 	SRPPrivate               []byte
+	SoftwareTokenSecret      string
+	SoftwareTokenVerified    bool
 }
 
 // EmailCodeRecord belongs to a user, not the app client that requested delivery.
@@ -108,8 +118,9 @@ type SessionRecord struct {
 	RefreshGraceExpires      time.Time
 	// Revoked invalidates refresh and family-origin JWTs. Global revocation
 	// also invalidates generation-origin JWTs issued after disabling rotation.
-	Revoked         bool
-	GloballyRevoked bool
+	Revoked                bool
+	GloballyRevoked        bool
+	OAuthScope, OAuthNonce string
 }
 
 // Reader returns detached records and borrows the shared transaction context.
@@ -149,6 +160,7 @@ type Reader interface {
 	PoolOwnership(Scope, ResourceOwner) (OwnershipRecord, error)
 	Provider(ProviderKey) (ProviderRecord, error)
 	Providers(PoolKey) ([]ProviderRecord, error)
+	OAuth(OAuthKey) (OAuthRecord, error)
 }
 
 // Pool/client deletion removes owned authentication state. User deletion removes
@@ -179,6 +191,9 @@ type Transaction interface {
 	DeleteOwnership(OwnershipKey) error
 	PutProvider(ProviderRecord) error
 	DeleteProvider(ProviderKey) error
+	PutOAuth(OAuthRecord) error
+	DeleteOAuth(OAuthKey) error
+	DeleteExpiredOAuth(PoolKey, time.Time) error
 }
 
 type Repository interface {

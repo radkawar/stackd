@@ -10,16 +10,18 @@ import (
 )
 
 type CognitoidpChallenge struct {
-	Partition  string
-	AccountID  string
-	Region     string
-	PoolID     string
-	Token      string
-	ClientID   string
-	Username   string
-	Kind       string
-	Expires    time.Time
-	SrpPrivate []byte
+	Partition             string
+	AccountID             string
+	Region                string
+	PoolID                string
+	Token                 string
+	ClientID              string
+	Username              string
+	Kind                  string
+	Expires               time.Time
+	SrpPrivate            []byte
+	SoftwareTokenSecret   string
+	SoftwareTokenVerified bool
 }
 
 type CognitoidpClient struct {
@@ -101,6 +103,26 @@ type CognitoidpIdentityProvider struct {
 	LastModifiedDate sql.NullTime
 }
 
+type CognitoidpOauth struct {
+	Partition        string
+	AccountID        string
+	Region           string
+	PoolID           string
+	Token            string
+	ClientID         string
+	ProviderName     string
+	RedirectUri      string
+	ClientState      string
+	Nonce            string
+	PkceChallenge    string
+	UpstreamNonce    string
+	UpstreamVerifier string
+	Scope            string
+	Username         string
+	Phase            string
+	Expires          time.Time
+}
+
 type CognitoidpPool struct {
 	Partition                   string
 	AccountID                   string
@@ -142,6 +164,7 @@ type CognitoidpPool struct {
 	UsernameConfiguration       []byte
 	VerificationMessageTemplate []byte
 	IssuerUrl                   string
+	SoftwareTokenMfaEnabled     bool
 }
 
 type CognitoidpRefreshToken struct {
@@ -186,6 +209,8 @@ type CognitoidpSession struct {
 	RefreshGraceExpires   time.Time
 	RefreshOriginID       string
 	GloballyRevoked       bool
+	OauthScope            string
+	OauthNonce            string
 }
 
 type CognitoidpSigningKey struct {
@@ -200,20 +225,27 @@ type CognitoidpSigningKey struct {
 }
 
 type CognitoidpUser struct {
-	Partition            string
-	AccountID            string
-	Region               string
-	PoolID               string
-	Username             string
-	Enabled              sql.NullBool
-	MfaOptions           []byte
-	UserCreateDate       sql.NullTime
-	UserLastModifiedDate sql.NullTime
-	UserStatus           sql.NullString
-	AttributesPresent    bool
-	PasswordSalt         []byte
-	PasswordVerifier     []byte
-	PasswordExpires      sql.NullTime
+	Partition                   string
+	AccountID                   string
+	Region                      string
+	PoolID                      string
+	Username                    string
+	Enabled                     sql.NullBool
+	MfaOptions                  []byte
+	UserCreateDate              sql.NullTime
+	UserLastModifiedDate        sql.NullTime
+	UserStatus                  sql.NullString
+	AttributesPresent           bool
+	PasswordSalt                []byte
+	PasswordVerifier            []byte
+	PasswordExpires             sql.NullTime
+	SoftwareTokenSecret         string
+	SoftwareTokenPendingSecret  string
+	SoftwareTokenPendingExpires sql.NullTime
+	SoftwareTokenLastCounter    int64
+	SoftwareTokenEnabled        bool
+	SoftwareTokenPreferred      bool
+	SoftwareTokenDeviceName     string
 }
 
 type CognitoidpUserAttribute struct {

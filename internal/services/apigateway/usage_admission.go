@@ -23,6 +23,7 @@ type usageBucketKey struct {
 	Plan                 PlanKey
 	ClientKeyID          string
 	APIID, Stage, Method string
+	StageIncarnation     uint64
 }
 
 type usageBucket struct {
@@ -53,32 +54,51 @@ func (a *usageAdmission) available(key usageBucketKey, settings UsageThrottle, n
 	return bucket, true
 }
 
-// AdmitUsage enforces the current plan for mapped keys, including disabled keys
-// on optional methods. Required methods reject missing, disabled or unmapped keys.
-// Quota accounting commits before the caller can invoke customer code.
+// AdmitUsage enforces live stage method limits for every REST request and the
+// current plan for mapped keys. Required methods reject missing, disabled or
+// unmapped keys. Quota accounting commits before customer code can run.
 func (s *Service) AdmitUsage(ctx context.Context, route *apigatewayexec.Route, value string) (apigatewayexec.APIKeyIdentity, error) {
 	scope := Scope{Partition: route.Partition, AccountID: route.AccountID, Region: route.Region}
 	identity := apigatewayexec.APIKeyIdentity{Value: value}
-	if value == "" {
-		if route.APIKeyRequired {
-			return identity, failure("ForbiddenException", "Forbidden", 403)
-		}
-		return identity, nil
+	if value == "" && route.APIKeyRequired {
+		return identity, failure("ForbiddenException", "Forbidden", 403)
 	}
 	// Serialize process-local burst reservations with the durable quota write.
 	// Neither a denied request nor a failed transaction consumes a burst token.
 	s.usage.mu.Lock()
 	defer s.usage.mu.Unlock()
 	now := s.clock.Now()
-	var pending [2]pendingUsageBucket
+	var pending [3]pendingUsageBucket
 	count := 0
 	err := s.repository.Update(ctx, func(tx Transaction) error {
+		reserve := func(bucketKey usageBucketKey, settings UsageThrottle) error {
+			bucket, ok := s.usage.available(bucketKey, settings, now)
+			if !ok {
+				return failure("TooManyRequestsException", "Too Many Requests", 429)
+			}
+			pending[count] = pendingUsageBucket{key: bucketKey, value: bucket}
+			count++
+			return nil
+		}
+		stage, err := tx.Stage(StageKey{APIKey: APIKey{Scope: scope, ID: route.APIID}, Name: route.Stage})
+		if err != nil {
+			return err
+		}
+		method, _, _ := strings.Cut(route.RouteKey, " ")
+		settings := effectiveMethodSettings(stage.MethodSettings, route.ResourcePath, method)
+		stageBucket := usageBucketKey{Plan: PlanKey{Scope: scope}, APIID: route.APIID, Stage: route.Stage, Method: route.RouteKey, StageIncarnation: stage.Incarnation}
+		reserveStage := func() error {
+			return reserve(stageBucket, methodThrottle(settings))
+		}
+		if value == "" {
+			return reserveStage()
+		}
 		key, err := tx.ClientKeyByValue(scope, value)
 		if errors.Is(err, ErrNotFound) {
 			if route.APIKeyRequired {
 				return failure("ForbiddenException", "Forbidden", 403)
 			}
-			return nil
+			return reserveStage()
 		}
 		if err != nil {
 			return err
@@ -96,22 +116,12 @@ func (s *Service) AdmitUsage(ctx context.Context, route *apigatewayexec.Route, v
 				if stage.Key.ID != route.APIID || stage.Key.Name != route.Stage {
 					continue
 				}
-				reserve := func(bucketKey usageBucketKey, settings UsageThrottle) error {
-					bucket, ok := s.usage.available(bucketKey, settings, now)
-					if !ok {
-						return failure("TooManyRequestsException", "Too Many Requests", 429)
-					}
-					pending[count] = pendingUsageBucket{key: bucketKey, value: bucket}
-					count++
-					return nil
-				}
 				bucketKey := usageBucketKey{Plan: plan.Key, ClientKeyID: key.Key.ID}
 				if plan.Throttle != nil {
 					if err := reserve(bucketKey, *plan.Throttle); err != nil {
 						return err
 					}
 				}
-				method, _, _ := strings.Cut(route.RouteKey, " ")
 				if throttle, ok := stage.Throttle[route.ResourcePath+"/"+method]; ok {
 					bucketKey.APIID, bucketKey.Stage, bucketKey.Method = route.APIID, route.Stage, route.RouteKey
 					if err := reserve(bucketKey, throttle); err != nil {
@@ -139,13 +149,13 @@ func (s *Service) AdmitUsage(ctx context.Context, route *apigatewayexec.Route, v
 						return err
 					}
 				}
-				return nil
+				return reserveStage()
 			}
 		}
 		if route.APIKeyRequired {
 			return failure("ForbiddenException", "Forbidden", 403)
 		}
-		return nil
+		return reserveStage()
 	})
 	if err != nil {
 		return apigatewayexec.APIKeyIdentity{}, err

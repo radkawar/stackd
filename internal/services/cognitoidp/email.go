@@ -181,7 +181,11 @@ func (s *Service) confirmSignUp(tx Transaction, in *api.ConfirmSignUpInput) (*ap
 	}
 	u.Data.UserStatus = new(api.UserStatusType("CONFIRMED"))
 	u.Data.UserLastModifiedDate = new(s.clock.Now())
-	return &api.ConfirmSignUpOutput{}, tx.PutUser(u)
+	if e = tx.PutUser(u); e != nil {
+		return nil, e
+	}
+	s.postConfirmation(tx, p, value(in.ClientId), u, "PostConfirmation_ConfirmSignUp", in.ClientMetadata)
+	return &api.ConfirmSignUpOutput{}, nil
 }
 func (s *Service) resendConfirmationCode(tx Transaction, in *api.ResendConfirmationCodeInput) (*api.ResendConfirmationCodeOutput, error) {
 	p, _, u, e := s.emailUser(tx, "ResendConfirmationCode", value(in.ClientId), value(in.Username), value(in.SecretHash))
@@ -268,7 +272,11 @@ func (s *Service) confirmForgotPassword(tx Transaction, in *api.ConfirmForgotPas
 	if e = tx.RevokeUserSessions(u.Key); e != nil {
 		return nil, e
 	}
-	return &api.ConfirmForgotPasswordOutput{}, tx.PutUser(u)
+	if e = tx.PutUser(u); e != nil {
+		return nil, e
+	}
+	s.postConfirmation(tx, p, value(in.ClientId), u, "PostConfirmation_ConfirmForgotPassword", in.ClientMetadata)
+	return &api.ConfirmForgotPasswordOutput{}, nil
 }
 func (s *Service) getAttributeCode(tx Transaction, in *api.GetUserAttributeVerificationCodeInput) (*api.GetUserAttributeVerificationCodeOutput, error) {
 	p, _, u, _, e := s.accessUser(tx, value(in.AccessToken))

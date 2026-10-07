@@ -2,6 +2,7 @@ package integrations
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -76,7 +77,7 @@ func (h cfnRESTGateway) Create(ctx context.Context, r cloudformation.ResourceReq
 		action := "Create" + h.kind
 		switch h.kind {
 		case "RestApi":
-			input = cfnRESTInput(p, "Name", "Description", "Version", "SecurityPolicy", "DisableExecuteApiEndpoint")
+			input = cfnRESTInput(p, "Name", "Description", "Version", "SecurityPolicy", "DisableExecuteApiEndpoint", "BinaryMediaTypes")
 			input["name"] = cfnComputeDefault(p, "Name", cfnComputeName(r, "Name", 128))
 			input["apiKeySource"] = cfnComputeDefault(p, "ApiKeySourceType", "HEADER")
 			endpoint, _ := cfnComputeObject(p["EndpointConfiguration"])
@@ -85,6 +86,19 @@ func (h cfnRESTGateway) Create(ctx context.Context, r cloudformation.ResourceReq
 			}
 			input["endpointConfiguration"] = cfnRESTNestedWire(endpoint)
 			input["tags"] = cfnRESTUserTags(r)
+			if p["Body"] != nil {
+				ctx, err = cfnRESTImportContext(ctx, input, nil, p)
+				if err != nil {
+					return cloudformation.ResourceResult{}, err
+				}
+				body, err := json.Marshal(p["Body"])
+				if err != nil {
+					return cloudformation.ResourceResult{}, err
+				}
+				action = "ImportRestApi"
+				input = cfnRESTInput(p, "FailOnWarnings", "Parameters")
+				input["body"] = string(body)
+			}
 		case "Resource":
 			input = cfnRESTInput(p, "RestApiId", "ParentId", "PathPart")
 		case "Method":
@@ -206,7 +220,29 @@ func (h cfnRESTGateway) Update(ctx context.Context, r cloudformation.ResourceReq
 	p := r.Properties
 	switch h.kind {
 	case "RestApi":
-		patches = append(patches, cfnRESTPatch("replace", "/name", cfnComputeDefault(p, "Name", current["Name"])), cfnRESTPatch("replace", "/description", cfnComputeString(p, "Description")), cfnRESTPatch("replace", "/version", cfnComputeString(p, "Version")), cfnRESTPatch("replace", "/disableExecuteApiEndpoint", cfnComputeDefault(p, "DisableExecuteApiEndpoint", false)), cfnRESTPatch("replace", "/apiKeySource", cfnComputeDefault(p, "ApiKeySourceType", "HEADER")))
+		patches = append(patches, cfnRESTPatch("replace", "/name", cfnRESTImportMetadata(p, "Name", "title", current["Name"])), cfnRESTPatch("replace", "/description", cfnRESTImportMetadata(p, "Description", "description", "")), cfnRESTPatch("replace", "/version", cfnRESTImportMetadata(p, "Version", "version", "")), cfnRESTPatch("replace", "/disableExecuteApiEndpoint", cfnComputeDefault(p, "DisableExecuteApiEndpoint", false)), cfnRESTPatch("replace", "/apiKeySource", cfnComputeDefault(p, "ApiKeySourceType", "HEADER")))
+		patches = append(patches, cfnRESTBinaryPatches(current, p)...)
+		if p["Body"] != nil {
+			ctx, err = cfnRESTImportContext(ctx, nil, patches, p)
+			if err != nil {
+				return cloudformation.ResourceResult{}, err
+			}
+			body, err := json.Marshal(p["Body"])
+			if err != nil {
+				return cloudformation.ResourceResult{}, err
+			}
+			input["body"] = string(body)
+			input["mode"] = cfnComputeDefault(p, "Mode", "overwrite")
+			for _, key := range []string{"FailOnWarnings", "Parameters"} {
+				if v, ok := p[key]; ok {
+					input[cfnRESTWire(key)] = v
+				}
+			}
+			if _, err := h.call(ctx, "PutRestApi", input); err != nil {
+				return cloudformation.ResourceResult{}, err
+			}
+			patches = nil
+		}
 	case "Resource":
 		return h.Result(ctx, r)
 	case "Method":

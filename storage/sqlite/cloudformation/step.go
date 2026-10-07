@@ -23,6 +23,7 @@ func decodeStep(row sqlcgen.CloudformationStep) (domain.StepRecord, error) {
 		UpdateReplacePolicy: row.BeforeUpdateReplacePolicy,
 		Properties:          row.BeforeProperties,
 		EventProperties:     row.BeforeEventProperties,
+		DynamicReferences:   row.BeforeDynamicReferences,
 		Attributes:          row.BeforeAttributes,
 		Updated:             row.BeforeUpdated,
 	})
@@ -44,6 +45,7 @@ func decodeStep(row sqlcgen.CloudformationStep) (domain.StepRecord, error) {
 		UpdateReplacePolicy: row.AfterUpdateReplacePolicy,
 		Properties:          row.AfterProperties,
 		EventProperties:     row.AfterEventProperties,
+		DynamicReferences:   row.AfterDynamicReferences,
 		Attributes:          row.AfterAttributes,
 		Updated:             row.AfterUpdated,
 	})
@@ -73,6 +75,7 @@ func encodeStep(parent string, ordinal int, v domain.StepRecord) (sqlcgen.PutSte
 	p.BeforeUpdateReplacePolicy = before.UpdateReplacePolicy
 	p.BeforeProperties = before.Properties
 	p.BeforeEventProperties = before.EventProperties
+	p.BeforeDynamicReferences = before.DynamicReferences
 	p.BeforeAttributes = before.Attributes
 	p.BeforeUpdated = before.Updated
 	after, err := encodeResource(v.After)
@@ -93,6 +96,7 @@ func encodeStep(parent string, ordinal int, v domain.StepRecord) (sqlcgen.PutSte
 	p.AfterUpdateReplacePolicy = after.UpdateReplacePolicy
 	p.AfterProperties = after.Properties
 	p.AfterEventProperties = after.EventProperties
+	p.AfterDynamicReferences = after.DynamicReferences
 	p.AfterAttributes = after.Attributes
 	p.AfterUpdated = after.Updated
 	return p, nil

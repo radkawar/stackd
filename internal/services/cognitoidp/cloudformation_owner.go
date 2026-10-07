@@ -161,6 +161,9 @@ func (s *Service) ownedCommand(tx Transaction, action string, in any) (any, func
 			id := value(out.(*api.CreateUserPoolOutput).UserPool.Id)
 			return tx.PutOwnership(OwnershipRecord{Key: OwnershipKey{PoolKey: PoolKey{Scope: scope, ID: id}, Kind: OwnerKindPool, Name: id}, PhysicalID: id, Owner: owner})
 		}, nil
+	case *api.SetUserPoolMfaConfigInput:
+		_, err := require(value(in.UserPoolId), OwnerKindPool, value(in.UserPoolId))
+		return nil, nil, err
 	case *api.UpdateUserPoolInput:
 		_, err := require(value(in.UserPoolId), OwnerKindPool, value(in.UserPoolId))
 		return nil, nil, err

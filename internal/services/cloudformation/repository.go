@@ -42,8 +42,10 @@ type ResourceRecord struct {
 	// EventProperties retains the NoEcho projection with this incarnation's
 	// resolved properties, including cleanup after the stack template changes.
 	EventProperties Properties
-	Attributes      map[string]any
-	Updated         time.Time
+	// DynamicReferences pins execution-selected SSM versions without retaining values.
+	DynamicReferences map[string]int64
+	Attributes        map[string]any
+	Updated           time.Time
 }
 
 type EventRecord struct {

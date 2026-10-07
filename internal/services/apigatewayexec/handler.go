@@ -121,6 +121,9 @@ func (s *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}()
 	}
+	if rest && route != nil {
+		w = &gatewayResponseWriter{ResponseWriter: w, route: route, request: r}
+	}
 	if route == nil || err != nil {
 		rejected := &rejection{http.StatusNotFound, "Not Found"}
 		var wire *awswire.Error
@@ -189,6 +192,14 @@ func (s *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if observation.dataTrace {
 		observation.traceRequest(r, route, body)
+	}
+	if rest && route.Mock != nil {
+		for name, value := range route.Mock.Headers {
+			w.Header().Set(name, value)
+		}
+		w.WriteHeader(route.Mock.StatusCode)
+		_, _ = io.WriteString(w, route.Mock.Body)
+		return
 	}
 	payload, err := json.Marshal(s.payload(r, route, path, body, identity, rest))
 	if err != nil || s.functions == nil {
@@ -274,7 +285,8 @@ func (s *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	observation.responseType = "INTEGRATION_FAILURE"
-	if writeProxyResponse(w, output.Payload, route.PayloadVersion == "2.0") {
+	binaryNegotiated := !rest || binaryMedia(r.Header.Get("Accept"), route.BinaryMediaTypes)
+	if writeProxyResponse(w, output.Payload, route.PayloadVersion == "2.0", binaryNegotiated) {
 		observation.responseType = ""
 		observation.backendStatus = response.status
 	} else {
@@ -291,11 +303,6 @@ func (s *Handler) admitUsage(w http.ResponseWriter, r *http.Request, route *Rout
 	case "", "HEADER":
 		key = r.Header.Get("x-api-key")
 	case "AUTHORIZER":
-		if !route.APIKeyRequired {
-			// TODO: Comeback capture optional CUSTOM methods that return a
-			// usageIdentifierKey; current evidence covers optional NONE only.
-			return true
-		}
 		if identity.Lambda != nil {
 			key = identity.Lambda.UsageIdentifierKey
 		}
@@ -311,11 +318,7 @@ func (s *Handler) admitUsage(w http.ResponseWriter, r *http.Request, route *Rout
 	if observation.info {
 		observation.execution("Verifying Usage Plan for request: " + observation.requestID + ". API Key: " + loggedKey + " API Stage: " + route.APIID + "/" + route.Stage)
 	}
-	if !route.APIKeyRequired && key == "" {
-		if observation.info {
-			observation.execution("API Key  authorized because method '" + r.Method + " " + route.ResourcePath + "' does not require API Key. Request will not contribute to throttle or quota limits")
-			observation.execution("Usage Plan check succeeded for API Key  and API Stage " + route.APIID + "/" + route.Stage)
-		}
+	if s.usagePlans == nil && !route.APIKeyRequired {
 		return true
 	}
 	if s.usagePlans == nil {
@@ -352,6 +355,9 @@ func executionARN(route *Route, method, path string) string {
 }
 
 func writeRejection(w http.ResponseWriter, rejected *rejection) {
+	if custom, ok := w.(interface{ writeGatewayRejection(*rejection) bool }); ok && custom.writeGatewayRejection(rejected) {
+		return
+	}
 	if recorder, ok := w.(interface{ recordRejection(*rejection) }); ok {
 		recorder.recordRejection(rejected)
 	}

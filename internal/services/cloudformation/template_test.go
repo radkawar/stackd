@@ -216,7 +216,7 @@ func TestTemplateRejectsUnsupportedOrAmbiguousEffects(t *testing.T) {
 		"update-policy":                "Resources: {Queue: {Type: AWS::SQS::Queue, UpdatePolicy: {Anything: true}}}",
 		"retain-except-replacement":    "Resources: {Queue: {Type: AWS::SQS::Queue, UpdateReplacePolicy: RetainExceptOnCreate}}",
 		"custom-resource":              "Resources: {Queue: {Type: 'Custom::Queue'}}",
-		"dynamic-reference":            "Resources: {Queue: {Type: AWS::SQS::Queue, Properties: {QueueName: '{{resolve:ssm:secret}}'}}}",
+		"secure-dynamic-reference":     "Resources: {Queue: {Type: AWS::SQS::Queue, Properties: {QueueName: '{{resolve:ssm-secure:secret}}'}}}",
 		"unknown-inactive-intrinsic":   "Conditions: {Never: !Equals [a, b]}\nResources: {Queue: {Type: AWS::SQS::Queue, Properties: {Value: !If [Never, {Fn::Unknown: ignored}, accepted]}}}",
 		"condition-resource-reference": "Conditions: {Invalid: !Equals [!Ref Queue, x]}\nResources: {Queue: {Type: AWS::SQS::Queue}}",
 		"condition-cycle":              "Conditions: {First: !Condition Second, Second: !Condition First}\nResources: {Queue: {Type: AWS::SQS::Queue}}",

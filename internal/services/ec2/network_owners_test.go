@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"path/filepath"
+	"slices"
 	"stackd/clock"
 	api "stackd/internal/awsapi/ec2"
 	"stackd/internal/awscommands"
@@ -112,6 +113,20 @@ func TestNetworkOwnerNativeLifecycleRecovery(t *testing.T) {
 				t.Fatalf("missing endpoint controls %+v", endpoint)
 			}
 			endpointID := api.VpcEndpointId(*endpoint.VpcEndpointId)
+			bedrockInput := ec2.CloneCreateVpcEndpointRequest(*interfaceInput)
+			bedrockInput.ServiceName = new(api.String("com.amazonaws.us-east-1.bedrock-runtime"))
+			bedrockInput.ClientToken = new(api.String("bedrock-fence"))
+			if _, err := subnetCommand(t, ctx, service, "ec2", "ModifyVpcAttribute", &api.ModifyVpcAttributeRequest{VpcId: new(api.VpcId(*vpc.VpcId)), EnableDnsHostnames: &api.AttributeBooleanValue{Value: new(api.Boolean(true))}}); err != nil {
+				t.Fatal(err)
+			}
+			bedrockInput.PrivateDnsEnabled = new(api.Boolean(true))
+			bedrockInput.SecurityGroupIds = api.VpcEndpointSecurityGroupIdList{api.SecurityGroupId(*endpoint.Groups[0].GroupId)}
+			bedrock := subnetResult[api.CreateVpcEndpointResult](t, ctx, service, "ec2", "CreateVpcEndpoint", &bedrockInput).VpcEndpoint
+			bedrockID := api.VpcEndpointId(*bedrock.VpcEndpointId)
+			if len(bedrock.NetworkInterfaceIds) != 1 || *bedrock.Groups[0].GroupId != *endpoint.Groups[0].GroupId {
+				t.Fatalf("Bedrock did not allocate real SG-controlled ENI: %+v", bedrock)
+			}
+			subnetResult[api.ModifyVpcEndpointResult](t, ctx, service, "ec2", "ModifyVpcEndpoint", &api.ModifyVpcEndpointRequest{VpcEndpointId: &bedrockID, PolicyDocument: new(api.String(`{"Statement":[{"Effect":"Deny","Principal":"*","Action":"bedrock:InvokeModel","Resource":"*"}]}`)), DnsOptions: &api.DnsOptionsSpecification{DnsRecordIpType: new(api.DnsRecordIpType("ipv4"))}})
 			subnetResult[api.ModifyVpcEndpointResult](t, ctx, service, "ec2", "ModifyVpcEndpoint", &api.ModifyVpcEndpointRequest{VpcEndpointId: &endpointID, PolicyDocument: new(api.String(`{"Statement":[{"Effect":"Deny","Principal":"*","Action":"*","Resource":"*"}]}`)), DnsOptions: &api.DnsOptionsSpecification{DnsRecordIpType: new(api.DnsRecordIpType("ipv4"))}})
 			close()
 			open()
@@ -126,7 +141,22 @@ func TestNetworkOwnerNativeLifecycleRecovery(t *testing.T) {
 			if read.DnsOptions == nil || *read.DnsOptions.DnsRecordIpType != "ipv4" || *read.PolicyDocument != `{"Statement":[{"Effect":"Deny","Principal":"*","Action":"*","Resource":"*"}]}` {
 				t.Fatalf("endpoint settings lost %+v", read)
 			}
-			subnetResult[api.DeleteVpcEndpointsResult](t, ctx, service, "ec2", "DeleteVpcEndpoints", &api.DeleteVpcEndpointsRequest{VpcEndpointIds: api.VpcEndpointIdList{endpointID, api.VpcEndpointId(*gateway.VpcEndpointId)}})
+			bedrockRead := subnetResult[api.DescribeVpcEndpointsResult](t, ctx, service, "ec2", "DescribeVpcEndpoints", &api.DescribeVpcEndpointsRequest{VpcEndpointIds: api.VpcEndpointIdList{bedrockID}}).VpcEndpoints[0]
+			if *bedrockRead.ServiceName != *bedrockInput.ServiceName || *bedrockRead.PolicyDocument != `{"Statement":[{"Effect":"Deny","Principal":"*","Action":"bedrock:InvokeModel","Resource":"*"}]}` || bedrockRead.DnsOptions == nil || *bedrockRead.DnsOptions.DnsRecordIpType != "ipv4" || !slices.Equal(bedrockRead.NetworkInterfaceIds, bedrock.NetworkInterfaceIds) || bedrockRead.PrivateDnsEnabled == nil || !bool(*bedrockRead.PrivateDnsEnabled) {
+				t.Fatalf("disabled-provider endpoint state lost on reopen: %+v", bedrockRead)
+			}
+			subnetResult[api.ModifyVpcEndpointResult](t, ctx, service, "ec2", "ModifyVpcEndpoint", &api.ModifyVpcEndpointRequest{VpcEndpointId: &bedrockID, ResetPolicy: new(api.Boolean(true)), PrivateDnsEnabled: new(api.Boolean(false))})
+			reset := subnetResult[api.DescribeVpcEndpointsResult](t, ctx, service, "ec2", "DescribeVpcEndpoints", &api.DescribeVpcEndpointsRequest{VpcEndpointIds: api.VpcEndpointIdList{bedrockID}}).VpcEndpoints[0]
+			if bool(*reset.PrivateDnsEnabled) || *reset.PolicyDocument != `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":"*","Resource":"*"}]}` || !slices.Equal(reset.NetworkInterfaceIds, bedrock.NetworkInterfaceIds) {
+				t.Fatalf("policy/DNS lifecycle replaced or damaged endpoint ENI: %+v", reset)
+			}
+			foreignMetadata := awsctx.FromContext(ctx)
+			foreignMetadata.AccountID, foreignMetadata.PrincipalARN = "222222222222", "arn:aws:iam::222222222222:root"
+			foreign := awsctx.WithMetadata(t.Context(), foreignMetadata)
+			if _, err := subnetCommand(t, foreign, service, "ec2", "DescribeVpcEndpoints", &api.DescribeVpcEndpointsRequest{VpcEndpointIds: api.VpcEndpointIdList{bedrockID}}); err == nil || err.Code != "InvalidVpcEndpointId.NotFound" {
+				t.Fatalf("Bedrock endpoint crossed accounts: %v", err)
+			}
+			subnetResult[api.DeleteVpcEndpointsResult](t, ctx, service, "ec2", "DeleteVpcEndpoints", &api.DeleteVpcEndpointsRequest{VpcEndpointIds: api.VpcEndpointIdList{endpointID, bedrockID, api.VpcEndpointId(*gateway.VpcEndpointId)}})
 			subnetResult[api.DeleteNatGatewayResult](t, ctx, service, "ec2", "DeleteNatGateway", &api.DeleteNatGatewayRequest{NatGatewayId: &natID})
 			blackholes := subnetResult[api.DescribeRouteTablesResult](t, ctx, service, "ec2", "DescribeRouteTables", &api.DescribeRouteTablesRequest{RouteTableIds: api.RouteTableIdStringList{tableID}}).RouteTables[0].Routes
 			blackhole := false
@@ -155,18 +185,19 @@ func TestNetworkOwnerNativeLifecycleRecovery(t *testing.T) {
 }
 
 func TestNetworkOwnerCFNUsesNativeControlCommands(t *testing.T) {
-	ctx := awsctx.WithMetadata(t.Context(), awsctx.Metadata{Partition: "aws", AccountID: "111111111111", Region: "us-east-1", PrincipalARN: "arn:aws:iam::111111111111:root", PrincipalID: "111111111111"})
+	ctx := awsctx.WithMetadata(t.Context(), awsctx.Metadata{Partition: "aws", AccountID: "111111111111", Region: "us-east-2", PrincipalARN: "arn:aws:iam::111111111111:root", PrincipalID: "111111111111"})
 	service := ec2.New(ec2.Config{})
 	t.Cleanup(func() { _ = service.Close() })
 	commands := integrations.NewStepFunctionsCommands(map[string]awscommands.CommandExecutor{"ec2": service})
 	handlers := integrations.CloudFormationEC2NetworkExtensionHandlers(commands)
 	vpc := subnetResult[api.CreateVpcResult](t, ctx, service, "ec2", "CreateVpc", &api.CreateVpcRequest{CidrBlock: new(api.String("10.75.0.0/24"))}).Vpc
 	subnet := subnetResult[api.CreateSubnetResult](t, ctx, service, "ec2", "CreateSubnet", &api.CreateSubnetRequest{VpcId: new(api.VpcId(*vpc.VpcId)), CidrBlock: new(api.String("10.75.0.0/25"))}).Subnet
+	group := subnetResult[api.CreateSecurityGroupResult](t, ctx, service, "ec2", "CreateSecurityGroup", &api.CreateSecurityGroupRequest{VpcId: new(api.VpcId(*vpc.VpcId)), GroupName: new(api.String("bedrock-endpoint")), Description: new(api.String("Bedrock interface endpoint HTTPS"))})
 	for _, kind := range []string{"AWS::EC2::NatGateway", "AWS::EC2::VPCEndpoint"} {
 		t.Run(kind, func(t *testing.T) {
 			properties := cloudformation.Properties{"SubnetId": string(*subnet.SubnetId), "ConnectivityType": "private"}
 			if kind == "AWS::EC2::VPCEndpoint" {
-				properties = cloudformation.Properties{"VpcId": string(*vpc.VpcId), "VpcEndpointType": "Interface", "ServiceName": "com.amazonaws.us-east-1.logs", "SubnetIds": []any{string(*subnet.SubnetId)}}
+				properties = cloudformation.Properties{"VpcId": string(*vpc.VpcId), "VpcEndpointType": "Interface", "ServiceName": "com.amazonaws.us-east-2.bedrock-runtime", "SubnetIds": []any{string(*subnet.SubnetId)}, "SecurityGroupIds": []any{string(*group.GroupId)}}
 			}
 			request := cloudformation.ResourceRequest{Type: kind, StackID: "stack-owner", LogicalID: "Network", Token: kind, Properties: properties}
 			handler := handlers[kind]

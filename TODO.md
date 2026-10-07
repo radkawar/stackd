@@ -79,12 +79,14 @@ keeps service-specific accounting and error semantics authoritative.
   while accepted customer execution completes.
   This fixture establishes those local Linux paths, not hosted Google OAuth,
   public DNS, WebSocket message execution or macOS Docker behavior.
-- [x] Record the first reported native macOS/Apple Silicon Docker Desktop run at
-  `54c09a9`: 155-resource creation, real image/provided runtimes, DynamoDB/Kinesis,
-  Cognito/JWKS and SQS/S3/rate delivery, image updates and clean teardown.
+- [x] Record reported native macOS/Apple Silicon Docker Desktop runs at
+  `54c09a9` and `0a531a1`: initial real-runtime deployment/update/teardown,
+  B1–B8 fixes, a 156-resource rendered Guard stack, retained nested cron stacks
+  and developer email, exact S3 CORS readback, actual cron/constant-input Lambda
+  deliveries and SSM SecureString API reads. The WebSocket-shaped stack reached
+  CREATE_COMPLETE; message execution was not tested.
   [Desktop evidence](docs/runtime-containers.md#native-macos-controller-with-docker-desktop)
-  is user-reported, not locally repeated platform execution; CORS readback and
-  cron were not observed in that run.
+  is user-reported, not locally repeated platform execution.
 - [x] Repair the Desktop report's B1–B8 compatibility boundaries: managed Lambda
   VPC execution permissions; exact Function/Mapping rejected-create recovery;
   Python 3.12 amd64 child-manifest pin; typed Cognito missing-SES errors; official
@@ -94,6 +96,15 @@ keeps service-specific accounting and error semantics authoritative.
   SQLite CLI/SDK and containerd Python RIC execution cover creation/update,
   rejected rollback, SES mailbox verification and policy changes across restart.
   Real managed-role Lambda/Kinesis endpoint/NAT packet cases pass on both stores.
+- [x] Repair daemon-owned networking when the Desktop VM lacks `/run/lock`:
+  create it through the existing daemon-host `/run` parent and retain the shared
+  regular-file flock/socket authority. Configure MACs per Docker network endpoint,
+  retaining exact running/owner/IP/MAC/single-network attachment admission.
+  Linux Engine 29.5 smokes prove missing-directory admission, lock exclusion and
+  release, wrong-Engine rejection, actual kernel MAC and wrong-MAC/extra-network
+  denial. The combined SQLite CLI deployment invokes a real provided.al2023
+  Runtime API customer with its assigned VPC IP/MAC; Darwin arm64/amd64 cross-builds
+  pass. This is not a locally repeated native macOS/Desktop run.
 - [x] Enable the existing native nested-stack handler in templates, with actual
   S3 template/child-output/queue update and exact deletion, plus memory/SQLite
   child failure and restart regressions. This does not implement arbitrary URLs
@@ -104,23 +115,36 @@ keeps service-specific accounting and error semantics authoritative.
   Preserve hyphenated identifier boundaries and restore captured shard IDs;
   the original native CRCs validate without regeneration or decoder changes.
   Sanitizer regressions, actual publication CLI and full AWSAPI/Kinesis tests pass.
-- [ ] Implement SSM/Secrets Manager dynamic references under current stack
-  caller/execution-role authority, including version semantics and secret
-  masking in retained events/intent. Keep rejecting them until real resolution
-  and credential-safe persistence are implemented.
-- [ ] Implement Cognito SOFTWARE_TOKEN_MFA enrollment, TOTP verification,
-  challenge sessions, factor preferences and required/optional enforcement;
-  accepting `EnabledMfas` without authentication behavior is not support.
-- [ ] Execute Cognito LambdaConfig triggers through real Lambda runtimes with
-  current invocation authority and documented event/response semantics; do not
-  admit inert trigger metadata.
-- [ ] Implement REST API Gateway BinaryMediaTypes with real content negotiation,
-  binary/base64 Lambda proxy request/response handling and deployment persistence.
-- [ ] Add an evidenced EC2 endpoint-service inventory independent of emulated
-  providers, including known `bedrock-runtime` control-plane admission and
-  `DescribeVpcEndpointServices` filtering/scope/pagination. Do not claim a
-  Bedrock inference data plane. The current gap marker is in
-  `internal/services/ec2/vpc_endpoints.go`.
+- [x] Resolve ordinary SSM String CloudFormation dynamic references through actual
+  `GetParameters` under current caller/execution-role authority. Pin versions
+  before effects without persisting plaintext in intent/templates/events; reauthorize
+  retries, mask owner failures and reject SecureString on the plain path. Memory/SQLite
+  owner fixtures and the actual Google-provider CLI deployment/readback pass.
+- [ ] Implement secure SSM and Secrets Manager dynamic references with current
+  decrypt/read authority and credential-safe state. The marker is in
+  `internal/services/cloudformation/intrinsic.go`; labels/cross-account references
+  remain outside the ordinary String boundary.
+- [x] Implement Cognito SOFTWARE_TOKEN_MFA enrollment, RFC 6238 verification,
+  rotating bound sessions, preferences and OPTIONAL/ON challenges. Typed state,
+  counters and preferences survive SQLite reopen; actual public SDK login proves
+  wrong-code denial, correct issuance and consumed-session rejection across CLI restart.
+- [x] Execute PreSignUp, PreAuthentication, PostConfirmation and Essentials/Plus
+  InboundFederation V1_0 through real Lambda runtimes and current source-pool
+  invocation permission. Revalidate state outside external effects. Native Python
+  memory/SQLite fixtures prove classic outcomes and validated TLS/JWKS federation
+  whose trigger response changes stored/minted attributes; forged JWTs, revoked
+  permission and replayed codes fail. This is not a live Google-account capture.
+- [x] Import the reported Swagger 2.0 REST Body through typed native controls:
+  Lambda AWS_PROXY, literal MOCK CORS, Cognito authorizers, gateway responses,
+  binary/base64 negotiation and live stage throttles. Actual Python-backed CLI
+  requests prove byte-exact roundtrip, 401/502/429 CORS, reopen and owned teardown;
+  memory/SQLite fixtures retain atomic import/patch and snapshot boundaries.
+- [x] Add the evidenced endpoint-service catalog independent of providers, with
+  `DescribeVpcEndpointServices` filtering/scoped pagination and regional Bedrock
+  Runtime interface endpoint admission. The actual CFN CLI allocates its typed
+  SG-controlled ENI and deletes it with no surviving VPC ENIs. This does not enable
+  model inference. AWS service/hosted-zone identities and endpoint-specific physical
+  zone calibration remain marked in `internal/services/ec2/endpoint_services.go`.
 - [x] Separate native probe accounts and private raw captures from published
   fixtures: explicit `--account` identity guards, valid distinct account aliases,
   recursive encoded/archive redaction and locally regenerated authenticated
@@ -1448,9 +1472,10 @@ See [architecture](docs/architecture.md).
   configuration sets, tags, templates and simple/raw/bulk MIME acceptance with
   typed retained storage. Verify current IAM/sandbox gates, real captured bytes,
   SQLite restart, native owner tagging and selected CloudTrail delivery to S3.
-- [ ] Complete real SMTP/Internet delivery, SMS, MFA, federation, remembered
-  devices, Lambda/custom challenges and hosted UI/OAuth before admitting their
-  active configurations. SMTP/SMS success is never manufactured.
+- [ ] Complete real SMTP/Internet delivery, SMS and other MFA factors, OIDC/SAML
+  federation, remembered devices, other Lambda triggers/custom challenges and
+  native-user hosted UI/implicit OAuth before admitting active configurations.
+  SMTP/SMS success is never manufactured.
 - [ ] Complete SES suppression/contact lists, event destinations, delivery
   analytics, DNS/DKIM domains, custom MAIL FROM, dedicated IPs, tenants, broader
   delegated identity control authority and full Handlebars evaluation. Capture native

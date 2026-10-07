@@ -49,6 +49,15 @@ func cfnRESTStagePatches(current, p map[string]any) []any {
 		setting, _ := cfnComputeObject(v)
 		path := "/" + cfnRESTMethodPath(setting)
 		patches = append(patches, cfnRESTPatch("replace", path+"/metrics/enabled", cfnComputeDefault(setting, "MetricsEnabled", false)), cfnRESTPatch("replace", path+"/logging/loglevel", cfnComputeDefault(setting, "LoggingLevel", "OFF")), cfnRESTPatch("replace", path+"/logging/dataTrace", cfnComputeDefault(setting, "DataTraceEnabled", false)))
+		for _, field := range []string{"ThrottlingBurstLimit", "ThrottlingRateLimit"} {
+			if value, ok := setting[field]; ok {
+				wire := "burstLimit"
+				if field == "ThrottlingRateLimit" {
+					wire = "rateLimit"
+				}
+				patches = append(patches, cfnRESTPatch("replace", path+"/throttling/"+wire, value))
+			}
+		}
 	}
 	return patches
 }
@@ -86,9 +95,9 @@ func (h cfnRESTGateway) configureDeploymentStage(ctx context.Context, r cloudfor
 	description, _ := cfnComputeObject(r.Properties["StageDescription"])
 	p := cfnComputeCopy(description, "Description", "Variables", "Tags", "AccessLogSetting", "MethodSettings", "CacheClusterEnabled", "TracingEnabled")
 	p["RestApiId"], p["DeploymentId"], p["StageName"] = input["restApiId"], input["deploymentId"], name
-	if description != nil && (description["MetricsEnabled"] != nil || description["LoggingLevel"] != nil || description["DataTraceEnabled"] != nil) {
+	if description != nil && (description["MetricsEnabled"] != nil || description["LoggingLevel"] != nil || description["DataTraceEnabled"] != nil || description["ThrottlingBurstLimit"] != nil || description["ThrottlingRateLimit"] != nil) {
 		settings, _ := p["MethodSettings"].([]any)
-		all := cfnComputeCopy(description, "MetricsEnabled", "LoggingLevel", "DataTraceEnabled")
+		all := cfnComputeCopy(description, "MetricsEnabled", "LoggingLevel", "DataTraceEnabled", "ThrottlingBurstLimit", "ThrottlingRateLimit")
 		all["ResourcePath"], all["HttpMethod"] = "/*", "*"
 		p["MethodSettings"] = append([]any{all}, settings...)
 	}
@@ -152,4 +161,18 @@ func cfnRESTUsagePatches(current, p map[string]any) []any {
 		}
 	}
 	return patches
+}
+
+func cfnRESTMethodThrottleValidation(setting map[string]any) error {
+	if n, ok, err := cfnAppInteger(setting, "ThrottlingBurstLimit"); err != nil {
+		return err
+	} else if ok && n < 0 {
+		return fmt.Errorf("ThrottlingBurstLimit must be a non-negative integer")
+	}
+	if n, ok, err := cfnAppFloat(setting, "ThrottlingRateLimit"); err != nil {
+		return err
+	} else if ok && n < 0 {
+		return fmt.Errorf("ThrottlingRateLimit must be a finite non-negative number")
+	}
+	return nil
 }

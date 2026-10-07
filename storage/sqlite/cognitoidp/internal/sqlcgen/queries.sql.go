@@ -229,6 +229,29 @@ func (q *Queries) DeleteMembershipOwnersByUser(ctx context.Context, arg DeleteMe
 	return err
 }
 
+const deleteOAuthForUser = `-- name: DeleteOAuthForUser :exec
+DELETE FROM cognitoidp_oauth WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND username = ?
+`
+
+type DeleteOAuthForUserParams struct {
+	Partition string
+	AccountID string
+	Region    string
+	PoolID    string
+	Username  string
+}
+
+func (q *Queries) DeleteOAuthForUser(ctx context.Context, arg DeleteOAuthForUserParams) error {
+	_, err := q.db.ExecContext(ctx, deleteOAuthForUser,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.PoolID,
+		arg.Username,
+	)
+	return err
+}
+
 const deletePool = `-- name: DeletePool :exec
 DELETE FROM cognitoidp_pools WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ?
 `
@@ -347,7 +370,7 @@ func (q *Queries) DeleteUserAttributes(ctx context.Context, arg DeleteUserAttrib
 }
 
 const getChallenge = `-- name: GetChallenge :one
-SELECT "partition", account_id, region, pool_id, token, client_id, username, kind, expires, srp_private FROM cognitoidp_challenges WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND token = ?
+SELECT "partition", account_id, region, pool_id, token, client_id, username, kind, expires, srp_private, software_token_secret, software_token_verified FROM cognitoidp_challenges WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND token = ?
 `
 
 type GetChallengeParams struct {
@@ -378,6 +401,8 @@ func (q *Queries) GetChallenge(ctx context.Context, arg GetChallengeParams) (Cog
 		&i.Kind,
 		&i.Expires,
 		&i.SrpPrivate,
+		&i.SoftwareTokenSecret,
+		&i.SoftwareTokenVerified,
 	)
 	return i, err
 }
@@ -594,7 +619,7 @@ func (q *Queries) GetIdentityProvider(ctx context.Context, arg GetIdentityProvid
 }
 
 const getPool = `-- name: GetPool :one
-SELECT "partition", account_id, region, pool_id, account_recovery_setting, admin_create_user_config, alias_attributes, arn, auto_verified_attributes, creation_date, custom_domain, deletion_protection, device_configuration, domain, email_configuration, email_configuration_failure, email_verification_message, email_verification_subject, estimated_number_of_users, issuer_configuration, key_configuration, lambda_config, last_modified_date, mfa_configuration, name, policies, schema_attributes, sms_authentication_message, sms_configuration, sms_configuration_failure, sms_verification_message, status, user_attribute_update_settings, user_pool_add_ons, user_pool_tags, user_pool_tier, username_attributes, username_configuration, verification_message_template, issuer_url FROM cognitoidp_pools WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ?
+SELECT "partition", account_id, region, pool_id, account_recovery_setting, admin_create_user_config, alias_attributes, arn, auto_verified_attributes, creation_date, custom_domain, deletion_protection, device_configuration, domain, email_configuration, email_configuration_failure, email_verification_message, email_verification_subject, estimated_number_of_users, issuer_configuration, key_configuration, lambda_config, last_modified_date, mfa_configuration, name, policies, schema_attributes, sms_authentication_message, sms_configuration, sms_configuration_failure, sms_verification_message, status, user_attribute_update_settings, user_pool_add_ons, user_pool_tags, user_pool_tier, username_attributes, username_configuration, verification_message_template, issuer_url, software_token_mfa_enabled FROM cognitoidp_pools WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ?
 `
 
 type GetPoolParams struct {
@@ -653,12 +678,13 @@ func (q *Queries) GetPool(ctx context.Context, arg GetPoolParams) (CognitoidpPoo
 		&i.UsernameConfiguration,
 		&i.VerificationMessageTemplate,
 		&i.IssuerUrl,
+		&i.SoftwareTokenMfaEnabled,
 	)
 	return i, err
 }
 
 const getPoolByDomain = `-- name: GetPoolByDomain :one
-SELECT "partition", account_id, region, pool_id, account_recovery_setting, admin_create_user_config, alias_attributes, arn, auto_verified_attributes, creation_date, custom_domain, deletion_protection, device_configuration, domain, email_configuration, email_configuration_failure, email_verification_message, email_verification_subject, estimated_number_of_users, issuer_configuration, key_configuration, lambda_config, last_modified_date, mfa_configuration, name, policies, schema_attributes, sms_authentication_message, sms_configuration, sms_configuration_failure, sms_verification_message, status, user_attribute_update_settings, user_pool_add_ons, user_pool_tags, user_pool_tier, username_attributes, username_configuration, verification_message_template, issuer_url FROM cognitoidp_pools WHERE partition = ? AND region = ? AND domain = ?
+SELECT "partition", account_id, region, pool_id, account_recovery_setting, admin_create_user_config, alias_attributes, arn, auto_verified_attributes, creation_date, custom_domain, deletion_protection, device_configuration, domain, email_configuration, email_configuration_failure, email_verification_message, email_verification_subject, estimated_number_of_users, issuer_configuration, key_configuration, lambda_config, last_modified_date, mfa_configuration, name, policies, schema_attributes, sms_authentication_message, sms_configuration, sms_configuration_failure, sms_verification_message, status, user_attribute_update_settings, user_pool_add_ons, user_pool_tags, user_pool_tier, username_attributes, username_configuration, verification_message_template, issuer_url, software_token_mfa_enabled FROM cognitoidp_pools WHERE partition = ? AND region = ? AND domain = ?
 `
 
 type GetPoolByDomainParams struct {
@@ -711,12 +737,13 @@ func (q *Queries) GetPoolByDomain(ctx context.Context, arg GetPoolByDomainParams
 		&i.UsernameConfiguration,
 		&i.VerificationMessageTemplate,
 		&i.IssuerUrl,
+		&i.SoftwareTokenMfaEnabled,
 	)
 	return i, err
 }
 
 const getPoolByID = `-- name: GetPoolByID :one
-SELECT "partition", account_id, region, pool_id, account_recovery_setting, admin_create_user_config, alias_attributes, arn, auto_verified_attributes, creation_date, custom_domain, deletion_protection, device_configuration, domain, email_configuration, email_configuration_failure, email_verification_message, email_verification_subject, estimated_number_of_users, issuer_configuration, key_configuration, lambda_config, last_modified_date, mfa_configuration, name, policies, schema_attributes, sms_authentication_message, sms_configuration, sms_configuration_failure, sms_verification_message, status, user_attribute_update_settings, user_pool_add_ons, user_pool_tags, user_pool_tier, username_attributes, username_configuration, verification_message_template, issuer_url FROM cognitoidp_pools WHERE partition = ? AND region = ? AND pool_id = ?
+SELECT "partition", account_id, region, pool_id, account_recovery_setting, admin_create_user_config, alias_attributes, arn, auto_verified_attributes, creation_date, custom_domain, deletion_protection, device_configuration, domain, email_configuration, email_configuration_failure, email_verification_message, email_verification_subject, estimated_number_of_users, issuer_configuration, key_configuration, lambda_config, last_modified_date, mfa_configuration, name, policies, schema_attributes, sms_authentication_message, sms_configuration, sms_configuration_failure, sms_verification_message, status, user_attribute_update_settings, user_pool_add_ons, user_pool_tags, user_pool_tier, username_attributes, username_configuration, verification_message_template, issuer_url, software_token_mfa_enabled FROM cognitoidp_pools WHERE partition = ? AND region = ? AND pool_id = ?
 `
 
 type GetPoolByIDParams struct {
@@ -769,6 +796,7 @@ func (q *Queries) GetPoolByID(ctx context.Context, arg GetPoolByIDParams) (Cogni
 		&i.UsernameConfiguration,
 		&i.VerificationMessageTemplate,
 		&i.IssuerUrl,
+		&i.SoftwareTokenMfaEnabled,
 	)
 	return i, err
 }
@@ -854,7 +882,7 @@ func (q *Queries) GetResourceOwner(ctx context.Context, arg GetResourceOwnerPara
 }
 
 const getSession = `-- name: GetSession :one
-SELECT "partition", account_id, region, pool_id, session_id, client_id, username, origin_id, auth_time, refresh_expires, refresh_digest, revoked, previous_refresh_digest, refresh_grace_expires, refresh_origin_id, globally_revoked FROM cognitoidp_sessions WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND session_id = ?
+SELECT "partition", account_id, region, pool_id, session_id, client_id, username, origin_id, auth_time, refresh_expires, refresh_digest, revoked, previous_refresh_digest, refresh_grace_expires, refresh_origin_id, globally_revoked, oauth_scope, oauth_nonce FROM cognitoidp_sessions WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND session_id = ?
 `
 
 type GetSessionParams struct {
@@ -891,12 +919,14 @@ func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (Cognito
 		&i.RefreshGraceExpires,
 		&i.RefreshOriginID,
 		&i.GloballyRevoked,
+		&i.OauthScope,
+		&i.OauthNonce,
 	)
 	return i, err
 }
 
 const getSessionByRefresh = `-- name: GetSessionByRefresh :one
-SELECT s."partition", s.account_id, s.region, s.pool_id, s.session_id, s.client_id, s.username, s.origin_id, s.auth_time, s.refresh_expires, s.refresh_digest, s.revoked, s.previous_refresh_digest, s.refresh_grace_expires, s.refresh_origin_id, s.globally_revoked FROM cognitoidp_sessions s
+SELECT s."partition", s.account_id, s.region, s.pool_id, s.session_id, s.client_id, s.username, s.origin_id, s.auth_time, s.refresh_expires, s.refresh_digest, s.revoked, s.previous_refresh_digest, s.refresh_grace_expires, s.refresh_origin_id, s.globally_revoked, s.oauth_scope, s.oauth_nonce FROM cognitoidp_sessions s
 JOIN cognitoidp_refresh_tokens t ON t.partition = s.partition AND t.account_id = s.account_id
  AND t.region = s.region AND t.pool_id = s.pool_id AND t.client_id = s.client_id AND t.session_id = s.session_id
 WHERE t.partition = ? AND t.account_id = ? AND t.region = ? AND t.pool_id = ?
@@ -939,6 +969,8 @@ func (q *Queries) GetSessionByRefresh(ctx context.Context, arg GetSessionByRefre
 		&i.RefreshGraceExpires,
 		&i.RefreshOriginID,
 		&i.GloballyRevoked,
+		&i.OauthScope,
+		&i.OauthNonce,
 	)
 	return i, err
 }
@@ -976,7 +1008,7 @@ func (q *Queries) GetSigningKeys(ctx context.Context, arg GetSigningKeysParams) 
 }
 
 const getUser = `-- name: GetUser :one
-SELECT "partition", account_id, region, pool_id, username, enabled, mfa_options, user_create_date, user_last_modified_date, user_status, attributes_present, password_salt, password_verifier, password_expires FROM cognitoidp_users WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND username = ?
+SELECT "partition", account_id, region, pool_id, username, enabled, mfa_options, user_create_date, user_last_modified_date, user_status, attributes_present, password_salt, password_verifier, password_expires, software_token_secret, software_token_pending_secret, software_token_pending_expires, software_token_last_counter, software_token_enabled, software_token_preferred, software_token_device_name FROM cognitoidp_users WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND username = ?
 `
 
 type GetUserParams struct {
@@ -1011,6 +1043,13 @@ func (q *Queries) GetUser(ctx context.Context, arg GetUserParams) (CognitoidpUse
 		&i.PasswordSalt,
 		&i.PasswordVerifier,
 		&i.PasswordExpires,
+		&i.SoftwareTokenSecret,
+		&i.SoftwareTokenPendingSecret,
+		&i.SoftwareTokenPendingExpires,
+		&i.SoftwareTokenLastCounter,
+		&i.SoftwareTokenEnabled,
+		&i.SoftwareTokenPreferred,
+		&i.SoftwareTokenDeviceName,
 	)
 	return i, err
 }
@@ -1304,7 +1343,7 @@ func (q *Queries) ListIdentityProviders(ctx context.Context, arg ListIdentityPro
 }
 
 const listPools = `-- name: ListPools :many
-SELECT "partition", account_id, region, pool_id, account_recovery_setting, admin_create_user_config, alias_attributes, arn, auto_verified_attributes, creation_date, custom_domain, deletion_protection, device_configuration, domain, email_configuration, email_configuration_failure, email_verification_message, email_verification_subject, estimated_number_of_users, issuer_configuration, key_configuration, lambda_config, last_modified_date, mfa_configuration, name, policies, schema_attributes, sms_authentication_message, sms_configuration, sms_configuration_failure, sms_verification_message, status, user_attribute_update_settings, user_pool_add_ons, user_pool_tags, user_pool_tier, username_attributes, username_configuration, verification_message_template, issuer_url FROM cognitoidp_pools WHERE partition = ? AND account_id = ? AND region = ? ORDER BY pool_id
+SELECT "partition", account_id, region, pool_id, account_recovery_setting, admin_create_user_config, alias_attributes, arn, auto_verified_attributes, creation_date, custom_domain, deletion_protection, device_configuration, domain, email_configuration, email_configuration_failure, email_verification_message, email_verification_subject, estimated_number_of_users, issuer_configuration, key_configuration, lambda_config, last_modified_date, mfa_configuration, name, policies, schema_attributes, sms_authentication_message, sms_configuration, sms_configuration_failure, sms_verification_message, status, user_attribute_update_settings, user_pool_add_ons, user_pool_tags, user_pool_tier, username_attributes, username_configuration, verification_message_template, issuer_url, software_token_mfa_enabled FROM cognitoidp_pools WHERE partition = ? AND account_id = ? AND region = ? ORDER BY pool_id
 `
 
 type ListPoolsParams struct {
@@ -1363,6 +1402,7 @@ func (q *Queries) ListPools(ctx context.Context, arg ListPoolsParams) ([]Cognito
 			&i.UsernameConfiguration,
 			&i.VerificationMessageTemplate,
 			&i.IssuerUrl,
+			&i.SoftwareTokenMfaEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -1378,7 +1418,7 @@ func (q *Queries) ListPools(ctx context.Context, arg ListPoolsParams) ([]Cognito
 }
 
 const listPoolsForAccount = `-- name: ListPoolsForAccount :many
-SELECT "partition", account_id, region, pool_id, account_recovery_setting, admin_create_user_config, alias_attributes, arn, auto_verified_attributes, creation_date, custom_domain, deletion_protection, device_configuration, domain, email_configuration, email_configuration_failure, email_verification_message, email_verification_subject, estimated_number_of_users, issuer_configuration, key_configuration, lambda_config, last_modified_date, mfa_configuration, name, policies, schema_attributes, sms_authentication_message, sms_configuration, sms_configuration_failure, sms_verification_message, status, user_attribute_update_settings, user_pool_add_ons, user_pool_tags, user_pool_tier, username_attributes, username_configuration, verification_message_template, issuer_url FROM cognitoidp_pools WHERE partition = ? AND account_id = ? ORDER BY region,pool_id
+SELECT "partition", account_id, region, pool_id, account_recovery_setting, admin_create_user_config, alias_attributes, arn, auto_verified_attributes, creation_date, custom_domain, deletion_protection, device_configuration, domain, email_configuration, email_configuration_failure, email_verification_message, email_verification_subject, estimated_number_of_users, issuer_configuration, key_configuration, lambda_config, last_modified_date, mfa_configuration, name, policies, schema_attributes, sms_authentication_message, sms_configuration, sms_configuration_failure, sms_verification_message, status, user_attribute_update_settings, user_pool_add_ons, user_pool_tags, user_pool_tier, username_attributes, username_configuration, verification_message_template, issuer_url, software_token_mfa_enabled FROM cognitoidp_pools WHERE partition = ? AND account_id = ? ORDER BY region,pool_id
 `
 
 type ListPoolsForAccountParams struct {
@@ -1436,6 +1476,7 @@ func (q *Queries) ListPoolsForAccount(ctx context.Context, arg ListPoolsForAccou
 			&i.UsernameConfiguration,
 			&i.VerificationMessageTemplate,
 			&i.IssuerUrl,
+			&i.SoftwareTokenMfaEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -1501,7 +1542,7 @@ func (q *Queries) ListUserAttributes(ctx context.Context, arg ListUserAttributes
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT "partition", account_id, region, pool_id, username, enabled, mfa_options, user_create_date, user_last_modified_date, user_status, attributes_present, password_salt, password_verifier, password_expires FROM cognitoidp_users WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? ORDER BY username
+SELECT "partition", account_id, region, pool_id, username, enabled, mfa_options, user_create_date, user_last_modified_date, user_status, attributes_present, password_salt, password_verifier, password_expires, software_token_secret, software_token_pending_secret, software_token_pending_expires, software_token_last_counter, software_token_enabled, software_token_preferred, software_token_device_name FROM cognitoidp_users WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? ORDER BY username
 `
 
 type ListUsersParams struct {
@@ -1540,6 +1581,13 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]Cognito
 			&i.PasswordSalt,
 			&i.PasswordVerifier,
 			&i.PasswordExpires,
+			&i.SoftwareTokenSecret,
+			&i.SoftwareTokenPendingSecret,
+			&i.SoftwareTokenPendingExpires,
+			&i.SoftwareTokenLastCounter,
+			&i.SoftwareTokenEnabled,
+			&i.SoftwareTokenPreferred,
+			&i.SoftwareTokenDeviceName,
 		); err != nil {
 			return nil, err
 		}
@@ -1555,7 +1603,7 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]Cognito
 }
 
 const listUsersByAttribute = `-- name: ListUsersByAttribute :many
-SELECT DISTINCT u."partition", u.account_id, u.region, u.pool_id, u.username, u.enabled, u.mfa_options, u.user_create_date, u.user_last_modified_date, u.user_status, u.attributes_present, u.password_salt, u.password_verifier, u.password_expires FROM cognitoidp_users u
+SELECT DISTINCT u."partition", u.account_id, u.region, u.pool_id, u.username, u.enabled, u.mfa_options, u.user_create_date, u.user_last_modified_date, u.user_status, u.attributes_present, u.password_salt, u.password_verifier, u.password_expires, u.software_token_secret, u.software_token_pending_secret, u.software_token_pending_expires, u.software_token_last_counter, u.software_token_enabled, u.software_token_preferred, u.software_token_device_name FROM cognitoidp_users u
 JOIN cognitoidp_user_attributes a ON a.partition = u.partition AND a.account_id = u.account_id
  AND a.region = u.region AND a.pool_id = u.pool_id AND a.username = u.username
 WHERE a.partition = ? AND a.account_id = ? AND a.region = ? AND a.pool_id = ?
@@ -1602,6 +1650,13 @@ func (q *Queries) ListUsersByAttribute(ctx context.Context, arg ListUsersByAttri
 			&i.PasswordSalt,
 			&i.PasswordVerifier,
 			&i.PasswordExpires,
+			&i.SoftwareTokenSecret,
+			&i.SoftwareTokenPendingSecret,
+			&i.SoftwareTokenPendingExpires,
+			&i.SoftwareTokenLastCounter,
+			&i.SoftwareTokenEnabled,
+			&i.SoftwareTokenPreferred,
+			&i.SoftwareTokenDeviceName,
 		); err != nil {
 			return nil, err
 		}
@@ -1617,7 +1672,7 @@ func (q *Queries) ListUsersByAttribute(ctx context.Context, arg ListUsersByAttri
 }
 
 const listUsersInGroup = `-- name: ListUsersInGroup :many
-SELECT u."partition", u.account_id, u.region, u.pool_id, u.username, u.enabled, u.mfa_options, u.user_create_date, u.user_last_modified_date, u.user_status, u.attributes_present, u.password_salt, u.password_verifier, u.password_expires FROM cognitoidp_users u
+SELECT u."partition", u.account_id, u.region, u.pool_id, u.username, u.enabled, u.mfa_options, u.user_create_date, u.user_last_modified_date, u.user_status, u.attributes_present, u.password_salt, u.password_verifier, u.password_expires, u.software_token_secret, u.software_token_pending_secret, u.software_token_pending_expires, u.software_token_last_counter, u.software_token_enabled, u.software_token_preferred, u.software_token_device_name FROM cognitoidp_users u
 JOIN cognitoidp_group_users m ON m.partition = u.partition AND m.account_id = u.account_id
  AND m.region = u.region AND m.pool_id = u.pool_id AND m.username = u.username
 WHERE m.partition = ? AND m.account_id = ? AND m.region = ? AND m.pool_id = ?
@@ -1662,6 +1717,13 @@ func (q *Queries) ListUsersInGroup(ctx context.Context, arg ListUsersInGroupPara
 			&i.PasswordSalt,
 			&i.PasswordVerifier,
 			&i.PasswordExpires,
+			&i.SoftwareTokenSecret,
+			&i.SoftwareTokenPendingSecret,
+			&i.SoftwareTokenPendingExpires,
+			&i.SoftwareTokenLastCounter,
+			&i.SoftwareTokenEnabled,
+			&i.SoftwareTokenPreferred,
+			&i.SoftwareTokenDeviceName,
 		); err != nil {
 			return nil, err
 		}
@@ -1678,29 +1740,33 @@ func (q *Queries) ListUsersInGroup(ctx context.Context, arg ListUsersInGroupPara
 
 const putChallenge = `-- name: PutChallenge :exec
 INSERT INTO cognitoidp_challenges (
- partition, account_id, region, pool_id, token, client_id, username, kind, expires, srp_private
+ partition, account_id, region, pool_id, token, client_id, username, kind, expires, srp_private, software_token_secret, software_token_verified
 ) VALUES (
- ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+ ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 )
 ON CONFLICT (partition, account_id, region, pool_id, token) DO UPDATE SET
  client_id = excluded.client_id,
  username = excluded.username,
  kind = excluded.kind,
  expires = excluded.expires,
- srp_private = excluded.srp_private
+ srp_private = excluded.srp_private,
+ software_token_secret = excluded.software_token_secret,
+ software_token_verified = excluded.software_token_verified
 `
 
 type PutChallengeParams struct {
-	Partition  string
-	AccountID  string
-	Region     string
-	PoolID     string
-	Token      string
-	ClientID   string
-	Username   string
-	Kind       string
-	Expires    time.Time
-	SrpPrivate []byte
+	Partition             string
+	AccountID             string
+	Region                string
+	PoolID                string
+	Token                 string
+	ClientID              string
+	Username              string
+	Kind                  string
+	Expires               time.Time
+	SrpPrivate            []byte
+	SoftwareTokenSecret   string
+	SoftwareTokenVerified bool
 }
 
 func (q *Queries) PutChallenge(ctx context.Context, arg PutChallengeParams) error {
@@ -1715,6 +1781,8 @@ func (q *Queries) PutChallenge(ctx context.Context, arg PutChallengeParams) erro
 		arg.Kind,
 		arg.Expires,
 		arg.SrpPrivate,
+		arg.SoftwareTokenSecret,
+		arg.SoftwareTokenVerified,
 	)
 	return err
 }
@@ -1940,9 +2008,9 @@ func (q *Queries) PutIdentityProvider(ctx context.Context, arg PutIdentityProvid
 
 const putPool = `-- name: PutPool :exec
 INSERT INTO cognitoidp_pools (
- partition, account_id, region, pool_id, account_recovery_setting, admin_create_user_config, alias_attributes, arn, auto_verified_attributes, creation_date, custom_domain, deletion_protection, device_configuration, domain, email_configuration, email_configuration_failure, email_verification_message, email_verification_subject, estimated_number_of_users, issuer_configuration, key_configuration, lambda_config, last_modified_date, mfa_configuration, name, policies, schema_attributes, sms_authentication_message, sms_configuration, sms_configuration_failure, sms_verification_message, status, user_attribute_update_settings, user_pool_add_ons, user_pool_tags, user_pool_tier, username_attributes, username_configuration, verification_message_template, issuer_url
+ partition, account_id, region, pool_id, account_recovery_setting, admin_create_user_config, alias_attributes, arn, auto_verified_attributes, creation_date, custom_domain, deletion_protection, device_configuration, domain, email_configuration, email_configuration_failure, email_verification_message, email_verification_subject, estimated_number_of_users, issuer_configuration, key_configuration, lambda_config, last_modified_date, mfa_configuration, name, policies, schema_attributes, sms_authentication_message, sms_configuration, sms_configuration_failure, sms_verification_message, status, user_attribute_update_settings, user_pool_add_ons, user_pool_tags, user_pool_tier, username_attributes, username_configuration, verification_message_template, issuer_url, software_token_mfa_enabled
 ) VALUES (
- ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+ ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 )
 ON CONFLICT (partition, account_id, region, pool_id) DO UPDATE SET
  account_recovery_setting = excluded.account_recovery_setting,
@@ -1980,7 +2048,8 @@ ON CONFLICT (partition, account_id, region, pool_id) DO UPDATE SET
  username_attributes = excluded.username_attributes,
  username_configuration = excluded.username_configuration,
  verification_message_template = excluded.verification_message_template,
- issuer_url = excluded.issuer_url
+ issuer_url = excluded.issuer_url,
+ software_token_mfa_enabled = excluded.software_token_mfa_enabled
 `
 
 type PutPoolParams struct {
@@ -2024,6 +2093,7 @@ type PutPoolParams struct {
 	UsernameConfiguration       []byte
 	VerificationMessageTemplate []byte
 	IssuerUrl                   string
+	SoftwareTokenMfaEnabled     bool
 }
 
 func (q *Queries) PutPool(ctx context.Context, arg PutPoolParams) error {
@@ -2068,6 +2138,7 @@ func (q *Queries) PutPool(ctx context.Context, arg PutPoolParams) error {
 		arg.UsernameConfiguration,
 		arg.VerificationMessageTemplate,
 		arg.IssuerUrl,
+		arg.SoftwareTokenMfaEnabled,
 	)
 	return err
 }
@@ -2154,9 +2225,9 @@ func (q *Queries) PutResourceOwner(ctx context.Context, arg PutResourceOwnerPara
 
 const putSession = `-- name: PutSession :exec
 INSERT INTO cognitoidp_sessions (
- partition, account_id, region, pool_id, session_id, client_id, username, origin_id, auth_time, refresh_expires, refresh_digest, revoked, previous_refresh_digest, refresh_grace_expires, refresh_origin_id, globally_revoked
+ partition, account_id, region, pool_id, session_id, client_id, username, origin_id, auth_time, refresh_expires, refresh_digest, revoked, previous_refresh_digest, refresh_grace_expires, refresh_origin_id, globally_revoked, oauth_scope, oauth_nonce
 ) VALUES (
- ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+ ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 )
 ON CONFLICT (partition, account_id, region, pool_id, session_id) DO UPDATE SET
  client_id = excluded.client_id,
@@ -2169,7 +2240,9 @@ ON CONFLICT (partition, account_id, region, pool_id, session_id) DO UPDATE SET
  previous_refresh_digest = excluded.previous_refresh_digest,
  refresh_grace_expires = excluded.refresh_grace_expires,
  refresh_origin_id = excluded.refresh_origin_id,
- globally_revoked = excluded.globally_revoked
+ globally_revoked = excluded.globally_revoked,
+ oauth_scope = excluded.oauth_scope,
+ oauth_nonce = excluded.oauth_nonce
 `
 
 type PutSessionParams struct {
@@ -2189,6 +2262,8 @@ type PutSessionParams struct {
 	RefreshGraceExpires   time.Time
 	RefreshOriginID       string
 	GloballyRevoked       bool
+	OauthScope            string
+	OauthNonce            string
 }
 
 func (q *Queries) PutSession(ctx context.Context, arg PutSessionParams) error {
@@ -2209,6 +2284,8 @@ func (q *Queries) PutSession(ctx context.Context, arg PutSessionParams) error {
 		arg.RefreshGraceExpires,
 		arg.RefreshOriginID,
 		arg.GloballyRevoked,
+		arg.OauthScope,
+		arg.OauthNonce,
 	)
 	return err
 }
@@ -2253,9 +2330,9 @@ func (q *Queries) PutSigningKeys(ctx context.Context, arg PutSigningKeysParams) 
 
 const putUser = `-- name: PutUser :exec
 INSERT INTO cognitoidp_users (
- partition, account_id, region, pool_id, username, enabled, mfa_options, user_create_date, user_last_modified_date, user_status, attributes_present, password_salt, password_verifier, password_expires
+ partition, account_id, region, pool_id, username, enabled, mfa_options, user_create_date, user_last_modified_date, user_status, attributes_present, password_salt, password_verifier, password_expires, software_token_secret, software_token_pending_secret, software_token_pending_expires, software_token_last_counter, software_token_enabled, software_token_preferred, software_token_device_name
 ) VALUES (
- ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+ ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 )
 ON CONFLICT (partition, account_id, region, pool_id, username) DO UPDATE SET
  enabled = excluded.enabled,
@@ -2266,24 +2343,38 @@ ON CONFLICT (partition, account_id, region, pool_id, username) DO UPDATE SET
  attributes_present = excluded.attributes_present,
  password_salt = excluded.password_salt,
  password_verifier = excluded.password_verifier,
- password_expires = excluded.password_expires
+ password_expires = excluded.password_expires,
+ software_token_secret = excluded.software_token_secret,
+ software_token_pending_secret = excluded.software_token_pending_secret,
+ software_token_pending_expires = excluded.software_token_pending_expires,
+ software_token_last_counter = excluded.software_token_last_counter,
+ software_token_enabled = excluded.software_token_enabled,
+ software_token_preferred = excluded.software_token_preferred,
+ software_token_device_name = excluded.software_token_device_name
 `
 
 type PutUserParams struct {
-	Partition            string
-	AccountID            string
-	Region               string
-	PoolID               string
-	Username             string
-	Enabled              sql.NullBool
-	MfaOptions           []byte
-	UserCreateDate       sql.NullTime
-	UserLastModifiedDate sql.NullTime
-	UserStatus           sql.NullString
-	AttributesPresent    bool
-	PasswordSalt         []byte
-	PasswordVerifier     []byte
-	PasswordExpires      sql.NullTime
+	Partition                   string
+	AccountID                   string
+	Region                      string
+	PoolID                      string
+	Username                    string
+	Enabled                     sql.NullBool
+	MfaOptions                  []byte
+	UserCreateDate              sql.NullTime
+	UserLastModifiedDate        sql.NullTime
+	UserStatus                  sql.NullString
+	AttributesPresent           bool
+	PasswordSalt                []byte
+	PasswordVerifier            []byte
+	PasswordExpires             sql.NullTime
+	SoftwareTokenSecret         string
+	SoftwareTokenPendingSecret  string
+	SoftwareTokenPendingExpires sql.NullTime
+	SoftwareTokenLastCounter    int64
+	SoftwareTokenEnabled        bool
+	SoftwareTokenPreferred      bool
+	SoftwareTokenDeviceName     string
 }
 
 func (q *Queries) PutUser(ctx context.Context, arg PutUserParams) error {
@@ -2302,6 +2393,13 @@ func (q *Queries) PutUser(ctx context.Context, arg PutUserParams) error {
 		arg.PasswordSalt,
 		arg.PasswordVerifier,
 		arg.PasswordExpires,
+		arg.SoftwareTokenSecret,
+		arg.SoftwareTokenPendingSecret,
+		arg.SoftwareTokenPendingExpires,
+		arg.SoftwareTokenLastCounter,
+		arg.SoftwareTokenEnabled,
+		arg.SoftwareTokenPreferred,
+		arg.SoftwareTokenDeviceName,
 	)
 	return err
 }

@@ -31,6 +31,7 @@ func (r reader) Challenge(k domain.ChallengeKey) (domain.ChallengeRecord, error)
 	return domain.ChallengeRecord{
 		Key:      domain.ChallengeKey{PoolKey: domain.PoolKey{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ID: row.PoolID}, Token: row.Token},
 		ClientID: row.ClientID, Username: row.Username, Kind: row.Kind, Expires: row.Expires.UTC(), SRPPrivate: row.SrpPrivate,
+		SoftwareTokenSecret: row.SoftwareTokenSecret, SoftwareTokenVerified: row.SoftwareTokenVerified,
 	}, nil
 }
 
@@ -39,6 +40,7 @@ func (w writer) PutChallenge(v domain.ChallengeRecord) error {
 	return w.q.PutChallenge(w.ctx, sqlcgen.PutChallengeParams{
 		Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, PoolID: k.ID, Token: k.Token,
 		ClientID: v.ClientID, Username: v.Username, Kind: v.Kind, Expires: v.Expires.UTC(), SrpPrivate: v.SRPPrivate,
+		SoftwareTokenSecret: v.SoftwareTokenSecret, SoftwareTokenVerified: v.SoftwareTokenVerified,
 	})
 }
 
@@ -54,6 +56,7 @@ func sessionRow(row sqlcgen.CognitoidpSession) domain.SessionRecord {
 		Revoked: row.Revoked, PreviousRefreshDigest: row.PreviousRefreshDigest,
 		RefreshGraceExpires: row.RefreshGraceExpires.UTC(),
 		RefreshOriginID:     row.RefreshOriginID, GloballyRevoked: row.GloballyRevoked,
+		OAuthScope: row.OauthScope, OAuthNonce: row.OauthNonce,
 	}
 }
 
@@ -82,6 +85,7 @@ func (w writer) PutSession(v domain.SessionRecord) error {
 		Revoked: v.Revoked, PreviousRefreshDigest: v.PreviousRefreshDigest,
 		RefreshGraceExpires: v.RefreshGraceExpires.UTC(),
 		RefreshOriginID:     v.RefreshOriginID, GloballyRevoked: v.GloballyRevoked,
+		OauthScope: v.OAuthScope, OauthNonce: v.OAuthNonce,
 	}); err != nil {
 		return err
 	}

@@ -40,7 +40,7 @@ func (s *Service) adminCreateUser(tx Transaction, in *api.AdminCreateUserInput) 
 		if action == "RESEND" {
 			return nil, err
 		}
-		user, err = initializeUser(pool, value(in.Username))
+		user, err = s.initializeSignUpUser(tx, pool, value(in.Username))
 		if err != nil {
 			return nil, err
 		}
@@ -71,6 +71,11 @@ func (s *Service) adminCreateUser(tx Transaction, in *api.AdminCreateUserInput) 
 	}
 	if err = ensureUserAliases(tx, pool, &user, in.ForceAliasCreation != nil && bool(*in.ForceAliasCreation)); err != nil {
 		return nil, err
+	}
+	if !existing {
+		if err = s.preSignUp(tx, pool, ClientRecord{}, &user, true); err != nil {
+			return nil, err
+		}
 	}
 	user.Password, err = makePasswordVerifier(pool.Key, user.Key.Username, password)
 	if err != nil {
@@ -123,7 +128,8 @@ func (s *Service) adminGetUser(tx Transaction, in *api.AdminGetUserInput) (*api.
 	}
 	noteUser(tx.Context(), user)
 	d := user.Data
-	return &api.AdminGetUserOutput{Username: d.Username, UserAttributes: d.Attributes, Enabled: d.Enabled, UserStatus: d.UserStatus, UserCreateDate: d.UserCreateDate, UserLastModifiedDate: d.UserLastModifiedDate, MFAOptions: d.MFAOptions}, nil
+	preferred, settings := mfaPreferences(user)
+	return &api.AdminGetUserOutput{Username: d.Username, UserAttributes: d.Attributes, Enabled: d.Enabled, UserStatus: d.UserStatus, UserCreateDate: d.UserCreateDate, UserLastModifiedDate: d.UserLastModifiedDate, MFAOptions: d.MFAOptions, PreferredMfaSetting: preferred, UserMFASettingList: settings}, nil
 }
 func (s *Service) adminDeleteUser(tx Transaction, in *api.AdminDeleteUserInput) (*api.AdminDeleteUserOutput, error) {
 	pool, err := s.adminPool(tx, "AdminDeleteUser", value(in.UserPoolId))
@@ -224,6 +230,7 @@ func (s *Service) adminConfirmSignUp(tx Transaction, in *api.AdminConfirmSignUpI
 	if err = tx.PutUser(user); err != nil {
 		return nil, err
 	}
+	s.postConfirmation(tx, pool, "", user, "PostConfirmation_ConfirmSignUp", in.ClientMetadata)
 	return &api.AdminConfirmSignUpOutput{}, nil
 }
 func (s *Service) adminUpdateUserAttributes(tx Transaction, in *api.AdminUpdateUserAttributesInput) (*api.AdminUpdateUserAttributesOutput, error) {

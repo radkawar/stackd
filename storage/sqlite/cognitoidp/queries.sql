@@ -3,9 +3,9 @@ SELECT * FROM cognitoidp_pools WHERE partition = ? AND account_id = ? AND region
 
 -- name: PutPool :exec
 INSERT INTO cognitoidp_pools (
- partition, account_id, region, pool_id, account_recovery_setting, admin_create_user_config, alias_attributes, arn, auto_verified_attributes, creation_date, custom_domain, deletion_protection, device_configuration, domain, email_configuration, email_configuration_failure, email_verification_message, email_verification_subject, estimated_number_of_users, issuer_configuration, key_configuration, lambda_config, last_modified_date, mfa_configuration, name, policies, schema_attributes, sms_authentication_message, sms_configuration, sms_configuration_failure, sms_verification_message, status, user_attribute_update_settings, user_pool_add_ons, user_pool_tags, user_pool_tier, username_attributes, username_configuration, verification_message_template, issuer_url
+ partition, account_id, region, pool_id, account_recovery_setting, admin_create_user_config, alias_attributes, arn, auto_verified_attributes, creation_date, custom_domain, deletion_protection, device_configuration, domain, email_configuration, email_configuration_failure, email_verification_message, email_verification_subject, estimated_number_of_users, issuer_configuration, key_configuration, lambda_config, last_modified_date, mfa_configuration, name, policies, schema_attributes, sms_authentication_message, sms_configuration, sms_configuration_failure, sms_verification_message, status, user_attribute_update_settings, user_pool_add_ons, user_pool_tags, user_pool_tier, username_attributes, username_configuration, verification_message_template, issuer_url, software_token_mfa_enabled
 ) VALUES (
- ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+ ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 )
 ON CONFLICT (partition, account_id, region, pool_id) DO UPDATE SET
  account_recovery_setting = excluded.account_recovery_setting,
@@ -43,7 +43,8 @@ ON CONFLICT (partition, account_id, region, pool_id) DO UPDATE SET
  username_attributes = excluded.username_attributes,
  username_configuration = excluded.username_configuration,
  verification_message_template = excluded.verification_message_template,
- issuer_url = excluded.issuer_url;
+ issuer_url = excluded.issuer_url,
+ software_token_mfa_enabled = excluded.software_token_mfa_enabled;
 
 -- name: DeletePool :exec
 DELETE FROM cognitoidp_pools WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ?;
@@ -91,9 +92,9 @@ SELECT * FROM cognitoidp_users WHERE partition = ? AND account_id = ? AND region
 
 -- name: PutUser :exec
 INSERT INTO cognitoidp_users (
- partition, account_id, region, pool_id, username, enabled, mfa_options, user_create_date, user_last_modified_date, user_status, attributes_present, password_salt, password_verifier, password_expires
+ partition, account_id, region, pool_id, username, enabled, mfa_options, user_create_date, user_last_modified_date, user_status, attributes_present, password_salt, password_verifier, password_expires, software_token_secret, software_token_pending_secret, software_token_pending_expires, software_token_last_counter, software_token_enabled, software_token_preferred, software_token_device_name
 ) VALUES (
- ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+ ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 )
 ON CONFLICT (partition, account_id, region, pool_id, username) DO UPDATE SET
  enabled = excluded.enabled,
@@ -104,7 +105,14 @@ ON CONFLICT (partition, account_id, region, pool_id, username) DO UPDATE SET
  attributes_present = excluded.attributes_present,
  password_salt = excluded.password_salt,
  password_verifier = excluded.password_verifier,
- password_expires = excluded.password_expires;
+ password_expires = excluded.password_expires,
+ software_token_secret = excluded.software_token_secret,
+ software_token_pending_secret = excluded.software_token_pending_secret,
+ software_token_pending_expires = excluded.software_token_pending_expires,
+ software_token_last_counter = excluded.software_token_last_counter,
+ software_token_enabled = excluded.software_token_enabled,
+ software_token_preferred = excluded.software_token_preferred,
+ software_token_device_name = excluded.software_token_device_name;
 
 -- name: DeleteUser :exec
 DELETE FROM cognitoidp_users WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND username = ?;
@@ -129,16 +137,18 @@ SELECT * FROM cognitoidp_challenges WHERE partition = ? AND account_id = ? AND r
 
 -- name: PutChallenge :exec
 INSERT INTO cognitoidp_challenges (
- partition, account_id, region, pool_id, token, client_id, username, kind, expires, srp_private
+ partition, account_id, region, pool_id, token, client_id, username, kind, expires, srp_private, software_token_secret, software_token_verified
 ) VALUES (
- ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+ ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 )
 ON CONFLICT (partition, account_id, region, pool_id, token) DO UPDATE SET
  client_id = excluded.client_id,
  username = excluded.username,
  kind = excluded.kind,
  expires = excluded.expires,
- srp_private = excluded.srp_private;
+ srp_private = excluded.srp_private,
+ software_token_secret = excluded.software_token_secret,
+ software_token_verified = excluded.software_token_verified;
 
 -- name: DeleteChallenge :exec
 DELETE FROM cognitoidp_challenges WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND token = ?;
@@ -148,9 +158,9 @@ SELECT * FROM cognitoidp_sessions WHERE partition = ? AND account_id = ? AND reg
 
 -- name: PutSession :exec
 INSERT INTO cognitoidp_sessions (
- partition, account_id, region, pool_id, session_id, client_id, username, origin_id, auth_time, refresh_expires, refresh_digest, revoked, previous_refresh_digest, refresh_grace_expires, refresh_origin_id, globally_revoked
+ partition, account_id, region, pool_id, session_id, client_id, username, origin_id, auth_time, refresh_expires, refresh_digest, revoked, previous_refresh_digest, refresh_grace_expires, refresh_origin_id, globally_revoked, oauth_scope, oauth_nonce
 ) VALUES (
- ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+ ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 )
 ON CONFLICT (partition, account_id, region, pool_id, session_id) DO UPDATE SET
  client_id = excluded.client_id,
@@ -163,7 +173,9 @@ ON CONFLICT (partition, account_id, region, pool_id, session_id) DO UPDATE SET
  previous_refresh_digest = excluded.previous_refresh_digest,
  refresh_grace_expires = excluded.refresh_grace_expires,
  refresh_origin_id = excluded.refresh_origin_id,
- globally_revoked = excluded.globally_revoked;
+ globally_revoked = excluded.globally_revoked,
+ oauth_scope = excluded.oauth_scope,
+ oauth_nonce = excluded.oauth_nonce;
 
 -- name: PutRefreshToken :exec
 INSERT INTO cognitoidp_refresh_tokens (
@@ -345,3 +357,6 @@ ON CONFLICT (partition, account_id, region, pool_id, provider_name) DO UPDATE SE
 
 -- name: DeleteIdentityProvider :exec
 DELETE FROM cognitoidp_identity_providers WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND provider_name = ?;
+
+-- name: DeleteOAuthForUser :exec
+DELETE FROM cognitoidp_oauth WHERE partition = ? AND account_id = ? AND region = ? AND pool_id = ? AND username = ?;

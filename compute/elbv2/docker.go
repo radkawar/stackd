@@ -264,12 +264,12 @@ func (d *Docker) Prepare(ctx context.Context, spec Specification) (_ Node, resul
 				}
 			}{ContainerConfig: docker.ContainerConfig{
 				Image: docker.ToolkitImage, Entrypoint: []string{relayExecutable},
-				Cmd: []string{"--callback", node.callbackAddress, "--token", node.identity}, MacAddress: spec.Network.MAC,
+				Cmd: []string{"--callback", node.callbackAddress, "--token", node.identity},
 				Labels: map[string]string{ownerLabel: spec.LoadBalancerARN, attachmentLabel: spec.AttachmentID, identityLabel: node.identity,
 					callbackHostLabel: spec.Network.Gateway.String(), callbackPortLabel: port, addressLabel: spec.Network.Address.String(),
 					networkLabel: spec.Network.NetworkID, macLabel: spec.Network.MAC, executableLabel: d.executable},
 				NetworkingConfig: &docker.ContainerNetworkingConfig{EndpointsConfig: map[string]docker.ContainerEndpointConfig{
-					bridge.Name: {IPAMConfig: docker.ContainerEndpointIPAMConfig{IPv4Address: spec.Network.Address.String()}},
+					bridge.Name: {MacAddress: spec.Network.MAC, IPAMConfig: docker.ContainerEndpointIPAMConfig{IPv4Address: spec.Network.Address.String()}},
 				}},
 			}}
 			input.HostConfig.ContainerHostConfig = base

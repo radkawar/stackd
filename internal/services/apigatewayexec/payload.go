@@ -214,8 +214,12 @@ func (s *Handler) payload(r *http.Request, route *Route, path string, body []byt
 		context.Identity.UserARN, context.Identity.User = &metadata.PrincipalARN, &metadata.PrincipalID
 	}
 	var text *string
+	binary := rest && len(body) != 0 && binaryMedia(r.Header.Get("Content-Type"), route.BinaryMediaTypes)
 	if len(body) != 0 {
 		value := string(body)
+		if binary {
+			value = base64.StdEncoding.EncodeToString(body)
+		}
 		text = &value
 	}
 	version := ""
@@ -224,7 +228,7 @@ func (s *Handler) payload(r *http.Request, route *Route, path string, body []byt
 	}
 	return payloadV1{Version: version, Resource: route.ResourcePath, Path: executionPath(route, path), HTTPMethod: r.Method, Headers: headerValues,
 		MultiValueHeaders: headers, QueryStringParameters: queryValues, MultiValueQueryStringParameters: query,
-		PathParameters: route.PathParameters, StageVariables: route.StageVariables, RequestContext: context, Body: text}
+		PathParameters: route.PathParameters, StageVariables: route.StageVariables, RequestContext: context, Body: text, IsBase64Encoded: binary}
 }
 
 func binaryContent(contentType string) bool {

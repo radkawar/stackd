@@ -80,11 +80,22 @@ func (s *Service) createDeployment(tx Transaction, in *api.CreateDeploymentReque
 		if err != nil {
 			return nil, err
 		}
-		arn, err := functionARN(integration.URI, owner.Key.Scope)
-		if err != nil {
-			return nil, err
+		arn := ""
+		if integration.Mock == nil {
+			arn, err = functionARN(integration.URI, owner.Key.Scope)
+			if err != nil {
+				return nil, err
+			}
 		}
 		route := DeploymentRoute{ResourceID: resource.Key.ResourceID, Path: resource.Path, HTTPMethod: m.Key.HTTPMethod, AuthorizationType: m.AuthorizationType, Scopes: m.Scopes, FunctionARN: arn, TimeoutMillis: integration.TimeoutMillis}
+		if integration.Mock != nil {
+			mock := *integration.Mock
+			mock.Headers = make(map[string]string, len(integration.Mock.Headers))
+			for name, value := range integration.Mock.Headers {
+				mock.Headers[name] = value
+			}
+			route.Mock = &mock
+		}
 		route.CredentialsARN = integration.CredentialsARN
 		route.APIKeyRequired = m.APIKeyRequired
 		if m.AuthorizationType == "COGNITO_USER_POOLS" || m.AuthorizationType == "CUSTOM" {
@@ -341,6 +352,10 @@ func (s *Service) updateStage(tx Transaction, in *api.UpdateStageRequest) (*api.
 		case strings.HasSuffix(path, "/logging/dataTrace"):
 			err = patchMethodSetting(p, "/logging/dataTrace", &row)
 			executionChanged = true
+		case strings.HasSuffix(path, "/throttling/burstLimit"):
+			err = patchMethodSetting(p, "/throttling/burstLimit", &row)
+		case strings.HasSuffix(path, "/throttling/rateLimit"):
+			err = patchMethodSetting(p, "/throttling/rateLimit", &row)
 		case value(p.Op) == "remove" && methodSetting:
 			err = removeMethodSetting(p, &row)
 		default:

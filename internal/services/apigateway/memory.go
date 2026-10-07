@@ -98,10 +98,31 @@ func (w memoryWriter) PutAccount(row AccountRecord) error {
 	return nil
 }
 
-func cloneAPI(v APIRecord) APIRecord                         { v.Tags = maps.Clone(v.Tags); return v }
-func cloneResource(v ResourceRecord) ResourceRecord          { return v }
-func cloneMethod(v MethodRecord) MethodRecord                { v.Scopes = slices.Clone(v.Scopes); return v }
-func cloneIntegration(v IntegrationRecord) IntegrationRecord { return v }
+func cloneAPI(v APIRecord) APIRecord {
+	v.Tags = maps.Clone(v.Tags)
+	v.BinaryMediaTypes = slices.Clone(v.BinaryMediaTypes)
+	v.GatewayResponses = maps.Clone(v.GatewayResponses)
+	for key, response := range v.GatewayResponses {
+		response.Headers = maps.Clone(response.Headers)
+		response.Templates = maps.Clone(response.Templates)
+		v.GatewayResponses[key] = response
+	}
+	return v
+}
+func cloneResource(v ResourceRecord) ResourceRecord { return v }
+func cloneMethod(v MethodRecord) MethodRecord {
+	v.Scopes = slices.Clone(v.Scopes)
+	v.Responses = maps.Clone(v.Responses)
+	for key, response := range v.Responses {
+		response.Headers = maps.Clone(response.Headers)
+		v.Responses[key] = response
+	}
+	return v
+}
+func cloneIntegration(v IntegrationRecord) IntegrationRecord {
+	v.Mock = cloneMock(v.Mock)
+	return v
+}
 func cloneAuthorizer(v AuthorizerRecord) AuthorizerRecord {
 	v.ProviderARNs = slices.Clone(v.ProviderARNs)
 	v.LambdaAuthorizer = cloneLambdaAuthorizer(v.LambdaAuthorizer)
@@ -114,6 +135,7 @@ func cloneDeployment(v DeploymentRecord) DeploymentRecord {
 		v.Routes[i].Scopes = slices.Clone(v.Routes[i].Scopes)
 		v.Routes[i].UserPoolARNs = slices.Clone(v.Routes[i].UserPoolARNs)
 		v.Routes[i].LambdaAuthorizer = cloneLambdaAuthorizer(v.Routes[i].LambdaAuthorizer)
+		v.Routes[i].Mock = cloneMock(v.Routes[i].Mock)
 	}
 	return v
 }
@@ -121,7 +143,24 @@ func cloneStage(v StageRecord) StageRecord {
 	v.Variables = maps.Clone(v.Variables)
 	v.Tags = maps.Clone(v.Tags)
 	v.MethodSettings = maps.Clone(v.MethodSettings)
+	for key, settings := range v.MethodSettings {
+		if settings.ThrottlingBurstLimit != nil {
+			settings.ThrottlingBurstLimit = new(*settings.ThrottlingBurstLimit)
+		}
+		if settings.ThrottlingRateLimit != nil {
+			settings.ThrottlingRateLimit = new(*settings.ThrottlingRateLimit)
+		}
+		v.MethodSettings[key] = settings
+	}
 	return v
+}
+func cloneMock(v *apigatewayexec.MockIntegration) *apigatewayexec.MockIntegration {
+	if v == nil {
+		return nil
+	}
+	out := *v
+	out.Headers = maps.Clone(v.Headers)
+	return &out
 }
 func cloneLambdaAuthorizer(v *apigatewayexec.LambdaAuthorizer) *apigatewayexec.LambdaAuthorizer {
 	if v == nil {

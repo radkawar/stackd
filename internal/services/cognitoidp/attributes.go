@@ -316,6 +316,9 @@ func resolveUser(r Reader, pool PoolRecord, username string) (UserRecord, error)
 			return UserRecord{}, err
 		}
 		for _, candidate := range users {
+			if name != "sub" && value(candidate.Data.UserStatus) == "EXTERNAL_PROVIDER" {
+				continue
+			}
 			if name != "sub" && !slices.Contains(pool.Data.UsernameAttributes, api.UsernameAttributeType(name)) && !activeAlias(candidate, name) {
 				continue
 			}

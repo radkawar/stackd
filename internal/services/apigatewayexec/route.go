@@ -30,6 +30,9 @@ type Route struct {
 	LambdaAuthorizer                    *LambdaAuthorizer
 	WebSocketResponseEnabled            bool
 	IntegrationTimeoutMillis            int32
+	Mock                                *MockIntegration
+	BinaryMediaTypes                    []string
+	GatewayResponses                    map[string]GatewayResponse
 }
 
 // Resolver reads a deployed snapshot without performing external effects.

@@ -98,9 +98,8 @@ func (a *FunctionNetworkAttachment) Configure(ctx context.Context, config *docke
 	}
 	a.configured = true
 	a.callback = net.JoinHostPort(a.spec.Gateway.String(), port)
-	config.MacAddress = a.spec.MAC
 	config.HostConfig.NetworkMode = a.bridge.Name
-	config.NetworkingConfig = &docker.ContainerNetworkingConfig{EndpointsConfig: map[string]docker.ContainerEndpointConfig{a.bridge.Name: {IPAMConfig: docker.ContainerEndpointIPAMConfig{IPv4Address: a.spec.Address.String()}}}}
+	config.NetworkingConfig = &docker.ContainerNetworkingConfig{EndpointsConfig: map[string]docker.ContainerEndpointConfig{a.bridge.Name: {MacAddress: a.spec.MAC, IPAMConfig: docker.ContainerEndpointIPAMConfig{IPv4Address: a.spec.Address.String()}}}}
 	if config.Labels == nil {
 		config.Labels = make(map[string]string)
 	}
@@ -157,8 +156,26 @@ func (a *FunctionNetworkAttachment) Attach(ctx context.Context, container string
 		return err
 	}
 	endpoint, exists := info.NetworkSettings.Networks[a.bridge.Name]
-	if !info.State.Running || info.Config.Labels[functionNetworkLabel] != a.owner || info.Config.Labels[functionNetworkOwnerLabel] != a.runtime.namespace || !exists || endpoint.IPAddress != a.spec.Address.String() || !strings.EqualFold(endpoint.MacAddress, a.spec.MAC) || len(info.NetworkSettings.Networks) != 1 {
-		return errors.New("lambda function namespace differs from its authoritative EC2 attachment")
+	if !info.State.Running {
+		return errors.New("lambda function namespace differs from its authoritative EC2 attachment: container is not running")
+	}
+	if info.Config.Labels[functionNetworkLabel] != a.owner {
+		return fmt.Errorf("lambda function namespace differs from its authoritative EC2 attachment: function owner label is %q, want %q", info.Config.Labels[functionNetworkLabel], a.owner)
+	}
+	if info.Config.Labels[functionNetworkOwnerLabel] != a.runtime.namespace {
+		return fmt.Errorf("lambda function namespace differs from its authoritative EC2 attachment: runtime owner label is %q, want %q", info.Config.Labels[functionNetworkOwnerLabel], a.runtime.namespace)
+	}
+	if !exists {
+		return fmt.Errorf("lambda function namespace differs from its authoritative EC2 attachment: expected network %q is missing", a.bridge.Name)
+	}
+	if endpoint.IPAddress != a.spec.Address.String() {
+		return fmt.Errorf("lambda function namespace differs from its authoritative EC2 attachment: IP address is %q, want %q", endpoint.IPAddress, a.spec.Address.String())
+	}
+	if !strings.EqualFold(endpoint.MacAddress, a.spec.MAC) {
+		return fmt.Errorf("lambda function namespace differs from its authoritative EC2 attachment: MAC address is %q, want %q", endpoint.MacAddress, a.spec.MAC)
+	}
+	if len(info.NetworkSettings.Networks) != 1 {
+		return fmt.Errorf("lambda function namespace differs from its authoritative EC2 attachment: attached to %d networks, want only %q", len(info.NetworkSettings.Networks), a.bridge.Name)
 	}
 	a.container = container
 	out, err := a.helper(ctx, "container:"+container, []string{"cat", "/sys/class/net/eth0/iflink"})

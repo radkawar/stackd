@@ -9,7 +9,7 @@ import (
 )
 
 func apiOutput(v APIRecord) *api.RestApi {
-	return &api.RestApi{Id: ptr(v.Key.ID), Name: ptr(v.Name), Description: optional(v.Description), Version: optional(v.Version), CreatedDate: new(v.Created), RootResourceId: ptr(v.RootResourceID), DisableExecuteApiEndpoint: new(api.Boolean(v.Disabled)), ApiKeySource: new(api.ApiKeySourceType(v.APIKeySource)), EndpointConfiguration: &api.EndpointConfiguration{Types: api.ListOfEndpointType{api.EndpointTypeREGIONAL}, IpAddressType: new(api.IpAddressType("ipv4"))}, SecurityPolicy: new(api.SecurityPolicy("TLS_1_0")), ApiStatus: new(api.ApiStatusAVAILABLE), Tags: mapOut(v.Tags)}
+	return &api.RestApi{Id: ptr(v.Key.ID), Name: ptr(v.Name), Description: optional(v.Description), Version: optional(v.Version), CreatedDate: new(v.Created), RootResourceId: ptr(v.RootResourceID), DisableExecuteApiEndpoint: new(api.Boolean(v.Disabled)), ApiKeySource: new(api.ApiKeySourceType(v.APIKeySource)), EndpointConfiguration: &api.EndpointConfiguration{Types: api.ListOfEndpointType{api.EndpointTypeREGIONAL}, IpAddressType: new(api.IpAddressType("ipv4"))}, SecurityPolicy: new(api.SecurityPolicy("TLS_1_0")), ApiStatus: new(api.ApiStatusAVAILABLE), Tags: mapOut(v.Tags), BinaryMediaTypes: stringsOut(v.BinaryMediaTypes)}
 }
 func (s *Service) createRestAPI(tx Transaction, in *api.CreateRestApiRequest) (*api.RestApi, error) {
 	if err := s.authorize(tx, "POST", "/restapis", nil); err != nil {
@@ -18,16 +18,18 @@ func (s *Service) createRestAPI(tx Transaction, in *api.CreateRestApiRequest) (*
 	if strings.TrimSpace(value(in.Name)) == "" || len(value(in.Name)) > 1024 {
 		return nil, bad("Invalid API name")
 	}
-	// TODO: Comeback own edge/private endpoint provisioning, binary negotiation,
-	// compression, resource policies, cloning and stricter TLS before accepting them.
-	if in.EndpointConfiguration == nil || len(in.EndpointConfiguration.Types) != 1 || in.EndpointConfiguration.Types[0] != api.EndpointTypeREGIONAL || len(in.EndpointConfiguration.VpcEndpointIds) != 0 {
-		return nil, unsupported("only explicit REGIONAL endpoints are supported")
+	// Edge/private endpoints, compression, resource policies and cloning require
+	// distinct provisioning owners.
+	if in.EndpointConfiguration != nil {
+		if len(in.EndpointConfiguration.Types) != 1 || in.EndpointConfiguration.Types[0] != api.EndpointTypeREGIONAL || len(in.EndpointConfiguration.VpcEndpointIds) != 0 {
+			return nil, unsupported("only REGIONAL endpoints are supported")
+		}
+		if t := value(in.EndpointConfiguration.IpAddressType); t != "" && t != "ipv4" {
+			return nil, unsupported("dualstack endpoints")
+		}
 	}
-	if t := value(in.EndpointConfiguration.IpAddressType); t != "" && t != "ipv4" {
-		return nil, unsupported("dualstack endpoints")
-	}
-	if len(in.BinaryMediaTypes) > 0 || in.MinimumCompressionSize != nil || value(in.Policy) != "" || value(in.CloneFrom) != "" || value(in.EndpointAccessMode) != "" {
-		return nil, unsupported("binary media, compression, resource policies, cloning or endpoint access mode")
+	if in.MinimumCompressionSize != nil || value(in.Policy) != "" || value(in.CloneFrom) != "" || value(in.EndpointAccessMode) != "" {
+		return nil, unsupported("compression, resource policies, cloning or endpoint access mode")
 	}
 	keySource := value(in.ApiKeySource)
 	if keySource == "" {
@@ -38,6 +40,9 @@ func (s *Service) createRestAPI(tx Transaction, in *api.CreateRestApiRequest) (*
 	}
 	if t := value(in.SecurityPolicy); t != "" && t != "TLS_1_0" {
 		return nil, unsupported("custom TLS security policy")
+	}
+	if err := validateBinaryMediaTypes(stringsIn(in.BinaryMediaTypes)); err != nil {
+		return nil, err
 	}
 	tags := mapIn(in.Tags)
 	if err := validateTags(tags); err != nil {
@@ -59,6 +64,7 @@ func (s *Service) createRestAPI(tx Transaction, in *api.CreateRestApiRequest) (*
 	}
 	row := APIRecord{Key: APIKey{Scope: scopeFor(tx.Context()), ID: id}, Name: value(in.Name), Description: value(in.Description), Version: value(in.Version), RootResourceID: root, Created: s.clock.Now(), Disabled: truth(in.DisableExecuteApiEndpoint), Tags: tags}
 	row.APIKeySource = keySource
+	row.BinaryMediaTypes = stringsIn(in.BinaryMediaTypes)
 	if err := tx.PutAPI(row); err != nil {
 		return nil, err
 	}
@@ -106,6 +112,12 @@ func (s *Service) updateRestAPI(tx Transaction, in *api.UpdateRestApiRequest) (*
 	}
 	for _, p := range in.PatchOperations {
 		path := value(p.Path)
+		if strings.HasPrefix(path, "/binaryMediaTypes/") {
+			if err := patchBinaryMediaTypes(&row, p); err != nil {
+				return nil, err
+			}
+			continue
+		}
 		switch path {
 		case "/name":
 			if err := replace(p, &row.Name); err != nil {

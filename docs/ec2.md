@@ -1650,14 +1650,127 @@ Interface endpoint admission accepts the official Kinesis Data Streams name
 packet routing resolves it to the existing Kinesis owner without bypassing
 endpoint policy or ENI/SG/NACL authority.
 
-Known AWS services without local providers (including `bedrock-runtime`) remain
-outside this endpoint catalog, and `DescribeVpcEndpointServices` remains
-unsupported. The next boundary is an evidenced EC2 endpoint-service inventory
-shared by discovery and admission, independent of executable service providers.
-Admitting a known control-plane endpoint must not claim Bedrock inference
-execution. Sources: [Kinesis PrivateLink](https://docs.aws.amazon.com/streams/latest/dev/vpc.html),
+Endpoint service discovery and endpoint creation now share a service-owned
+control-plane catalog, independent of enabled emulator providers.
+`DescribeVpcEndpointServices` returns matching names and modeled service details,
+including `com.amazonaws.us-east-2.bedrock-runtime` as an Interface service.
+The retained documented subset covers S3, DynamoDB, EC2, EC2 Messages, ELB,
+Kinesis Streams, CloudWatch/Logs, SQS, SNS, Lambda, SSM/SSM Messages, ECR,
+API Gateway invocation, KMS, Secrets Manager, STS, CloudFormation, CloudTrail,
+Step Functions, EventBridge and Bedrock Runtime. Service-specific regional SDK
+metadata scopes ordinary services; Bedrock Runtime uses AWS's distinct runtime
+region table, not its broader control-plane table. Commercial, China and
+GovCloud service names are partition-scoped; Bedrock Runtime is not advertised
+in China or in an undocumented runtime region. Unknown services and services
+from another partition/region cannot create physical endpoint controls.
+
+Discovery supports the documented owner, service-name, service-region,
+service-type, supported-ip-address-types, tag-key and tag-key/value filters.
+Filter values are ORed and filters are ANDed; AWS catalog services have no
+customer tags. Names and pages are lexically ordered. Positive `MaxResults`
+values are capped at 1,000; continuations bind the account, partition, region,
+operation and selection. Explicit cross-region discovery/creation remains an
+unsupported operation, not a fabricated regional listing. AZ names use EC2's
+existing account-dependent physical-zone mapping; uncaptured noncommercial
+AZ metadata, AWS-assigned service IDs and hosted-zone IDs are not invented.
+Optional endpoint-policy support is returned where separately evidenced.
+Discovery advertises the IPv4 controls implemented here, not IPv6 allocation.
+
+Bedrock Interface endpoints use the ordinary typed endpoint row and actual
+requester-managed subnet-capacity-reserving ENIs, VPC security groups,
+validated IAM endpoint policies, private-DNS admission and deletion lifecycle.
+The same memory/SQLite transactions retain those controls and immutable
+CloudFormation incarnation fences. DNS options and private-DNS enablement are
+durable; no public AWS hosted zone or AWS TLS endpoint is fabricated.
+Existing native Lambda endpoint routing still reaches the actual stackd HTTP
+service handler through the endpoint ENI and policy/SG/NACL authority. Adding
+an EC2 endpoint does **not** enable an absent service provider: Bedrock invocation,
+model inference and successful Bedrock runtime responses remain unsupported.
+
+The combined executable SQLite workflow deploys the reported regional Bedrock
+Interface endpoint through CloudFormation, verifies its SG-controlled ENI and
+reopens with the same controls. Stack deletion leaves the endpoint's retained
+`deleted` record with no interface IDs and no surviving VPC ENIs; the tombstone
+is not an active endpoint. Memory/SQLite fixtures cover policy/DNS mutation,
+incarnation fences and teardown. Endpoint-specific physical-zone availability
+still requires calibration, as marked in `endpoint_services.go`.
+
+Sources: [PrivateLink service names](https://docs.aws.amazon.com/vpc/latest/privatelink/aws-services-privatelink-support.html),
+[regional endpoint metadata](https://github.com/boto/botocore/blob/develop/botocore/data/endpoints.json),
 [EC2 endpoint discovery](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVpcEndpointServices.html),
-[Bedrock interface endpoints](https://docs.aws.amazon.com/bedrock/latest/userguide/vpc-interface-endpoints.html).
+[modeled service details](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ServiceDetail.html),
+[Bedrock interface endpoints](https://docs.aws.amazon.com/bedrock/latest/userguide/vpc-interface-endpoints.html)
+and [Bedrock runtime regions](https://docs.aws.amazon.com/general/latest/gr/bedrock.html).
+Source URLs and the regional metadata SHA-256 are retained in
+`internal/services/ec2/endpoint_services.json`. This is source-based behavior,
+not a claim of an exercised native AWS Bedrock endpoint capture.
+
+For a local stackd CloudFormation control-plane reproduction, save the following
+as `bedrock-endpoint.yml`, then run the commands below in `us-east-2`. It invokes
+no models and creates no inference resources.
+
+```yaml
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.78.0.0/24
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+  Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.78.0.0/25
+      AvailabilityZone: !Select [0, !GetAZs '']
+  Sg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref Vpc
+      GroupDescription: Bedrock endpoint HTTPS
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 10.78.0.0/24
+  BedrockEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !Ref Vpc
+      SubnetIds: [!Ref Subnet]
+      SecurityGroupIds: [!Ref Sg]
+      PrivateDnsEnabled: true
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.bedrock-runtime
+Outputs:
+  EndpointId:
+    Value: !Ref BedrockEndpoint
+```
+
+```sh
+ENDPOINT=http://127.0.0.1:4567
+aws --endpoint-url "$ENDPOINT" --region us-east-2 ec2 describe-vpc-endpoint-services \
+  --service-names com.amazonaws.us-east-2.bedrock-runtime
+aws --endpoint-url "$ENDPOINT" --region us-east-2 cloudformation create-stack \
+  --stack-name bedrock-endpoint-control \
+  --template-body file://bedrock-endpoint.yml
+aws --endpoint-url "$ENDPOINT" --region us-east-2 cloudformation wait stack-create-complete \
+  --stack-name bedrock-endpoint-control
+ID=$(aws --endpoint-url "$ENDPOINT" --region us-east-2 cloudformation describe-stacks \
+  --stack-name bedrock-endpoint-control \
+  --query 'Stacks[0].Outputs[?OutputKey==`EndpointId`].OutputValue | [0]' --output text)
+aws --endpoint-url "$ENDPOINT" --region us-east-2 ec2 describe-vpc-endpoints --vpc-endpoint-ids "$ID"
+aws --endpoint-url "$ENDPOINT" --region us-east-2 ec2 describe-network-interfaces \
+  --filters Name=description,Values="*${ID}*"
+aws --endpoint-url "$ENDPOINT" --region us-east-2 cloudformation delete-stack --stack-name bedrock-endpoint-control
+aws --endpoint-url "$ENDPOINT" --region us-east-2 cloudformation wait stack-delete-complete \
+  --stack-name bedrock-endpoint-control
+```
+
+For stackd, add `--endpoint-url "$E"` to every AWS CLI command and configure
+its local credentials/account. The native recipe and the newly extended
+behavioral tests have not been executed as part of this implementation.
 
 ### CloudFormation compute ownership
 

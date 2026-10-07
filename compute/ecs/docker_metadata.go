@@ -160,13 +160,12 @@ func prepareMetadata(ctx context.Context, client *docker.Client, spec dockerMeta
 		_, port, _ := net.SplitHostPort(callback)
 		config := docker.ContainerConfig{
 			Image: spec.Image, Entrypoint: []string{"/bin/sh"}, Cmd: metadataCommand(callback),
-			MacAddress: spec.MACAddress,
 			Labels: map[string]string{
 				metadataTaskLabel: spec.TaskARN, metadataHostLabel: spec.Gateway.String(),
 				metadataPortLabel: port, metadataSourceLabel: spec.Address.String(),
 			},
 			NetworkingConfig: &docker.ContainerNetworkingConfig{EndpointsConfig: map[string]docker.ContainerEndpointConfig{
-				spec.NetworkName: {IPAMConfig: docker.ContainerEndpointIPAMConfig{IPv4Address: spec.Address.String()}},
+				spec.NetworkName: {MacAddress: spec.MACAddress, IPAMConfig: docker.ContainerEndpointIPAMConfig{IPv4Address: spec.Address.String()}},
 			}},
 			HostConfig: docker.ContainerHostConfig{
 				NetworkMode: spec.NetworkName, ReadonlyRootfs: true,

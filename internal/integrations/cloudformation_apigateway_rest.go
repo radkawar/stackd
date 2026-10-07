@@ -170,7 +170,7 @@ func cfnRESTStageValidation(p map[string]any) error {
 			if !ok {
 				return fmt.Errorf("MethodSettings entries must be objects")
 			}
-			if err := cfnComputeProperties(setting, "ResourcePath", "HttpMethod", "MetricsEnabled", "LoggingLevel", "DataTraceEnabled"); err != nil {
+			if err := cfnComputeProperties(setting, "ResourcePath", "HttpMethod", "MetricsEnabled", "LoggingLevel", "DataTraceEnabled", "ThrottlingBurstLimit", "ThrottlingRateLimit"); err != nil {
 				return err
 			}
 			if err := cfnComputeRequired(setting, "ResourcePath", "HttpMethod"); err != nil {
@@ -182,6 +182,9 @@ func cfnRESTStageValidation(p map[string]any) error {
 			if err := cfnRESTBools(setting, "MetricsEnabled", "DataTraceEnabled"); err != nil {
 				return err
 			}
+			if err := cfnRESTMethodThrottleValidation(setting); err != nil {
+				return err
+			}
 		}
 	}
 	_, err = cfnComputeTags(p)
@@ -191,7 +194,7 @@ func (h cfnRESTGateway) Validate(p cloudformation.Properties) error {
 	var allowed, required []string
 	switch h.kind {
 	case "RestApi":
-		allowed = []string{"Name", "Description", "Version", "SecurityPolicy", "DisableExecuteApiEndpoint", "ApiKeySourceType", "EndpointConfiguration", "Tags"}
+		allowed = []string{"Name", "Description", "Version", "SecurityPolicy", "DisableExecuteApiEndpoint", "ApiKeySourceType", "EndpointConfiguration", "Tags", "Body", "BinaryMediaTypes", "Mode", "FailOnWarnings", "Parameters"}
 	case "Resource":
 		allowed = []string{"RestApiId", "ParentId", "PathPart"}
 		required = allowed
@@ -246,6 +249,9 @@ func (h cfnRESTGateway) Validate(p cloudformation.Properties) error {
 	}
 	switch h.kind {
 	case "RestApi":
+		if err := cfnRESTImportValidation(p); err != nil {
+			return err
+		}
 		if v, ok := p["SecurityPolicy"]; ok && v != "TLS_1_0" {
 			return fmt.Errorf("only TLS_1_0 REST security policy has an owner")
 		}
@@ -290,12 +296,18 @@ func (h cfnRESTGateway) Validate(p cloudformation.Properties) error {
 			}
 		}
 	case "Deployment":
-		stage, err := cfnRESTObject(p, "StageDescription", "Description", "Variables", "Tags", "AccessLogSetting", "MethodSettings", "CacheClusterEnabled", "TracingEnabled", "MetricsEnabled", "LoggingLevel", "DataTraceEnabled")
+		stage, err := cfnRESTObject(p, "StageDescription", "Description", "Variables", "Tags", "AccessLogSetting", "MethodSettings", "CacheClusterEnabled", "TracingEnabled", "MetricsEnabled", "LoggingLevel", "DataTraceEnabled", "ThrottlingBurstLimit", "ThrottlingRateLimit")
 		if err != nil {
 			return err
 		}
 		if stage != nil {
 			copy := cfnComputeCopy(stage, "Description", "Variables", "Tags", "AccessLogSetting", "MethodSettings", "CacheClusterEnabled", "TracingEnabled")
+			if stage["ThrottlingBurstLimit"] != nil || stage["ThrottlingRateLimit"] != nil {
+				all := cfnComputeCopy(stage, "ThrottlingBurstLimit", "ThrottlingRateLimit")
+				all["ResourcePath"], all["HttpMethod"] = "/*", "*"
+				settings, _ := copy["MethodSettings"].([]any)
+				copy["MethodSettings"] = append(settings, all)
+			}
 			if err := cfnRESTStageValidation(copy); err != nil {
 				return err
 			}

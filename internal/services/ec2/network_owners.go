@@ -21,6 +21,7 @@ func registerNetworkOwners(s *Service) {
 	register(s, "ModifyVpcEndpoint", s.modifyVPCEndpoint)
 	register(s, "DeleteVpcEndpoints", s.deleteVPCEndpoints)
 	register(s, "DescribeVpcEndpoints", s.describeVPCEndpoints)
+	register(s, "DescribeVpcEndpointServices", s.describeVPCEndpointServices)
 }
 
 func networkOwnerFingerprint(v any) (string, error) {

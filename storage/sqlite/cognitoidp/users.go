@@ -4,6 +4,7 @@ import (
 	api "stackd/internal/awsapi/cognitoidp"
 	domain "stackd/storage/cognitoidp"
 	"stackd/storage/sqlite/cognitoidp/internal/sqlcgen"
+	"time"
 )
 
 func (r reader) userRow(row sqlcgen.CognitoidpUser) (domain.UserRecord, error) {
@@ -16,8 +17,17 @@ func (r reader) userRow(row sqlcgen.CognitoidpUser) (domain.UserRecord, error) {
 			UserLastModifiedDate: timePointer(row.UserLastModifiedDate),
 			UserStatus:           stringPointer[api.UserStatusType](row.UserStatus),
 		},
-		Password:        domain.PasswordVerifier{Salt: row.PasswordSalt, Verifier: row.PasswordVerifier},
-		PasswordExpires: timePointer(row.PasswordExpires),
+		Password:                   domain.PasswordVerifier{Salt: row.PasswordSalt, Verifier: row.PasswordVerifier},
+		PasswordExpires:            timePointer(row.PasswordExpires),
+		SoftwareTokenSecret:        row.SoftwareTokenSecret,
+		SoftwareTokenPendingSecret: row.SoftwareTokenPendingSecret,
+		SoftwareTokenLastCounter:   row.SoftwareTokenLastCounter,
+		SoftwareTokenEnabled:       row.SoftwareTokenEnabled,
+		SoftwareTokenPreferred:     row.SoftwareTokenPreferred,
+		SoftwareTokenDeviceName:    row.SoftwareTokenDeviceName,
+	}
+	if row.SoftwareTokenPendingExpires.Valid {
+		out.SoftwareTokenPendingExpires = row.SoftwareTokenPendingExpires.Time.UTC()
 	}
 	if err := unmarshalFields(jsonReadField{row.MfaOptions, &out.Data.MFAOptions}); err != nil {
 		return domain.UserRecord{}, err
@@ -81,7 +91,14 @@ func (w writer) PutUser(v domain.UserRecord) error {
 		Enabled: nullableBool(v.Data.Enabled), UserCreateDate: nullableTime(v.Data.UserCreateDate),
 		UserLastModifiedDate: nullableTime(v.Data.UserLastModifiedDate), UserStatus: nullableString(v.Data.UserStatus),
 		AttributesPresent: v.Data.Attributes != nil, PasswordSalt: v.Password.Salt, PasswordVerifier: v.Password.Verifier,
-		PasswordExpires: nullableTime(v.PasswordExpires),
+		PasswordExpires:             nullableTime(v.PasswordExpires),
+		SoftwareTokenSecret:         v.SoftwareTokenSecret,
+		SoftwareTokenPendingSecret:  v.SoftwareTokenPendingSecret,
+		SoftwareTokenPendingExpires: nullableTime(ptrTimeNonzero(v.SoftwareTokenPendingExpires)),
+		SoftwareTokenLastCounter:    v.SoftwareTokenLastCounter,
+		SoftwareTokenEnabled:        v.SoftwareTokenEnabled,
+		SoftwareTokenPreferred:      v.SoftwareTokenPreferred,
+		SoftwareTokenDeviceName:     v.SoftwareTokenDeviceName,
 	}
 	if err := marshalFields(jsonWriteField{&row.MfaOptions, v.Data.MFAOptions}); err != nil {
 		return err
@@ -104,6 +121,9 @@ func (w writer) PutUser(v domain.UserRecord) error {
 }
 
 func (w writer) DeleteUser(k domain.UserKey) error {
+	if err := w.q.DeleteOAuthForUser(w.ctx, sqlcgen.DeleteOAuthForUserParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, PoolID: k.ID, Username: k.Username}); err != nil {
+		return err
+	}
 	if err := w.RevokeUserSessions(k); err != nil {
 		return err
 	}
@@ -118,4 +138,11 @@ func (w writer) DeleteUser(k domain.UserKey) error {
 
 func (w writer) RevokeUserSessions(k domain.UserKey) error {
 	return w.q.RevokeUserSessions(w.ctx, sqlcgen.RevokeUserSessionsParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, PoolID: k.ID, Username: k.Username})
+}
+
+func ptrTimeNonzero(v time.Time) *time.Time {
+	if v.IsZero() {
+		return nil
+	}
+	return &v
 }

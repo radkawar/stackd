@@ -582,9 +582,24 @@ func templateSub(argument any) (string, map[string]any, error) {
 }
 
 func templateDynamicReference(text string) error {
-	if strings.Contains(text, "{{resolve:") {
-		// TODO: Comeback: resolve SSM and Secrets Manager dynamic references using current execution authority.
-		return fmt.Errorf("dynamic references are unsupported")
+	for rest := text; ; {
+		start := strings.Index(rest, "{{resolve:")
+		if start < 0 {
+			return nil
+		}
+		rest = rest[start+len("{{resolve:"):]
+		// Intrinsics may assemble a reference from multiple string fragments.
+		// Admission identifies unsupported complete service prefixes without
+		// reading SSM; execution validates the fully composed syntax.
+		// TODO: Comeback implement secure SSM and Secrets Manager dynamic references
+		// with current decrypt/read authority and credential-safe durable state.
+		if colon := strings.IndexByte(rest, ':'); colon >= 0 && !strings.HasPrefix(rest, "ssm:") {
+			return fmt.Errorf("ssm-secure and secretsmanager dynamic references are unsupported")
+		}
+		end := strings.Index(rest, "}}")
+		if end < 0 {
+			return nil
+		}
+		rest = rest[end+2:]
 	}
-	return nil
 }

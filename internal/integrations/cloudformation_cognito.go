@@ -301,14 +301,17 @@ func cfnCognitoParent(r cloudformation.ResourceRequest, key string) (string, err
 
 type cfnCognitoUserPool struct{ commands StepFunctionsCommands }
 
-// User pool properties without an implemented owner (MFA factors, passwordless
-// sign-in and WebAuthn) are rejected by name rather than stored.
-var cfnCognitoUnsupportedPoolProperties = []string{"EnabledMfas", "EmailAuthenticationMessage", "EmailAuthenticationSubject", "WebAuthnRelyingPartyID", "WebAuthnUserVerification", "WebAuthnFactorConfiguration"}
+// Passwordless sign-in and WebAuthn remain unsupported. Software-token MFA
+// settings are committed atomically by the pool owner.
+var cfnCognitoUnsupportedPoolProperties = []string{"EmailAuthenticationMessage", "EmailAuthenticationSubject", "WebAuthnRelyingPartyID", "WebAuthnUserVerification", "WebAuthnFactorConfiguration"}
 
 // Usernames, aliases and case sensitivity are fixed at creation by the owner.
 var cfnCognitoFixedPoolProperties = []string{"AliasAttributes", "UsernameAttributes", "UsernameConfiguration"}
 
 func cfnCognitoPoolCommon(p map[string]any) (map[string]any, error) {
+	if _, err := cfnCognitoEnabledSoftwareMFA(p); err != nil {
+		return nil, err
+	}
 	for _, key := range cfnCognitoUnsupportedPoolProperties {
 		if _, ok := p[key]; ok {
 			if list, empty := p[key].([]any); empty && len(list) == 0 {
@@ -318,7 +321,7 @@ func cfnCognitoPoolCommon(p map[string]any) (map[string]any, error) {
 		}
 	}
 	// Read-only attributes can arrive in a Cloud Control desired state.
-	m := cfnCognitoWithout(p, append([]string{"UserPoolName", "UserPoolTags", "Arn", "ProviderName", "ProviderURL", "UserPoolId"}, cfnCognitoUnsupportedPoolProperties...)...)
+	m := cfnCognitoWithout(p, append([]string{"EnabledMfas", "UserPoolName", "UserPoolTags", "Arn", "ProviderName", "ProviderURL", "UserPoolId"}, cfnCognitoUnsupportedPoolProperties...)...)
 	if name, ok := p["UserPoolName"]; ok {
 		m["PoolName"] = name
 	}
@@ -436,6 +439,11 @@ func (h cfnCognitoUserPool) create(ctx context.Context, r cloudformation.Resourc
 		in.UserPoolTags[api.TagKeysType(key)] = api.TagValueType(value)
 	}
 	ctx = cfnCognitoClaimContext(ctx, r)
+	enabled, err := cfnCognitoEnabledSoftwareMFA(r.Properties)
+	if err != nil {
+		return cloudformation.ResourceResult{}, err
+	}
+	ctx = cognitoidp.WithSoftwareTokenMFAConfiguration(ctx, enabled)
 	if recover {
 		ctx = cognitoidp.WithCreationRecovery(ctx, cfnCognitoOwner(r))
 	}
@@ -537,6 +545,11 @@ func (h cfnCognitoUserPool) Update(ctx context.Context, r cloudformation.Resourc
 	}
 	// Each mutation checks the pool's private claim in its own transaction.
 	owned := cfnCognitoContext(ctx, r)
+	enabled, err := cfnCognitoEnabledSoftwareMFA(r.Properties)
+	if err != nil {
+		return cloudformation.ResourceResult{}, err
+	}
+	owned = cognitoidp.WithSoftwareTokenMFAConfiguration(owned, enabled)
 	if len(added) > 0 {
 		if err := cfnMessagingExec(owned, h.commands, "cognitoidp", "AddCustomAttributes", &api.AddCustomAttributesInput{UserPoolId: new(api.UserPoolIdType(r.PhysicalID)), CustomAttributes: api.CustomAttributesListType(added)}); err != nil {
 			return cloudformation.ResourceResult{}, err
@@ -588,6 +601,14 @@ func (h cfnCognitoUserPool) Read(ctx context.Context, r cloudformation.ResourceR
 		public[key] = value
 	}
 	p["UserPoolTags"] = public
+	mfa, err := cfnMessagingCall[api.GetUserPoolMfaConfigOutput](ctx, h.commands, "cognitoidp", "GetUserPoolMfaConfig", &api.GetUserPoolMfaConfigInput{UserPoolId: pool.Id})
+	if err != nil {
+		return nil, err
+	}
+	p["EnabledMfas"] = []any{}
+	if mfa.SoftwareTokenMfaConfiguration != nil && mfa.SoftwareTokenMfaConfiguration.Enabled != nil && bool(*mfa.SoftwareTokenMfaConfiguration.Enabled) {
+		p["EnabledMfas"] = []any{"SOFTWARE_TOKEN_MFA"}
+	}
 	p["UserPoolName"] = cfnComputeValue(pool.Name)
 	for key, value := range h.result(pool).Attributes {
 		p[key] = value
@@ -612,4 +633,29 @@ func (h cfnCognitoUserPool) List(ctx context.Context, r cloudformation.ResourceR
 		out = append(out, cloudformation.ResourceDescription{Identifier: id, Properties: p})
 	}
 	return out, nil
+}
+
+func cfnCognitoEnabledSoftwareMFA(p map[string]any) (bool, error) {
+	raw, present := p["EnabledMfas"]
+	if !present {
+		if p["MfaConfiguration"] == "ON" {
+			return false, fmt.Errorf("MFA ON requires EnabledMfas: [SOFTWARE_TOKEN_MFA]")
+		}
+		return false, nil
+	}
+	factors, ok := raw.([]any)
+	if !ok {
+		return false, fmt.Errorf("EnabledMfas must be a list")
+	}
+	enabled := false
+	for _, factor := range factors {
+		if factor != "SOFTWARE_TOKEN_MFA" || enabled {
+			return false, fmt.Errorf("EnabledMfas supports only SOFTWARE_TOKEN_MFA, once")
+		}
+		enabled = true
+	}
+	if p["MfaConfiguration"] == "ON" && !enabled {
+		return false, fmt.Errorf("MFA ON requires EnabledMfas: [SOFTWARE_TOKEN_MFA]")
+	}
+	return enabled, nil
 }

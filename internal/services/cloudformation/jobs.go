@@ -54,7 +54,7 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 	var op OperationRecord
 	var stack StackRecord
 	var step StepRecord
-	var execute, finalize, beforeCleanup, planning bool
+	var execute, finalize, beforeCleanup, planning, resolving bool
 	// Resolve the retained caller's current execution authority before opening a
 	// state transaction. Intrinsic owner reads and native effects use the same
 	// authority; role assumption must not run inside the shared transaction.
@@ -135,7 +135,7 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 			}
 		}
 		if op.Phase == "ROLLBACK" {
-			for op.Cursor >= 0 && op.Cursor < len(op.Steps) && (op.Steps[op.Cursor].State == "PENDING" || op.Steps[op.Cursor].State == "PLANNING" || op.Steps[op.Cursor].State == "SKIPPED" || op.Steps[op.Cursor].State == "ROLLED_BACK") {
+			for op.Cursor >= 0 && op.Cursor < len(op.Steps) && (op.Steps[op.Cursor].State == "PENDING" || op.Steps[op.Cursor].State == "PLANNING" || op.Steps[op.Cursor].State == "RESOLVING" || op.Steps[op.Cursor].State == "SKIPPED" || op.Steps[op.Cursor].State == "ROLLED_BACK") {
 				op.Cursor--
 			}
 			if op.Cursor < 0 || len(op.Steps) == 0 {
@@ -170,6 +170,10 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 			return s.complete(tx, &stack, &op)
 		}
 		step = op.Steps[op.Cursor]
+		if step.State == "RESOLVING" {
+			execute, resolving = true, true
+			return nil
+		}
 		if step.State == "PLANNING" {
 			execute, planning = true, true
 			return nil
@@ -193,6 +197,14 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 				}
 				step.After.Properties = props
 				step.After.EventProperties = t.eventProperties(step.LogicalID, evaluation, props)
+				if hasDynamicReferences(props) || hasDynamicReferences(step.Before.Properties) {
+					step.State = "RESOLVING"
+					op.Steps[op.Cursor] = step
+					op.Revision++
+					op.Due = s.clock.Now()
+					execute, resolving = true, true
+					return tx.PutOperation(op)
+				}
 				h := s.handlers[step.After.Type]
 				if h == nil {
 					return s.failResourceAdmission(tx, &stack, &op, step, invalid("Resource handler is unavailable: "+step.After.Type))
@@ -314,6 +326,9 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 		return err
 	}
 	err = authorityErr
+	if resolving {
+		return s.resolveDynamicIntent(ctx, commandCtx, stack, op, step, err)
+	}
 	if finalize {
 		return s.finalizeDefinition(ctx, commandCtx, stack, op, beforeCleanup, err)
 	}
@@ -502,6 +517,7 @@ func resolveStepAction(step *StepRecord, replace bool) error {
 	after := step.Before
 	after.Properties = step.After.Properties
 	after.EventProperties = step.After.EventProperties
+	after.DynamicReferences = step.After.DynamicReferences
 	after.DeletionPolicy = step.After.DeletionPolicy
 	after.UpdateReplacePolicy = step.After.UpdateReplacePolicy
 	step.After, step.Action = after, "UPDATE"
@@ -620,6 +636,14 @@ func (s *Service) executeStep(ctx context.Context, stack StackRecord, op Operati
 		return ResourceResult{}, false, invalid("Resource handler is unavailable: " + v.Type)
 	}
 	request := resourceRequest(stack, op, v, step.Before.Properties)
+	var secrets []string
+	if !deleting {
+		var err error
+		request, secrets, err = s.dynamicRequest(ctx, request, v, step.Before)
+		if err != nil {
+			return ResourceResult{}, false, err
+		}
+	}
 	request.DeletionPolicy = v.DeletionPolicy
 	if step.Action == "RETIRE" {
 		request.DeletionPolicy = v.UpdateReplacePolicy
@@ -639,7 +663,7 @@ func (s *Service) executeStep(ctx context.Context, stack StackRecord, op Operati
 			if e == nil && ready {
 				result, e = stabilizedResourceResult(ctx, h, request, result)
 			}
-			return result, !ready, e
+			return result, !ready, redactDynamicError(e, secrets)
 		}
 		return result, false, nil
 	}
@@ -655,6 +679,7 @@ func (s *Service) executeStep(ctx context.Context, stack StackRecord, op Operati
 	default:
 		err = fmt.Errorf("invalid retained deployment action %q", step.Action)
 	}
+	err = redactDynamicError(err, secrets)
 	if err == nil && (step.Action == "CREATE" || step.Action == "REPLACE") && result.PhysicalID == "" {
 		err = invalid("Resource creation did not return a physical identity")
 	}
@@ -833,16 +858,20 @@ func (s *Service) undoStep(ctx context.Context, stack StackRecord, op OperationR
 			return ResourceResult{}, false, invalid("Resource handler unavailable")
 		}
 		request := resourceRequest(stack, op, before, after.Properties)
+		request, secrets, resolveErr := s.dynamicRequest(ctx, request, before, after)
+		if resolveErr != nil {
+			return ResourceResult{}, false, resolveErr
+		}
 		waiter, asynchronous := h.(ResourceStabilizer)
 		if step.State == "UNDO_STABILIZING" && asynchronous {
 			ready, err := waiter.Stabilize(ctx, request)
 			if err == nil && ready {
 				result, err = stabilizedResourceResult(ctx, h, request, result)
 			}
-			return result, !ready, err
+			return result, !ready, redactDynamicError(err, secrets)
 		}
 		result, err := h.Update(ctx, request)
-		return result, asynchronous && err == nil, err
+		return result, asynchronous && err == nil, redactDynamicError(err, secrets)
 	}
 	return result, false, nil
 }
@@ -865,6 +894,10 @@ func (s *Service) recoverCreation(ctx context.Context, stack StackRecord, op Ope
 		return ResourceResult{}, false, invalid("Resource creation recovery handler is unavailable: " + step.After.Type)
 	}
 	request := resourceRequest(stack, op, step.After, nil)
+	request, secrets, resolveErr := s.dynamicRequest(ctx, request, step.After, ResourceRecord{})
+	if resolveErr != nil {
+		return ResourceResult{}, false, resolveErr
+	}
 	var result ResourceResult
 	var err error
 	if reader, authoritative := h.(ResourceCreationRecoverer); authoritative {
@@ -881,6 +914,7 @@ func (s *Service) recoverCreation(ctx context.Context, stack StackRecord, op Ope
 		// object. An error with no authentic result is not proof of absence.
 		result, err = h.Create(ctx, request)
 	}
+	err = redactDynamicError(err, secrets)
 	if result.PhysicalID == "" {
 		if err == nil {
 			err = invalid("Resource creation recovery did not return a physical identity")
@@ -906,6 +940,10 @@ func (s *Service) undoDeletedReplacement(ctx context.Context, stack StackRecord,
 		}
 		op.Tags = stack.Tags
 		request := resourceRequest(stack, op, step.Restore, nil)
+		request, secrets, resolveErr := s.dynamicRequest(ctx, request, step.Restore, ResourceRecord{})
+		if resolveErr != nil {
+			return ResourceResult{}, false, resolveErr
+		}
 		result := ResourceResult{PhysicalID: step.Restore.PhysicalID, Ref: step.Restore.Ref, Attributes: step.Restore.Attributes}
 		var err error
 		if step.State == "RESTORE_STABILIZING" {
@@ -924,6 +962,7 @@ func (s *Service) undoDeletedReplacement(ctx context.Context, stack StackRecord,
 				err = invalid("Resource restoration did not return a physical identity")
 			}
 		}
+		err = redactDynamicError(err, secrets)
 		if result.PhysicalID != "" {
 			step.Restore.PhysicalID, step.Restore.Ref, step.Restore.Attributes = result.PhysicalID, result.Ref, result.Attributes
 		}

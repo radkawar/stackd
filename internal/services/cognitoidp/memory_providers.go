@@ -78,6 +78,11 @@ func (w memoryWriter) DeleteProvider(k ProviderKey) error {
 		return err
 	}
 	delete(w.s.providers, k)
+	for key, row := range w.s.oauth {
+		if key.PoolKey == k.PoolKey && row.ProviderName == k.Name {
+			delete(w.s.oauth, key)
+		}
+	}
 	w.releaseOwners(k.PoolKey, func(v OwnershipRecord) bool { return v.Key.Kind == OwnerKindProvider && v.PhysicalID == k.Name })
 	return nil
 }

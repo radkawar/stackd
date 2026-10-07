@@ -523,7 +523,11 @@ func New(config Config) (stack *Stack, err error) {
 	appRegistryService := servicecatalogappregistry.New(servicecatalogappregistry.Config{Repository: backends.ServiceCatalogAppRegistry, Groups: resourceGroupsService, Resources: appResources, Roles: &integrations.AppRegistryRoles{Roles: serviceRoles, Provisioner: iamService}, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock})
 	taggingResources.Sources["servicecatalog"] = appRegistryService
 	cognitoEmail := &integrations.CognitoEmail{SES: sesService, Roles: serviceRoles, Provisioner: iamService}
-	cognitoService := cognitoidp.New(cognitoidp.Config{Repository: backends.CognitoIDP, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, PublicEndpoint: config.PublicEndpoint, EmailSender: cognitoEmail, EmailSetup: cognitoEmail})
+	cognitoService := cognitoidp.New(cognitoidp.Config{
+		Repository: backends.CognitoIDP, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock,
+		PublicEndpoint: config.PublicEndpoint, EmailSender: cognitoEmail, EmailSetup: cognitoEmail,
+		TriggerInvoker: integrations.CognitoTriggers{Functions: lambdaService}, HTTPClient: config.OutboundHTTP,
+	})
 	identityStoreService := identitystore.NewWithConfig(identitystore.Config{Repository: backends.IdentityStore, Authorizer: authorizer, APIEvents: apiEvents, Clock: config.Clock})
 	identityCenterService := identitycenter.New(identitycenter.Config{Repository: backends.IdentityCenter, Directory: identityStoreService, Login: integrations.SSOCognitoLogin{Cognito: cognitoService, ClientID: config.SSOUserPoolClientID}, Roles: integrations.IdentityCenterRoles{IAM: iamService, Sessions: serviceRoles}, Accounts: integrations.IdentityCenterAccounts{Storage: backends.Organizations}, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, PublicEndpoint: config.PublicEndpoint})
 	identityPoolService := cognitoidentity.New(cognitoidentity.Config{Repository: backends.CognitoIdentity, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, Tokens: integrations.CognitoIdentityTokens{Cognito: cognitoService}, Credentials: integrations.CognitoIdentityCredentials{STS: stsService}})

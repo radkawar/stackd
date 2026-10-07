@@ -82,6 +82,9 @@ func (s *Service) createUserPool(tx Transaction, in *api.CreateUserPoolInput) (*
 	data.LastModifiedDate = &now
 	data.EstimatedNumberOfUsers = ptr(api.IntegerType(0))
 	pool := PoolRecord{Key: key, Data: data, IssuerURL: poolIssuerURL(key, s.publicEndpoint)}
+	if err := applySoftwareTokenPoolIntent(tx.Context(), &pool); err != nil {
+		return nil, err
+	}
 	if err = s.prepareEmail(tx, pool); err != nil {
 		return nil, err
 	}
@@ -95,10 +98,9 @@ func (s *Service) createUserPool(tx Transaction, in *api.CreateUserPoolInput) (*
 	return &api.CreateUserPoolOutput{UserPool: &data}, nil
 }
 
-// Only configurations with implemented runtime behavior are admitted. Storing a
-// trigger, MFA factor or delivery configuration without executing it is unsafe.
-// TODO: Comeback — wire real Lambda, SMS, MFA, devices, KMS-managed keys
-// and advanced security before accepting their active configurations.
+// Only configurations with implemented runtime behavior are admitted.
+// TODO: Comeback implement SMS, devices, customer-managed pool keys and advanced
+// security before admitting their active configurations.
 func poolConfiguration(in *api.CreateUserPoolInput) (api.UserPoolType, error) {
 	var d api.UserPoolType
 	invalid := func(message string) (api.UserPoolType, error) {
@@ -113,11 +115,11 @@ func poolConfiguration(in *api.CreateUserPoolInput) (api.UserPoolType, error) {
 	if in.DeviceConfiguration != nil {
 		return unsupported("Device remembering")
 	}
-	if in.LambdaConfig != nil && *in.LambdaConfig != (api.LambdaConfigType{}) {
-		return unsupported("Lambda triggers")
+	if err := validateLambdaConfig(in.LambdaConfig, value(in.UserPoolTier)); err != nil {
+		return d, err
 	}
-	if value(in.MfaConfiguration) != "" && value(in.MfaConfiguration) != "OFF" {
-		return unsupported("Multi-factor authentication")
+	if mode := value(in.MfaConfiguration); mode != "" && mode != "OFF" && mode != "OPTIONAL" && mode != "ON" {
+		return invalid("Invalid MFA configuration.")
 	}
 	if in.SmsConfiguration != nil || in.SmsAuthenticationMessage != nil || in.SmsVerificationMessage != nil {
 		return unsupported("SMS message delivery configuration")
@@ -273,9 +275,15 @@ func poolConfiguration(in *api.CreateUserPoolInput) (api.UserPoolType, error) {
 		EmailConfiguration:  &api.EmailConfigurationType{EmailSendingAccount: str[api.EmailSendingAccountType]("COGNITO_DEFAULT")},
 		IssuerConfiguration: &api.IssuerConfigurationType{Type: str[api.IssuerType]("ORIGINAL")},
 		KeyConfiguration:    &api.KeyConfigurationType{KeyType: str[api.EncryptionKeyType]("AWS_OWNED_KEY")},
-		MfaConfiguration:    str[api.UserPoolMfaType]("OFF"), UserPoolTags: in.UserPoolTags, UserPoolAddOns: in.UserPoolAddOns,
+		MfaConfiguration:    in.MfaConfiguration, UserPoolTags: in.UserPoolTags, UserPoolAddOns: in.UserPoolAddOns,
 		UserAttributeUpdateSettings: &api.UserAttributeUpdateSettingsType{AttributesRequireVerificationBeforeUpdate: api.AttributesRequireVerificationBeforeUpdateType{}},
 		VerificationMessageTemplate: verification,
+	}
+	if d.MfaConfiguration == nil {
+		d.MfaConfiguration = str[api.UserPoolMfaType]("OFF")
+	}
+	if in.LambdaConfig != nil {
+		d.LambdaConfig = ptr(api.CloneLambdaConfigType(*in.LambdaConfig))
 	}
 	if verification.EmailMessage != nil {
 		d.EmailVerificationMessage = ptr(api.EmailVerificationMessageType(*verification.EmailMessage))
@@ -424,6 +432,9 @@ func (s *Service) updateUserPool(tx Transaction, in *api.UpdateUserPoolInput) (*
 	now := s.clock.Now()
 	data.LastModifiedDate = &now
 	pool.Data = data
+	if err := applySoftwareTokenPoolIntent(tx.Context(), &pool); err != nil {
+		return nil, err
+	}
 	if err = s.prepareEmail(tx, pool); err != nil {
 		return nil, err
 	}

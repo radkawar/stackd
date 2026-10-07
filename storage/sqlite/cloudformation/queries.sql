@@ -28,8 +28,8 @@ ON CONFLICT (id) DO UPDATE SET
     root_id = excluded.root_id;
 
 -- name: PutResource :exec
-INSERT INTO cloudformation_resources (stack_id, logical_id, type, physical_id, ref, token, generation, current, status, status_reason, deletion_policy, update_replace_policy, properties, event_properties, attributes, updated)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO cloudformation_resources (stack_id, logical_id, type, physical_id, ref, token, generation, current, status, status_reason, deletion_policy, update_replace_policy, properties, event_properties, attributes, updated, dynamic_references)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (stack_id, logical_id, generation) DO UPDATE SET
     type = excluded.type,
     physical_id = excluded.physical_id,
@@ -42,6 +42,7 @@ ON CONFLICT (stack_id, logical_id, generation) DO UPDATE SET
     update_replace_policy = excluded.update_replace_policy,
     properties = excluded.properties,
     event_properties = excluded.event_properties,
+    dynamic_references = excluded.dynamic_references,
     attributes = excluded.attributes,
     updated = excluded.updated;
 
@@ -442,8 +443,8 @@ SELECT * FROM cloudformation_steps WHERE parent_id = ? ORDER BY ordinal;
 DELETE FROM cloudformation_steps WHERE parent_id = ?;
 
 -- name: PutStep :exec
-INSERT INTO cloudformation_steps (parent_id, ordinal, position, logical_id, action, state, error, delete_failures, before_stack_id, before_logical_id, before_type, before_physical_id, before_ref, before_token, before_generation, before_current, before_status, before_status_reason, before_deletion_policy, before_update_replace_policy, before_properties, before_event_properties, before_attributes, before_updated, after_stack_id, after_logical_id, after_type, after_physical_id, after_ref, after_token, after_generation, after_current, after_status, after_status_reason, after_deletion_policy, after_update_replace_policy, after_properties, after_event_properties, after_attributes, after_updated)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO cloudformation_steps (parent_id, ordinal, position, logical_id, action, state, error, delete_failures, before_stack_id, before_logical_id, before_type, before_physical_id, before_ref, before_token, before_generation, before_current, before_status, before_status_reason, before_deletion_policy, before_update_replace_policy, before_properties, before_event_properties, before_attributes, before_updated, after_stack_id, after_logical_id, after_type, after_physical_id, after_ref, after_token, after_generation, after_current, after_status, after_status_reason, after_deletion_policy, after_update_replace_policy, after_properties, after_event_properties, after_attributes, after_updated, before_dynamic_references, after_dynamic_references)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (parent_id, ordinal) DO UPDATE SET
     position = excluded.position,
     logical_id = excluded.logical_id,
@@ -465,6 +466,7 @@ ON CONFLICT (parent_id, ordinal) DO UPDATE SET
     before_update_replace_policy = excluded.before_update_replace_policy,
     before_properties = excluded.before_properties,
     before_event_properties = excluded.before_event_properties,
+    before_dynamic_references = excluded.before_dynamic_references,
     before_attributes = excluded.before_attributes,
     before_updated = excluded.before_updated,
     after_stack_id = excluded.after_stack_id,
@@ -481,6 +483,7 @@ ON CONFLICT (parent_id, ordinal) DO UPDATE SET
     after_update_replace_policy = excluded.after_update_replace_policy,
     after_properties = excluded.after_properties,
     after_event_properties = excluded.after_event_properties,
+    after_dynamic_references = excluded.after_dynamic_references,
     after_attributes = excluded.after_attributes,
     after_updated = excluded.after_updated;
 

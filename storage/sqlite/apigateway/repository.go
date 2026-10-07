@@ -46,6 +46,9 @@ func (r reader) api(v sqlcgen.ApigatewayApi) (domain.APIRecord, error) {
 	out := domain.APIRecord{Key: domain.APIKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, ID: v.ApiID}, Name: v.Name, Description: v.Description, Version: v.Version, RootResourceID: v.RootResourceID, Created: v.Created, Disabled: v.Disabled, EffectiveDisabled: v.EffectiveDisabled}
 	out.Ownership = domain.Ownership{StackID: v.CfnStackID, LogicalID: v.CfnLogicalID, Incarnation: v.CfnIncarnation}
 	out.APIKeySource = v.ApiKeySource
+	if err := r.loadAPIImport(&out); err != nil {
+		return domain.APIRecord{}, err
+	}
 	{
 		rows, err := r.q.ListAPITags(r.ctx, sqlcgen.ListAPITagsParams{Partition: out.Key.Partition, AccountID: out.Key.AccountID, Region: out.Key.Region, ApiID: out.Key.ID})
 		if err != nil {
@@ -83,6 +86,9 @@ func (r reader) APIs(k domain.Scope) ([]domain.APIRecord, error) {
 func (w writer) PutAPI(v domain.APIRecord) error {
 	k := v.Key
 	if err := w.q.PutAPI(w.ctx, sqlcgen.PutAPIParams{CfnStackID: v.Ownership.StackID, CfnLogicalID: v.Ownership.LogicalID, CfnIncarnation: v.Ownership.Incarnation, Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, Name: v.Name, Description: v.Description, Version: v.Version, RootResourceID: v.RootResourceID, Created: v.Created, Disabled: v.Disabled, EffectiveDisabled: v.EffectiveDisabled, ApiKeySource: v.APIKeySource}); err != nil {
+		return err
+	}
+	if err := w.putAPIImport(v); err != nil {
 		return err
 	}
 	if err := w.q.DeleteAPITags(w.ctx, sqlcgen.DeleteAPITagsParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID}); err != nil {
@@ -139,6 +145,9 @@ func (r reader) method(v sqlcgen.ApigatewayMethod) (domain.MethodRecord, error) 
 	out := domain.MethodRecord{Key: domain.MethodKey{ResourceKey: domain.ResourceKey{APIKey: apiKey(v.Partition, v.AccountID, v.Region, v.ApiID), ResourceID: v.ResourceID}, HTTPMethod: v.HttpMethod}, AuthorizationType: v.AuthorizationType, AuthorizerID: v.AuthorizerID, OperationName: v.OperationName}
 	out.Ownership = domain.Ownership{StackID: v.CfnStackID, LogicalID: v.CfnLogicalID, Incarnation: v.CfnIncarnation}
 	out.APIKeyRequired = v.ApiKeyRequired
+	if err := r.loadMethodResponses(&out); err != nil {
+		return domain.MethodRecord{}, err
+	}
 	{
 		rows, err := r.q.ListMethodScopes(r.ctx, sqlcgen.ListMethodScopesParams{Partition: out.Key.Partition, AccountID: out.Key.AccountID, Region: out.Key.Region, ApiID: out.Key.ID, ResourceID: out.Key.ResourceID, HttpMethod: out.Key.HTTPMethod})
 		if err != nil {
@@ -178,6 +187,9 @@ func (w writer) PutMethod(v domain.MethodRecord) error {
 	if err := w.q.PutMethod(w.ctx, sqlcgen.PutMethodParams{CfnStackID: v.Ownership.StackID, CfnLogicalID: v.Ownership.LogicalID, CfnIncarnation: v.Ownership.Incarnation, Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, ResourceID: k.ResourceID, HttpMethod: k.HTTPMethod, AuthorizationType: v.AuthorizationType, AuthorizerID: v.AuthorizerID, OperationName: v.OperationName, ApiKeyRequired: v.APIKeyRequired}); err != nil {
 		return err
 	}
+	if err := w.putMethodResponses(v); err != nil {
+		return err
+	}
 	if err := w.q.DeleteMethodScopes(w.ctx, sqlcgen.DeleteMethodScopesParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, ResourceID: k.ResourceID, HttpMethod: k.HTTPMethod}); err != nil {
 		return err
 	}
@@ -194,6 +206,11 @@ func (w writer) DeleteMethod(k domain.MethodKey) error {
 func (r reader) integration(v sqlcgen.ApigatewayIntegration) (domain.IntegrationRecord, error) {
 	out := domain.IntegrationRecord{Key: domain.MethodKey{ResourceKey: domain.ResourceKey{APIKey: apiKey(v.Partition, v.AccountID, v.Region, v.ApiID), ResourceID: v.ResourceID}, HTTPMethod: v.HttpMethod}, URI: v.Uri, TimeoutMillis: int32(v.TimeoutMillis)}
 	out.CredentialsARN = v.CredentialsArn
+	var err error
+	out.Mock, err = r.loadMockIntegration(out.Key)
+	if err != nil {
+		return domain.IntegrationRecord{}, err
+	}
 	return out, nil
 }
 func (r reader) Integration(k domain.MethodKey) (domain.IntegrationRecord, error) {
@@ -206,6 +223,9 @@ func (r reader) Integration(k domain.MethodKey) (domain.IntegrationRecord, error
 func (w writer) PutIntegration(v domain.IntegrationRecord) error {
 	k := v.Key
 	if err := w.q.PutIntegration(w.ctx, sqlcgen.PutIntegrationParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, ResourceID: k.ResourceID, HttpMethod: k.HTTPMethod, Uri: v.URI, TimeoutMillis: int64(v.TimeoutMillis), CredentialsArn: v.CredentialsARN}); err != nil {
+		return err
+	}
+	if err := w.putMockIntegration(v.Key, v.Mock); err != nil {
 		return err
 	}
 	return nil
@@ -316,6 +336,10 @@ func (r reader) deployment(v sqlcgen.ApigatewayDeployment) (domain.DeploymentRec
 		route := domain.DeploymentRoute{ResourceID: row.ResourceID, HTTPMethod: row.HttpMethod, Path: row.Path, AuthorizationType: row.AuthorizationType, FunctionARN: row.FunctionArn, TimeoutMillis: int32(row.TimeoutMillis)}
 		route.CredentialsARN = row.CredentialsArn
 		route.APIKeyRequired = row.ApiKeyRequired
+		route.Mock, err = r.loadMockRoute(out.Key, row.ResourceID, row.HttpMethod)
+		if err != nil {
+			return domain.DeploymentRecord{}, err
+		}
 		if row.AuthorizerID != "" {
 			route.LambdaAuthorizer = &apigatewayexec.LambdaAuthorizer{ID: row.AuthorizerID, Type: row.AuthorizerType, FunctionARN: row.AuthorizerFunctionArn, CredentialsARN: row.AuthorizerCredentialsArn, PayloadVersion: "1.0", ValidationExpression: row.AuthorizerValidationExpression, TTLSeconds: int32(row.AuthorizerTtlSeconds)}
 			sources, err := r.q.ListRouteIdentitySources(r.ctx, sqlcgen.ListRouteIdentitySourcesParams{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, ApiID: v.ApiID, DeploymentID: v.DeploymentID, ResourceID: row.ResourceID, HttpMethod: row.HttpMethod})
@@ -393,6 +417,9 @@ func (w writer) PutDeployment(v domain.DeploymentRecord) error {
 		if err := w.q.PutDeploymentRoutes(w.ctx, params); err != nil {
 			return err
 		}
+		if err := w.putMockRoute(k, route.ResourceID, route.HTTPMethod, route.Mock); err != nil {
+			return err
+		}
 		if a := route.LambdaAuthorizer; a != nil {
 			for index, source := range a.IdentitySources {
 				if err := w.q.PutRouteIdentitySources(w.ctx, sqlcgen.PutRouteIdentitySourcesParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, DeploymentID: k.DeploymentID, ResourceID: route.ResourceID, HttpMethod: route.HTTPMethod, Ordinal: int64(index), Source: source}); err != nil {
@@ -447,7 +474,14 @@ func (r reader) stage(v sqlcgen.ApigatewayStage) (domain.StageRecord, error) {
 	}
 	out.MethodSettings = make(map[string]domain.MethodSettings, len(settings))
 	for _, row := range settings {
-		out.MethodSettings[row.MethodKey] = domain.MethodSettings{MetricsEnabled: row.MetricsEnabled, LoggingLevel: row.LoggingLevel, DataTraceEnabled: row.DataTraceEnabled}
+		setting := domain.MethodSettings{MetricsEnabled: row.MetricsEnabled, LoggingLevel: row.LoggingLevel, DataTraceEnabled: row.DataTraceEnabled}
+		if row.ThrottlingBurstLimit.Valid {
+			setting.ThrottlingBurstLimit = new(int32(row.ThrottlingBurstLimit.Int64))
+		}
+		if row.ThrottlingRateLimit.Valid {
+			setting.ThrottlingRateLimit = new(row.ThrottlingRateLimit.Float64)
+		}
+		out.MethodSettings[row.MethodKey] = setting
 	}
 	return out, nil
 }
@@ -498,7 +532,14 @@ func (w writer) PutStage(v domain.StageRecord) error {
 		return err
 	}
 	for key, settings := range v.MethodSettings {
-		if err := w.q.PutMethodSettings(w.ctx, sqlcgen.PutMethodSettingsParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, Stage: k.Name, MethodKey: key, MetricsEnabled: settings.MetricsEnabled, LoggingLevel: settings.LoggingLevel, DataTraceEnabled: settings.DataTraceEnabled}); err != nil {
+		params := sqlcgen.PutMethodSettingsParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, Stage: k.Name, MethodKey: key, MetricsEnabled: settings.MetricsEnabled, LoggingLevel: settings.LoggingLevel, DataTraceEnabled: settings.DataTraceEnabled}
+		if settings.ThrottlingBurstLimit != nil {
+			params.ThrottlingBurstLimit = sql.NullInt64{Int64: int64(*settings.ThrottlingBurstLimit), Valid: true}
+		}
+		if settings.ThrottlingRateLimit != nil {
+			params.ThrottlingRateLimit = sql.NullFloat64{Float64: *settings.ThrottlingRateLimit, Valid: true}
+		}
+		if err := w.q.PutMethodSettings(w.ctx, params); err != nil {
 			return err
 		}
 	}

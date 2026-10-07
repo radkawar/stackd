@@ -39,9 +39,9 @@ var prefixDomainPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9
 
 // Prefix domains are the only implemented domain form. Custom domains need an
 // ACM certificate and a CloudFront distribution, and managed login version 2
-// needs branding styles; neither exists here.
-// TODO: Comeback — serve hosted UI/OAuth endpoints on the domain. Native
-// configuration does not imply that external authorization is implemented.
+// needs branding styles; neither exists here. A prefix domain enables the
+// hosted federation endpoints in oauth.go; hosted sign-in pages for local
+// users are not implemented.
 func domainOptions(custom *api.CustomDomainConfigType, version *api.WrappedIntegerType) error {
 	if custom != nil {
 		return failure("InvalidParameterException", "Custom domains are not supported; use a prefix domain.")
@@ -145,19 +145,15 @@ func (s *Service) deleteUserPoolDomain(tx Transaction, in *api.DeleteUserPoolDom
 	return &api.DeleteUserPoolDomainOutput{}, nil
 }
 
-// Social providers have fixed names and documented ProviderDetails keys.
-// OIDC discovery and SAML metadata retrieval are not implemented, so those
-// providers are not admitted rather than stored without verification.
+// Social providers have fixed names and documented ProviderDetails keys; the
+// hosted endpoints in oauth.go federate them. OIDC and SAML providers are not
+// admitted rather than stored without discovery or metadata verification.
 var socialProviderDetails = map[string]struct{ required, optional []string }{
 	"Google":          {required: []string{"client_id", "client_secret", "authorize_scopes"}},
 	"Facebook":        {required: []string{"client_id", "client_secret", "authorize_scopes"}, optional: []string{"api_version"}},
 	"LoginWithAmazon": {required: []string{"client_id", "client_secret", "authorize_scopes"}},
 	"SignInWithApple": {required: []string{"client_id", "team_id", "key_id", "private_key", "authorize_scopes"}},
 }
-
-// Service-populated endpoint details are returned by Describe; templates that
-// copy them back remain valid input.
-var providerEndpointDetails = []string{"attributes_url", "attributes_url_add_attributes", "authorize_url", "oidc_issuer", "token_request_method", "token_url"}
 
 var idpIdentifierPattern = regexp.MustCompile(`^[\w\s+=.@-]+$`)
 
@@ -177,7 +173,7 @@ func validateProvider(tx Transaction, pool PoolRecord, kind, name string, detail
 	}
 	for key := range details {
 		k := string(key)
-		if !slices.Contains(rule.required, k) && !slices.Contains(rule.optional, k) && !slices.Contains(providerEndpointDetails, k) {
+		if !slices.Contains(rule.required, k) && !slices.Contains(rule.optional, k) {
 			return invalid("Unsupported ProviderDetails key " + k + ".")
 		}
 	}

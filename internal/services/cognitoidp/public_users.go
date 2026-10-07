@@ -12,7 +12,8 @@ func (s *Service) getUser(tx Transaction, input *api.GetUserInput) (*api.GetUser
 	if err != nil {
 		return nil, err
 	}
-	return &api.GetUserOutput{Username: str[api.UsernameType](user.Key.Username), UserAttributes: readableAttributes(user, client)}, nil
+	preferred, settings := mfaPreferences(user)
+	return &api.GetUserOutput{Username: str[api.UsernameType](user.Key.Username), UserAttributes: readableAttributes(user, client), PreferredMfaSetting: preferred, UserMFASettingList: settings}, nil
 }
 
 func (s *Service) updateUserAttributes(tx Transaction, input *api.UpdateUserAttributesInput) (*api.UpdateUserAttributesOutput, error) {
@@ -117,7 +118,7 @@ func (s *Service) signUp(tx Transaction, input *api.SignUpInput) (*api.SignUpOut
 	if !errors.Is(err, ErrNotFound) && !(errors.As(err, &apiErr) && apiErr.Code == "UserNotFoundException") {
 		return nil, err
 	}
-	user, err := initializeUser(pool, username)
+	user, err := s.initializeSignUpUser(tx, pool, username)
 	if err != nil {
 		return nil, err
 	}
@@ -144,21 +145,31 @@ func (s *Service) signUp(tx Transaction, input *api.SignUpInput) (*api.SignUpOut
 	if err := validatePassword(pool, password); err != nil {
 		return nil, err
 	}
-	user.Password, err = makePasswordVerifier(pool.Key, user.Key.Username, password)
-	if err != nil {
-		return nil, err
-	}
 	now := s.clock.Now().UTC()
 	user.Data.Enabled = ptr(api.BooleanType(true))
 	user.Data.UserStatus = str[api.UserStatusType]("UNCONFIRMED")
 	user.Data.UserCreateDate = ptr(now)
 	user.Data.UserLastModifiedDate = ptr(now)
+	if err := s.preSignUp(tx, pool, client, &user, false); err != nil {
+		return nil, err
+	}
+	if err := ensureUserAliases(tx, pool, &user, true); err != nil {
+		return nil, err
+	}
+	user.Password, err = makePasswordVerifier(pool.Key, user.Key.Username, password)
+	if err != nil {
+		return nil, err
+	}
 	if err := tx.PutUser(user); err != nil {
 		return nil, err
 	}
 	noteUser(tx.Context(), user)
-	out := &api.SignUpOutput{UserConfirmed: new(api.BooleanType(false)), UserSub: new(api.StringType(userAttribute(user, "sub")))}
-	if len(pool.Data.AutoVerifiedAttributes) > 0 {
+	confirmed := value(user.Data.UserStatus) == "CONFIRMED"
+	out := &api.SignUpOutput{UserConfirmed: new(api.BooleanType(confirmed)), UserSub: new(api.StringType(userAttribute(user, "sub")))}
+	if confirmed {
+		s.postConfirmation(tx, pool, client.Key.ID, user, "PostConfirmation_ConfirmSignUp", input.ClientMetadata)
+	}
+	if !confirmed && len(pool.Data.AutoVerifiedAttributes) > 0 {
 		out.CodeDeliveryDetails, err = s.issueEmailCode(tx, pool, user, "SIGN_UP")
 		if err != nil {
 			return nil, err

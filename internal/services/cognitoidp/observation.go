@@ -49,6 +49,8 @@ var cognitoRequestProjection = awsapi.DocumentProjection{Fields: map[string]awsa
 	"ProposedPassword":   {Mode: awsapi.RedactValueField},
 	"ConfirmationCode":   {Mode: awsapi.RedactValueField},
 	"Code":               {Mode: awsapi.RedactValueField},
+	"UserCode":           {Mode: awsapi.RedactValueField},
+	"FriendlyDeviceName": {Mode: awsapi.RedactValueField},
 	"AccessToken":        {Mode: awsapi.RedactValueField},
 	"RefreshToken":       {Mode: awsapi.RedactValueField},
 	"Token":              {Mode: awsapi.RedactValueField},
@@ -65,6 +67,7 @@ var cognitoRequestProjection = awsapi.DocumentProjection{Fields: map[string]awsa
 
 var cognitoResponseProjection = awsapi.DocumentProjection{Fields: map[string]awsapi.FieldProjection{
 	"Session":                           {Mode: awsapi.RedactValueField},
+	"SecretCode":                        {Mode: awsapi.RedactValueField},
 	"ChallengeParameters":               {Mode: awsapi.RedactValueField},
 	"AuthenticationResult.AccessToken":  {Mode: awsapi.RedactValueField},
 	"AuthenticationResult.IdToken":      {Mode: awsapi.RedactValueField},

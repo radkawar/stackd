@@ -1,11 +1,15 @@
 package lambda
 
 import (
+	"context"
+	"crypto/rand"
 	"errors"
 	"net"
 	"net/netip"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"stackd/compute/docker"
 	"stackd/compute/network"
@@ -119,5 +123,96 @@ func TestLambdaRuntimeDNSRejectsDesktopResolverDependency(t *testing.T) {
 	_, err := NewDockerExecutor(t.Context(), DockerConfig{Client: &docker.Client{}, Namespace: "desktop-dns", CallbackHost: "host.docker.internal", Networking: docker.Networking{DNS: []string{"192.0.2.53"}}})
 	if err == nil || !strings.Contains(err.Error(), "host.docker.internal") {
 		t.Fatalf("explicit DNS silently removed Desktop callback resolution: %v", err)
+	}
+}
+
+func TestFunctionNetworkDockerPerEndpointMACAndSingleNetworkAuthority(t *testing.T) {
+	if os.Getenv("STACKD_LAMBDA_DOCKER") != "1" {
+		t.Skip("set STACKD_LAMBDA_DOCKER=1 for actual function network attachment")
+	}
+	client, err := docker.New(t.Context(), docker.Config{Host: os.Getenv("DOCKER_HOST")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(client.Close)
+	bridges, err := network.NewDaemonBridges(client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity := "function-network-authority-" + rand.Text()
+	runtime, err := NewFunctionNetworkRuntime(client, bridges, identity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := network.Specification{
+		NetworkID: identity, Pool: netip.MustParsePrefix("10.254.247.0/24"),
+		Gateway: netip.MustParseAddr("10.254.247.1"), Address: netip.MustParseAddr("10.254.247.10"),
+		MAC: "02:cc:01:02:03:04", Policy: network.Policy{Subnet: netip.MustParsePrefix("10.254.247.0/24")},
+	}
+	attachment := runtime.Prepare(identity, spec)
+	container := "stackd-" + identity
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := client.RemoveContainer(ctx, container); err != nil {
+			t.Error(err)
+		}
+		if err := attachment.Close(ctx); err != nil {
+			t.Error(err)
+		}
+	})
+	config := docker.ContainerConfig{
+		Image: docker.ToolkitImage, Entrypoint: []string{"sleep"}, Cmd: []string{"120"},
+		HostConfig: docker.ContainerHostConfig{
+			ReadonlyRootfs: true, CapDrop: []string{"ALL"}, SecurityOpt: []string{"no-new-privileges:true"},
+			Memory: 64 << 20, MemorySwap: 64 << 20, PidsLimit: 32,
+		},
+	}
+	if err := attachment.Configure(t.Context(), &config, spec.Gateway.String()+":65500"); err != nil {
+		t.Fatal(err)
+	}
+	create := func() {
+		t.Helper()
+		if err := client.JSON(t.Context(), "POST", "/containers/create?name="+container, config, nil); err != nil {
+			t.Fatal(err)
+		}
+		if err := client.JSON(t.Context(), "POST", "/containers/"+container+"/start", nil, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	endpoint := config.NetworkingConfig.EndpointsConfig[attachment.bridge.Name]
+	endpoint.MacAddress = "02:cc:01:02:03:05"
+	config.NetworkingConfig.EndpointsConfig[attachment.bridge.Name] = endpoint
+	create()
+	if err := attachment.Attach(t.Context(), container); err == nil {
+		t.Fatal("a function namespace with the wrong actual MAC gained packet authority")
+	}
+	if err := client.RemoveContainer(t.Context(), container); err != nil {
+		t.Fatal(err)
+	}
+	endpoint.MacAddress = spec.MAC
+	config.NetworkingConfig.EndpointsConfig[attachment.bridge.Name] = endpoint
+	create()
+	if err := client.JSON(t.Context(), "POST", "/networks/bridge/connect", struct{ Container string }{container}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := attachment.Attach(t.Context(), container); err == nil {
+		t.Fatal("an extra ambient network gained function packet authority")
+	}
+	if err := client.JSON(t.Context(), "POST", "/networks/bridge/disconnect", struct{ Container string }{container}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := attachment.Attach(t.Context(), container); err != nil {
+		t.Fatal(err)
+	}
+	output, err := docker.RunHelper(t.Context(), client, "function-kernel-mac", docker.ContainerConfig{
+		Image: docker.ToolkitImage, Entrypoint: []string{"cat"}, Cmd: []string{"/sys/class/net/eth0/address"},
+		HostConfig: docker.ContainerHostConfig{
+			NetworkMode: "container:" + container, ReadonlyRootfs: true, CapDrop: []string{"ALL"},
+			SecurityOpt: []string{"no-new-privileges:true"}, Memory: 64 << 20, MemorySwap: 64 << 20, PidsLimit: 32,
+		},
+	})
+	if err != nil || !strings.EqualFold(strings.TrimSpace(string(output)), spec.MAC) {
+		t.Fatalf("EC2 MAC differs from the actual function interface: output=%q err=%v want=%s", output, err, spec.MAC)
 	}
 }

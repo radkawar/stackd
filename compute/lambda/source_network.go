@@ -147,9 +147,9 @@ func (r *SourceNetworkRuntime) prepareContainer(ctx context.Context, mapping str
 		docker.ContainerConfig
 		HostConfig hostConfig
 	}{
-		ContainerConfig: docker.ContainerConfig{Image: docker.ToolkitImage, Entrypoint: []string{"sleep", "infinity"}, MacAddress: spec.MAC,
+		ContainerConfig: docker.ContainerConfig{Image: docker.ToolkitImage, Entrypoint: []string{"sleep", "infinity"},
 			Labels:           map[string]string{sourceNetworkLabel: mapping, sourceNetworkOwnerLabel: r.namespace, sourceNetworkVPCLabel: spec.NetworkID},
-			NetworkingConfig: &docker.ContainerNetworkingConfig{EndpointsConfig: map[string]docker.ContainerEndpointConfig{bridge.Name: {IPAMConfig: docker.ContainerEndpointIPAMConfig{IPv4Address: spec.Address.String()}}}}},
+			NetworkingConfig: &docker.ContainerNetworkingConfig{EndpointsConfig: map[string]docker.ContainerEndpointConfig{bridge.Name: {MacAddress: spec.MAC, IPAMConfig: docker.ContainerEndpointIPAMConfig{IPv4Address: spec.Address.String()}}}}},
 		HostConfig: hostConfig{ContainerHostConfig: docker.ContainerHostConfig{NetworkMode: bridge.Name, ReadonlyRootfs: true, CapDrop: []string{"ALL"}, SecurityOpt: []string{"no-new-privileges:true"}, Memory: 128 << 20, MemorySwap: 128 << 20, PidsLimit: 128, LogConfig: docker.ContainerLogConfig{Type: "json-file", Config: map[string]string{"max-size": "1m", "max-file": "1"}}}, DNS: dns, DNSSearch: []string{"."}},
 	}
 	if err := r.client.JSON(ctx, http.MethodPost, "/containers/create?name="+url.QueryEscape(r.container(mapping)), config, nil); err != nil {

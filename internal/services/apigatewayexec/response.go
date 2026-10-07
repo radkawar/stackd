@@ -16,7 +16,7 @@ type proxyResponse struct {
 	IsBase64Encoded   bool                `json:"isBase64Encoded"`
 }
 
-func writeProxyResponse(w http.ResponseWriter, payload []byte, version2 bool) bool {
+func writeProxyResponse(w http.ResponseWriter, payload []byte, version2 bool, binaryNegotiated ...bool) bool {
 	bad := func() { writeRejection(w, &rejection{http.StatusBadGateway, "Internal Server Error"}) }
 	if !json.Valid(payload) {
 		bad()
@@ -36,7 +36,7 @@ func writeProxyResponse(w http.ResponseWriter, payload []byte, version2 bool) bo
 		return false
 	}
 	body := []byte(output.Body)
-	if output.IsBase64Encoded {
+	if output.IsBase64Encoded && (len(binaryNegotiated) == 0 || binaryNegotiated[0]) {
 		var err error
 		body, err = base64.StdEncoding.DecodeString(output.Body)
 		if err != nil {

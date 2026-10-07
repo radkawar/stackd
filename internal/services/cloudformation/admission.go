@@ -286,7 +286,7 @@ func (s *Service) changes(r Reader, stack StackRecord, t *Template, params, reso
 			continue
 		}
 		replacement := "Conditional"
-		if resolveErr == nil {
+		if resolveErr == nil && !hasDynamicReferences(props) && !hasDynamicReferences(before.Properties) {
 			if e1 = s.handlers[resource.Type].Validate(props); e1 != nil {
 				return nil, e1
 			}

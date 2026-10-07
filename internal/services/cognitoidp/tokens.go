@@ -86,6 +86,12 @@ func tokenUUID() (string, error) {
 }
 
 func (s *Service) newSession(tx Transaction, pool PoolRecord, client ClientRecord, user UserRecord) (*api.AuthenticationResultType, error) {
+	return s.startSession(tx, pool, client, user, "", "")
+}
+
+// startSession begins a refresh family. Hosted OAuth sessions persist their
+// granted scope and client nonce so refreshes reissue the same claims.
+func (s *Service) startSession(tx Transaction, pool PoolRecord, client ClientRecord, user UserRecord, oauthScope, oauthNonce string) (*api.AuthenticationResultType, error) {
 	event, err := tokenUUID()
 	if err != nil {
 		return nil, err
@@ -99,7 +105,7 @@ func (s *Service) newSession(tx Transaction, pool PoolRecord, client ClientRecor
 		return nil, err
 	}
 	now := s.clock.Now().UTC()
-	session := SessionRecord{Key: SessionKey{PoolKey: pool.Key, ID: event}, ClientID: client.Key.ID, Username: user.Key.Username, OriginID: origin, RefreshOriginID: origin, AuthTime: now, RefreshExpires: now.Add(tokenDuration(client, "refresh")), RefreshDigest: digest}
+	session := SessionRecord{Key: SessionKey{PoolKey: pool.Key, ID: event}, ClientID: client.Key.ID, Username: user.Key.Username, OriginID: origin, RefreshOriginID: origin, AuthTime: now, RefreshExpires: now.Add(tokenDuration(client, "refresh")), RefreshDigest: digest, OAuthScope: oauthScope, OAuthNonce: oauthNonce}
 	if err := tx.PutSession(session); err != nil {
 		return nil, err
 	}
@@ -122,9 +128,13 @@ func (s *Service) sessionTokens(r Reader, pool PoolRecord, client ClientRecord, 
 		return nil, err
 	}
 	accessDuration, idDuration := tokenDuration(client, "access"), tokenDuration(client, "id")
+	scope := "aws.cognito.signin.user.admin"
+	if session.OAuthScope != "" {
+		scope = session.OAuthScope
+	}
 	access := map[string]any{
 		"sub": userAttribute(user, "sub"), "iss": pool.IssuerURL, "client_id": client.Key.ID,
-		"event_id": session.Key.ID, "token_use": "access", "scope": "aws.cognito.signin.user.admin",
+		"event_id": session.Key.ID, "token_use": "access", "scope": scope,
 		"auth_time": session.AuthTime.Unix(), "exp": now.Add(accessDuration).Unix(), "iat": now.Unix(),
 		"jti": accessID, "username": user.Key.Username,
 	}
@@ -132,6 +142,9 @@ func (s *Service) sessionTokens(r Reader, pool PoolRecord, client ClientRecord, 
 		"sub": userAttribute(user, "sub"), "iss": pool.IssuerURL, "aud": client.Key.ID,
 		"event_id": session.Key.ID, "token_use": "id", "auth_time": session.AuthTime.Unix(),
 		"exp": now.Add(idDuration).Unix(), "iat": now.Unix(), "cognito:username": user.Key.Username,
+	}
+	if session.OAuthNonce != "" {
+		id["nonce"] = session.OAuthNonce
 	}
 	rotating := refreshRotationEnabled(client)
 	revocable := client.Data.EnableTokenRevocation == nil || bool(*client.Data.EnableTokenRevocation)
@@ -160,6 +173,14 @@ func (s *Service) sessionTokens(r Reader, pool PoolRecord, client ClientRecord, 
 		switch name {
 		case "email_verified", "phone_number_verified":
 			id[name] = v == "true"
+		case "identities":
+			// Federated identities are a JSON array claim, as natively.
+			var decoded any
+			if json.Unmarshal([]byte(v), &decoded) == nil {
+				id[name] = decoded
+			} else {
+				id[name] = v
+			}
 		case "updated_at":
 			if n, err := strconv.ParseInt(v, 10, 64); err == nil {
 				id[name] = n
@@ -175,11 +196,22 @@ func (s *Service) sessionTokens(r Reader, pool PoolRecord, client ClientRecord, 
 	if err != nil {
 		return nil, err
 	}
+	result := &api.AuthenticationResultType{AccessToken: str[api.TokenModelType](accessJWT), ExpiresIn: ptr(api.IntegerType(accessDuration / time.Second)), TokenType: str[api.StringType]("Bearer")}
+	// Hosted OAuth issues an ID token only for the openid scope and binds it to
+	// the access token with at_hash (OIDC Core 3.1.3.6).
+	if session.OAuthScope != "" {
+		if !slices.Contains(strings.Fields(session.OAuthScope), "openid") {
+			return result, nil
+		}
+		sum := sha256.Sum256([]byte(accessJWT))
+		id["at_hash"] = base64.RawURLEncoding.EncodeToString(sum[:16])
+	}
 	idJWT, err := signToken(keys.ID, id)
 	if err != nil {
 		return nil, err
 	}
-	return &api.AuthenticationResultType{AccessToken: str[api.TokenModelType](accessJWT), IdToken: str[api.TokenModelType](idJWT), ExpiresIn: ptr(api.IntegerType(accessDuration / time.Second)), TokenType: str[api.StringType]("Bearer")}, nil
+	result.IdToken = str[api.TokenModelType](idJWT)
+	return result, nil
 }
 
 func readableAttributes(user UserRecord, client ClientRecord) api.AttributeListType {

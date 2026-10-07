@@ -8,8 +8,6 @@ import (
 	"slices"
 	"stackd/internal/authorization"
 	api "stackd/internal/awsapi/ec2"
-	"stackd/internal/awscatalog"
-	"strings"
 )
 
 const defaultEndpointPolicy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":"*","Resource":"*"}]}`
@@ -22,35 +20,6 @@ func endpointPolicy(document *api.String) (*api.String, error) {
 		return nil, failure("InvalidPolicyDocument", "PolicyDocument must be a valid IAM resource policy of at most 20480 bytes.")
 	}
 	return copyPointer(document), nil
-}
-func endpointService(scope Scope, name, kind, region string) error {
-	if region != "" && region != scope.Region {
-		return unsupported("Cross-region endpoint services are not supported.")
-	}
-	prefix := "com.amazonaws." + scope.Region + "."
-	if scope.Partition == "aws-cn" {
-		prefix = "cn.com.amazonaws." + scope.Region + "."
-	}
-	if !strings.HasPrefix(name, prefix) {
-		return failure("InvalidServiceName", "ServiceName must refer to a service in the caller's partition and region.")
-	}
-	service := strings.TrimPrefix(name, prefix)
-	if kind == "Gateway" {
-		if service != "s3" && service != "dynamodb" {
-			return failure("InvalidServiceName", "Gateway endpoints support s3 and dynamodb only.")
-		}
-		return nil
-	}
-	aliases := map[string]string{"monitoring": "cloudwatch", "logs": "logs", "ecr.api": "ecr", "ecr.dkr": "ecr", "s3": "s3", "execute-api": "apigateway", "email-smtp": "ses", "ssmmessages": "ssm", "ec2messages": "ssm", "kinesis-streams": "kinesis"}
-	if alias := aliases[service]; alias != "" {
-		service = alias
-	}
-	if _, ok := awscatalog.LookupService(service); !ok {
-		// TODO: Comeback: admit documented endpoint services independently of
-		// emulator providers and share that inventory with DescribeVpcEndpointServices.
-		return failure("InvalidServiceName", "Unknown endpoint service.")
-	}
-	return nil
 }
 func endpointDNS(kind string, enabled *api.Boolean, options *api.DnsOptionsSpecification, ipType *api.IpAddressType) (*api.DnsOptions, error) {
 	if ipType != nil && str(ipType) != "ipv4" {

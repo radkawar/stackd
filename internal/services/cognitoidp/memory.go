@@ -5,6 +5,7 @@ import (
 	"context"
 	"maps"
 	"slices"
+	"time"
 
 	api "stackd/internal/awsapi/cognitoidp"
 	"stackd/storage/memory"
@@ -33,6 +34,7 @@ type memoryState struct {
 	sessions   map[SessionKey]SessionRecord
 	emailCodes map[EmailCodeKey]EmailCodeRecord
 	refreshes  map[ClientKey]map[string]SessionKey
+	oauth      map[OAuthKey]OAuthRecord
 }
 
 type MemoryRepository struct{ store *memory.Store[memoryState] }
@@ -47,6 +49,7 @@ func NewMemoryRepository(domain *memory.Domain) *MemoryRepository {
 		groups: map[GroupKey]GroupRecord{}, groupUsers: map[GroupKey]map[string]struct{}{},
 		userGroups: map[UserKey]map[string]struct{}{},
 		emailCodes: map[EmailCodeKey]EmailCodeRecord{},
+		oauth:      map[OAuthKey]OAuthRecord{},
 	}
 	return &MemoryRepository{store: memory.New(domain, initial, func(s memoryState) memoryState {
 		s.pools, s.poolIDs, s.keys = maps.Clone(s.pools), maps.Clone(s.poolIDs), maps.Clone(s.keys)
@@ -56,6 +59,7 @@ func NewMemoryRepository(domain *memory.Domain) *MemoryRepository {
 		s.sessions, s.refreshes = maps.Clone(s.sessions), maps.Clone(s.refreshes)
 		s.groups, s.groupUsers, s.userGroups = maps.Clone(s.groups), maps.Clone(s.groupUsers), maps.Clone(s.userGroups)
 		s.emailCodes = maps.Clone(s.emailCodes)
+		s.oauth = maps.Clone(s.oauth)
 		return s
 	})}
 }
@@ -344,6 +348,11 @@ func (w memoryWriter) DeleteUser(k UserKey) error {
 	}
 	w.removeAttributes(w.s.users[k])
 	w.removeUserGroups(k)
+	for key, row := range w.s.oauth {
+		if key.PoolKey == k.PoolKey && row.Username == k.Username {
+			delete(w.s.oauth, key)
+		}
+	}
 	delete(w.s.users, k)
 	w.releaseOwners(k.PoolKey, func(v OwnershipRecord) bool {
 		return v.Key.Kind == OwnerKindUser && v.PhysicalID == k.Username || v.Key.Kind == OwnerKindMembership && v.MemberUser == k.Username
@@ -367,6 +376,11 @@ func (w memoryWriter) DeleteClient(k ClientKey) error {
 	delete(w.s.clients, k)
 	delete(w.s.clientIDs, regionalID{k.Partition, k.Region, k.ID})
 	delete(w.s.refreshes, k)
+	for key, row := range w.s.oauth {
+		if key.PoolKey == k.PoolKey && row.ClientID == k.ID {
+			delete(w.s.oauth, key)
+		}
+	}
 	w.releaseOwners(k.PoolKey, func(v OwnershipRecord) bool {
 		return (v.Key.Kind == OwnerKindClient || v.Key.Kind == OwnerKindClientToken) && v.PhysicalID == k.ID
 	})
@@ -390,6 +404,11 @@ func (w memoryWriter) DeletePool(k PoolKey) error {
 	delete(w.s.poolIDs, regionalID{k.Partition, k.Region, k.ID})
 	delete(w.s.keys, k)
 	w.releaseOwners(k, func(OwnershipRecord) bool { return true })
+	for key := range w.s.oauth {
+		if key.PoolKey == k {
+			delete(w.s.oauth, key)
+		}
+	}
 	for key := range w.s.providers {
 		if key.PoolKey == k {
 			delete(w.s.providers, key)
@@ -469,5 +488,35 @@ func (w memoryWriter) DeleteEmailCode(k EmailCodeKey) error {
 		return e
 	}
 	delete(w.s.emailCodes, k)
+	return nil
+}
+
+func (r memoryReader) OAuth(k OAuthKey) (OAuthRecord, error) {
+	return memoryRow(r.tx, r.s.oauth, k, func(v OAuthRecord) OAuthRecord { return v })
+}
+func (w memoryWriter) PutOAuth(v OAuthRecord) error {
+	if err := w.tx.Check(true); err != nil {
+		return err
+	}
+	w.s.oauth[v.Key] = v
+	return nil
+}
+func (w memoryWriter) DeleteOAuth(k OAuthKey) error {
+	if err := w.tx.Check(true); err != nil {
+		return err
+	}
+	delete(w.s.oauth, k)
+	return nil
+}
+
+func (w memoryWriter) DeleteExpiredOAuth(pool PoolKey, now time.Time) error {
+	if err := w.tx.Check(true); err != nil {
+		return err
+	}
+	for key, row := range w.s.oauth {
+		if key.PoolKey == pool && !now.Before(row.Expires) {
+			delete(w.s.oauth, key)
+		}
+	}
 	return nil
 }

@@ -1,9 +1,11 @@
 package apigateway
 
 import (
+	"encoding/json"
 	"errors"
 	api "stackd/internal/awsapi/apigateway"
 	"stackd/internal/services/apigatewayexec"
+	"strconv"
 	"strings"
 )
 
@@ -19,6 +21,16 @@ func methodVerb(v string) bool {
 }
 func methodOutput(r Reader, v MethodRecord) (*api.Method, error) {
 	out := &api.Method{HttpMethod: ptr(v.Key.HTTPMethod), AuthorizationType: ptr(v.AuthorizationType), AuthorizerId: optional(v.AuthorizerID), OperationName: optional(v.OperationName), AuthorizationScopes: stringsOut(v.Scopes), ApiKeyRequired: new(api.NullableBoolean(v.APIKeyRequired))}
+	if len(v.Responses) != 0 {
+		out.MethodResponses = make(api.MapOfMethodResponse, len(v.Responses))
+		for status, response := range v.Responses {
+			parameters := make(api.MapOfStringToBoolean, len(response.Headers))
+			for name, required := range response.Headers {
+				parameters[api.String("method.response.header."+name)] = api.NullableBoolean(required)
+			}
+			out.MethodResponses[api.String(status)] = api.MethodResponse{StatusCode: new(api.StatusCode(status)), ResponseParameters: parameters}
+		}
+	}
 	i, err := r.Integration(v.Key)
 	if err == nil {
 		out.MethodIntegration = integrationOutput(i)
@@ -160,6 +172,18 @@ func (s *Service) updateMethod(tx Transaction, in *api.UpdateMethodRequest) (*ap
 	return methodOutput(tx, row)
 }
 func integrationOutput(v IntegrationRecord) *api.Integration {
+	if v.Mock != nil {
+		status := strconv.Itoa(v.Mock.StatusCode)
+		parameters := make(api.MapOfStringToString, len(v.Mock.Headers))
+		for name, value := range v.Mock.Headers {
+			parameters[api.String("method.response.header."+name)] = api.String("'" + value + "'")
+		}
+		response := api.IntegrationResponse{StatusCode: new(api.StatusCode(status)), ResponseParameters: parameters}
+		if v.Mock.Body != "" {
+			response.ResponseTemplates = api.MapOfStringToString{"application/json": api.String(v.Mock.Body)}
+		}
+		return &api.Integration{Type: new(api.IntegrationTypeMOCK), RequestTemplates: api.MapOfStringToString{"application/json": api.String("{\"statusCode\":" + status + "}")}, IntegrationResponses: api.MapOfIntegrationResponse{api.String(status): response}, PassthroughBehavior: ptr("WHEN_NO_MATCH"), TimeoutInMillis: new(api.Integer(v.TimeoutMillis))}
+	}
 	return &api.Integration{Type: new(api.IntegrationTypeAWS_PROXY), HttpMethod: ptr("POST"), Uri: ptr(v.URI), Credentials: optional(v.CredentialsARN), PassthroughBehavior: ptr("WHEN_NO_MATCH"), TimeoutInMillis: new(api.Integer(v.TimeoutMillis)), CacheNamespace: ptr(v.Key.ResourceID), CacheKeyParameters: api.ListOfString{}, ResponseTransferMode: new(api.ResponseTransferModeBUFFERED)}
 }
 func functionARN(uri string, scope Scope) (string, error) {
@@ -200,6 +224,43 @@ func (s *Service) putIntegration(tx Transaction, in *api.PutIntegrationRequest) 
 	method, err := tx.Method(key)
 	if err != nil {
 		return nil, err
+	}
+	if value(in.Type) == "MOCK" {
+		if value(in.CacheNamespace) != "" {
+			return nil, unsupported("MOCK cache namespace")
+		}
+		if value(in.Uri) != "" || value(in.Credentials) != "" || value(in.IntegrationHttpMethod) != "" || len(in.RequestParameters) != 0 || len(in.CacheKeyParameters) != 0 || value(in.ContentHandling) != "" || value(in.ConnectionId) != "" || value(in.IntegrationTarget) != "" || in.TlsConfig != nil {
+			return nil, unsupported("MOCK mapping, credentials, URI or connection settings")
+		}
+		if len(in.RequestTemplates) != 1 {
+			return nil, unsupported("MOCK requires one application/json literal status template")
+		}
+		template, exists := in.RequestTemplates["application/json"]
+		var fields map[string]json.RawMessage
+		if !exists || json.Unmarshal([]byte(template), &fields) != nil || len(fields) != 1 {
+			return nil, unsupported("MOCK requires a static JSON statusCode template; VTL is unsupported")
+		}
+		var status int
+		if json.Unmarshal(fields["statusCode"], &status) != nil || status < 100 || status > 599 {
+			return nil, bad("Invalid MOCK request statusCode")
+		}
+		if v := value(in.PassthroughBehavior); v != "" && v != "WHEN_NO_MATCH" {
+			return nil, unsupported("MOCK passthrough behavior")
+		}
+		if v := value(in.ConnectionType); v != "" && v != "INTERNET" {
+			return nil, unsupported("MOCK private connection")
+		}
+		if v := value(in.ResponseTransferMode); v != "" && v != "BUFFERED" {
+			return nil, unsupported("MOCK streaming response")
+		}
+		if in.TimeoutInMillis != nil && *in.TimeoutInMillis != 29000 {
+			return nil, unsupported("nondefault MOCK timeout")
+		}
+		row := IntegrationRecord{Key: key, TimeoutMillis: 29000, Mock: &apigatewayexec.MockIntegration{StatusCode: status}}
+		if err := tx.PutIntegration(row); err != nil {
+			return nil, err
+		}
+		return integrationOutput(row), nil
 	}
 	// TODO: Comeback nonproxy mappings, private integrations,
 	// streaming, configurable timeouts, stage URI substitutions and integration caches.
@@ -268,6 +329,9 @@ func (s *Service) updateIntegration(tx Transaction, in *api.UpdateIntegrationReq
 		return nil, err
 	}
 	for _, p := range in.PatchOperations {
+		if row.Mock != nil && (value(p.Path) == "/uri" || value(p.Path) == "/credentials" || value(p.Path) == "/httpMethod") {
+			return nil, unsupported("MOCK URI, credentials or HTTP method patch")
+		}
 		switch value(p.Path) {
 		case "/uri":
 			err = replace(p, &row.URI)
@@ -311,8 +375,12 @@ func (s *Service) updateIntegration(tx Transaction, in *api.UpdateIntegrationReq
 			return nil, err
 		}
 	}
-	if _, err := functionARN(row.URI, owner.Key.Scope); err != nil {
-		return nil, err
+	if row.Mock == nil {
+		if _, err := functionARN(row.URI, owner.Key.Scope); err != nil {
+			return nil, err
+		}
+	} else if row.URI != "" || row.CredentialsARN != "" {
+		return nil, unsupported("MOCK URI or credentials")
 	}
 	if err := tx.PutIntegration(row); err != nil {
 		return nil, err

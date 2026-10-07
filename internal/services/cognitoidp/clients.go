@@ -44,8 +44,8 @@ func (s *Service) createUserPoolClient(tx Transaction, in *api.CreateUserPoolCli
 	return &api.CreateUserPoolClientOutput{UserPoolClient: &data}, nil
 }
 
-// OAuth configuration is persisted independently of the external authorization
-// endpoints. Configuring a client does not execute a federated sign-in.
+// OAuth configuration binds the hosted authorization/code exchange endpoints.
+// Native API password/SRP flows remain independent of these OAuth grants.
 func clientConfiguration(tx Transaction, pool PoolRecord, in *api.CreateUserPoolClientInput) (api.UserPoolClientType, error) {
 	var d api.UserPoolClientType
 	invalid := func(message string) (api.UserPoolClientType, error) {
