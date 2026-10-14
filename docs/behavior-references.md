@@ -325,6 +325,23 @@ connections/classifiers/workflows/tags, actual Python-shell success/failure,
 Athena workgroup/prepared controls, cancellation, typed results, current-policy
 denial and EventBridge-to-SQS consumers.
 
+The [2026-10-14 table-statistics capture](../testdata/aws/glue/statistics_deletion.json)
+confirms that deleting absent statistics, including an unknown column, succeeds
+when the table exists. A missing table still returns `EntityNotFoundException`.
+Statistics reads report missing columns in `Errors`, not as silent omissions.
+The local CLI replay matched these contracts. Current IAM smoke checks also
+verified the API's documented `glue:DeleteTable` authority and immediate revocation.
+This fixes a real Trino CTAS commit failure; no callback exception is suppressed.
+
+```sh
+PYTHONPATH=scripts/aws python3 -P scripts/aws/glue_catalog_probe.py \
+  --statistics-only --endpoint-url http://127.0.0.1:4566 \
+  --output .stackd/probes/glue-statistics-local.json
+PYTHONPATH=scripts/aws python3 -P scripts/aws/glue_fixture_consumer.py \
+  --kind statistics --reference testdata/aws/glue/statistics_deletion.json \
+  --actual .stackd/probes/glue-statistics-local.json
+```
+
 The native AWS producer wrote real S3 rows `north,4`, `south,14`, `north,6`;
 Athena produced and an independent S3 consumer read totals north=10/south=14.
 This is AWS-reference evidence, not proof that the local executable matched it.
@@ -445,6 +462,93 @@ Normal native Spark Parquet execution does not establish those features.
 The [Python-shell guide](https://docs.aws.amazon.com/glue/latest/dg/add-job-python.html)
 also records the native library versions, version-3 alias and logging groups.
 
+### Athena native data manifests
+
+AWS documents manifests for
+[CTAS, INSERT and UNLOAD](https://docs.aws.amazon.com/athena/latest/APIReference/API_GetQueryResults.html),
+the [`QueryID-manifest.csv` object and retained location](https://docs.aws.amazon.com/athena/latest/ug/querying-finding-output-files.html),
+and [INSERT's newly written files](https://docs.aws.amazon.com/athena/latest/ug/insert-into.html).
+`GetQueryResults` requires current Athena permission **and** S3 `GetObject`
+permission. The [retained native manifest capture](../testdata/aws/athena/manifest_verified.json)
+records actual CTAS/INSERT bytes, SDK responses, pagination, a failed INSERT,
+cross-query/result-kind tokens and a current S3 IAM denial.
+
+The local Hive writer produces headerless, unquoted S3 URI lines with trailing
+LF for successful native CTAS and INSERT executions. Entries come exclusively from
+successful authenticated, execution-scoped S3 `PutObject`, multipart completion
+and copy callbacks. Upload parts and rejected writes are excluded; retries are
+deduplicated and successful native cleanup deletes remove entries. No bucket
+before/after listing infers the output. The native parser's query classification
+and output catalog distinguish writes from ordinary SELECT/DDL operations.
+External-table writes are enabled in the pinned Hive connector, whose
+[documented default is disabled](https://trino.io/docs/476/connector/hive.html);
+ordinary Glue/S3/IAM owners remain responsible for authorization.
+Trino 476 reports CTAS as query type `INSERT` with update type `CREATE TABLE`.
+The adapter maps that native pair to Athena's captured CTAS classification;
+it does not guess from SQL text.
+
+The manifest is published through the same current S3 owner, preserving result
+encryption, expected bucket owner, bucket-owner ACL and requester-pays settings.
+Native CTAS is `DDL` / `CREATE_TABLE_AS_SELECT`, with output prefix
+`results/tables/<id>` and manifest `<prefix>-manifest.csv`; INSERT is `DML` /
+`INSERT`, with prefix `results/<id>`. Neither writer prefix has a `.csv` suffix.
+The existing SQLite fields retain the prefix, manifest destination and engine
+statistics without a schema change or replay of an interrupted native write.
+
+Native `DATA_MANIFEST` returns URI rows, **empty `ColumnInfo`**, no header, and
+**omits `UpdateCount`**. Writer `DATA_ROWS` returns empty rows, `rows` / `bigint`
+metadata, and the inserted-row count. Exactly filling a manifest page returns a
+continuation token; the following request can be an empty final page. Tokens
+represent byte offsets: native Athena accepts them across query IDs and result
+kinds, even returning a URI suffix when a SELECT token points into a manifest.
+Local results preserve that observed byte-position behavior while retaining
+target-query authorization and account/partition/region isolation. Every page
+reads the current authorized S3 object, not a cached callback journal.
+
+Captured S3 access denial maps to Athena `InvalidRequestException` with
+`AthenaErrorCode=INSUFFICIENT_PERMISSIONS`. SELECT manifest requests and an absent
+failed INSERT manifest return `RESULT_NOT_FOUND`; failed `DATA_ROWS` returns
+`INVALID_QUERY_EXECUTION_STATE`. A failed writer can retain its manifest
+destination even when no object exists there. Failed-query intended-write
+manifests remain unimplemented. Iceberg bookkeeping objects are not
+misrepresented as data files: unsupported writer manifests return an explicit
+local unsupported-mode diagnostic. Native Trino does not implement Athena
+UNLOAD; no UNLOAD manifest support is claimed. File ordering across independent
+engine runs is not asserted as an AWS guarantee.
+
+Run-ready local proof using the existing probe and native fixture consumer:
+
+```sh
+# The local probe supplies fixture-only credentials and account 000000000000.
+# Start stackd with installed images, -athena-runtime and persistent SQLite.
+PYTHONPATH=scripts/aws python3 -P scripts/aws/athena_application_probe.py \
+  --manifest-only --endpoint-url http://127.0.0.1:4566 \
+  --output .stackd/probes/athena-manifest-local.json
+PYTHONPATH=scripts/aws python3 -P scripts/aws/athena_fixture_consumer.py \
+  --kind manifest --reference testdata/aws/athena/manifest_verified.json \
+  --actual .stackd/probes/athena-manifest-local.json
+```
+
+The probe executes partitioned Parquet CTAS/INSERT on the actual engine and a
+SELECT consumer, captures manifest bytes/API pages/current IAM denial, and
+cleans only its uniquely named resources. Requirements are local root-equivalent
+provisioning permissions, AWS CLI/Python 3, Docker with sufficient memory for
+the bounded 4-GiB worker, container-to-controller callback connectivity, and
+the installed immutable Trino and Spark Hive-parser images. Glue job runtime
+is unnecessary. The native fixture was actually captured and cleaned; local
+replay is a separate integration check, not inferred from those AWS results.
+The focused SQLite regression compares the native response shapes/errors and
+byte-token behavior across reopen, including changed current S3 bytes.
+
+On 2026-10-14, the actual Linux CLI with Trino 476 passed this native fixture
+comparison. A separate same-database controller restart retained query statistics,
+manifest locations and byte-offset tokens. Changing the current S3 manifest's
+second line changed the resumed page; restoring the object restored the page.
+The checks removed their owned catalog, query, IAM and S3 resources.
+Capture normalization records byte counts and offsets before replacing owned
+names. This avoids confusing a changed publication string length with an engine
+pagination error.
+
 ### Remaining enterprise boundaries
 
 Retain the following gaps rather than interpreting registration as completion:
@@ -466,7 +570,8 @@ Retain the following gaps rather than interpreting registration as completion:
   batching, delayed trigger notifications and data-quality encryption.
 - Athena Spark/engine-v2, managed results, Identity Center, S3 Access Grants,
   capacity configuration, federated provisioning/connectors, CSE_KMS,
-  DATA_MANIFEST and missing S3Tables prerequisites. SQL PREPARE/DEALLOCATE are
+  missing S3Tables prerequisites and manifests outside supported native Hive
+  CTAS/INSERT writes. SQL PREPARE/DEALLOCATE are
   explicitly rejected until native prepared-state changes can persist; API
   prepared statements are distinct. Athena CTAS-specific properties and exact
   Delta/Iceberg version/concurrency compatibility need separate proof.

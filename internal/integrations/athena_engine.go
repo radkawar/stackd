@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 
@@ -87,11 +88,16 @@ func (a *AthenaEngine) Execute(ctx context.Context, request athena.ExecutionRequ
 	}
 	var csv bytes.Buffer
 	var columns []native.Column
+	var updateType string
+	producesManifest := false
 	err := a.Runtime.Execute(ctx, nativeRequest, started, func(page native.Page) error {
 		result.EngineMillis = page.Stats.ElapsedMillis
 		result.DataScannedBytes = page.Stats.PhysicalInputBytes
 		if page.UpdateCount != nil {
 			result.UpdateCount = *page.UpdateCount
+		}
+		if page.UpdateType != "" {
+			updateType = page.UpdateType
 		}
 		if page.QueryType != "" {
 			result.StatementType = "DML"
@@ -103,8 +109,19 @@ func (a *AthenaEngine) Execute(ctx context.Context, request athena.ExecutionRequ
 			}
 			result.SubstatementType = page.QueryType
 		}
-		if page.UpdateType != "" {
-			result.SubstatementType = strings.ReplaceAll(page.UpdateType, " ", "_")
+		if updateType != "" {
+			result.SubstatementType = strings.ReplaceAll(updateType, " ", "_")
+		}
+		if page.QueryType == "INSERT" {
+			// Trino 476 classifies CTAS as INSERT and reports CREATE TABLE
+			// as its update type. Use that native pair, not SQL text.
+			if updateType == "CREATE TABLE" {
+				result.StatementType = "DDL"
+				result.SubstatementType = "CREATE_TABLE_AS_SELECT"
+			}
+			// The configured Iceberg writers publish metadata as well as data.
+			// Do not expose those bookkeeping objects as a Hive data manifest.
+			producesManifest = page.OutputCatalog != "" && page.OutputCatalog != "iceberg" && page.OutputCatalog != "awsdatacatalog_iceberg" && page.OutputCatalog != "deltalake" && page.OutputCatalog != "awsdatacatalog_deltalake"
 		}
 		if page.HiveDDL != nil {
 			result.StatementType = "DDL"
@@ -148,6 +165,7 @@ func (a *AthenaEngine) Execute(ctx context.Context, request athena.ExecutionRequ
 		return nil
 	})
 	if err != nil {
+		// TODO: Comeback retain native intended-write manifests for failed executions.
 		var nativeError *native.QueryError
 		if errors.As(err, &nativeError) {
 			switch nativeError.ErrorName {
@@ -163,6 +181,13 @@ func (a *AthenaEngine) Execute(ctx context.Context, request athena.ExecutionRequ
 	// owns a complete CSV body. TODO: Comeback stream result object multipart
 	// publication and result pagination without retaining the full CSV in Go.
 	result.CSV = csv.Bytes()
+	if producesManifest {
+		result.Manifest = bridge.manifest()
+		// Native Athena write results retain rows metadata and the inserted
+		// count, but expose no DATA_ROWS header or count row.
+		result.CSV = []byte{}
+		result.Columns = api.ColumnInfoList{athenaColumn(native.Column{Name: "rows", Type: "bigint", TypeSignature: native.TypeSignature{RawType: "bigint"}})}
+	}
 	return result, nil
 }
 
@@ -339,6 +364,8 @@ type athenaDataPlane struct {
 	caller        awsctx.Metadata
 	parent        string
 	requesterPays bool
+	mu            sync.Mutex
+	writes        map[string]struct{}
 }
 
 func (a *athenaDataPlane) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -390,5 +417,13 @@ func (a *athenaDataPlane) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		awswire.RESTXMLError(w, r, &model, &awswire.Error{Code: "InvalidRequest", Message: err.Error(), StatusCode: 400})
 		return
 	}
-	a.s3.ServeHTTP(w, r.WithContext(awsapi.WithDecodedRequest(ctx, decoded)))
+	response := &athenaObjectResponse{ResponseWriter: w}
+	if _, ok := decoded.Input.(*s3api.DeleteObjectsInput); ok {
+		response.capture = true
+	}
+	a.s3.ServeHTTP(response, r.WithContext(awsapi.WithDecodedRequest(ctx, decoded)))
+	if response.status != 0 && (response.status < 200 || response.status >= 300) {
+		return
+	}
+	a.retainObjectWrite(decoded.Input, response.body.Bytes())
 }

@@ -28,12 +28,15 @@ type ExecutionRequest struct {
 }
 type ExecutionResult struct {
 	Columns api.ColumnInfoList
-	// CSV includes a header row; null fields are unquoted empty fields. Empty
-	// strings must be quoted so GetQueryResults can preserve SQL NULL semantics.
+	// Read-query CSV includes a header; native CTAS/INSERT expose no DATA_ROWS
+	// rows. NULL fields are unquoted empty fields, unlike quoted empty strings.
 	CSV                                         []byte
 	UpdateCount, DataScannedBytes, EngineMillis int64
 	StatementType, SubstatementType             string
-	ManifestLocation                            string
+	// Manifest contains headerless, unquoted S3 URI lines for actual native writes.
+	// nil means this query does not produce a manifest; an empty non-nil body
+	// represents a supported write query that wrote no objects.
+	Manifest []byte
 }
 
 // ExecutionFailure classifies a real native error at the Athena boundary. The

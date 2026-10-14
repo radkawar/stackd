@@ -50,6 +50,9 @@ func (a AthenaS3) Write(ctx context.Context, query athena.QueryRecord, body []by
 	if strings.HasSuffix(key, ".txt") {
 		in.ContentType = new(api.ContentType("text/plain"))
 	}
+	if strings.HasSuffix(key, "-manifest.csv") {
+		in.ContentType = new(api.ContentType("application/octet-stream"))
+	}
 	if query.RequesterPays {
 		in.RequestPayer = new(api.RequestPayer("requester"))
 	}

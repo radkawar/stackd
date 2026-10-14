@@ -18,12 +18,65 @@ REFERENCES = [
     "https://docs.aws.amazon.com/glue/latest/webapi/API_BatchDeletePartition.html",
     "https://docs.aws.amazon.com/glue/latest/webapi/API_BatchDeleteTable.html",
     "https://docs.aws.amazon.com/glue/latest/webapi/API_DeleteDatabase.html",
+    "https://docs.aws.amazon.com/glue/latest/webapi/API_DeleteColumnStatisticsForTable.html",
     "https://aws.amazon.com/glue/pricing/",
 ]
 
 
+def statistics_probe(args):
+    cap = Capture(args, "stackd_glue_stats_", REFERENCES, {
+        "max_calls": 18, "wall_seconds": 180, "cli_timeout_seconds": 30,
+        "max_databases": 1, "max_tables": 1,
+        "cost_usd_upper_estimate": 0.001,
+        "cost_basis": "No compute or S3 writes; <=18 metadata calls and two short-lived catalog objects.",
+    })
+    database = cap.prefix
+    created = False
+    def call(label, operation, parameters):
+        return cap.request(label, "glue", operation, parameters)
+    try:
+        cap.identity()
+        cap.capture["kind"] = "table-column-statistics-deletion"
+        cap.capture["uncertainty"] = [
+            "Owned ordinary catalog only; no Lake Formation or IAM policy changes.",
+            "Missing-statistics deletion is distinct from missing-table deletion.",
+        ]
+        created = True
+        require(call("create-database", "create-database", {"DatabaseInput": {"Name": database}}))
+        require(call("create-table", "create-table", {
+            "DatabaseName": database,
+            "TableInput": {"Name": "written", "StorageDescriptor": {"Columns": [{"Name": "id", "Type": "int"}]}},
+        }))
+        parameters = {"DatabaseName": database, "TableName": "written", "ColumnName": "id"}
+        call("delete-unset-statistics", "delete-column-statistics-for-table", parameters)
+        call("delete-unset-statistics-again", "delete-column-statistics-for-table", parameters)
+        call("delete-unknown-column-statistics", "delete-column-statistics-for-table", dict(parameters, ColumnName="absent"))
+        call("get-empty-statistics", "get-column-statistics-for-table", {
+            "DatabaseName": database, "TableName": "written", "ColumnNames": ["id", "absent"],
+        })
+        require(call("delete-table", "delete-table", {"DatabaseName": database, "Name": "written"}))
+        call("delete-statistics-missing-table", "delete-column-statistics-for-table", parameters)
+        cap.capture["completed"] = True
+    except Exception as error:
+        cap.capture["failure"] = {"type": type(error).__name__, "message": str(error)}
+        raise
+    finally:
+        cap.cleaning = True
+        remaining = []
+        if created:
+            call("cleanup-table", "delete-table", {"DatabaseName": database, "Name": "written"})
+            if call("verify-table-absent", "get-table", {"DatabaseName": database, "Name": "written"})["code"] != "EntityNotFoundException":
+                remaining.append(database + ".written")
+            call("cleanup-database", "delete-database", {"Name": database})
+            if call("verify-database-absent", "get-database", {"Name": database})["code"] != "EntityNotFoundException":
+                remaining.append(database)
+        cap.finish(remaining)
+
+
 def main():
-    args = arguments(__doc__, member_account=True)
+    args = arguments(__doc__, member_account=True, statistics_only=True)
+    if args.statistics_only:
+        return statistics_probe(args)
     cap = Capture(args, "stackd_glue_", REFERENCES, {
         "max_calls": 90, "wall_seconds": 600, "cli_timeout_seconds": 30,
         "max_databases": 1, "max_tables": 2, "max_versions": 5, "max_partitions": 4,

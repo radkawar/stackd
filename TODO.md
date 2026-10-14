@@ -47,6 +47,13 @@ keeps service-specific accounting and error semantics authoritative.
   rollback, retained rows and wrong-password rejection for `lindm_admin`.
   TLS enforcement, encrypted storage, managed passwords, VPC packet controls
   and automated backups remain unsupported; see [RDS boundaries](docs/rds.md).
+- [x] Publish Hive Athena CTAS/INSERT manifests from actual native S3 writes.
+  The existing Python probe and consumer matched retained AWS response,
+  metadata, byte-token and current-IAM contracts. Real Trino outputs and tokens
+  survived SQLite/controller restart and reflected changed current S3 bytes.
+  Native calibration also corrected Glue absent-statistics deletion and per-column
+  read errors that blocked CTAS commits. Failed-query intended-write manifests,
+  Iceberg/Delta and UNLOAD remain open.
 - [x] Add seven REST method/integration/gateway response lifecycle operations with
   atomic JSON Pointer patches, native resource IAM and explicit response absence.
   Deployment snapshots retain method/integration responses; gateway responses
@@ -352,12 +359,17 @@ and calibration requirements remain visible below. Review is not execution proof
 
 Next coherent slices after the account/deployment/distribution work:
 
-- Secure CloudFormation SSM/Secrets Manager references: resolve through current
-  read/decrypt authority without persisting plaintext in properties, receipts,
-  events or rollback history.
-- Athena write manifests/`DATA_MANIFEST`: derive paths from real native writes
-  and preserve independent reader S3/KMS checks; never infer manifests from SQL
-  text or guessed object names.
+- Secure CloudFormation result-attribute consumption and identifier handling:
+  use real values without retaining plaintext. Direct secure source references
+  now work; masked attribute consumption fails explicitly instead of passing
+  `****` to another resource.
+- Athena failed-query intended-write, Iceberg/Delta and UNLOAD manifests:
+  derive them from real writer metadata. Hive CTAS/INSERT manifests now use
+  successful authenticated object writes; no guessed paths or bucket diffs.
+- Use the [pinned Terraform provider API map](docs/terraform-provider-apis.json)
+  to select complete resource lifecycles. It currently identifies 2,554 missing
+  selected-service requirements and 309 unresolved callsites. These are static
+  source counts, not a measure of runtime frequency or semantic completeness.
 - Resolve the remaining named integration failures and native EC2 isolation
   boundaries before broadening fleet or quota fidelity.
 - Account/billing: keep Account identity/contact/region behavior separate from

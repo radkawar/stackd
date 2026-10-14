@@ -99,7 +99,7 @@ func (s *Service) startQueryExecution(ctx context.Context, tx Transaction, in *a
 		v.BytesCutoff = int64(*group.Data.Configuration.BytesScannedCutoffPerQuery)
 	}
 	v.RequesterPays = enabled(group.Data.Configuration.RequesterPaysEnabled)
-	if class := statementClass(first, &tokens); class != "" {
+	if class := statementClass(first); class != "" {
 		v.Data.StatementType = new(api.StatementType(class))
 	}
 	if v.Data.ResultReuseConfiguration == nil {
@@ -187,13 +187,23 @@ func (s *Service) queryResultsCommand(ctx context.Context) (any, *awswire.Error)
 	}
 	var query QueryRecord
 	var offset, limit int
+	resultKind := "results"
+	var columns api.ColumnInfoList
+	writeRows := false
 	err = s.repository.Attempt(ctx, func(tx Transaction) error {
+		resultKind = "results"
+		columns = nil
+		writeRows = false
 		var err error
 		query, err = s.loadQuery(tx.Context(), tx, value(in.QueryExecutionId), "GetQueryResults")
 		if err != nil {
 			return err
 		}
-		if queryState(query) != "SUCCEEDED" {
+		manifest := value(in.QueryResultType) == "DATA_MANIFEST"
+		if !manifest && queryState(query) != "SUCCEEDED" {
+			if queryState(query) == "FAILED" || queryState(query) == "CANCELLED" {
+				return queryResultError("Query did not finish successfully. Final query state: "+queryState(query), "INVALID_QUERY_EXECUTION_STATE")
+			}
 			return invalidRequest("Query has not yet finished. Current state: " + queryState(query))
 		}
 		kind := value(in.QueryResultType)
@@ -202,16 +212,29 @@ func (s *Service) queryResultsCommand(ctx context.Context) (any, *awswire.Error)
 				return invalidRequest("Invalid QueryResultType.")
 			}
 			if query.Data.Statistics == nil || value(query.Data.Statistics.DataManifestLocation) == "" {
-				return invalidRequest("This query does not have a data manifest.")
+				switch value(query.Data.SubstatementType) {
+				case "INSERT", "CREATE_TABLE_AS_SELECT", "UNLOAD":
+					if queryState(query) == "SUCCEEDED" {
+						// TODO: Comeback derive Iceberg/Delta and UNLOAD manifests from real writer metadata.
+						return unsupported("Data manifests are not supported for this native writer.")
+					}
+					return queryResultError("Could not find results", "RESULT_NOT_FOUND")
+				}
+				return queryResultError("Manifest files are only available for INSERT, CTAS (CREATE TABLE AS SELECT), and UNLOAD queries. query "+query.Key.Name+" does not generate a manifest file.", "RESULT_NOT_FOUND")
 			}
-			// TODO: Comeback expose actual native CTAS/INSERT/UNLOAD manifest objects and their result metadata.
-			return unsupported("Manifest result retrieval is unavailable.")
+			resultKind = "manifest"
+			columns = api.ColumnInfoList{}
 		}
+		if columns == nil {
+			columns = query.Columns
+		}
+		writeRows = resultKind != "manifest" && query.Data.Statistics != nil && value(query.Data.Statistics.DataManifestLocation) != "" &&
+			(value(query.Data.SubstatementType) == "INSERT" || value(query.Data.SubstatementType) == "CREATE_TABLE_AS_SELECT")
 		limit, err = pageLimit(in.MaxResults, 1000)
 		if err != nil {
 			return err
 		}
-		after, err := cursor(query.Key.Scope, "results", query.Key.Name, in.NextToken)
+		after, err := cursor(query.Key.Scope, "result-bytes", "", in.NextToken)
 		if err != nil {
 			return err
 		}
@@ -228,23 +251,37 @@ func (s *Service) queryResultsCommand(ctx context.Context) (any, *awswire.Error)
 		if s.results == nil {
 			err = unsupported("No S3 result adapter is configured.")
 		} else {
-			data, rejected := s.results.Read(ctx, query)
+			object := query
+			if resultKind == "manifest" || writeRows {
+				object = manifestQuery(query, value(query.Data.Statistics.DataManifestLocation))
+			}
+			data, rejected := s.results.Read(ctx, object)
 			if rejected != nil {
-				err = rejected
+				err = resultReadError(rejected)
 			} else {
 				var rows api.RowList
 				var more bool
-				rows, more, err = resultRows(data, offset, limit)
+				var next int
+				if writeRows {
+					data = nil
+				}
+				if resultKind == "manifest" {
+					rows, more, next, err = manifestRows(data, offset, limit)
+				} else {
+					rows, more, next, err = resultByteRows(data, offset, limit)
+				}
 				if err == nil {
 					out = &api.GetQueryResultsOutput{
 						ResultSet: &api.ResultSet{
-							ResultSetMetadata: &api.ResultSetMetadata{ColumnInfo: query.Columns},
+							ResultSetMetadata: &api.ResultSetMetadata{ColumnInfo: columns},
 							Rows:              rows,
 						},
-						UpdateCount: new(api.Long(query.UpdateCount)),
+					}
+					if resultKind != "manifest" {
+						out.UpdateCount = new(api.Long(query.UpdateCount))
 					}
 					if more || len(rows) == limit {
-						out.NextToken = nextToken(query.Key.Scope, "results", query.Key.Name, strconv.Itoa(offset+len(rows)))
+						out.NextToken = nextToken(query.Key.Scope, "result-bytes", "", strconv.Itoa(next))
 					}
 				}
 			}

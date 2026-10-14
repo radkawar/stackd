@@ -135,8 +135,28 @@ def controls_contract(capture):
     return value
 
 
+def statistics_contract(capture):
+    rows = observations(capture)
+    labels = ("delete-unset-statistics", "delete-unset-statistics-again",
+              "delete-unknown-column-statistics", "delete-statistics-missing-table")
+    statistics = output(rows, "get-empty-statistics")
+    value = {
+        "codes": codes(rows, labels),
+        "statistics": statistics["ColumnStatisticsList"],
+        "missing": sorted((entry["ColumnName"], entry["Error"]["ErrorCode"])
+                          for entry in statistics["Errors"]),
+    }
+    assert [value["codes"][label] for label in labels] == [
+        "Success", "Success", "Success", "EntityNotFoundException"]
+    assert value["statistics"] == []
+    assert value["missing"] == [("absent", "EntityNotFoundException"),
+                                 ("id", "EntityNotFoundException")]
+    return value
+
+
 CONTRACTS = {"catalog": catalog_contract, "registry": registry_contract,
-             "registry-boundaries": registry_boundaries_contract, "controls": controls_contract}
+             "registry-boundaries": registry_boundaries_contract, "controls": controls_contract,
+             "statistics": statistics_contract}
 
 
 def main():

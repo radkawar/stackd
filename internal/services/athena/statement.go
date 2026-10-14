@@ -5,8 +5,8 @@ import "strings"
 // statementClass identifies the AWS control-plane class before publishing the
 // queued event. It does not validate SQL, bind parameters or execute expressions;
 // the native parser/engine is authoritative for syntax, types and query results.
-// CTAS is DML, whereas CREATE TABLE definitions and CREATE VIEW remain DDL.
-func statementClass(first string, tokens *statementTokens) string {
+// Retained native AWS CTAS executions classify CREATE TABLE AS SELECT as DDL.
+func statementClass(first string) string {
 	switch {
 	case keyword(first, "SELECT"), keyword(first, "WITH"), keyword(first, "VALUES"), keyword(first, "INSERT"), keyword(first, "UPDATE"), keyword(first, "DELETE"), keyword(first, "MERGE"), keyword(first, "UNLOAD"), keyword(first, "EXECUTE"):
 		return "DML"
@@ -17,29 +17,7 @@ func statementClass(first string, tokens *statementTokens) string {
 	case !keyword(first, "CREATE"):
 		return ""
 	}
-	kind, _ := tokens.next()
-	if keyword(kind, "OR") {
-		replace, _ := tokens.next()
-		if !keyword(replace, "REPLACE") {
-			return "DDL"
-		}
-		kind, _ = tokens.next()
-	}
-	if keyword(kind, "EXTERNAL") {
-		kind, _ = tokens.next()
-	}
-	if !keyword(kind, "TABLE") {
-		return "DDL"
-	}
-	for {
-		token, depth := tokens.next()
-		if token == "" {
-			return "DDL"
-		}
-		if depth == 0 && keyword(token, "AS") {
-			return "DML"
-		}
-	}
+	return "DDL"
 }
 
 func keyword(token, want string) bool { return strings.EqualFold(token, want) }
@@ -49,8 +27,7 @@ type statementTokens struct {
 	offset, depth int
 }
 
-// next skips comments and quoted literals/identifiers without allocating. Depth
-// keeps column expressions and WITH/TBLPROPERTIES values out of CTAS detection.
+// next skips comments and quoted literals/identifiers without allocating.
 func (s *statementTokens) next() (string, int) {
 	for s.offset < len(s.sql) {
 		c := s.sql[s.offset]

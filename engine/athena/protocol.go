@@ -81,6 +81,9 @@ func executeSQL(ctx context.Context, client *http.Client, endpoint string, reque
 			}
 			var info struct {
 				QueryType string `json:"queryType"`
+				Output    *struct {
+					CatalogName string `json:"catalogName"`
+				} `json:"output"`
 			}
 			if infoResponse.StatusCode != http.StatusOK {
 				infoResponse.Body.Close()
@@ -92,6 +95,9 @@ func executeSQL(ctx context.Context, client *http.Client, endpoint string, reque
 				return errors.Join(queryErr, infoErr)
 			}
 			page.QueryType = info.QueryType
+			if info.Output != nil {
+				page.OutputCatalog = info.Output.CatalogName
+			}
 		}
 		if page.NextURI != "" {
 			// Only the owned coordinator can supply result pages. Never follow a

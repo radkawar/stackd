@@ -2,10 +2,10 @@ package athena
 
 import "testing"
 
-func TestStatementClassDistinguishesCTASFromDDLText(t *testing.T) {
+func TestStatementClassMatchesNativeCTASDDLClassification(t *testing.T) {
 	cases := []struct{ name, sql, want string }{
 		{"commented query", "-- a queued read\n/* outer /* nested */ comment */ select 1", "DML"},
-		{"CTAS properties", "CREATE TABLE sales_copy WITH (format = 'PARQUET') AS SELECT * FROM sales", "DML"},
+		{"CTAS properties", "CREATE TABLE sales_copy WITH (format = 'PARQUET') AS SELECT * FROM sales", "DDL"},
 		{"quoted AS name", "CREATE TABLE \"AS\" (value varchar)", "DDL"},
 		{"AS in column expression", "CREATE TABLE typed (value varchar DEFAULT CAST(1 AS varchar))", "DDL"},
 		{"AS in metadata", "CREATE EXTERNAL TABLE typed (value string COMMENT 'AS SELECT') LOCATION 's3://bucket/AS' TBLPROPERTIES ('note'='AS')", "DDL"},
@@ -19,7 +19,7 @@ func TestStatementClassDistinguishesCTASFromDDLText(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tokens := statementTokens{sql: tc.sql}
 			first, _ := tokens.next()
-			if got := statementClass(first, &tokens); got != tc.want {
+			if got := statementClass(first); got != tc.want {
 				t.Fatalf("statement class = %q, want %q", got, tc.want)
 			}
 		})

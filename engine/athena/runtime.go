@@ -57,16 +57,17 @@ type Statistics struct {
 // Page is consumed before fetching its successor; result rows are never retained
 // by the runtime. A final page has no NextURI, even when Stats.State lags behind.
 type Page struct {
-	ID          string              `json:"id"`
-	NextURI     string              `json:"nextUri"`
-	Columns     []Column            `json:"columns"`
-	Data        [][]json.RawMessage `json:"data"`
-	Stats       Statistics          `json:"stats"`
-	Error       *QueryError         `json:"error"`
-	UpdateType  string              `json:"updateType"`
-	UpdateCount *int64              `json:"updateCount"`
-	HiveDDL     *HiveDDL            `json:"-"`
-	QueryType   string              `json:"-"`
+	ID            string              `json:"id"`
+	NextURI       string              `json:"nextUri"`
+	Columns       []Column            `json:"columns"`
+	Data          [][]json.RawMessage `json:"data"`
+	Stats         Statistics          `json:"stats"`
+	Error         *QueryError         `json:"error"`
+	UpdateType    string              `json:"updateType"`
+	UpdateCount   *int64              `json:"updateCount"`
+	HiveDDL       *HiveDDL            `json:"-"`
+	QueryType     string              `json:"-"`
+	OutputCatalog string              `json:"-"`
 }
 
 // QueryError is the native SQL failure, not a fabricated Athena success.

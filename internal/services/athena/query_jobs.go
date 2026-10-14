@@ -291,7 +291,21 @@ func (s *Service) executeQuery(request ExecutionRequest) {
 	if executionError == nil && v.BytesCutoff > 0 && result.DataScannedBytes > v.BytesCutoff {
 		executionError = &ExecutionFailure{Message: fmt.Sprintf("Query exceeded the workgroup data scan limit of %d bytes", v.BytesCutoff), Cancelled: true}
 	}
-	if executionError == nil && result.StatementType == "DDL" {
+	writer := result.SubstatementType == "CREATE_TABLE_AS_SELECT" || result.SubstatementType == "INSERT"
+	manifestLocation := ""
+	if writer {
+		configuration := api.CloneResultConfiguration(*v.Data.ResultConfiguration)
+		location := strings.TrimSuffix(value(configuration.OutputLocation), ".csv")
+		if result.SubstatementType == "CREATE_TABLE_AS_SELECT" {
+			location = strings.TrimSuffix(location, v.Key.Name) + "tables/" + v.Key.Name
+		}
+		configuration.OutputLocation = new(api.ResultOutputLocation(location))
+		v.Data.ResultConfiguration = &configuration
+		manifestLocation = location + "-manifest.csv"
+		if executionError == nil && result.Manifest == nil {
+			manifestLocation = ""
+		}
+	} else if executionError == nil && result.StatementType == "DDL" {
 		configuration := api.CloneResultConfiguration(*v.Data.ResultConfiguration)
 		configuration.OutputLocation = new(api.ResultOutputLocation(strings.TrimSuffix(value(configuration.OutputLocation), ".csv") + ".txt"))
 		v.Data.ResultConfiguration = &configuration
@@ -299,8 +313,15 @@ func (s *Service) executeQuery(request ExecutionRequest) {
 	if executionError == nil {
 		if s.results == nil {
 			executionError = errors.New("athena S3 results adapter is not configured")
-		} else if rejected := s.results.Write(ctx, v, result.CSV); rejected != nil {
-			executionError = rejected
+		} else if result.Manifest == nil {
+			if rejected := s.results.Write(ctx, v, result.CSV); rejected != nil {
+				executionError = rejected
+			}
+		}
+		if executionError == nil && result.Manifest != nil {
+			if rejected := s.results.Write(ctx, manifestQuery(v, manifestLocation), result.Manifest); rejected != nil {
+				executionError = rejected
+			}
 		}
 	}
 	if s.lifetime.Err() != nil {
@@ -319,6 +340,7 @@ func (s *Service) executeQuery(request ExecutionRequest) {
 		}
 		previous := queryState(current)
 		now := s.clock.Now()
+		current.Data.ResultConfiguration = v.Data.ResultConfiguration
 		if executionError != nil {
 			var classified *ExecutionFailure
 			if errors.As(executionError, &classified) && classified.Cancelled {
@@ -341,7 +363,6 @@ func (s *Service) executeQuery(request ExecutionRequest) {
 			current.Data.Status.CompletionDateTime = &now
 			current.Columns = result.Columns
 			current.UpdateCount = result.UpdateCount
-			current.Data.ResultConfiguration = v.Data.ResultConfiguration
 		}
 		if result.StatementType != "" {
 			current.Data.StatementType = new(api.StatementType(result.StatementType))
@@ -364,8 +385,8 @@ func (s *Service) executeQuery(request ExecutionRequest) {
 		totalMillis := max(now.Sub(*current.Data.Status.SubmissionDateTime).Milliseconds(), queueMillis+result.EngineMillis)
 		stats.TotalExecutionTimeInMillis = new(api.Long(totalMillis))
 		stats.ResultReuseInformation = &api.ResultReuseInformation{ReusedPreviousResult: new(api.Boolean(false))}
-		if result.ManifestLocation != "" {
-			stats.DataManifestLocation = new(api.String(result.ManifestLocation))
+		if manifestLocation != "" {
+			stats.DataManifestLocation = new(api.String(manifestLocation))
 		}
 		return s.putTransition(tx, current, previous)
 	})

@@ -448,7 +448,7 @@ func configuration(request Request, endpoint, token string) ([]byte, error) {
 			// silently enlarge that AWS contract.
 			properties += "hive.metastore=glue\ndelta.security=READ_ONLY\n"
 		default:
-			properties += "hive.metastore=glue\nhive.iceberg-catalog-name=" + redirectPrefix + "iceberg\nhive.delta-lake-catalog-name=" + redirectPrefix + "deltalake\n"
+			properties += "hive.metastore=glue\nhive.non-managed-table-writes-enabled=true\nhive.iceberg-catalog-name=" + redirectPrefix + "iceberg\nhive.delta-lake-catalog-name=" + redirectPrefix + "deltalake\n"
 		}
 		files["catalog/"+name+".properties"] = properties
 	}

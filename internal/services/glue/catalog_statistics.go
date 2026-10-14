@@ -92,6 +92,7 @@ func (s *Service) getColumnStatisticsForTable(ctx context.Context, tx Transactio
 	for _, column := range in.ColumnNames {
 		stats, err := tx.ColumnStatistics(ColumnStatisticsKey{TableKey: key, ColumnName: string(column)})
 		if errors.Is(err, ErrNotFound) {
+			out.Errors = append(out.Errors, api.ColumnError{ColumnName: new(api.NameString(column)), Error: &api.ErrorDetail{ErrorCode: new(api.NameString("EntityNotFoundException")), ErrorMessage: new(api.DescriptionString("Statistics do not exist for this column"))}})
 			continue
 		}
 		if err != nil {
@@ -107,8 +108,5 @@ func (s *Service) deleteColumnStatisticsForTable(ctx context.Context, tx Transac
 		return nil, err
 	}
 	stats := ColumnStatisticsKey{TableKey: key, ColumnName: value(in.ColumnName)}
-	if _, err := tx.ColumnStatistics(stats); err != nil {
-		return nil, err
-	}
 	return &api.DeleteColumnStatisticsForTableOutput{}, tx.DeleteColumnStatistics(stats)
 }

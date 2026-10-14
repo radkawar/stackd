@@ -3,6 +3,7 @@
 
 Use --native only for the bounded owned AWS run; --endpoint-url is an isolated
 local replay using explicit test credentials. Failed captures are never replaced.
+Use --manifest-only for tiny partitioned CTAS/INSERT calibration with no Glue job.
 """
 import json
 from pathlib import Path
@@ -31,8 +32,263 @@ TERMINAL_QUERY = {"SUCCEEDED", "FAILED", "CANCELLED"}
 TERMINAL_JOB = {"SUCCEEDED", "FAILED", "STOPPED", "TIMEOUT", "ERROR", "EXPIRED"}
 
 
+def manifest_probe(args):
+    """Calibrate native writer manifests; retain application mode unchanged."""
+    cap = Capture(args, "stackd-manifest-", REFERENCES + [
+        "https://docs.aws.amazon.com/athena/latest/ug/querying-ctas.html",
+        "https://docs.aws.amazon.com/athena/latest/ug/insert-into.html",
+        "https://docs.aws.amazon.com/athena/latest/APIReference/API_QueryExecutionStatistics.html",
+    ], {
+        "max_calls": 180, "wall_seconds": 600, "cli_timeout_seconds": 30,
+        "max_buckets": 1, "max_databases": 1, "max_tables": 1,
+        "max_workgroups": 1, "max_iam_roles": 1, "max_jobs": 0,
+        "max_query_submissions": 4, "query_bytes_scanned_cutoff": 10485760,
+        "query_poll_deadline_seconds": 90, "max_total_object_bytes": 1048576,
+        "max_manifest_pages": 8, "cost_usd_upper_estimate": 0.10,
+        "cost_basis": "Four tiny Athena queries capped at 10MiB scanned each; <1MiB S3 and bounded catalog/IAM requests. No Glue jobs, compute or customer KMS keys.",
+    })
+    bucket, db = cap.prefix, cap.prefix.replace("-", "_")
+    wg, role = cap.prefix + "-wg", cap.prefix + "-reader"
+    for value, replacement in ((db, "stackd_manifest_owned"), (wg, "stackd-manifest-owned-wg"),
+                               (role, "stackd-manifest-owned-reader")):
+        cap.name(value, replacement)
+    resources = {"bucket": False, "database": False, "workgroup": False, "role": False}
+    queries = []
+    temp = tempfile.TemporaryDirectory(prefix="stackd-manifest-capture-")
+    cap.name(temp.name, "OWNED_TEMP")
+
+    def call(label, service, operation, params, **kwargs):
+        return cap.request(label, service, operation, params, **kwargs)
+
+    def athena(label, operation, params, **kwargs):
+        return call(label, "athena", operation, params, **kwargs)
+
+    def get(label, location, environment=None):
+        object_bucket, key = location[5:].split("/", 1)
+        if object_bucket != bucket:
+            raise RuntimeError("Manifest points outside the owned bucket")
+        path = Path(temp.name) / (label + ".data")
+        response = call(label, "s3api", "get-object", {"Bucket": bucket, "Key": key},
+                        environment=environment, options=["--bucket", bucket, "--key", key, str(path)],
+                        cli_input=False)
+        if response["code"] == "Success":
+            body = path.read_bytes()
+            if len(body) > 1048576:
+                raise RuntimeError("Manifest object byte bound exceeded")
+            text = body.decode("utf-8")
+            cap.capture.setdefault("consumers", {})[label] = {
+                "body_utf8": text, "byte_count": len(body),
+                "normalized_byte_count": len(cap.normalize(text).encode("utf-8")),
+                "location": location}
+            cap.save()
+        return response
+
+    def query(label, sql):
+        token = cap.name(uuid.uuid4().hex, label.upper() + "_REQUEST_TOKEN")
+        response = require(athena("query-" + label, "start-query-execution", {
+            "QueryString": sql, "ClientRequestToken": token, "WorkGroup": wg,
+            "QueryExecutionContext": {"Database": db, "Catalog": "AwsDataCatalog"}}))
+        query_id = cap.name(response["QueryExecutionId"], label.upper() + "_QUERY_ID")
+        queries.append(query_id)
+        deadline, states = time.monotonic() + 90, []
+        while time.monotonic() < deadline:
+            execution = require(athena(label + "-poll-" + str(len(states)), "get-query-execution",
+                                       {"QueryExecutionId": query_id}))["QueryExecution"]
+            state = execution["Status"]["State"]
+            states.append(state)
+            if state in TERMINAL_QUERY:
+                cap.capture.setdefault("query_terminal", {})[label] = execution
+                cap.capture.setdefault("query_transitions", {})[label] = states
+                cap.save()
+                return query_id, execution
+            time.sleep(2)
+        raise RuntimeError("Manifest query polling deadline: " + label)
+
+    def results(label, query_id, kind, **kwargs):
+        return athena(label, "get-query-results",
+                      dict(QueryExecutionId=query_id, QueryResultType=kind, **kwargs))
+
+    def policy(deny=False):
+        statements = [
+            {"Effect": "Allow", "Action": ["athena:GetQueryExecution", "athena:GetQueryResults"],
+             "Resource": f"arn:aws:athena:us-east-1:{cap.account}:workgroup/{wg}"},
+            {"Effect": "Allow", "Action": ["s3:GetObject", "s3:ListBucket", "s3:GetBucketLocation"],
+             "Resource": [f"arn:aws:s3:::{bucket}", f"arn:aws:s3:::{bucket}/*"]},
+        ]
+        if deny:
+            statements.append({"Effect": "Deny", "Action": "s3:GetObject",
+                               "Resource": f"arn:aws:s3:::{bucket}/results/*"})
+        return json.dumps({"Version": "2012-10-17", "Statement": statements})
+
+    try:
+        cap.identity()
+        cap.capture["kind"] = "manifest"
+        cap.capture["owned_resources"] = {"bucket": bucket, "database": db, "table": "written",
+                                          "workgroup": wg, "reader_role": role}
+        cap.capture["uncertainty"] = [
+            "One account/region and Athena engine version 3; no general writer file ordering guarantee.",
+            "Current IAM policy propagation is observed, not assigned a contractual duration.",
+            "Native query history cannot be purged; all owned compute is terminal and resources deleted.",
+        ]
+        resources["bucket"] = True
+        require(call("create-bucket", "s3api", "create-bucket", {"Bucket": bucket}))
+        resources["database"] = True
+        require(call("create-database", "glue", "create-database", {"DatabaseInput": {"Name": db}}))
+        resources["workgroup"] = True
+        require(athena("create-workgroup", "create-work-group", {
+            "Name": wg, "Configuration": {
+                "EnforceWorkGroupConfiguration": False, "PublishCloudWatchMetricsEnabled": False,
+                "BytesScannedCutoffPerQuery": 10485760,
+                "ResultConfiguration": {"OutputLocation": f"s3://{bucket}/results/",
+                                        "EncryptionConfiguration": {"EncryptionOption": "SSE_S3"}},
+                "EngineVersion": {"SelectedEngineVersion": "Athena engine version 3"}}}))
+        sqls = {
+            "ctas": f"CREATE TABLE written WITH (format='PARQUET', external_location='s3://{bucket}/data/written/', partitioned_by=ARRAY['p']) AS SELECT * FROM (VALUES (1, 'a'), (2, 'b')) AS t(id,p)",
+            "insert": "INSERT INTO written VALUES (3, 'c'), (4, 'd')",
+        }
+        for label, sql in sqls.items():
+            query_id, execution = query(label, sql)
+            if execution["Status"]["State"] != "SUCCEEDED":
+                raise RuntimeError("Native manifest writer failed: " + label)
+            location = execution["Statistics"]["DataManifestLocation"]
+            require(get("consume-" + label + "-manifest", location))
+            results(label + "-manifest-full", query_id, "DATA_MANIFEST")
+            results(label + "-rows-full", query_id, "DATA_ROWS")
+            for boundary in (2, 3):
+                results(label + "-manifest-limit-" + str(boundary), query_id, "DATA_MANIFEST",
+                        MaxResults=boundary)
+            page = require(results(label + "-manifest-page-1", query_id, "DATA_MANIFEST", MaxResults=1))
+            manifest_token = page.get("NextToken")
+            for index in range(2, 9):
+                if not page.get("NextToken"):
+                    break
+                token = cap.name(page["NextToken"], label.upper() + "_MANIFEST_PAGE_" + str(index))
+                page = require(results(label + "-manifest-page-" + str(index), query_id, "DATA_MANIFEST",
+                                       MaxResults=1, NextToken=token))
+            if page.get("NextToken"):
+                raise RuntimeError("Manifest page bound exceeded")
+            if manifest_token:
+                results(label + "-manifest-token-as-rows", query_id, "DATA_ROWS",
+                        MaxResults=1, NextToken=manifest_token)
+            row_page = require(results(label + "-rows-page-1", query_id, "DATA_ROWS", MaxResults=1))
+            if row_page.get("NextToken"):
+                token = cap.name(row_page["NextToken"], label.upper() + "_ROWS_PAGE_2")
+                results(label + "-rows-page-2", query_id, "DATA_ROWS", MaxResults=1, NextToken=token)
+                results(label + "-rows-token-as-manifest", query_id, "DATA_MANIFEST",
+                        MaxResults=1, NextToken=token)
+        call("written-table", "glue", "get-table", {"DatabaseName": db, "Name": "written"})
+        call("written-partitions", "glue", "get-partitions", {"DatabaseName": db, "TableName": "written", "MaxResults": 10})
+        selected, execution = query("select", "SELECT id,p FROM written ORDER BY id")
+        if execution["Status"]["State"] != "SUCCEEDED":
+            raise RuntimeError("Native manifest data consumer failed")
+        results("select-rows", selected, "DATA_ROWS")
+        results("select-manifest", selected, "DATA_MANIFEST")
+        selected_page = require(results("select-rows-page-1", selected, "DATA_ROWS", MaxResults=1))
+        if selected_page.get("NextToken"):
+            token = cap.name(selected_page["NextToken"], "SELECT_ROWS_PAGE_2")
+            results("select-rows-page-2", selected, "DATA_ROWS", MaxResults=1, NextToken=token)
+            results("select-rows-token-as-manifest", selected, "DATA_MANIFEST", MaxResults=1, NextToken=token)
+            # Writers return no DATA_ROWS records/tokens natively. Retain both
+            # cross-query controls rather than inventing a writer rows token.
+            for writer in ("ctas", "insert"):
+                writer_id = cap.capture["query_terminal"][writer]["QueryExecutionId"]
+                label = writer + "-select-rows-token-as-manifest"
+                cross = results(label, writer_id, "DATA_MANIFEST", MaxResults=1, NextToken=token)
+                if cross["code"] == "Success":
+                    # Compute byte positions before owned-name normalization.
+                    # A partial URI no longer contains the full name to replace.
+                    raw_body = cap.capture["consumers"]["consume-" + writer + "-manifest"]["body_utf8"].encode()
+                    cap.capture.setdefault("manifest_body_byte_offsets", {})[label] = [
+                        [raw_body.find(cell["VarCharValue"].encode()) if "VarCharValue" in cell else None
+                         for cell in row["Data"]] for row in cross["output"]["ResultSet"]["Rows"]]
+                    cap.save()
+                results(writer + "-select-rows-token-as-rows", writer_id, "DATA_ROWS",
+                        MaxResults=1, NextToken=token)
+        failed, execution = query("failed", "INSERT INTO written SELECT missing_column, 'e' FROM written")
+        if execution["Status"]["State"] != "FAILED":
+            raise RuntimeError("Expected invalid-column INSERT to fail")
+        results("failed-manifest", failed, "DATA_MANIFEST")
+        results("failed-rows", failed, "DATA_ROWS")
+        trust = {"Version": "2012-10-17", "Statement": [{
+            "Effect": "Allow", "Principal": {"AWS": f"arn:aws:iam::{cap.account}:root"},
+            "Action": "sts:AssumeRole"}]}
+        resources["role"] = True
+        reader_role = require(call("create-reader-role", "iam", "create-role", {
+            "RoleName": role, "AssumeRolePolicyDocument": json.dumps(trust)}))["Role"]
+        cap.name(reader_role["RoleId"], "MANIFEST_READER_ROLE_ID")
+        require(call("reader-policy-allow", "iam", "put-role-policy", {
+            "RoleName": role, "PolicyName": "owned", "PolicyDocument": policy()}))
+        reader = cap.assume(reader_role["Arn"])
+        ctas_id = cap.capture["query_terminal"]["ctas"]["QueryExecutionId"]
+        ctas_location = cap.capture["query_terminal"]["ctas"]["Statistics"]["DataManifestLocation"]
+        for attempt in range(12):
+            allowed = get("reader-manifest-allow-poll-" + str(attempt), ctas_location, reader)
+            if allowed["code"] == "Success":
+                break
+            time.sleep(5 if args.native else 0)
+        require(allowed)
+        athena("reader-manifest-allowed", "get-query-results",
+               {"QueryExecutionId": ctas_id, "QueryResultType": "DATA_MANIFEST"}, environment=reader)
+        require(call("reader-policy-deny", "iam", "put-role-policy", {
+            "RoleName": role, "PolicyName": "owned", "PolicyDocument": policy(True)}))
+        for attempt in range(12):
+            denied = get("reader-manifest-deny-poll-" + str(attempt), ctas_location, reader)
+            if denied["code"] == "AccessDenied":
+                break
+            time.sleep(5 if args.native else 0)
+        if denied["code"] != "AccessDenied":
+            raise RuntimeError("Current S3 explicit denial was not observed")
+        athena("reader-manifest-current-s3-deny", "get-query-results",
+               {"QueryExecutionId": ctas_id, "QueryResultType": "DATA_MANIFEST"}, environment=reader)
+        cap.capture["completed"] = True
+    except Exception as error:
+        cap.capture["failure"] = {"type": type(error).__name__, "message": str(error)}
+        raise
+    finally:
+        cap.cleaning = True
+        remaining = []
+        for query_id in queries:
+            athena("cleanup-stop-query", "stop-query-execution", {"QueryExecutionId": query_id})
+            observed = athena("cleanup-query-state", "get-query-execution", {"QueryExecutionId": query_id})
+            if observed["code"] != "Success" or observed["output"]["QueryExecution"]["Status"]["State"] not in TERMINAL_QUERY:
+                remaining.append("query:" + query_id)
+        if resources["workgroup"]:
+            athena("cleanup-delete-workgroup", "delete-work-group", {"WorkGroup": wg, "RecursiveDeleteOption": True})
+            if athena("verify-workgroup-absent", "get-work-group", {"WorkGroup": wg})["code"] != "InvalidRequestException":
+                remaining.append(wg)
+        if resources["database"]:
+            call("cleanup-delete-table", "glue", "delete-table", {"DatabaseName": db, "Name": "written"})
+            if call("verify-table-absent", "glue", "get-table", {"DatabaseName": db, "Name": "written"})["code"] != "EntityNotFoundException":
+                remaining.append(db + ".written")
+            call("cleanup-delete-database", "glue", "delete-database", {"Name": db})
+            if call("verify-database-absent", "glue", "get-database", {"Name": db})["code"] != "EntityNotFoundException":
+                remaining.append(db)
+        if resources["bucket"]:
+            listing = call("cleanup-list-owned-objects", "s3api", "list-objects-v2", {"Bucket": bucket, "MaxKeys": 100})
+            if listing["code"] == "Success":
+                if listing["output"].get("IsTruncated"):
+                    remaining.append("unexpected-object-bound:" + bucket)
+                objects = listing["output"].get("Contents", [])
+                if sum(item["Size"] for item in objects) > 1048576:
+                    cap.capture["object_byte_bound_exceeded"] = True
+                for item in objects:
+                    call("cleanup-delete-object", "s3api", "delete-object", {"Bucket": bucket, "Key": item["Key"]})
+                call("cleanup-delete-bucket", "s3api", "delete-bucket", {"Bucket": bucket})
+            if call("verify-bucket-absent", "s3api", "head-bucket", {"Bucket": bucket})["code"] not in ("404", "NoSuchBucket", "NotFound"):
+                remaining.append(bucket)
+        if resources["role"]:
+            call("cleanup-delete-role-policy", "iam", "delete-role-policy", {"RoleName": role, "PolicyName": "owned"})
+            call("cleanup-delete-role", "iam", "delete-role", {"RoleName": role})
+            if call("verify-role-absent", "iam", "get-role", {"RoleName": role})["code"] != "NoSuchEntity":
+                remaining.append(role)
+        cap.finish(remaining)
+        temp.cleanup()
+
+
 def main():
-    args = arguments(__doc__)
+    args = arguments(__doc__, manifest_only=True)
+    if args.manifest_only:
+        return manifest_probe(args)
     cap = Capture(args, "stackd-analytics-", REFERENCES, {
         "max_calls": 260, "wall_seconds": 1200, "cli_timeout_seconds": 30,
         "max_buckets": 1, "max_total_object_bytes": 1048576, "max_iam_roles": 2,

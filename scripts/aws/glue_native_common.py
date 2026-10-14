@@ -23,12 +23,18 @@ SOURCES = {
 }
 
 
-def arguments(description, *, member_account=False):
+def arguments(description, *, member_account=False, manifest_only=False, statistics_only=False):
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--account", help="Required native AWS account; local replay uses 000000000000")
     if member_account:
         parser.add_argument("--member-account", help="Required native account for other-catalog reads")
+    if manifest_only:
+        parser.add_argument("--manifest-only", action="store_true",
+                            help="Bounded CTAS/INSERT manifest calibration without a Glue job")
+    if statistics_only:
+        parser.add_argument("--statistics-only", action="store_true",
+                            help="Bounded table column-statistics deletion calibration")
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument("--native", action="store_true")
     target.add_argument("--endpoint-url")
@@ -36,7 +42,7 @@ def arguments(description, *, member_account=False):
     if args.native and not args.account:
         parser.error("--native requires --account")
     if member_account:
-        if args.native and not args.member_account:
+        if args.native and not args.member_account and not getattr(args, "statistics_only", False):
             parser.error("--native requires --member-account")
         if args.endpoint_url and not args.member_account:
             args.member_account = "111111111111"

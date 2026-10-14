@@ -40,8 +40,10 @@ func (s *Service) authorizeWithConditions(ctx context.Context, r Reader, action 
 		action = "UpdatePartition"
 	case "GetColumnStatisticsForTable":
 		action = "GetTable"
-	case "UpdateColumnStatisticsForTable", "DeleteColumnStatisticsForTable":
+	case "UpdateColumnStatisticsForTable":
 		action = "UpdateTable"
+	case "DeleteColumnStatisticsForTable":
+		action = "DeleteTable"
 	}
 	request := authorization.Request{Action: "glue:" + action, ResourceARN: arn, ResourceAccountID: scope.AccountID, Context: conditions, EvaluationTime: &now}
 	p, err := r.ResourcePolicy(scope)
