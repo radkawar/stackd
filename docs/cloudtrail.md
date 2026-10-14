@@ -2580,6 +2580,51 @@ Get/Put/DeleteBucketEncryption use the generated REST XML contract and the nativ
 GetEncryptionConfiguration/PutEncryptionConfiguration IAM actions. Delete restores
 AES256, disabled Bucket Keys and blocked SSE-C.
 
+`UpdateObjectEncryption` performs an in-place SSE-S3 → SSE-KMS conversion or
+SSE-KMS customer-key change through the generated public SDK/REST operation.
+It wraps the existing SSE-S3 data key with KMS Encrypt, or uses KMS ReEncrypt
+for an existing KMS envelope. It never reads, copies or re-encrypts object
+payloads, generates a replacement data key, creates a version, or rewrites
+completed multipart parts. Version IDs, creation/history order, LastModified,
+ETag, checksums, storage class, metadata and archive/tiering state are preserved.
+An omitted version selects the current version; an explicit version changes
+only that retained version. Updates do not initiate live replication,
+object-created notifications, restores, or Intelligent-Tiering access signals.
+
+The destination must be a full, same-partition/Region/bucket-owner-account ARN
+for a customer-managed symmetric encryption key; IDs, aliases and AWS-managed
+destination keys are not accepted. There is no inferred cross-account
+Organizations approval. SigV4 and the generated operation's required XML
+request checksum are enforced. Only an SSE-KMS document is accepted; unknown or
+duplicate encryption members and non-boolean BucketKeyEnabled are rejected.
+Unencrypted, SSE-C and DSSE-KMS sources, SSE-S3/SSE-C/DSSE destinations, and any
+applied Object Lock retention mode or ON legal hold are ineligible. A governance
+bypass header does not bypass this restriction.
+
+S3 checks `s3:UpdateObjectEncryption`, ownership/version selection and current
+policy before KMS effects, then rechecks them in the publication transaction.
+The KMS-owned read-only fence checks current key policy, IAM/session/grant
+authority, key state and the actual envelope's retained key material in that
+same shared transaction. Destination Encrypt/GenerateDataKey/ReEncryptTo and
+source Decrypt/ReEncryptFrom (for an SSE-KMS source) authority are required,
+without performing invented crypto operations to check permissions. Failed
+or concurrently invalidated publication leaves the object unchanged; real
+KMS attempts outside the S3 transaction retain their independent outcomes.
+Safe object/version/destination identifiers reach CloudTrail data events and
+server access logs; payloads, plaintext keys and wrapped data keys do not.
+
+S3 Bucket Key cryptography remains unsupported: UpdateObjectEncryption with
+`BucketKeyEnabled: true` returns NotImplemented without modifying the object.
+Omitted or explicitly false BucketKeyEnabled uses an ordinary per-object KMS
+envelope, not fabricated bucket-key metadata. The consumer regression
+`integration/s3_update_encryption_test.go` covers version isolation, multipart
+and archive preservation, real key disable/access behavior, denial/nonmutation,
+cross-effect revalidation, delivered audit privacy and SQLite reopening.
+These are implementation regressions against the published contract, not
+additional native AWS captures. Primary contracts:
+[UpdateObjectEncryption](https://docs.aws.amazon.com/AmazonS3/latest/API/API_UpdateObjectEncryption.html)
+and [updating existing encryption](https://docs.aws.amazon.com/AmazonS3/latest/userguide/update-sse-encryption.html).
+
 KMS owns key policies, IAM/session restrictions, grants and key state. The shared
 service data-key adapter supplies regional `kms:ViaService` without replacing the
 caller. S3 resolves the bucket before calling KMS outside its repository callback,

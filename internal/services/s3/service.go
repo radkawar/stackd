@@ -111,6 +111,7 @@ func New(c Config) *Service {
 	register(s, "PutBucketNotificationConfiguration", s.putBucketNotificationConfiguration)
 	register(s, "PutObject", s.putObjectResponse)
 	register(s, "CopyObject", s.copyObject)
+	register(s, "UpdateObjectEncryption", s.updateObjectEncryption)
 	register(s, "CreateMultipartUpload", s.createMultipartUpload)
 	register(s, "UploadPart", s.uploadPart)
 	register(s, "UploadPartCopy", s.uploadPartCopy)
@@ -208,6 +209,9 @@ func (s *Service) RequestError(name string, err error) *awswire.Error {
 	}
 	var validation *awsapi.ValidationError
 	if errors.As(err, &validation) {
+		if name == "UpdateObjectEncryption" && validation.Constraint == "required" && (validation.Path == "ObjectEncryption" || validation.Path == "ObjectEncryption.SSEKMS.KMSKeyArn") {
+			return encryptionUpdateInvalid("An SSE-KMS update requires a full KMS key ARN.")
+		}
 		if name == "PutPublicAccessBlock" && validation.Path == "PublicAccessBlockConfiguration" && validation.Constraint == "required" {
 			return failure("MissingRequestBodyError", "Request Body is empty", 400)
 		}
@@ -320,7 +324,11 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		awswire.RESTXMLError(w, r, &model, wire)
 		return
 	}
-	if wire := customerTransportError(r); wire != nil {
+	transportError := encryptionUpdateTransportError(string(decoded.Operation.Name), r.Header)
+	if transportError == nil {
+		transportError = customerTransportError(r)
+	}
+	if wire := transportError; wire != nil {
 		if err := s.RecordRequestError(r.Context(), decoded, wire); err != nil {
 			wire = wireError(err)
 		}

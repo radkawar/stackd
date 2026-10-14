@@ -80,6 +80,7 @@ var eventClasses = map[string]eventClass{
 	"ListObjectVersions":                 {readOnly: true, data: true},
 	"PutObject":                          {data: true},
 	"CopyObject":                         {data: true},
+	"UpdateObjectEncryption":             {data: true},
 	"CreateMultipartUpload":              {data: true},
 	"UploadPart":                         {data: true},
 	"UploadPartCopy":                     {data: true},
@@ -133,6 +134,7 @@ var rejectedProjection = awsapi.DocumentProjection{Fields: map[string]awsapi.Fie
 	"LegalHold":                   {Mode: awsapi.OmitField},
 	"ObjectLockConfiguration":     {Mode: awsapi.OmitField},
 	"RestoreRequest":              {Mode: awsapi.OmitField},
+	"ObjectEncryption":            {Mode: awsapi.OmitField},
 }}
 
 // rejectedInput is bound for observation, never admitted for dispatch.
@@ -227,6 +229,9 @@ func (s *Service) RecordRequestError(ctx context.Context, decoded awsapi.Decoded
 			c.params["tagging"] = ""
 		case *api.PutBucketEncryptionInput:
 			bucketEncryptionParameters(c, in.ServerSideEncryptionConfiguration)
+		case *api.UpdateObjectEncryptionInput:
+			c.params["encryption"] = ""
+			objectEncryptionUpdateParameters(c, in)
 		case *api.GetBucketEncryptionInput, *api.DeleteBucketEncryptionInput:
 			c.params["encryption"] = ""
 		case *api.PutBucketCorsInput:

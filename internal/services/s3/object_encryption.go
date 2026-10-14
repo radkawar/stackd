@@ -12,11 +12,14 @@ import (
 )
 
 // EncryptionKeys performs envelope-key operations with the authenticated caller.
-// Calls occur outside S3 repository callbacks; KMS owns its transaction and audit.
+// Cryptographic calls occur outside S3 repository callbacks; the read-only
+// CheckDataKeyRewrap fence borrows the publishing transaction's authority.
 type EncryptionKeys interface {
 	GenerateDataKey(context.Context, string, map[string]string) ([]byte, []byte, string, *awswire.Error)
 	Encrypt(context.Context, string, []byte, map[string]string) ([]byte, string, *awswire.Error)
 	Decrypt(context.Context, []byte, map[string]string) ([]byte, string, *awswire.Error)
+	ReEncrypt(context.Context, []byte, string, map[string]string, map[string]string) ([]byte, *awswire.Error)
+	CheckDataKeyRewrap(context.Context, string, string, []byte, []byte, map[string]string, map[string]string) *awswire.Error
 	EnsureServiceKey(context.Context, string) (string, *awswire.Error)
 }
 

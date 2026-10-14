@@ -274,6 +274,9 @@ type Transaction interface {
 	ReplaceObjectACL(ObjectVersionKey, AccessControlList) error
 	ReplaceObjectRetention(ObjectVersionKey, ObjectRetention) error
 	ReplaceObjectLegalHold(ObjectVersionKey, string, time.Time) error
+	// ReplaceObjectEncryption updates only the selected version's envelope.
+	// Payloads, parts, version/order/sequence and all other metadata stay intact.
+	ReplaceObjectEncryption(ObjectVersionKey, string, string, []byte, map[string]string) error
 	PutObjectRestore(ObjectRestore) error
 	DeleteObjectRestore(ObjectVersionKey) error
 	// TransitionObject changes only storage class and notification sequence.

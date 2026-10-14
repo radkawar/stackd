@@ -169,6 +169,18 @@ WHERE partition = ? AND bucket_name = ? AND name = ? AND version_id = ?;
 UPDATE s3_object_versions SET legal_hold = ?, legal_hold_modified = ?
 WHERE partition = ? AND bucket_name = ? AND name = ? AND version_id = ?;
 
+-- name: ReplaceObjectVersionEncryption :execrows
+UPDATE s3_object_versions SET encryption_algorithm = ?, kms_key_arn = ?
+WHERE partition = ? AND bucket_name = ? AND name = ? AND version_id = ?;
+
+-- name: ReplaceObjectVersionEncryptionKey :execrows
+UPDATE s3_object_version_data SET encryption_key = ?
+WHERE partition = ? AND bucket_name = ? AND object_name = ? AND version_id = ?;
+
+-- name: DeleteObjectVersionEncryptionContext :exec
+DELETE FROM s3_object_version_encryption_context
+WHERE partition = ? AND bucket_name = ? AND object_name = ? AND version_id = ?;
+
 -- name: DeleteObjectVersion :exec
 DELETE FROM s3_object_versions WHERE partition = ? AND bucket_name = ? AND name = ? AND version_id = ?;
 

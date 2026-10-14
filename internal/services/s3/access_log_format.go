@@ -111,6 +111,8 @@ func accessLogOperation(action string) string {
 		return "REST.PUT.NOTIFICATION"
 	case "PutObject":
 		return "REST.PUT.OBJECT"
+	case "UpdateObjectEncryption":
+		return "REST.PUT.OBJECT_ENCRYPTION"
 	case "PutObjectTagging":
 		return "REST.PUT.OBJECT_TAGGING"
 	case "PutBucketOwnershipControls":

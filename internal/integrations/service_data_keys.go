@@ -15,6 +15,8 @@ type KMSDataKeys interface {
 	GenerateDataKey(context.Context, string, map[string]string) ([]byte, []byte, string, *awswire.Error)
 	Encrypt(context.Context, string, []byte, map[string]string) ([]byte, string, *awswire.Error)
 	Decrypt(context.Context, []byte, map[string]string) ([]byte, string, *awswire.Error)
+	ReEncrypt(context.Context, []byte, string, map[string]string, map[string]string) ([]byte, *awswire.Error)
+	CheckDataKeyRewrap(context.Context, string, string, []byte, []byte, map[string]string, map[string]string) *awswire.Error
 	EnsureServiceKey(context.Context, string) (string, *awswire.Error)
 	IsAWSManagedKey(context.Context, string) (bool, error)
 }
@@ -50,6 +52,19 @@ func (k ServiceDataKeys) Decrypt(ctx context.Context, cipher []byte, ec map[stri
 		return nil, "", err
 	}
 	return k.KMS.Decrypt(kms.WithViaService(ctx, k.Service), cipher, ec)
+}
+
+func (k ServiceDataKeys) ReEncrypt(ctx context.Context, cipher []byte, destination string, sourceContext, destinationContext map[string]string) ([]byte, *awswire.Error) {
+	if err := recordKMSActivity(ctx, k.Activity, "ReEncrypt"); err != nil {
+		return nil, err
+	}
+	return k.KMS.ReEncrypt(kms.WithViaService(ctx, k.Service), cipher, destination, sourceContext, destinationContext)
+}
+
+// CheckDataKeyRewrap joins the caller's transaction for a current-authority
+// fence. It is not another crypto operation or a fabricated KMS audit event.
+func (k ServiceDataKeys) CheckDataKeyRewrap(ctx context.Context, source, destination string, sourceCipher, destinationCipher []byte, sourceContext, destinationContext map[string]string) *awswire.Error {
+	return k.KMS.CheckDataKeyRewrap(kms.WithViaService(ctx, k.Service), source, destination, sourceCipher, destinationCipher, sourceContext, destinationContext)
 }
 
 func (k ServiceDataKeys) EnsureServiceKey(ctx context.Context, service string) (string, *awswire.Error) {

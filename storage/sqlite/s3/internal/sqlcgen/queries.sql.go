@@ -288,6 +288,28 @@ func (q *Queries) DeleteObjectVersionACLGrants(ctx context.Context, arg DeleteOb
 	return err
 }
 
+const deleteObjectVersionEncryptionContext = `-- name: DeleteObjectVersionEncryptionContext :exec
+DELETE FROM s3_object_version_encryption_context
+WHERE partition = ? AND bucket_name = ? AND object_name = ? AND version_id = ?
+`
+
+type DeleteObjectVersionEncryptionContextParams struct {
+	Partition  string
+	BucketName string
+	ObjectName string
+	VersionID  string
+}
+
+func (q *Queries) DeleteObjectVersionEncryptionContext(ctx context.Context, arg DeleteObjectVersionEncryptionContextParams) error {
+	_, err := q.db.ExecContext(ctx, deleteObjectVersionEncryptionContext,
+		arg.Partition,
+		arg.BucketName,
+		arg.ObjectName,
+		arg.VersionID,
+	)
+	return err
+}
+
 const getAccessPoint = `-- name: GetAccessPoint :one
 SELECT "partition", account_id, region, name, alias, bucket_partition, bucket_name, bucket_account_id, created, vpc_id, block_public_acls, ignore_public_acls, block_public_policy, restrict_public_buckets, policy_document, policy_trust, cloudformation_owner FROM s3_access_points WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
 `
@@ -3175,6 +3197,62 @@ func (q *Queries) ReplaceObjectVersionACLOwner(ctx context.Context, arg ReplaceO
 		arg.Partition,
 		arg.BucketName,
 		arg.Name,
+		arg.VersionID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const replaceObjectVersionEncryption = `-- name: ReplaceObjectVersionEncryption :execrows
+UPDATE s3_object_versions SET encryption_algorithm = ?, kms_key_arn = ?
+WHERE partition = ? AND bucket_name = ? AND name = ? AND version_id = ?
+`
+
+type ReplaceObjectVersionEncryptionParams struct {
+	EncryptionAlgorithm string
+	KmsKeyArn           string
+	Partition           string
+	BucketName          string
+	Name                string
+	VersionID           string
+}
+
+func (q *Queries) ReplaceObjectVersionEncryption(ctx context.Context, arg ReplaceObjectVersionEncryptionParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, replaceObjectVersionEncryption,
+		arg.EncryptionAlgorithm,
+		arg.KmsKeyArn,
+		arg.Partition,
+		arg.BucketName,
+		arg.Name,
+		arg.VersionID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const replaceObjectVersionEncryptionKey = `-- name: ReplaceObjectVersionEncryptionKey :execrows
+UPDATE s3_object_version_data SET encryption_key = ?
+WHERE partition = ? AND bucket_name = ? AND object_name = ? AND version_id = ?
+`
+
+type ReplaceObjectVersionEncryptionKeyParams struct {
+	EncryptionKey []byte
+	Partition     string
+	BucketName    string
+	ObjectName    string
+	VersionID     string
+}
+
+func (q *Queries) ReplaceObjectVersionEncryptionKey(ctx context.Context, arg ReplaceObjectVersionEncryptionKeyParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, replaceObjectVersionEncryptionKey,
+		arg.EncryptionKey,
+		arg.Partition,
+		arg.BucketName,
+		arg.ObjectName,
 		arg.VersionID,
 	)
 	if err != nil {

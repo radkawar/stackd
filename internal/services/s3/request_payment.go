@@ -130,6 +130,8 @@ func commandRequestPayer(input any) string {
 		return value(in.RequestPayer)
 	case *api.RestoreObjectInput:
 		return value(in.RequestPayer)
+	case *api.UpdateObjectEncryptionInput:
+		return value(in.RequestPayer)
 	case *api.UploadPartCopyInput:
 		return value(in.RequestPayer)
 	case *api.UploadPartInput:
@@ -184,6 +186,8 @@ func setCommandRequestCharged(output any) {
 	case *api.PutObjectRetentionOutput:
 		out.RequestCharged = new(api.RequestChargedRequester)
 	case *api.RestoreObjectOutput:
+		out.RequestCharged = new(api.RequestChargedRequester)
+	case *api.UpdateObjectEncryptionOutput:
 		out.RequestCharged = new(api.RequestChargedRequester)
 	case *api.UploadPartCopyOutput:
 		out.RequestCharged = new(api.RequestChargedRequester)
