@@ -5,6 +5,9 @@ These are executable, assertion-bearing examples, not claims of AWS parity:
 - [Terraform](terraform/README.md): init, apply, consume outputs, transfer real
   binary S3 bytes through an SQS message, read SSM, require a no-change plan,
   repeat apply, destroy, and verify resource absence.
+- [Terraform EIPs with AWS provider 6.68.0](../docs/ec2.md#run-the-current-provider-lifecycle):
+  allocate two EIPs, verify signed attribute pagination, refresh without drift,
+  destroy, and assert resource absence in a fresh owned controller.
 - [CloudFormation](cloudformation/README.md): create the same application, consume
   stack outputs, exercise its data plane, update SSM in place, reject an identical
   update as a no-op, delete the stack, and verify resource absence.
@@ -40,6 +43,7 @@ provider, image, state, or real credential belongs in this checkout.
 ```sh
 "$EXAMPLE_PYTHON" examples/terraform/run.py --port 14661
 "$EXAMPLE_PYTHON" examples/cloudformation/run.py --port 14662
+"$EXAMPLE_PYTHON" examples/terraform-eip/run.py --port 14664
 # Prepare the pinned Docker images before following the Lambda guide.
 ```
 
@@ -57,7 +61,7 @@ region `us-east-1`, disabled proxies, and no credential-chain fallback. The
 controller/Terraform subprocess environment drops inherited AWS credentials,
 endpoint overrides, Terraform arguments, and proxy settings. Terraform also
 uses a private CLI configuration, the local backend, and explicit endpoints for
-every provider service used here (IAM, STS, S3, SQS, SSM). There is no option to
+every provider service used here (EC2, IAM, STS, S3, SQS, SSM). There is no option to
 point these lifecycle runners at AWS or somebody else's running controller.
 
 This guards against accidental production provisioning; it is not an egress

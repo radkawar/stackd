@@ -27,7 +27,7 @@ keeps service-specific accounting and error semantics authoritative.
   service/execution owners; record the sampled boundaries and remaining work in
   [the consistency audit](docs/service-consistency.md). Correct inventory identity
   mismatches and include complete Signer/SSO/SSO OIDC prerequisite models.
-  The current inventory has 127 services, 8,207 modeled operations, 2,313
+  The current inventory has 127 services, 8,207 modeled operations, 2,314
   registered/partial operations and no registrations outside the selection.
 - [x] Use realistic 12-digit sandbox/member account identities without rewriting
   retained identities. Fresh stores generate a random ID unless the CLI supplies
@@ -36,6 +36,10 @@ keeps service-specific accounting and error semantics authoritative.
   Organization reservations are collision-checked and non-sequential. Signed
   memory/SQLite tests, targeted races and actual controller restart preserve
   account isolation, pending provisioning and member role identities.
+- [x] Implement EIP `DescribeAddressesAttribute` through the existing address owner.
+  SDK race checks cover current IAM, isolation, pagination and association state.
+  Terraform AWS 6.68.0 now completes allocation, refresh, no-change plans and destroy.
+  PTR mutation still requires real DNS validation and publication.
 - [x] Add seven REST method/integration/gateway response lifecycle operations with
   atomic JSON Pointer patches, native resource IAM and explicit response absence.
   Deployment snapshots retain method/integration responses; gateway responses

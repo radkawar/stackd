@@ -279,6 +279,9 @@ func selectPageItems(ctx context.Context, op string, ids []string, filters api.F
 	if op == "DescribeVpcEndpoints" {
 		kind = "vpc-endpoint"
 	}
+	if op == "DescribeAddressesAttribute" {
+		kind = "elastic-ip"
+	}
 	if op == "DescribeInstances" || op == "DescribeInstanceStatus" || op == "DescribeInstanceCreditSpecifications" {
 		kind = "instance"
 	}
@@ -308,6 +311,13 @@ func selectPageItems(ctx context.Context, op string, ids []string, filters api.F
 		}
 	}
 	encoded, _ := json.Marshal(selection)
+	if op == "DescribeAddressesAttribute" {
+		// Attribute currently has one admitted value. Bind continuations to
+		// the canonical allocation selection as well as the scope/operation.
+		allocationIDs := slices.Clone(ids)
+		slices.Sort(allocationIDs)
+		encoded, _ = json.Marshal(slices.Compact(allocationIDs))
+	}
 	digest := fmt.Sprintf("%x", sha256.Sum256(encoded))
 	cursor := pageToken{Scope: scopeFor(ctx), Operation: op, Selection: digest}
 	if str(token) != "" {

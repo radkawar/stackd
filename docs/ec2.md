@@ -12,6 +12,82 @@ Remaining operations are recognized through SDK Smithy-generated EC2 Query
 contracts and return explicit protocol errors.
 The generated [inventory](services.json) reports registration as partial.
 
+## Elastic IP attribute reads and Terraform
+
+`DescribeAddressesAttribute` reads the existing public-address owner; it does
+not introduce a second EIP catalog. The generated EC2 Query response contains
+`addressSet` entries with `allocationId` and `publicIp`. Newly allocated local
+EIPs have no custom reverse DNS, so `ptrRecord` and `ptrRecordUpdate` are absent.
+Automatic instance public addresses are not Elastic IP allocations and are
+excluded. Associated and unassociated EIPs use the same attribute read; reading
+does not alter association, private addressing or native forwarding.
+
+Current IAM checks `ec2:DescribeAddressesAttribute` on `*`, independently of
+`ec2:DescribeAddresses`; authorized DryRun returns `DryRunOperation` and denied
+DryRun returns `UnauthorizedOperation`. Reads are account/region scoped.
+Unknown allocation IDs return `InvalidAllocationID.NotFound`; malformed IDs,
+invalid attributes, page bounds and continuation tokens produce EC2 errors,
+not empty success. `Attribute` may be omitted or set to `domain-name`.
+`MaxResults` accepts 1–1000, including when allocation IDs are supplied.
+Pagination sorts allocation IDs and binds continuations to account, region,
+operation and the canonical allocation selection. These are deterministic local
+cursor rules, not claims about AWS token encoding. Existing SQLite allocations
+need no migration; no new mutable attribute state is claimed.
+
+The upstream Terraform AWS provider **v6.68.0** `aws_eip` lifecycle uses
+`AllocateAddress`, `DescribeAddresses`, and the
+`DescribeAddressesAttribute` paginator with `AllocationIds` and
+`Attribute=domain-name`, then `ReleaseAddress`. Associated EIPs additionally use
+`AssociateAddress`/`DisassociateAddress`; tag changes use `CreateTags`/`DeleteTags`.
+Its `ptr_record` is computed: ordinary `aws_eip` creation, refresh and destruction
+do not require `ModifyAddressAttribute` or `ResetAddressAttribute`.
+The separate `aws_eip_domain_name` resource does require these mutation APIs;
+they remain explicitly unsupported. Storing a hostname and reporting a
+successful PTR update would not publish reverse DNS or enforce AWS's
+forward-DNS and release-lock requirements.
+
+Primary contracts: [DescribeAddressesAttribute](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAddressesAttribute.html),
+[AddressAttribute](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AddressAttribute.html),
+[ModifyAddressAttribute](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyAddressAttribute.html),
+[ResetAddressAttribute](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ResetAddressAttribute.html)
+and [reverse DNS requirements](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Elastic_Addressing_Reverse_DNS.html).
+SDK tests cover modeled decode/errors, current IAM, isolation, pagination through
+SQLite reopen, provider-shaped selectors, association preservation and explicit
+PTR mutation rejection. They do not establish externally published reverse DNS.
+
+### Run the current-provider lifecycle
+
+Complete [shared example preparation](../examples/README.md#prepare-once), then:
+
+```sh
+"$EXAMPLE_PYTHON" examples/terraform-eip/run.py --port 14664
+```
+
+The focused [configuration](../examples/terraform-eip/main.tf) pins
+`hashicorp/aws = 6.68.0`, not an older provider. The
+[runner](../examples/terraform-eip/run.py) reuses the examples' fresh owned
+controller/SQLite state, fixture credentials, stripped subprocess environment
+and explicit loopback EC2/IAM/STS endpoints. It performs real `terraform init`,
+`apply`, a no-change `plan -refresh-only` and apply, a no-change ordinary plan,
+and `destroy`. Signed SDK calls compare both allocated EIPs with Terraform
+outputs, paginate attributes with page size one, and assert both APIs report
+the allocations missing after destroy; Terraform state must be empty.
+No Docker or EC2 guest image is needed for this allocation-only workflow.
+
+Provider installation is explicit online preparation: native `terraform init`
+verifies the publisher checksums and writes its lock into the owned run directory.
+For offline use, prepare a Terraform filesystem mirror containing AWS 6.68.0,
+then pass `--provider-mirror /absolute/path/to/mirror`; that mode has no direct
+download fallback. There is no development-provider override or downgraded shim.
+The runner retains its generated lock, outputs, state, SQLite database and
+controller log in the printed owned directory. Merely adding this runnable
+workflow is not evidence that the lifecycle has been exercised on your host.
+
+The Linux run on 2026-10-14 passed with Terraform 1.15.9 and AWS provider 6.68.0.
+It created two EIPs, checked SDK pagination, and completed both no-change plans.
+Destroy removed both allocations and left empty Terraform state. The controller
+stopped cleanly. This does not prove PTR publication or guest packet forwarding.
+
 ## Key pairs
 
 `CreateKeyPair`, `ImportKeyPair`, `DescribeKeyPairs` and `DeleteKeyPair` execute

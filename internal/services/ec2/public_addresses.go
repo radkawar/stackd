@@ -14,6 +14,7 @@ import (
 func registerPublicAddresses(s *Service) {
 	register(s, "AllocateAddress", s.allocateAddress)
 	register(s, "DescribeAddresses", s.describeAddresses)
+	register(s, "DescribeAddressesAttribute", s.describeAddressesAttribute)
 	register(s, "AssociateAddress", s.associateAddress)
 	register(s, "DisassociateAddress", s.disassociateAddress)
 	register(s, "ReleaseAddress", s.releaseAddress)
