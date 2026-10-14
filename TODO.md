@@ -357,6 +357,16 @@ items. Reconciled stale ECR/CodeBuild, GuardDuty, SQLite, Lambda and licensing
 bootstrap language against retained implementation/evidence; unclosed behavioral
 and calibration requirements remain visible below. Review is not execution proof.
 
+- [ ] Support Terraform for every service with an implemented stackd owner.
+  Inventory each provider resource and data source, including aliases and
+  cross-service dependencies. Exercise create, read, update, import where
+  supported, no-change refresh and destroy. Use actual engines, events, object
+  bytes and runtime calls for data-plane services. The pinned provider exposes
+  1,730 resource schemas and 685 data-source schemas across its full scope;
+  selected-but-unimplemented stackd services are not existing-owner coverage.
+  API registration, one resource per service and a green release job do not
+  complete this requirement. Keep unverified resource families visible.
+
 Next coherent slices after the account/deployment/distribution work:
 
 - Secure CloudFormation result-attribute consumption and identifier handling:
