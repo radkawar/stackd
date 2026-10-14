@@ -144,7 +144,7 @@ type relationalFenceCase struct {
 
 func relationalFenceCases() []relationalFenceCase {
 	return []relationalFenceCase{
-		{"rds", "AWS::RDS::DBInstance", "db", "DBInstanceIdentifier", "CreateDBInstance", cloudformation.Properties{"DBInstanceClass": "db.t3.micro", "Engine": "postgres", "MasterUsername": "owner", "MasterUserPassword": "test-password"}},
+		{"rds", "AWS::RDS::DBInstance", "db", "DBInstanceIdentifier", "CreateDBInstance", cloudformation.Properties{"DBInstanceClass": "db.t3.micro", "Engine": "postgres", "AllocatedStorage": 20, "MasterUsername": "owner", "MasterUserPassword": "test-password"}},
 		{"rds", "AWS::RDS::DBInstance", "db", "DBInstanceIdentifier", "CreateDBInstance", cloudformation.Properties{"DBInstanceClass": "db.t3.micro", "Engine": "aurora-postgresql", "DBClusterIdentifier": "dependency-cluster"}},
 		{"rds", "AWS::RDS::DBCluster", "cluster", "DBClusterIdentifier", "CreateDBCluster", cloudformation.Properties{"Engine": "aurora-postgresql", "MasterUsername": "owner", "MasterUserPassword": "test-password"}},
 		{"rds", "AWS::RDS::DBParameterGroup", "pg", "DBParameterGroupName", "CreateDBParameterGroup", cloudformation.Properties{"Family": "postgres17", "Description": "private owner", "Parameters": map[string]any{"statement_timeout": "1000"}}},

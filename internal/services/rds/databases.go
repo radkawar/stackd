@@ -84,10 +84,17 @@ func (s *Service) createInstance(ctx context.Context, tx Transaction, in *api.Cr
 	if value(in.DBClusterIdentifier) != "" {
 		return s.createWriter(ctx, tx, k, in)
 	}
+	if in.AllocatedStorage == nil {
+		return nil, failure("InvalidParameterValue", "AllocatedStorage is required for a standalone DB instance.")
+	}
+	if e = validateAllocatedStorage(int32(*in.AllocatedStorage)); e != nil {
+		return nil, e
+	}
 	v, e := s.newDatabase(ctx, tx, k, value(in.Engine), value(in.EngineVersion), value(in.DBName), value(in.MasterUsername), value(in.MasterUserPassword), value(in.DBInstanceClass), value(in.DBParameterGroupName), in.Tags, in.Port)
 	if e != nil {
 		return nil, e
 	}
+	v.AllocatedStorage = int32(*in.AllocatedStorage)
 	v.DeletionProtection = boolean(in.DeletionProtection)
 	v.CopyTags = boolean(in.CopyTagsToSnapshot)
 	if e = tx.PutDatabase(v); e != nil {
@@ -125,6 +132,9 @@ func (s *Service) createWriter(ctx context.Context, tx Transaction, k Key, in *a
 	c, e := s.loadDatabase(ctx, tx, "CreateDBInstance", "cluster", value(in.DBClusterIdentifier))
 	if e != nil {
 		return nil, e
+	}
+	if in.AllocatedStorage != nil {
+		return nil, unsupported("AllocatedStorage does not apply to Aurora writer instances.")
 	}
 	if c.Status != "creating" && c.Status != "available" {
 		return nil, stateError("cluster")
@@ -256,9 +266,32 @@ func (s *Service) modifyInstance(ctx context.Context, tx Transaction, in *api.Mo
 	if e := validateModifyDBInstanceMessage(in); e != nil {
 		return nil, e
 	}
+	var capacity int32
+	if in.AllocatedStorage != nil {
+		current, err := s.loadDatabase(ctx, tx, "ModifyDBInstance", "db", value(in.DBInstanceIdentifier))
+		if err != nil {
+			return nil, err
+		}
+		if current.Cluster != "" {
+			return nil, unsupported("AllocatedStorage does not apply to Aurora writer instances.")
+		}
+		capacity, err = modifiedAllocatedStorage(current.AllocatedStorage, int32(*in.AllocatedStorage))
+		if err != nil {
+			return nil, err
+		}
+		if capacity != current.AllocatedStorage && !boolean(in.ApplyImmediately) {
+			return nil, unsupported("Deferred AllocatedStorage changes require a maintenance scheduler; set ApplyImmediately.")
+		}
+	}
 	v, e := s.modifyDatabase(ctx, tx, "ModifyDBInstance", "db", value(in.DBInstanceIdentifier), in.MasterUserPassword, in.DeletionProtection, in.CopyTagsToSnapshot, in.DBParameterGroupName, in.ApplyImmediately)
 	if e != nil {
 		return nil, e
+	}
+	if in.AllocatedStorage != nil {
+		v.AllocatedStorage = capacity
+		if e = tx.PutDatabase(v); e != nil {
+			return nil, e
+		}
 	}
 	return &api.ModifyDBInstanceResult{DBInstance: new(instanceDTO(v))}, nil
 }

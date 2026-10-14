@@ -40,6 +40,13 @@ keeps service-specific accounting and error semantics authoritative.
   SDK race checks cover current IAM, isolation, pagination and association state.
   Terraform AWS 6.68.0 now completes allocation, refresh, no-change plans and destroy.
   PTR mutation still requires real DNS validation and publication.
+- [x] Admit required standalone RDS capacity and underscore usernames without
+  claiming physical cloud storage allocation. Terraform AWS 6.68.0 exercised
+  PostgreSQL and MySQL creation at 20 GiB, immediate growth to 30 GiB, no-change
+  refresh across controller restart and destroy. Native SQL proved commit,
+  rollback, retained rows and wrong-password rejection for `lindm_admin`.
+  TLS enforcement, encrypted storage, managed passwords, VPC packet controls
+  and automated backups remain unsupported; see [RDS boundaries](docs/rds.md).
 - [x] Add seven REST method/integration/gateway response lifecycle operations with
   atomic JSON Pointer patches, native resource IAM and explicit response absence.
   Deployment snapshots retain method/integration responses; gateway responses

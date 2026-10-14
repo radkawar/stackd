@@ -56,7 +56,7 @@ class ParametersApplication(Application):
                     self.instances.append(name)
                     writer = name
                     self.rds.create_db_instance(DBInstanceIdentifier=name, Engine=engine, DBInstanceClass="db.t3.small",
-                        DBName="appdb", MasterUsername="dbowner", MasterUserPassword=self.password, DBParameterGroupName=group)
+                        DBName="appdb", MasterUsername="dbowner", MasterUserPassword=self.password, DBParameterGroupName=group, AllocatedStorage=20)
                     row = self.wait_instance(name)
                 endpoint = row["Endpoint"]
                 target = {"name": name, "writer": writer, "engine": engine, "cluster": cluster, "group": group,

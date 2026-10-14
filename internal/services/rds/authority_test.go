@@ -34,7 +34,7 @@ func TestRejectedCredentialRequestDoesNotExposePasswordInAudit(t *testing.T) {
 	model, _ := awscatalog.LookupService("rds")
 	op, _ := model.Operation("CreateDBInstance")
 	secret := "master-secret-DO-NOT-RECORD"
-	in := &api.CreateDBInstanceMessage{DBInstanceIdentifier: new(api.String("owned")), Engine: new(api.String("postgres")), DBInstanceClass: new(api.String("db.t3.micro")), MasterUsername: new(api.String("owner")), MasterUserPassword: new(api.SensitiveString(secret))}
+	in := &api.CreateDBInstanceMessage{DBInstanceIdentifier: new(api.String("owned")), Engine: new(api.String("postgres")), DBInstanceClass: new(api.String("db.t3.micro")), MasterUsername: new(api.String("owner")), MasterUserPassword: new(api.SensitiveString(secret)), AllocatedStorage: new(api.IntegerOptional(20))}
 	ctx := awsctx.WithMetadata(t.Context(), awsctx.Metadata{Partition: "aws", AccountID: "111111111111", Region: "us-east-1"})
 	if e := s.RecordRequestError(ctx, awsapi.DecodedRequest{Operation: op, Input: in}, failure("InvalidParameterCombination", "Unsupported configuration.")); e != nil {
 		t.Fatal(e)

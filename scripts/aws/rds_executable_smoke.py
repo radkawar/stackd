@@ -126,7 +126,7 @@ class Application:
             name = self.prefix + "-" + engine
             self.instances.append(name)
             self.rds.create_db_instance(DBInstanceIdentifier=name, Engine=engine, DBInstanceClass="db.t3.small",
-                DBName="appdb", MasterUsername="dbowner", MasterUserPassword=self.password)
+                DBName="appdb", MasterUsername="dbowner", MasterUserPassword=self.password, AllocatedStorage=20)
             row = self.wait_instance(name)
             endpoint = row["Endpoint"]
             require(self.native(engine, endpoint, "CREATE TABLE durable (id INTEGER PRIMARY KEY); INSERT INTO durable VALUES (11); SELECT id FROM durable") == "11", "native committed row missing")

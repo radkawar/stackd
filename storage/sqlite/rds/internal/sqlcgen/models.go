@@ -38,6 +38,7 @@ type RdsDatabase struct {
 	OwnerStackID       string
 	OwnerLogicalID     string
 	OwnerToken         string
+	AllocatedStorage   int64
 }
 
 type RdsParameter struct {
@@ -66,27 +67,28 @@ type RdsParameterGroup struct {
 }
 
 type RdsSnapshot struct {
-	Partition       string
-	AccountID       string
-	Region          string
-	Kind            string
-	Name            string
-	Source          string
-	SourceRuntimeID string
-	RuntimeID       string
-	Engine          string
-	EngineVersion   string
-	DatabaseName    string
-	Username        string
-	Class           string
-	Status          string
-	Ciphertext      []byte
-	Version         int64
-	Created         int64
-	Due             int64
-	OwnerStackID    string
-	OwnerLogicalID  string
-	OwnerToken      string
+	Partition        string
+	AccountID        string
+	Region           string
+	Kind             string
+	Name             string
+	Source           string
+	SourceRuntimeID  string
+	RuntimeID        string
+	Engine           string
+	EngineVersion    string
+	DatabaseName     string
+	Username         string
+	Class            string
+	Status           string
+	Ciphertext       []byte
+	Version          int64
+	Created          int64
+	Due              int64
+	OwnerStackID     string
+	OwnerLogicalID   string
+	OwnerToken       string
+	AllocatedStorage int64
 }
 
 type RdsSubnet struct {

@@ -65,6 +65,7 @@ func TestParameterBatchRejectionDoesNotMutateAttachedState(t *testing.T) {
 		{ParameterName: new(api.String("max_connections")), ParameterValue: new(api.PotentiallySensitiveParameterValue("150")), ApplyMethod: new(api.ApplyMethod("immediate"))},
 		{ParameterName: new(api.String("listen_addresses")), ParameterValue: new(api.PotentiallySensitiveParameterValue("*")), ApplyMethod: new(api.ApplyMethod("immediate"))},
 		{ParameterName: new(api.String("statement_timeout")), ParameterValue: new(api.PotentiallySensitiveParameterValue("-1")), ApplyMethod: new(api.ApplyMethod("immediate"))},
+		{ParameterName: new(api.String("rds.force_ssl")), ParameterValue: new(api.PotentiallySensitiveParameterValue("1")), ApplyMethod: new(api.ApplyMethod("pending-reboot"))},
 	} {
 		t.Run(value(rejected.ParameterName)+value(rejected.ParameterValue), func(t *testing.T) {
 			now := time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC)

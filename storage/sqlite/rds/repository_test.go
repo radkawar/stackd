@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"net/url"
 	"path/filepath"
 	"testing"
 	"time"
@@ -165,7 +166,7 @@ func TestPrivateRelationalObserverAndMutationRecheckCurrentIAM(t *testing.T) {
 	if port, err := service.CloudFormationRequestedPort(ctx, key.Kind, key.Name); err != nil || port != 15432 {
 		t.Fatalf("authorized exact-incarnation observer: %d, %v", port, err)
 	}
-	request, err := rdsapi.DecodeRequest("ModifyDBInstance", awsapi.Request{JSON: []byte(`{"DBInstanceIdentifier":"private-owner","DeletionProtection":true}`)})
+	request, err := rdsapi.DecodeRequest("ModifyDBInstance", awsapi.Request{Query: url.Values{"DBInstanceIdentifier": {"private-owner"}, "DeletionProtection": {"true"}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +180,7 @@ func TestPrivateRelationalObserverAndMutationRecheckCurrentIAM(t *testing.T) {
 	if _, err := service.CloudFormationRequestedPort(ctx, key.Kind, key.Name); err == nil {
 		t.Fatal("private observer borrowed revoked IAM authority")
 	}
-	request, err = rdsapi.DecodeRequest("ModifyDBInstance", awsapi.Request{JSON: []byte(`{"DBInstanceIdentifier":"private-owner","DeletionProtection":false}`)})
+	request, err = rdsapi.DecodeRequest("ModifyDBInstance", awsapi.Request{Query: url.Values{"DBInstanceIdentifier": {"private-owner"}, "DeletionProtection": {"false"}}})
 	if err != nil {
 		t.Fatal(err)
 	}

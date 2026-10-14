@@ -42,7 +42,7 @@ secret_id="$(aws_local secretsmanager create-secret --name "$prefix" --kms-key-i
 write_template() {
   local reference="$1" copy_tags="$2"
   cat > "$work/template.json" <<EOF
-{"Resources":{"Database":{"Type":"AWS::RDS::DBInstance","DeletionPolicy":"Delete","UpdateReplacePolicy":"Delete","Properties":{"DBInstanceIdentifier":"$prefix","DBInstanceClass":"db.t3.small","Engine":"postgres","DBName":"appdb","MasterUsername":"dbuser","MasterUserPassword":"$reference","CopyTagsToSnapshot":$copy_tags}}}}
+{"Resources":{"Database":{"Type":"AWS::RDS::DBInstance","DeletionPolicy":"Delete","UpdateReplacePolicy":"Delete","Properties":{"DBInstanceIdentifier":"$prefix","DBInstanceClass":"db.t3.small","Engine":"postgres","AllocatedStorage":20,"DBName":"appdb","MasterUsername":"dbuser","MasterUserPassword":"$reference","CopyTagsToSnapshot":$copy_tags}}}}
 EOF
 }
 write_template "{{resolve:ssm-secure:$parameter_name:$parameter_version}}" false

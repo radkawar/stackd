@@ -62,6 +62,7 @@ func (s *Service) captureSnapshot(ctx context.Context, tx Transaction, kind, sou
 	}
 	snap := Snapshot{Key: k, Source: v.Key.Name, SourceRuntimeID: v.RuntimeID, RuntimeID: id, Engine: v.Engine, EngineVersion: v.EngineVersion, DatabaseName: v.DatabaseName, Username: user, Class: v.Class, Status: "creating", Ciphertext: sealed, Parameters: maps.Clone(v.Parameters), Tags: tagged, Version: 1, Created: s.clock.Now(), Due: s.clock.Now()}
 	snap.Owner = cloudFormationClaim(ctx, k)
+	snap.AllocatedStorage = v.AllocatedStorage
 	// Native backup briefly stops the source. Hide its endpoint before that effect,
 	// and keep the source blocked until actual restart/authentication succeeds.
 	v.Status = "backing-up"
@@ -85,6 +86,9 @@ func (s *Service) captureSnapshot(ctx context.Context, tx Transaction, kind, sou
 
 func snapshotDTO(v Snapshot) api.DBSnapshot {
 	out := api.DBSnapshot{DBSnapshotIdentifier: new(api.String(v.Key.Name)), DBSnapshotArn: new(api.String(v.Key.ARN())), DBInstanceIdentifier: new(api.String(v.Source)), DbiResourceId: new(api.String("db-" + v.SourceRuntimeID)), Engine: new(api.String(v.Engine)), EngineVersion: new(api.String(v.EngineVersion)), MasterUsername: new(api.String(v.Username)), Status: new(api.String(v.Status)), SnapshotType: new(api.String("manual")), SnapshotCreateTime: new(api.TStamp(v.Created)), Encrypted: new(api.Boolean(false)), TagList: tagList(v.Tags)}
+	if v.AllocatedStorage != 0 {
+		out.AllocatedStorage = new(api.Integer(v.AllocatedStorage))
+	}
 	if v.Status == "available" {
 		out.PercentProgress = new(api.Integer(100))
 	}
@@ -333,6 +337,7 @@ func (s *Service) restoreDatabase(ctx context.Context, tx Transaction, kind, nam
 	}
 	v := Database{Key: k, Engine: snap.Engine, EngineVersion: snap.EngineVersion, DatabaseName: snap.DatabaseName, Username: user, Class: class, ParameterGroup: group, RuntimeID: id, Status: "creating", Desired: "running", Operation: "restore", RestoreSnapshot: snap.RuntimeID, Ciphertext: sealed, Parameters: maps.Clone(snap.Parameters), Tags: tagged, Version: 1, Created: s.clock.Now(), Due: s.clock.Now()}
 	v.ResourceID, v.Owner = id, cloudFormationClaim(ctx, k)
+	v.AllocatedStorage = snap.AllocatedStorage
 	if group != "" {
 
 		v.Parameters, e = s.groupParameters(ctx, tx, kind, group, v.Engine)

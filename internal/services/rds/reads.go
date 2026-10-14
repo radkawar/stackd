@@ -83,7 +83,7 @@ func filterMatches(filters api.FilterList, values map[string]string) bool {
 }
 
 func (s *Service) describeInstances(ctx context.Context, tx Transaction, in *api.DescribeDBInstancesMessage) (*api.DBInstanceMessage, error) {
-	if e := validateFilters(in.Filters, "db-instance-id", "db-cluster-id", "engine"); e != nil {
+	if e := validateFilters(in.Filters, "db-instance-id", "dbi-resource-id", "db-cluster-id", "engine"); e != nil {
 		return nil, e
 	}
 	start, limit, e := pageStart(ctx, "DescribeDBInstances", in.Marker, in.MaxRecords)
@@ -113,7 +113,7 @@ func (s *Service) describeInstances(ctx context.Context, tx Transaction, in *api
 	last := ""
 	for _, v := range dbs {
 
-		if v.Key.Kind != "db" || v.Key.Name <= start || name != "" && v.Key.Name != name || !filterMatches(in.Filters, map[string]string{"db-instance-id": v.Key.Name, "db-cluster-id": v.Cluster, "engine": v.Engine}) {
+		if v.Key.Kind != "db" || v.Key.Name <= start || name != "" && v.Key.Name != name || !filterMatches(in.Filters, map[string]string{"db-instance-id": v.Key.Name, "dbi-resource-id": "db-" + v.ResourceID, "db-cluster-id": v.Cluster, "engine": v.Engine}) {
 			continue
 		}
 		if len(out.DBInstances) == limit {

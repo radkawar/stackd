@@ -35,11 +35,14 @@ type Database struct {
 	Ciphertext, PendingCiphertext                                        []byte
 	Endpoint                                                             engine.Endpoint
 	RequestedPort                                                        int32
-	Version                                                              int64
-	Created, Due                                                         time.Time
-	DeletionProtection, HTTPEnabled, CopyTags, PendingParameters         bool
-	Tags                                                                 map[string]string
-	Parameters                                                           map[string]string
+	// AllocatedStorage is requested GiB, not an enforced host-volume quota.
+	// Zero means no capacity request was made (including legacy databases).
+	AllocatedStorage                                             int32
+	Version                                                      int64
+	Created, Due                                                 time.Time
+	DeletionProtection, HTTPEnabled, CopyTags, PendingParameters bool
+	Tags                                                         map[string]string
+	Parameters                                                   map[string]string
 }
 
 type Snapshot struct {
@@ -47,6 +50,7 @@ type Snapshot struct {
 	Owner                                                                                            CloudFormationOwner
 	Source, SourceRuntimeID, RuntimeID, Engine, EngineVersion, DatabaseName, Username, Class, Status string
 	Ciphertext                                                                                       []byte
+	AllocatedStorage                                                                                 int32
 	Parameters, Tags                                                                                 map[string]string
 	Version                                                                                          int64
 	Created, Due                                                                                     time.Time

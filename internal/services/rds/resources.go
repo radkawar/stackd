@@ -188,7 +188,7 @@ func validateCredentials(engine, username, password string) error {
 		return failure("InvalidParameterValue", "Invalid master username.")
 	}
 	for _, c := range username {
-		if c > 127 || (!unicode.IsLetter(c) && !unicode.IsDigit(c)) {
+		if c > 127 || (!unicode.IsLetter(c) && !unicode.IsDigit(c) && c != '_') {
 			return failure("InvalidParameterValue", "Invalid master username.")
 		}
 	}
@@ -280,6 +280,9 @@ func (s *Service) CloudFormationRequestedPort(ctx context.Context, kind, name st
 
 func instanceDTO(v Database) api.DBInstance {
 	out := api.DBInstance{DBInstanceIdentifier: new(api.String(v.Key.Name)), DBInstanceArn: new(api.String(v.Key.ARN())), DbiResourceId: new(api.String("db-" + v.ResourceID)), DBInstanceClass: new(api.String(v.Class)), DBInstanceStatus: new(api.String(v.Status)), Engine: new(api.String(v.Engine)), EngineVersion: new(api.String(v.EngineVersion)), MasterUsername: new(api.String(v.Username)), InstanceCreateTime: new(api.TStamp(v.Created)), MultiAZ: new(api.Boolean(false)), StorageEncrypted: new(api.Boolean(false)), PubliclyAccessible: new(api.Boolean(false)), DeletionProtection: new(api.Boolean(v.DeletionProtection)), CopyTagsToSnapshot: new(api.Boolean(v.CopyTags)), BackupRetentionPeriod: new(api.Integer(0)), AutoMinorVersionUpgrade: new(api.Boolean(false)), IAMDatabaseAuthenticationEnabled: new(api.Boolean(false)), TagList: tagList(v.Tags)}
+	if v.AllocatedStorage != 0 {
+		out.AllocatedStorage = new(api.Integer(v.AllocatedStorage))
+	}
 	if v.DatabaseName != "" {
 		out.DBName = new(api.String(v.DatabaseName))
 	}

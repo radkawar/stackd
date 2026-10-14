@@ -113,6 +113,219 @@ into this durable configuration layout. Unattached local groups publish
 atomically. AWS's transient asynchronous cluster-group propagation and its
 pending-change reset rejection are not simulated with an invented delay.
 
+## Standalone Terraform capacity and username contract
+
+`AllocatedStorage=20` is admitted for native standalone PostgreSQL and MySQL,
+retained as typed requested GiB in SQLite, and returned by create/modify/describe.
+Fresh standalone creation requires an explicit capacity; missing/zero values fail.
+Manual snapshots preserve it and restores inherit it. Pre-migration databases
+retain unknown capacity. Explicit requests use general-purpose **20–65536 GiB** bounds in
+the [CreateDBInstance API](https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_CreateDBInstance.html).
+These bounds do not enable magnetic/provisioned-IOPS storage profiles.
+
+This is **control-plane capacity metadata, not capacity enforcement**. Native
+bytes reside in an ordinary, independently owned Docker volume on the daemon
+host's filesystem. No requested GiB are reserved, quota-limited, preallocated or
+resized, and no synthetic free-space/capacity metric proves otherwise. The host's
+actual filesystem space and native SQL errors remain the physical boundary.
+`StorageType`, positive IOPS, throughput, autoscaling and encryption requests still
+fail explicitly; zero IOPS means no provisioned-IOPS request. It is accepted because
+the pinned provider sends `Iops=0` when growing an instance without a storage profile.
+
+Immediate capacity increases preserve the endpoint/process and committed SQL.
+Shrinking is rejected; increases below ten percent are rounded up (integer GiB),
+as described by [ModifyDBInstance](https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_ModifyDBInstance.html).
+Identical capacity is a no-op. A rounded increase exceeding the upper bound fails.
+Deferred growth is explicitly rejected: there is no real maintenance-window
+scheduler here. Set `apply_immediately=true`; the service does not pretend that a
+deferred request has already been applied. Capacity survives controller and engine
+restart. Aurora capacity requests remain unsupported.
+
+`lindm_admin` is preserved verbatim and admitted for both supported engines.
+The current [API reference](https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_CreateDBInstance.html)
+and [instance settings guide](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_CreateDBInstance.Settings.html)
+describe 1–16 ASCII letters/digits/underscores with a leading letter. That is the
+local admission bound. AWS documentation is inconsistent: the
+[CloudFormation DBInstance reference](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-rds-dbinstance.html#cfn-rds-dbinstance-masterusername)
+and older SDK descriptions give PostgreSQL a 63-character maximum. The supplied
+successful native AWS PostgreSQL deployment proves underscore admission, **not**
+every engine/version length boundary or complete reserved-word parity. PostgreSQL
+password lengths remain 8–128; MySQL remains 8–41 (with the existing forbidden
+characters retained).
+
+### Provider v6.68.0 call path
+
+The cloned provider (`c9b83d813022cdd05fc955480b07e269c6e18023`) was read directly,
+not downgraded or replaced. `internal/service/rds/instance.go`:
+
+- Standalone create requires nonzero `allocated_storage` before calling
+  `CreateDBInstance`; it sends capacity, username and explicit disabled controls.
+- Creation, refresh and update waiters use `DescribeDBInstances` with
+  `dbi-resource-id` after retaining `DbiResourceId`. This filter now matches the
+  immutable resource identity within the current account/region, not the mutable
+  public name. Flattening reads `AllocatedStorage` and `MasterUsername`.
+- Capacity updates send `ModifyDBInstance` plus `ApplyImmediately`, and may send
+  zero IOPS when the storage profile is absent. The local service retains the
+  rounded capacity and accepts the genuinely disabled IOPS value.
+- Destroy calls `DeleteDBInstance`, optionally creates a real final offline
+  snapshot, then polls describe until absence. The recipe skips the final
+  snapshot so exact-owned engine and data-volume deletion are sufficient.
+
+### Runnable Terraform and psql proof
+
+Use a fresh owned SQLite path and the native CLI/images above. Install Terraform,
+provider **6.68.0** and host `psql`; the MySQL client below uses the installed pin.
+Save this as `main.tf` in an empty proof directory (the fixture password and Terraform state
+are local-only; this is not a production security configuration):
+
+```hcl
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "= 6.68.0"
+    }
+  }
+}
+provider "aws" {
+  region                      = "us-east-1"
+  access_key                  = "test"
+  secret_key                  = "test"
+  skip_credentials_validation = true
+  skip_metadata_api_check     = true
+  skip_requesting_account_id  = true
+  endpoints {
+    rds = "http://127.0.0.1:4566"
+    iam = "http://127.0.0.1:4566"
+    sts = "http://127.0.0.1:4566"
+  }
+}
+variable "capacity" {
+  type    = number
+  default = 20
+}
+resource "aws_db_instance" "proof" {
+  for_each = { postgres = "17.11", mysql = "8.4.11" }
+
+  identifier                 = "owned-capacity-proof-${each.key}"
+  engine                     = each.key
+  engine_version             = each.value
+  instance_class             = "db.t3.micro"
+  allocated_storage          = var.capacity
+  username                   = "lindm_admin"
+  password                   = "local-proof-password"
+  db_name                    = "proof"
+  apply_immediately          = true
+  auto_minor_version_upgrade = false
+  backup_retention_period    = 0
+  storage_encrypted          = false
+  publicly_accessible        = false
+  skip_final_snapshot        = true
+}
+output "postgres_host" { value = aws_db_instance.proof["postgres"].address }
+output "postgres_port" { value = aws_db_instance.proof["postgres"].port }
+output "mysql_host" { value = aws_db_instance.proof["mysql"].address }
+output "mysql_port" { value = aws_db_instance.proof["mysql"].port }
+output "capacity" {
+  value = { for name, db in aws_db_instance.proof : name => db.allocated_storage }
+}
+```
+
+```sh
+terraform init
+terraform apply -auto-approve
+export PGPASSWORD=local-proof-password
+psql "host=$(terraform output -raw postgres_host) port=$(terraform output -raw postgres_port) user=lindm_admin dbname=proof sslmode=disable" \
+  -v ON_ERROR_STOP=1 <<'SQL'
+SELECT current_user, current_setting('server_version');
+CREATE TABLE capacity_proof (id integer PRIMARY KEY, note text NOT NULL);
+BEGIN;
+INSERT INTO capacity_proof VALUES (1, 'committed');
+COMMIT;
+BEGIN;
+INSERT INTO capacity_proof VALUES (2, 'rolled back');
+ROLLBACK;
+SELECT * FROM capacity_proof;
+SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid();
+SQL
+MYSQL_PWD=local-proof-password docker run --rm --network host --env MYSQL_PWD \
+  mysql@sha256:0744ee5ef89ce6ccfa13de3e579fe6b9e27f93dd70da9c06d2c908b1b193fb8d \
+  mysql --protocol=TCP --ssl-mode=DISABLED --get-server-public-key \
+  --host="$(terraform output -raw mysql_host)" \
+  --port="$(terraform output -raw mysql_port)" --user=lindm_admin proof \
+  --execute="SELECT CURRENT_USER(), VERSION(); CREATE TABLE capacity_proof (id INTEGER PRIMARY KEY); START TRANSACTION; INSERT INTO capacity_proof VALUES (1); COMMIT; START TRANSACTION; INSERT INTO capacity_proof VALUES (2); ROLLBACK; SELECT * FROM capacity_proof;"
+terraform apply -auto-approve -var=capacity=30
+terraform plan -detailed-exitcode -var=capacity=30
+```
+
+Also repeat a `SELECT 1` with each native client using
+`PGPASSWORD=wrong-proof-password` or `MYSQL_PWD=wrong-proof-password`.
+Require PostgreSQL's `password authentication failed` or MySQL's
+`Access denied for user`, not merely a connection error. Both initial SQL
+queries must show only the committed row, not the rolled-back row.
+MySQL's [`--get-server-public-key`](https://dev.mysql.com/doc/refman/8.4/en/connection-options.html#option_general_get-server-public-key)
+allows the pinned `caching_sha2_password` plugin's full RSA password exchange over
+this trusted loopback connection. Without it, a wrong password can fail earlier
+with error 2061 (`Authentication requires secure connection`) rather than the
+intended 1045 authentication rejection. This is not TLS or verified server identity.
+
+Stop and restart only this owned controller using the same CLI flags, SQLite path
+and Docker namespace, then repeat `terraform plan -detailed-exitcode -var=capacity=30` and query the
+committed row through the refreshed outputs. Finish with
+`terraform destroy -auto-approve -var=capacity=30`; do not prune shared Docker
+resources. Both detailed-exitcode plans must exit **0** (`No changes`).
+SQL proves real authentication/commit/rollback/durable bytes; Terraform proves
+retained requested capacity, not physical capacity allocation.
+
+**Executed local acceptance, 2026-10-14:** Terraform **1.15.9** and AWS provider
+**6.68.0** ran this two-engine standalone lifecycle against an owned CLI at
+`127.0.0.1:14669` with fresh SQLite state. Provider initialization used the existing
+local 6.68.0 mirror and its checksum lock; offline init reported the mirror as
+`unauthenticated`, rather than performing a new registry-signature verification.
+Apply added both instances with capacity **20** and username `lindm_admin`.
+Native `psql` and the pinned MySQL client reported **17.11** and **8.4.11**,
+committed row 1 and rolled back row 2. Both engines rejected the wrong password.
+The initial MySQL negative check hit error 2061; after the documented public-key
+client option was added, it produced the required native **1045** denial.
+
+The growth apply changed both instances to **30**. Refresh/no-op plans before and
+after controller restart exited **0**, descriptions retained capacity/username,
+and the original endpoints and committed rows survived. Destroy removed both
+instances; exact namespace `stackd-rds-cc570d1ed657a3540c9716fa` had no containers
+or volumes afterward. All three owned controller exits were **0**; no other
+controller was restarted. Commands, stdout/stderr, provider request/response logs,
+controller logs and observations are retained under
+`.stackd/rds-provider-proof/`, with `report.json`, `main.tf` and the focused
+`run.py`/`--resume` runner. No native AWS calls were used. PostgreSQL reported
+`pg_stat_ssl=false`; this remains local SQL/capacity-metadata evidence, not TLS,
+storage quota enforcement or production RDS security evidence.
+
+### Production security controls are still blocked
+
+`rds.force_ssl=1` remains rejected. It is an RDS-specific parameter, not an
+upstream PostgreSQL GUC. Accepting `password_encryption=scram-sha-256` only changes
+password hashing; it does not require encrypted connections. The native runtime
+has no server certificate/key/CA provisioning, hostname validation or rotation
+owner; its PostgreSQL internal connector explicitly uses `sslmode=disable`.
+The supplied local `pg_stat_ssl=false` observation is ground truth, not production
+TLS evidence. Real enforcement needs native `ssl=on`, owned certificate/key mounts,
+`hostssl`/`hostnossl` admission in `pg_hba.conf` (including existing-volume upgrade),
+TLS-aware readiness/Data API connectors, trusted endpoint identities, rotation
+and negative plaintext/positive verified-TLS tests. MySQL's upstream TLS features
+likewise do not establish managed RDS certificate lifecycle or enforced policy.
+
+The other report controls remain explicit rejection, not silent metadata:
+
+- `StorageEncrypted=true` needs an actual encrypted data/snapshot volume owner,
+  key lifecycle and verified at-rest bytes; KMS bootstrap-password sealing is not it.
+- `ManageMasterUserPassword=true` needs real Secrets Manager/KMS secret ownership,
+  generated native credentials and fenced rotation/recovery of the SQL password.
+- VPC/security groups need real placement/routing and EC2-owned packet enforcement
+  on the database listener; host loopback publication is not a VPC association.
+- Positive backup retention needs scheduled genuine backups, retention deletion,
+  recoverable engine logs/PITR and restore verification; manual offline snapshots
+  do not supply automated-backup semantics.
+
 ## Snapshots are genuine offline backups
 
 Snapshots cleanly stop the engine and copy its complete native directory into an
@@ -278,8 +491,8 @@ the two installed pinned images and an empty owned state directory. It does not
 use ambient AWS credentials.
 
 Unsupported cloud capabilities remain explicit errors: Aurora distributed
-storage/readers/failover/global databases/serverless scaling, Multi-AZ, managed
-storage allocation/IOPS/autoscaling/encryption, engine upgrades, VPC/security-group
+storage/readers/failover/global databases/serverless scaling, Multi-AZ,
+managed physical storage allocation/IOPS/autoscaling/encryption, engine upgrades, VPC/security-group
 packet enforcement, TLS certificate lifecycle, IAM database authentication,
 managed-secret rotation, automated backups/PITR/export and the remaining RDS
 operations. Upstream PostgreSQL/MySQL is a real local SQL data plane, **not the
@@ -291,6 +504,8 @@ included in this workstream.
 - `internal/services/rds/service.go`: remaining cloud topology, managed
   storage/networking, automated backup, maintenance, replication, IAM database
   authentication, managed password rotation and proxy owners.
+- `internal/services/rds/storage.go`: actual quota/resize and maintenance-window
+  owners are prerequisites for physical capacity and deferred growth.
 - `internal/services/rds/parameters.go`, `changeParameters`: independently
   visible native cluster-group propagation is not modeled; no invented delay.
 

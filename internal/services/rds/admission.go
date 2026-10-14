@@ -8,9 +8,6 @@ func validateCreateDBInstanceMessage(in *api.CreateDBInstanceMessage) error {
 	if len(in.AdditionalStorageVolumes) != 0 {
 		return unsupported("AdditionalStorageVolumes is not supported by the native RDS runtime.")
 	}
-	if in.AllocatedStorage != nil {
-		return unsupported("AllocatedStorage is not supported by the native RDS runtime.")
-	}
 	if boolean(in.AutoMinorVersionUpgrade) {
 		return unsupported("AutoMinorVersionUpgrade is not supported by the native RDS runtime.")
 	}
@@ -80,7 +77,7 @@ func validateCreateDBInstanceMessage(in *api.CreateDBInstanceMessage) error {
 	if in.EngineLifecycleSupport != nil {
 		return unsupported("EngineLifecycleSupport is not supported by the native RDS runtime.")
 	}
-	if in.Iops != nil {
+	if in.Iops != nil && *in.Iops != 0 {
 		return unsupported("Iops is not supported by the native RDS runtime.")
 	}
 	if in.KmsKeyId != nil {
@@ -319,9 +316,6 @@ func validateModifyDBInstanceMessage(in *api.ModifyDBInstanceMessage) error {
 	if len(in.AdditionalStorageVolumes) != 0 {
 		return unsupported("AdditionalStorageVolumes is not supported by the native RDS runtime.")
 	}
-	if in.AllocatedStorage != nil {
-		return unsupported("AllocatedStorage is not supported by the native RDS runtime.")
-	}
 	if in.AllowMajorVersionUpgrade != nil {
 		return unsupported("AllowMajorVersionUpgrade is not supported by the native RDS runtime.")
 	}
@@ -403,7 +397,7 @@ func validateModifyDBInstanceMessage(in *api.ModifyDBInstanceMessage) error {
 	if in.EngineVersion != nil {
 		return unsupported("EngineVersion is not supported by the native RDS runtime.")
 	}
-	if in.Iops != nil {
+	if in.Iops != nil && *in.Iops != 0 {
 		return unsupported("Iops is not supported by the native RDS runtime.")
 	}
 	if in.LicenseModel != nil {
