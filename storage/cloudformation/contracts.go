@@ -7,20 +7,21 @@ import (
 )
 
 type (
-	Repository      = domain.Repository
-	Reader          = domain.Reader
-	Transaction     = domain.Transaction
-	Scope           = domain.Scope
-	Properties      = domain.Properties
-	StackRecord     = domain.StackRecord
-	ResourceRecord  = domain.ResourceRecord
-	EventRecord     = domain.EventRecord
-	StepRecord      = domain.StepRecord
-	OperationRecord = domain.OperationRecord
-	ChangeRecord    = domain.ChangeRecord
-	ChangeSetRecord = domain.ChangeSetRecord
-	ExportRecord    = domain.ExportRecord
-	OutputValue     = domain.OutputValue
+	Repository          = domain.Repository
+	Reader              = domain.Reader
+	Transaction         = domain.Transaction
+	Scope               = domain.Scope
+	Properties          = domain.Properties
+	StackRecord         = domain.StackRecord
+	ResourceRecord      = domain.ResourceRecord
+	DynamicReferencePin = domain.DynamicReferencePin
+	EventRecord         = domain.EventRecord
+	StepRecord          = domain.StepRecord
+	OperationRecord     = domain.OperationRecord
+	ChangeRecord        = domain.ChangeRecord
+	ChangeSetRecord     = domain.ChangeSetRecord
+	ExportRecord        = domain.ExportRecord
+	OutputValue         = domain.OutputValue
 )
 
 var ErrNotFound = domain.ErrNotFound

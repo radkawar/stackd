@@ -38,6 +38,22 @@ type ParameterVersionSource interface {
 	ResolveParameterVersion(context.Context, string) (string, int64, error)
 }
 
+// SecureParameterVersionSource reads and decrypts through the SSM owner under
+// current caller authority. Selectors are parameter names with optional versions.
+type SecureParameterVersionSource interface {
+	ResolveSecureParameterVersion(context.Context, string) (string, int64, error)
+}
+
+// SecretVersionSource reads and decrypts a SecretString through its native owner.
+// Replay uses VersionID, not the possibly moved staging label in the template.
+type SecretVersionSource interface {
+	ResolveSecretVersion(context.Context, SecretVersionSelector) (string, string, error)
+}
+
+type SecretVersionSelector struct {
+	SecretID, VersionStage, VersionID string
+}
+
 // AvailabilityZoneSource borrows EC2's account-scoped inventory and default
 // subnet filtering under the caller's current authority.
 type AvailabilityZoneSource interface {
@@ -53,6 +69,7 @@ type Config struct {
 	Recorder          apievents.Recorder
 	Templates         TemplateSource
 	Parameters        ParameterSource
+	Secrets           SecretVersionSource
 	AvailabilityZones AvailabilityZoneSource
 }
 
@@ -65,6 +82,7 @@ type Service struct {
 	recorder          apievents.Recorder
 	templates         TemplateSource
 	parameters        ParameterSource
+	secrets           SecretVersionSource
 	availabilityZones AvailabilityZoneSource
 	jobs              *scheduler.Driver
 	operations        map[string]func(context.Context) (any, *awswire.Error)
@@ -82,6 +100,7 @@ func New(c Config) *Service {
 	}
 	s := &Service{repository: c.Repository, authorizer: c.Authorizer, clock: c.Clock, handlers: maps.Clone(c.Handlers), roles: c.Roles, recorder: c.Recorder, operations: map[string]func(context.Context) (any, *awswire.Error){}}
 	s.templates, s.parameters = c.Templates, c.Parameters
+	s.secrets = c.Secrets
 	s.availabilityZones = c.AvailabilityZones
 	s.jobs = scheduler.New(c.Clock, deploymentJobs{s})
 	s.registerStacks()
@@ -98,6 +117,9 @@ func (s *Service) SetHandlers(v map[string]ResourceHandler) { s.handlers = maps.
 func (s *Service) SetTemplateSources(templates TemplateSource, parameters ParameterSource) {
 	s.templates, s.parameters = templates, parameters
 }
+
+// SetSecretSource completes explicit assembly before accepting requests.
+func (s *Service) SetSecretSource(source SecretVersionSource) { s.secrets = source }
 func (s *Service) SetAvailabilityZoneSource(source AvailabilityZoneSource) {
 	s.availabilityZones = source
 }

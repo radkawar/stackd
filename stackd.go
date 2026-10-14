@@ -949,6 +949,7 @@ func New(config Config) (stack *Stack, err error) {
 	pipesDiagnostics.Commands = workflowTasks.Commands
 	cloudformationHandlers := integrations.CloudFormationHandlers(workflowTasks.Commands, kafkaService)
 	cloudformationService.SetTemplateSources(integrations.CloudFormationTemplateSource{S3: s3Service}, integrations.CloudFormationParameterSource{Commands: workflowTasks.Commands})
+	cloudformationService.SetSecretSource(integrations.CloudFormationSecretSource{Commands: workflowTasks.Commands})
 	cloudformationService.SetAvailabilityZoneSource(ec2Service)
 	cloudcontrolService.SetHandlers(cloudformationHandlers)
 	cloudformationService.SetHandlers(cloudformationHandlers)

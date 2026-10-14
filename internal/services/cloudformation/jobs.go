@@ -39,7 +39,7 @@ func (s *Service) resourceEvent(tx Transaction, stack *StackRecord, op Operation
 	v.Status = status
 	v.StatusReason = reason
 	v.Updated = s.clock.Now()
-	if e := tx.PutResource(v); e != nil {
+	if e := tx.PutResource(publishedDynamicResource(v)); e != nil {
 		return e
 	}
 	properties := v.EventProperties
@@ -54,7 +54,7 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 	var op OperationRecord
 	var stack StackRecord
 	var step StepRecord
-	var execute, finalize, beforeCleanup, planning, resolving bool
+	var execute, finalize, beforeCleanup, planning, resolving, rollbackResolving bool
 	// Resolve the retained caller's current execution authority before opening a
 	// state transaction. Intrinsic owner reads and native effects use the same
 	// authority; role assumption must not run inside the shared transaction.
@@ -117,6 +117,7 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 						continue
 					}
 					op.Phase = "DONE"
+					forgetOperationSecretVersions(&op)
 					op.Reason = "Delete canceled. " + e.Error()
 					if e = s.stackEvent(tx, &stack, op.Token, event.Status, op.Reason); e != nil {
 						return e
@@ -156,9 +157,11 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 				step.Restore.Generation = max(step.Before.Generation, step.After.Generation) + 1
 				step.Restore.Token = uuid.NewString()
 				step.Restore.PhysicalID, step.Restore.Ref, step.Restore.Attributes = "", "", nil
+				step.Restore.RedactedAttributes = nil
 				step.Restore.Current = false
 			}
 			op.Steps[op.Cursor] = step
+			rollbackResolving = needsRollbackSecretResolution(&step)
 			execute = true
 			return tx.PutOperation(op)
 		}
@@ -198,6 +201,22 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 				step.After.Properties = props
 				step.After.EventProperties = t.eventProperties(step.LogicalID, evaluation, props)
 				if hasDynamicReferences(props) || hasDynamicReferences(step.Before.Properties) {
+					// AWS compares literal references; rotating the source alone
+					// must not refresh an otherwise unchanged resource.
+					if step.Before.PhysicalID != "" && step.Before.Type == step.After.Type && reflect.DeepEqual(props, step.Before.Properties) && maps.Equal(op.Tags, stack.Tags) {
+						step.After.DynamicReferences = step.Before.DynamicReferences
+						if e = resolveStepAction(&step, false); e != nil {
+							return e
+						}
+						step.State = "SKIPPED"
+						op.Steps[op.Cursor] = step
+						op.Cursor++
+						op.Revision++
+						if e = tx.PutResource(publishedDynamicResource(step.After)); e != nil {
+							return e
+						}
+						return tx.PutOperation(op)
+					}
 					step.State = "RESOLVING"
 					op.Steps[op.Cursor] = step
 					op.Revision++
@@ -249,7 +268,7 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 					op.Steps[op.Cursor] = step
 					op.Cursor++
 					op.Revision++
-					if e = tx.PutResource(step.After); e != nil {
+					if e = tx.PutResource(publishedDynamicResource(step.After)); e != nil {
 						return e
 					}
 					return tx.PutOperation(op)
@@ -329,6 +348,9 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 	if resolving {
 		return s.resolveDynamicIntent(ctx, commandCtx, stack, op, step, err)
 	}
+	if rollbackResolving {
+		return s.resolveRollbackSecretIntent(ctx, commandCtx, stack, op, step, err)
+	}
 	if finalize {
 		return s.finalizeDefinition(ctx, commandCtx, stack, op, beforeCleanup, err)
 	}
@@ -390,6 +412,7 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 			step.After.PhysicalID = result.PhysicalID
 			step.After.Ref = result.Ref
 			step.After.Attributes = result.Attributes
+			step.After.RedactedAttributes = result.RedactedAttributes
 		}
 		if err != nil {
 			if op.Phase == "CLEANUP" {
@@ -453,7 +476,7 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 					v.Status = "UPDATE_IN_PROGRESS"
 				}
 				v.Updated = s.clock.Now()
-				if e = tx.PutResource(v); e != nil {
+				if e = tx.PutResource(publishedDynamicResource(v)); e != nil {
 					return e
 				}
 			}
@@ -479,7 +502,7 @@ func (s *Service) runDeployment(ctx context.Context, job scheduler.Job) error {
 			if step.BeforeDeleted {
 				before.Status, before.StatusReason = "DELETE_COMPLETE", "Deleted before replacement"
 			}
-			if e = tx.PutResource(before); e != nil {
+			if e = tx.PutResource(publishedDynamicResource(before)); e != nil {
 				return e
 			}
 			if !step.BeforeDeleted {
@@ -585,7 +608,7 @@ func (s *Service) planReplacement(ctx, commandCtx context.Context, stack StackRe
 		if step.Action == "UPDATE" && reflect.DeepEqual(step.After.Properties, step.Before.Properties) && maps.Equal(op.Tags, stack.Tags) {
 			step.State = "SKIPPED"
 			op.Cursor++
-			if err = tx.PutResource(step.After); err != nil {
+			if err = tx.PutResource(publishedDynamicResource(step.After)); err != nil {
 				return err
 			}
 		}
@@ -652,7 +675,7 @@ func (s *Service) executeStep(ctx context.Context, stack StackRecord, op Operati
 		}
 	}
 	if step.State == "STABILIZING" {
-		result := ResourceResult{PhysicalID: v.PhysicalID, Ref: v.Ref, Attributes: v.Attributes}
+		result := ResourceResult{PhysicalID: v.PhysicalID, Ref: v.Ref, Attributes: v.Attributes, RedactedAttributes: v.RedactedAttributes}
 		if deleting {
 			if waiter, ok := h.(ResourceDeletionStabilizer); ok {
 				ready, e := waiter.StabilizeDeletion(ctx, request)
@@ -662,6 +685,10 @@ func (s *Service) executeStep(ctx context.Context, stack StackRecord, op Operati
 			ready, e := waiter.Stabilize(ctx, request)
 			if e == nil && ready {
 				result, e = stabilizedResourceResult(ctx, h, request, result)
+			}
+			result, safetyErr := protectDynamicResult(result, secrets, v.Properties, step.Before.Properties)
+			if e == nil {
+				e = safetyErr
 			}
 			return result, !ready, redactDynamicError(e, secrets)
 		}
@@ -680,6 +707,10 @@ func (s *Service) executeStep(ctx context.Context, stack StackRecord, op Operati
 		err = fmt.Errorf("invalid retained deployment action %q", step.Action)
 	}
 	err = redactDynamicError(err, secrets)
+	result, safetyErr := protectDynamicResult(result, secrets, v.Properties, step.Before.Properties)
+	if err == nil {
+		err = safetyErr
+	}
 	if err == nil && (step.Action == "CREATE" || step.Action == "REPLACE") && result.PhysicalID == "" {
 		err = invalid("Resource creation did not return a physical identity")
 	}
@@ -706,10 +737,34 @@ func stabilizedResourceResult(ctx context.Context, handler ResourceHandler, requ
 	if result.PhysicalID != request.PhysicalID {
 		return previous, fmt.Errorf("stabilized resource changed physical identity from %q to %q", request.PhysicalID, result.PhysicalID)
 	}
+	// A late owner read must not replace an already protected projection with
+	// plaintext or lose its consumption guard. No source read is needed here.
+	if len(previous.RedactedAttributes) > 0 {
+		result.Attributes = maps.Clone(result.Attributes)
+		if result.Attributes == nil {
+			result.Attributes = make(map[string]any)
+		}
+		result.RedactedAttributes = maps.Clone(result.RedactedAttributes)
+		if result.RedactedAttributes == nil {
+			result.RedactedAttributes = make(map[string]bool)
+		}
+		for name, marked := range previous.RedactedAttributes {
+			if marked {
+				result.Attributes[name] = previous.Attributes[name]
+				result.RedactedAttributes[name] = true
+			}
+		}
+	}
 	return result, nil
 }
 func (s *Service) startRollback(tx Transaction, stack *StackRecord, op *OperationRecord, reason string) error {
 	op.Reason = reason
+	// Forward selections can fence replay of this operation's admitted effects,
+	// but rollback must first select the old template's Secrets Manager selector.
+	for i := range op.Steps {
+		op.Steps[i].Before.DynamicReferences = withoutSecretVersionPins(op.Steps[i].Before.DynamicReferences)
+		op.Steps[i].Restore.DynamicReferences = withoutSecretVersionPins(op.Steps[i].Restore.DynamicReferences)
+	}
 	op.Phase = "ROLLBACK"
 	if op.Cursor >= len(op.Steps) {
 		op.Cursor = len(op.Steps) - 1
@@ -747,6 +802,7 @@ func (s *Service) failResourceAdmission(tx Transaction, stack *StackRecord, op *
 func (s *Service) failOperation(tx Transaction, stack *StackRecord, op *OperationRecord, cause error) error {
 	if op.Kind == "DELETE" || op.DisableRollback {
 		op.Phase = "DONE"
+		forgetOperationSecretVersions(op)
 		op.Reason = cause.Error()
 		if e := s.stackEvent(tx, stack, op.Token, op.Kind+"_FAILED", cause.Error()); e != nil {
 			return e
@@ -763,7 +819,7 @@ func (s *Service) failOperation(tx Transaction, stack *StackRecord, op *Operatio
 }
 func (s *Service) undoStep(ctx context.Context, stack StackRecord, op OperationRecord, step *StepRecord) (ResourceResult, bool, error) {
 	before, after := step.Before, step.After
-	result := ResourceResult{PhysicalID: before.PhysicalID, Ref: before.Ref, Attributes: before.Attributes}
+	result := ResourceResult{PhysicalID: before.PhysicalID, Ref: before.Ref, Attributes: before.Attributes, RedactedAttributes: before.RedactedAttributes}
 	if step.BeforeDeleteStarted && !step.BeforeDeleted {
 		h := s.handlers[before.Type]
 		reader, ok := h.(ResourceReader)
@@ -868,9 +924,17 @@ func (s *Service) undoStep(ctx context.Context, stack StackRecord, op OperationR
 			if err == nil && ready {
 				result, err = stabilizedResourceResult(ctx, h, request, result)
 			}
+			result, safetyErr := protectDynamicResult(result, secrets, before.Properties, after.Properties)
+			if err == nil {
+				err = safetyErr
+			}
 			return result, !ready, redactDynamicError(err, secrets)
 		}
 		result, err := h.Update(ctx, request)
+		result, safetyErr := protectDynamicResult(result, secrets, before.Properties, after.Properties)
+		if err == nil {
+			err = safetyErr
+		}
 		return result, asynchronous && err == nil, redactDynamicError(err, secrets)
 	}
 	return result, false, nil
@@ -915,6 +979,10 @@ func (s *Service) recoverCreation(ctx context.Context, stack StackRecord, op Ope
 		result, err = h.Create(ctx, request)
 	}
 	err = redactDynamicError(err, secrets)
+	result, safetyErr := protectDynamicResult(result, secrets, step.After.Properties)
+	if err == nil {
+		err = safetyErr
+	}
 	if result.PhysicalID == "" {
 		if err == nil {
 			err = invalid("Resource creation recovery did not return a physical identity")
@@ -944,7 +1012,7 @@ func (s *Service) undoDeletedReplacement(ctx context.Context, stack StackRecord,
 		if resolveErr != nil {
 			return ResourceResult{}, false, resolveErr
 		}
-		result := ResourceResult{PhysicalID: step.Restore.PhysicalID, Ref: step.Restore.Ref, Attributes: step.Restore.Attributes}
+		result := ResourceResult{PhysicalID: step.Restore.PhysicalID, Ref: step.Restore.Ref, Attributes: step.Restore.Attributes, RedactedAttributes: step.Restore.RedactedAttributes}
 		var err error
 		if step.State == "RESTORE_STABILIZING" {
 			waiter, ok := h.(ResourceStabilizer)
@@ -953,7 +1021,7 @@ func (s *Service) undoDeletedReplacement(ctx context.Context, stack StackRecord,
 			}
 			ready, stabilizeErr := waiter.Stabilize(ctx, request)
 			if stabilizeErr != nil || !ready {
-				return result, !ready, stabilizeErr
+				return result, !ready, redactDynamicError(stabilizeErr, secrets)
 			}
 			result, err = stabilizedResourceResult(ctx, h, request, result)
 		} else {
@@ -963,8 +1031,13 @@ func (s *Service) undoDeletedReplacement(ctx context.Context, stack StackRecord,
 			}
 		}
 		err = redactDynamicError(err, secrets)
+		result, safetyErr := protectDynamicResult(result, secrets, step.Restore.Properties)
+		if err == nil {
+			err = safetyErr
+		}
 		if result.PhysicalID != "" {
 			step.Restore.PhysicalID, step.Restore.Ref, step.Restore.Attributes = result.PhysicalID, result.Ref, result.Attributes
+			step.Restore.RedactedAttributes = result.RedactedAttributes
 		}
 		if err != nil {
 			return result, false, err
@@ -1007,6 +1080,7 @@ func (s *Service) undoDeletedReplacement(ctx context.Context, stack StackRecord,
 func (s *Service) recordUndo(tx Transaction, stack *StackRecord, op *OperationRecord, step StepRecord, result ResourceResult, pending bool, cause error) error {
 	if (step.State == "RECOVERING" || step.State == "FAILED_CREATE_RECOVERING") && result.PhysicalID != "" {
 		step.After.PhysicalID, step.After.Ref, step.After.Attributes = result.PhysicalID, result.Ref, result.Attributes
+		step.After.RedactedAttributes = result.RedactedAttributes
 		step.State = "RECOVERED"
 		if cause != nil && step.Error == "" {
 			step.Error = cause.Error()
@@ -1032,6 +1106,7 @@ func (s *Service) recordUndo(tx Transaction, stack *StackRecord, op *OperationRe
 			step.State = "UNDO_STABILIZING"
 			if result.PhysicalID != "" {
 				step.Before.PhysicalID, step.Before.Ref, step.Before.Attributes = result.PhysicalID, result.Ref, result.Attributes
+				step.Before.RedactedAttributes = result.RedactedAttributes
 			}
 		}
 		op.Steps[op.Cursor] = step
@@ -1066,7 +1141,7 @@ func (s *Service) recordUndo(tx Transaction, stack *StackRecord, op *OperationRe
 			v.StatusReason = "Resource creation cancelled before admission"
 		}
 		v.Updated = s.clock.Now()
-		if err := tx.PutResource(v); err != nil {
+		if err := tx.PutResource(publishedDynamicResource(v)); err != nil {
 			return err
 		}
 	}
@@ -1078,6 +1153,7 @@ func (s *Service) recordUndo(tx Transaction, stack *StackRecord, op *OperationRe
 		v.Current = true
 		if result.PhysicalID != "" {
 			v.PhysicalID, v.Ref, v.Attributes = result.PhysicalID, result.Ref, result.Attributes
+			v.RedactedAttributes = result.RedactedAttributes
 		}
 		if e := s.resourceEvent(tx, stack, *op, v, "UPDATE_COMPLETE", ""); e != nil {
 			return e
@@ -1096,6 +1172,7 @@ func (s *Service) recordUndo(tx Transaction, stack *StackRecord, op *OperationRe
 
 func (s *Service) failRollback(tx Transaction, stack *StackRecord, op *OperationRecord, cause error) error {
 	op.Phase, op.Reason = "DONE", cause.Error()
+	forgetOperationSecretVersions(op)
 	status := "UPDATE_ROLLBACK_FAILED"
 	if op.Kind == "CREATE" {
 		status = "ROLLBACK_FAILED"
@@ -1113,6 +1190,7 @@ func (s *Service) failRollback(tx Transaction, stack *StackRecord, op *Operation
 }
 func (s *Service) finishRollback(tx Transaction, stack *StackRecord, op *OperationRecord) error {
 	op.Phase = "DONE"
+	forgetOperationSecretVersions(op)
 	status := "UPDATE_ROLLBACK_COMPLETE"
 	if op.Kind == "CREATE" {
 		status = "ROLLBACK_COMPLETE"
@@ -1206,6 +1284,7 @@ func (s *Service) complete(tx Transaction, stack *StackRecord, op *OperationReco
 		}
 	}
 	op.Phase = "DONE"
+	forgetOperationSecretVersions(op)
 	if e := s.stackEvent(tx, stack, op.Token, op.Kind+"_COMPLETE", op.Reason); e != nil {
 		return e
 	}

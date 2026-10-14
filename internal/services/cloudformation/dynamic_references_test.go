@@ -79,7 +79,7 @@ func TestDynamicSSMOperationPinsVersionWithoutPlaintextPersistence(t *testing.T)
 		t.Fatalf("read-only evaluation fetched or replaced SSM: %#v %v %v", props, err, source.calls)
 	}
 	op = lifecycleRun(t, s, repository, op.ID)
-	if op.Steps[0].After.DynamicReferences["{{resolve:ssm:/guard/subnet}}"] != 1 || op.Steps[0].State != "PENDING" || len(owner.calls) != 0 {
+	if op.Steps[0].After.DynamicReferences["{{resolve:ssm:/guard/subnet}}"] != (DynamicReferencePin{Service: "ssm", ParameterVersion: 1}) || op.Steps[0].State != "PENDING" || len(owner.calls) != 0 {
 		t.Fatalf("resolution did not retain a selector before the effect: %+v calls=%v", op.Steps[0], owner.calls)
 	}
 	source.put(ctx, "/guard/subnet", "subnet-selected-second")
@@ -115,7 +115,7 @@ func TestDynamicSSMOperationPinsVersionWithoutPlaintextPersistence(t *testing.T)
 		t.Fatal(err)
 	}
 	resolved, pins, _, err := s.resolveDynamicProperties(ctx, props, nil)
-	if err != nil || resolved["SubnetId"] != "subnet-selected-second" || pins["{{resolve:ssm:/guard/subnet}}"] != 2 {
+	if err != nil || resolved["SubnetId"] != "subnet-selected-second" || pins["{{resolve:ssm:/guard/subnet}}"] != (DynamicReferencePin{Service: "ssm", ParameterVersion: 2}) {
 		t.Fatalf("new operation did not select latest: %#v %v %v", resolved, pins, err)
 	}
 }

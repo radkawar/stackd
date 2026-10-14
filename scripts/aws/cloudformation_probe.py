@@ -8,21 +8,34 @@ Executed change sets retained by AWS are identified as immutable deleted-stack
 history, never reported absent. --export-update-only and --subscription-only
 extend existing evidence; --schemas-only records 16 public registry schemas
 without resource effects and resumes an interrupted partial schema capture.
+--secure-dynamic-references opts into one managed-key public secret, one standard
+SecureString and free owned CFN resources. Password-use proof uses only an owned
+IAM user's self-change permission; passwords/keys are never persisted. Native:
+env -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_SESSION_TOKEN -u AWS_SECURITY_TOKEN AWS_PROFILE=default AWS_IGNORE_CONFIGURED_ENDPOINT_URLS=true AWS_EC2_METADATA_DISABLED=true PYTHONPATH=scripts/aws python3 -B -P scripts/aws/cloudformation_probe.py --account ACCOUNT_ID --secure-dynamic-references --trail-rounds 1 --output .stackd/probes/cloudformation/secure-references.json
+--endpoint permits loopback-only secure-scenario replay with separate test
+credentials. Resume deletion with --cleanup-only and the exact capture/account.
+--secure-reference-focus rollback or ssm-login keeps optional calibration narrow.
+Live probing is not required for release; local replay is separately labeled.
 """
 import argparse
 import copy
+import hashlib
 import json
 import os
 from pathlib import Path
 import signal
 import time
 import uuid
+from urllib.parse import urlparse
 
 import boto3
 from botocore.config import Config
 
 from cloudtrail_events import CollectionError, collect_history
 from cloudtrail_service_probe import REGION, Probe, document, now
+from cloudformation_secure_references import (
+    cleanup_before_stacks, cleanup_direct, secure_references,
+)
 
 
 REFERENCES = [
@@ -44,11 +57,19 @@ class CloudFormationProbe(Probe):
     def __init__(self, args):
         self.args = args
         self.account = args.account
-        self.session = boto3.Session(region_name=REGION)
+        self.sensitive_values = []
+        if args.endpoint:
+            if urlparse(args.endpoint).hostname not in ("localhost", "127.0.0.1", "::1"):
+                raise RuntimeError("Local secure-reference replay requires a loopback endpoint")
+            if not (args.secure_dynamic_references or args.cleanup_only or args.audit_only):
+                raise RuntimeError("--endpoint is limited to secure-reference replay and cleanup")
+            self.session = boto3.Session(aws_access_key_id="test", aws_secret_access_key="test", region_name=REGION)
+        else:
+            self.session = boto3.Session(region_name=REGION)
         config = Config(retries={"total_max_attempts": 1}, connect_timeout=5,
                         read_timeout=30, ignore_configured_endpoint_urls=True)
-        self.clients = {name: self.session.client(name, config=config) for name in
-                        ("sts", "cloudformation", "sqs", "sns", "iam", "s3", "cloudtrail")}
+        self.clients = {name: self.session.client(name, config=config, endpoint_url=args.endpoint) for name in
+                        ("sts", "cloudformation", "sqs", "sns", "iam", "s3", "cloudtrail", "ssm", "secretsmanager")}
         identity = self.clients["sts"].get_caller_identity()
         if identity["Account"] != self.account:
             raise RuntimeError("Native writes authorized only for account " + self.account)
@@ -56,15 +77,20 @@ class CloudFormationProbe(Probe):
             self.data = json.loads(args.output.read_text())
             if self.data["account"] != self.account or self.data["region"] != REGION:
                 raise RuntimeError("Capture does not belong to the authorized target")
+            if self.data.get("endpoint") != args.endpoint:
+                raise RuntimeError("Cleanup endpoint differs from the original capture")
         else:
             if args.output.exists():
                 raise RuntimeError("Refusing to overwrite native evidence")
             self.data = {
-                "service": "cloudformation", "source": "native AWS", "account": self.account,
+                "service": "cloudformation", "source": "local replay" if args.endpoint else "native AWS", "account": self.account,
+                "endpoint": args.endpoint,
                 "region": REGION, "identity": document(identity), "captured_at": now(),
                 "prefix": "stackd-cfn-" + uuid.uuid4().hex[:12],
                 "environment": {"credential_method": self.session.get_credentials().method,
                                 "aws_variable_names": sorted(k for k in os.environ if k.startswith("AWS_"))},
+                "sources": {"script": "scripts/aws/cloudformation_probe.py",
+                            "script_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()},
                 "sdk": {"boto3": boto3.__version__}, "documentation": REFERENCES,
                 "scope": "Unique owned SQS/SNS/IAM/empty S3 stacks; no standing controls or data traffic",
                 "bounds": {"stack_wait_seconds": 900, "poll_seconds": 5, "max_calls": 2400,
@@ -80,7 +106,7 @@ class CloudFormationProbe(Probe):
     def save(self):
         self.args.output.parent.mkdir(parents=True, exist_ok=True)
         text = json.dumps(document(self.data), indent=2)
-        for value in (self.credentials.secret_key, self.credentials.token):
+        for value in (self.credentials.access_key, self.credentials.secret_key, self.credentials.token, *self.sensitive_values):
             if value:
                 text = text.replace(value, "<redacted-credential>")
         self.args.output.write_text(text + "\n")
@@ -364,6 +390,7 @@ class CloudFormationProbe(Probe):
     def cleanup(self):
         cleanup = self.data["cleanup"] = {"started_at": now(), "complete": False, "stacks": [],
                                           "changesets": [], "resources": [], "errors": []}
+        cleanup_before_stacks(self, cleanup)
         for key, owned in reversed(list(self.data["owned"]["stacks"].items())):
             stack = owned.get("id", owned["name"])
             try:
@@ -403,6 +430,7 @@ class CloudFormationProbe(Probe):
                     "deletion_error": deletion.get("error")})
             except Exception as error:
                 cleanup["errors"].append({"changeset": owned["name"], "error": str(error)})
+        cleanup_direct(self, cleanup)
         for resource in self.data["owned"]["resources"]:
             kind, name = resource["kind"], resource["name"]
             operation, parameters, codes = {
@@ -411,9 +439,15 @@ class CloudFormationProbe(Probe):
                 "iam": ("get_role", {"RoleName": name}, {"NoSuchEntity"}),
                 "s3": ("head_bucket", {"Bucket": name}, {"404", "NoSuchBucket"}),
                 "subscription": ("get_subscription_attributes", {"SubscriptionArn": name}, {"NotFound"}),
+                "ssm": ("get_parameter", {"Name": name}, {"ParameterNotFound"}),
+                "secure-parameter": ("get_parameter", {"Name": name}, {"ParameterNotFound"}),
+                "secret": ("describe_secret", {"SecretId": name}, {"ResourceNotFoundException"}),
+                "iam-user": ("get_user", {"UserName": name}, {"NoSuchEntity"}),
             }[kind]
             try:
-                self.call("cleanup-resource-absence-" + name, "sns" if kind == "subscription" else kind,
+                service = {"subscription": "sns", "secret": "secretsmanager",
+                           "secure-parameter": "ssm", "iam-user": "iam"}.get(kind, kind)
+                self.call("cleanup-resource-absence-" + name, service,
                           operation, parameters, required=False)
                 cleanup["resources"].append({**resource, "absent": self.data["calls"][-1]["code"] in codes})
             except Exception as error:
@@ -428,6 +462,8 @@ class CloudFormationProbe(Probe):
             raise RuntimeError("Owned cleanup incomplete; inspect exact native evidence")
 
     def collect_audit(self):
+        if self.args.endpoint:
+            return
         requests = {row["request_id"]: row["label"] for row in self.data["calls"]
                     if row.get("request_id") and row["service"] == "cloudformation"}
         try:
@@ -441,6 +477,8 @@ class CloudFormationProbe(Probe):
         self.save()
 
     def collect_resource_audit(self):
+        if self.args.endpoint:
+            return
         prefix = self.data["prefix"]
         try:
             result = collect_history(lambda request: self.clients["cloudtrail"].lookup_events(**request),
@@ -510,9 +548,18 @@ def main():
     modes.add_argument("--export-update-only", action="store_true")
     modes.add_argument("--subscription-only", action="store_true")
     modes.add_argument("--schemas-only", action="store_true")
+    modes.add_argument("--secure-dynamic-references", action="store_true",
+                       help="Opt-in owned native secure reference syntax/rotation/rollback calibration")
+    parser.add_argument("--secure-reference-focus", choices=("all", "rollback", "ssm-login"), default="all",
+                       help="Narrow the opt-in scenario without repeating completed native cases")
+    parser.add_argument("--endpoint", help="Loopback-only secure-reference local replay; native credentials never used")
     parser.add_argument("--schema-output", type=Path, default=Path(".stackd/probes/cloudformation/resource_schemas.json"))
     parser.add_argument("--trail-rounds", type=int, default=3)
     args = parser.parse_args()
+    if args.secure_reference_focus != "all" and not args.secure_dynamic_references:
+        parser.error("--secure-reference-focus requires --secure-dynamic-references")
+    if args.endpoint and not (args.secure_dynamic_references or args.cleanup_only or args.audit_only):
+        parser.error("--endpoint is limited to secure-reference replay and cleanup")
     if args.schemas_only:
         capture_schemas(args.schema_output, args.account)
         return
@@ -526,12 +573,15 @@ def main():
     try:
         if not args.cleanup_only and not args.audit_only:
             try:
-                if not args.export_update_only and not args.subscription_only:
-                    probe.workflow()
-                if not args.subscription_only:
-                    probe.export_update_constraint()
-                if not args.export_update_only:
-                    probe.subscription_ref()
+                if args.secure_dynamic_references:
+                    secure_references(probe)
+                else:
+                    if not args.export_update_only and not args.subscription_only:
+                        probe.workflow()
+                    if not args.subscription_only:
+                        probe.export_update_constraint()
+                    if not args.export_update_only:
+                        probe.subscription_ref()
             except Exception as error:
                 probe.data["failure"] = {"type": type(error).__name__, "message": str(error)}
                 probe.save()

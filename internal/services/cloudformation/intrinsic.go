@@ -167,6 +167,10 @@ func (e *templateEvaluator) attribute(resource, attribute string) (any, error) {
 	if !exists {
 		return nil, fmt.Errorf("resource %s has not been resolved", resource)
 	}
+	if result.RedactedAttributes[attribute] && !e.eventProjection {
+		// TODO: Comeback: consume real secure result attributes without retaining plaintext.
+		return nil, failure("NotImplementedException", fmt.Sprintf("stackd cannot consume secure resource attribute %s.%s", resource, attribute))
+	}
 	value, exists := result.Attributes[attribute]
 	if !exists {
 		return nil, fmt.Errorf("resource %s has no attribute %s", resource, attribute)
@@ -412,6 +416,9 @@ func (t *Template) ResolveResource(logicalID string, input Evaluation) (Properti
 	if !ok {
 		return nil, fmt.Errorf("resource %s Properties must resolve to an object", logicalID)
 	}
+	if err := validateDynamicResourceProperties(resource.Type, Properties(properties)); err != nil {
+		return nil, fmt.Errorf("resource %s: %w", logicalID, err)
+	}
 	return Properties(properties), nil
 }
 
@@ -466,11 +473,17 @@ func (t *Template) ResolveOutputs(input Evaluation) (map[string]OutputValue, []s
 		if err != nil {
 			return nil, nil, fmt.Errorf("output %s: %w", name, err)
 		}
+		if err := rejectSecureDynamicOutsideProperties(text, "output "+name); err != nil {
+			return nil, nil, err
+		}
 		exportName := ""
 		if output.ExportName != nil {
 			exportName, err = e.text(output.ExportName)
 			if err != nil {
 				return nil, nil, fmt.Errorf("output %s export: %w", name, err)
+			}
+			if err := rejectSecureDynamicOutsideProperties(exportName, "output "+name+" export"); err != nil {
+				return nil, nil, err
 			}
 			if exportName == "" || exports[exportName] {
 				return nil, nil, fmt.Errorf("output %s export name must be nonempty and unique", name)
@@ -588,17 +601,18 @@ func templateDynamicReference(text string) error {
 			return nil
 		}
 		rest = rest[start+len("{{resolve:"):]
-		// Intrinsics may assemble a reference from multiple string fragments.
-		// Admission identifies unsupported complete service prefixes without
-		// reading SSM; execution validates the fully composed syntax.
-		// TODO: Comeback implement secure SSM and Secrets Manager dynamic references
-		// with current decrypt/read authority and credential-safe durable state.
-		if colon := strings.IndexByte(rest, ':'); colon >= 0 && !strings.HasPrefix(rest, "ssm:") {
-			return fmt.Errorf("ssm-secure and secretsmanager dynamic references are unsupported")
-		}
+		// Intrinsics may assemble a reference from string fragments. Validate
+		// complete references now and the fully composed string at execution.
 		end := strings.Index(rest, "}}")
 		if end < 0 {
 			return nil
+		}
+		if strings.Contains(rest[:end], "${") {
+			rest = rest[end+2:]
+			continue
+		}
+		if _, err := parseDynamicReference(rest[:end]); err != nil {
+			return err
 		}
 		rest = rest[end+2:]
 	}

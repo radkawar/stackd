@@ -235,6 +235,7 @@ type CloudformationResource struct {
 	Attributes          string
 	Updated             time.Time
 	DynamicReferences   string
+	RedactedAttributes  string
 }
 
 type CloudformationStack struct {
@@ -361,4 +362,7 @@ type CloudformationStep struct {
 	RestoreDynamicReferences   string
 	RestoreAttributes          string
 	RestoreUpdated             time.Time
+	BeforeRedactedAttributes   string
+	AfterRedactedAttributes    string
+	RestoreRedactedAttributes  string
 }

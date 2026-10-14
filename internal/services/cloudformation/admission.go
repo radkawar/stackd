@@ -198,7 +198,7 @@ func (s *Service) evaluation(r Reader, stack StackRecord, parameters, resolved m
 	}
 	for _, v := range resources {
 		if v.Current && v.PhysicalID != "" {
-			e.Resources[v.LogicalID] = ResourceResult{PhysicalID: v.PhysicalID, Ref: v.Ref, Attributes: v.Attributes}
+			e.Resources[v.LogicalID] = ResourceResult{PhysicalID: v.PhysicalID, Ref: v.Ref, Attributes: v.Attributes, RedactedAttributes: v.RedactedAttributes}
 		}
 	}
 	exports, err := r.Exports(stack.Scope)

@@ -165,3 +165,145 @@ encrypted secret in a mixed stack, reads its real plaintext through KMS, rejects
 an invalid colon tag, accepts a legal lookalike tag, reopens SQLite, updates the
 secret and deletes the actual owned resource. These checks do not claim complete
 rotation scheduling or Secrets Manager parity.
+
+## CloudFormation dynamic references
+
+Resource Properties accept Secrets Manager's
+[official reference pattern](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/dynamic-references-secretsmanager.html):
+
+```text
+{{resolve:secretsmanager:secret-name}}
+{{resolve:secretsmanager:secret-name:SecretString:json-key}}
+{{resolve:secretsmanager:secret-name:SecretString:json-key:version-stage}}
+{{resolve:secretsmanager:secret-name:SecretString:json-key::version-id}}
+```
+
+The secret ID may be a name or ARN. Cross-account access requires the ARN and the
+native Secrets Manager/resource-policy and KMS permissions; references do not
+bypass those owners. `SecretString` is the only supported value field and is the
+default when omitted. Omitting both selectors uses `AWSCURRENT`. Version stage
+and version ID are mutually exclusive in the CloudFormation reference, even
+though the native `GetSecretValue` API can accept both when they identify the
+same version. JSON keys, stages and IDs cannot contain `:`. The native
+[GetSecretValue contract](https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html)
+defines version-ID/stage length and read/decrypt permissions.
+
+Template parsing, read-only evaluation and change-set planning retain the
+reference rather than decrypting it. Resolution happens outside CloudFormation
+transactions through actual `GetSecretValue` commands under the retained caller
+or current execution role. A selected service/version ID is retained only inside
+the accepted operation while it needs retry or crash recovery. Retrying that
+selected intent reads the same version and rechecks current permissions; no
+resolved-value cache survives a request or controller restart. A changed staging
+label cannot silently change an already selected retry. Published resource
+images and completed operation images do not retain inferred Secrets Manager
+version pins. SQLite migration 410 upgrades legacy ordinary SSM numeric selectors
+to the typed pin format, including restoration images.
+
+AWS documents that CloudFormation does not track the secret versions used by
+previous deployments. New resource updates and rollback therefore evaluate the
+template's requested `AWSCURRENT`, staging label or explicit version ID, not an
+inferred version from a prior deployment. Rollback first resolves the old
+template's selector and retains that fresh selection only for retry/recovery of
+the accepted rollback intent. Rotating a secret alone, or updating an unrelated
+stack description, does not refresh an unchanged resource.
+
+Neither templates, retained deployment properties nor stack events are replaced
+with decrypted text. Destination errors are scrubbed, including JSON/Go-escaped
+values and modeled wire-error causes. Secret-bearing destination attributes are
+masked before retention. The native destination may keep its legitimate secret
+property: IAM stores a salted password verifier; RDS protects retained bootstrap
+credentials and applies the real native-engine password.
+
+AWS allows Secrets Manager references in all resource properties, warns that
+identifier properties can expose plaintext, and disallows secure custom-resource
+references. Its [general restrictions](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/dynamic-references.html)
+also disallow EC2 `UserData` and `AWS::CloudFormation::Init` dynamic references.
+JSON-key references consume strings without JSON quoting. Native AWS
+calibration with an `AWS::SSM::Parameter` String destination also confirms
+number `42` becomes `"42"`, boolean `true` becomes `"true"`, object and array
+values become compact JSON strings, and JSON null becomes `"null"`. Stackd
+implements those observed conversions; a missing key fails rather than
+creating an empty-string destination.
+
+Stackd additionally returns `NotImplementedException` for secure identifier
+properties/identity echoes and secure references outside resource Properties.
+These are explicit emulator safety/coverage limits, not asserted AWS
+invalid-input rules. Invalid JSON/missing keys and unsupported `SecretBinary`
+reference consumption fail without exposing the secret.
+
+Secret-bearing destination result attributes are retained only as a redacted
+projection with separate typed redaction metadata on resources and operation
+before/after/restoration images. Consuming a marked attribute through an
+intrinsic (`Fn::GetAtt`, attribute `Fn::Sub`, or a composed expression), whether
+for a downstream resource or a stack output, returns stackd
+`NotImplementedException` instead of passing `****` as real data. Safe unmarked
+attributes such as `Arn` still resolve. These guards and failure reasons survive
+memory-controller and SQLite restarts, and late owner result refreshes preserve
+the protected projection without reading the source again.
+TODO: Comeback for real secure attribute consumption without persisting
+plaintext; AWS does not generally prohibit this consumption. Direct references
+used as native passwords remain supported.
+
+The SDK regression
+`TestCloudFormationSecureDynamicReferencesNativePasswordReplay` exercises
+SecureString, complete SecretString, JSON-key, stage and explicit-version
+consumption through real IAM password verification over memory and reopened
+SQLite. It pauses a committed version selection before the effect, rotates the
+source, revokes either the execution role's read or decrypt permission, and
+checks retained CloudFormation state/history. The successful scenarios also
+cover unchanged-resource behavior. A native-resource update failure then pauses
+rollback: rotating before its fresh selection verifies selector-based rollback,
+and rotating again after that selection/reopening verifies operation-local
+retry without inferring a previous deployment's version. The assertions
+distinguish `AWSCURRENT`, `AWSPREVIOUS`, explicit Secrets Manager IDs and retained
+SSM versions. Published resources/completed operations must contain no inferred
+Secrets Manager pins.
+`TestCloudFormationSecretSourceNativeVersionAndStageRules` covers native default,
+`AWSPREVIOUS`, version-ID/ARN reads and explicit binary rejection.
+`TestCloudFormationSecretJSONKeyNativeCoercion` consumes all six captured JSON
+value types into actual native SSM String parameters over memory/reopened SQLite,
+checks reference/masked-attribute retention, and verifies missing-key rollback.
+`TestCloudFormationSecureResultAttributesRejectConsumption` pauses after the
+secure destination's result is retained, reopens memory/SQLite, and checks
+downstream/output rejection, usable safe attributes, unchanged direct source
+consumption, retained failure reasons and absence of plaintext in CFN state.
+
+### Native PostgreSQL CLI smoke
+
+This recipe requires Bash, AWS CLI v2, `psql`, a trusted local Docker daemon and
+the installed PostgreSQL image from
+[the existing RDS runtime setup](rds.md#running-the-native-engines).
+Do not enable a metadata-only substitute. Build the integrated controller and
+start one process against a dedicated SQLite file:
+
+```sh
+docker pull postgres@sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652
+go build -o bin/stackd ./cmd/stackd
+./bin/stackd -listen 127.0.0.1:4566 -database ./data/secure-reference-smoke.sqlite \
+  -docker-host unix:///var/run/docker.sock -rds-runtime
+```
+
+In another terminal:
+
+```sh
+export AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test
+export AWS_DEFAULT_REGION=us-east-1 AWS_EC2_METADATA_DISABLED=true AWS_PAGER=""
+unset AWS_SESSION_TOKEN AWS_PROFILE AWS_DEFAULT_PROFILE
+bash scripts/cloudformation_secure_dynamic_references_smoke.sh
+```
+
+The script obtains the sandbox identity from STS, creates a real KMS key and
+encrypted sources, provisions PostgreSQL through `AWS::RDS::DBInstance`, executes
+SQL with the secure SSM password, verifies explicit version pinning across a
+source rotation/resource update, then updates the same native database to a
+Secrets Manager JSON-key password. Its final CLI checks reject plaintext in
+GetTemplate/DescribeStackEvents output. Cleanup deletes the stack/engine, source
+parameter and secret and schedules the key for deletion. Secrets used by the
+smoke remain in private temporary files only until cleanup; do not run with shell
+tracing enabled. The 2026-10-14 Linux CLI run completed this workflow against
+actual PostgreSQL. It retained row `42` through both password-source updates,
+found no resolved plaintext in the checked CloudFormation outputs, and deleted
+the owned stack and sources. This is local engine evidence, not native AWS
+PostgreSQL or complete CloudFormation parity.
+

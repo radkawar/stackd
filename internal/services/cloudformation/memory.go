@@ -117,6 +117,7 @@ func cloneResource(v ResourceRecord) ResourceRecord {
 	v.EventProperties = cloneProperties(v.EventProperties)
 	v.DynamicReferences = maps.Clone(v.DynamicReferences)
 	v.Attributes = cloneDocument(v.Attributes).(map[string]any)
+	v.RedactedAttributes = maps.Clone(v.RedactedAttributes)
 	return v
 }
 func cloneEvent(v EventRecord) EventRecord {

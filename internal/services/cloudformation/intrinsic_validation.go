@@ -56,6 +56,15 @@ func (t *Template) validateExpressions() error {
 				return fmt.Errorf("resource %s depends on undefined resource %s", name, dependency)
 			}
 		}
+		if err := validateDynamicResourcePropertiesMode(resource.Type, resource.Properties, true); err != nil {
+			return fmt.Errorf("resource %s: %w", name, err)
+		}
+		if hasDynamicReferences(resource.Metadata["AWS::CloudFormation::Init"]) {
+			return invalid("Dynamic references are not supported in AWS::CloudFormation::Init metadata")
+		}
+		if err := rejectSecureDynamicOutsideProperties(resource.Metadata, "resource "+name+" Metadata"); err != nil {
+			return err
+		}
 		if err := t.validateExpression(map[string]any(resource.Properties), true, false); err != nil {
 			return fmt.Errorf("resource %s: %w", name, err)
 		}
@@ -65,6 +74,9 @@ func (t *Template) validateExpressions() error {
 		for key, expression := range map[string]any{"DeletionPolicy": resource.DeletionPolicy, "UpdateReplacePolicy": resource.UpdateReplacePolicy} {
 			if expression == nil {
 				continue
+			}
+			if err := rejectSecureDynamicOutsideProperties(expression, "resource "+name+" "+key); err != nil {
+				return err
 			}
 			if err := t.validatePolicyExpression(expression, key, true, false, map[string]bool{}); err != nil {
 				return fmt.Errorf("resource %s %s: %w", name, key, err)

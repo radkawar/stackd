@@ -47,6 +47,9 @@ func decodeResource(row sqlcgen.CloudformationResource) (domain.ResourceRecord, 
 	if err := decodeDocument(row.Attributes, &out.Attributes); err != nil {
 		return out, err
 	}
+	if err := decodeDocument(row.RedactedAttributes, &out.RedactedAttributes); err != nil {
+		return out, err
+	}
 	out.Updated = row.Updated.UTC()
 	return out, nil
 }
@@ -82,6 +85,10 @@ func encodeResource(v domain.ResourceRecord) (sqlcgen.PutResourceParams, error) 
 		return p, err
 	}
 	p.Attributes, err = encodeDocument(v.Attributes)
+	if err != nil {
+		return p, err
+	}
+	p.RedactedAttributes, err = encodeDocument(v.RedactedAttributes)
 	if err != nil {
 		return p, err
 	}

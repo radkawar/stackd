@@ -25,6 +25,7 @@ func decodeStep(row sqlcgen.CloudformationStep) (domain.StepRecord, error) {
 		EventProperties:     row.BeforeEventProperties,
 		DynamicReferences:   row.BeforeDynamicReferences,
 		Attributes:          row.BeforeAttributes,
+		RedactedAttributes:  row.BeforeRedactedAttributes,
 		Updated:             row.BeforeUpdated,
 	})
 	if err != nil {
@@ -47,6 +48,7 @@ func decodeStep(row sqlcgen.CloudformationStep) (domain.StepRecord, error) {
 		EventProperties:     row.AfterEventProperties,
 		DynamicReferences:   row.AfterDynamicReferences,
 		Attributes:          row.AfterAttributes,
+		RedactedAttributes:  row.AfterRedactedAttributes,
 		Updated:             row.AfterUpdated,
 	})
 	if err != nil {
@@ -69,6 +71,7 @@ func decodeStep(row sqlcgen.CloudformationStep) (domain.StepRecord, error) {
 		EventProperties:     row.RestoreEventProperties,
 		DynamicReferences:   row.RestoreDynamicReferences,
 		Attributes:          row.RestoreAttributes,
+		RedactedAttributes:  row.RestoreRedactedAttributes,
 		Updated:             row.RestoreUpdated,
 	})
 	if err != nil {
@@ -99,6 +102,7 @@ func encodeStep(parent string, ordinal int, v domain.StepRecord) (sqlcgen.PutSte
 	p.BeforeEventProperties = before.EventProperties
 	p.BeforeDynamicReferences = before.DynamicReferences
 	p.BeforeAttributes = before.Attributes
+	p.BeforeRedactedAttributes = before.RedactedAttributes
 	p.BeforeUpdated = before.Updated
 	after, err := encodeResource(v.After)
 	if err != nil {
@@ -120,6 +124,7 @@ func encodeStep(parent string, ordinal int, v domain.StepRecord) (sqlcgen.PutSte
 	p.AfterEventProperties = after.EventProperties
 	p.AfterDynamicReferences = after.DynamicReferences
 	p.AfterAttributes = after.Attributes
+	p.AfterRedactedAttributes = after.RedactedAttributes
 	p.AfterUpdated = after.Updated
 	restore, err := encodeResource(v.Restore)
 	if err != nil {
@@ -141,6 +146,7 @@ func encodeStep(parent string, ordinal int, v domain.StepRecord) (sqlcgen.PutSte
 	p.RestoreEventProperties = restore.EventProperties
 	p.RestoreDynamicReferences = restore.DynamicReferences
 	p.RestoreAttributes = restore.Attributes
+	p.RestoreRedactedAttributes = restore.RedactedAttributes
 	p.RestoreUpdated = restore.Updated
 	return p, nil
 }

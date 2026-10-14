@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	api "stackd/internal/awsapi/ssm"
+	"stackd/internal/awsctx"
 	"stackd/internal/awswire"
 	"stackd/internal/services/cloudformation"
 	"stackd/internal/services/ssm"
@@ -289,7 +290,25 @@ func (a CloudFormationParameterSource) ResolveParameter(ctx context.Context, nam
 }
 
 func (a CloudFormationParameterSource) ResolveParameterVersion(ctx context.Context, name string) (string, int64, error) {
-	out, err := cfnComputeCall[api.GetParametersOutput](ctx, a.Commands, "ssm", "GetParameters", map[string]any{"Names": []string{name}})
+	return a.resolveParameterVersion(ctx, name, false)
+}
+
+func (a CloudFormationParameterSource) ResolveSecureParameterVersion(ctx context.Context, name string) (string, int64, error) {
+	return a.resolveParameterVersion(ctx, name, true)
+}
+
+func (a CloudFormationParameterSource) resolveParameterVersion(ctx context.Context, name string, secure bool) (string, int64, error) {
+	if secure {
+		region := awsctx.FromContext(ctx).Region
+		if region == "cn-north-1" || region == "cn-northwest-1" {
+			return "", 0, &awswire.Error{Code: "ValidationError", Message: "SSM secure strings are not supported in the documented China regions.", StatusCode: 400}
+		}
+	}
+	input := map[string]any{"Names": []string{name}}
+	if secure {
+		input["WithDecryption"] = true
+	}
+	out, err := cfnComputeCall[api.GetParametersOutput](ctx, a.Commands, "ssm", "GetParameters", input)
 	if err != nil {
 		return "", 0, err
 	}
@@ -301,8 +320,12 @@ func (a CloudFormationParameterSource) ResolveParameterVersion(ctx context.Conte
 		return "", 0, &awswire.Error{Code: code, Message: "The referenced SSM parameter or version was not found.", StatusCode: 400}
 	}
 	parameter := out.Parameters[0]
-	if cfnComputeValue(parameter.Type) != "String" {
-		return "", 0, &awswire.Error{Code: "ValidationError", Message: "Plain SSM dynamic references require a String parameter; SecureString is unsupported.", StatusCode: 400}
+	expected := "String"
+	if secure {
+		expected = "SecureString"
+	}
+	if cfnComputeValue(parameter.Type) != expected {
+		return "", 0, &awswire.Error{Code: "ValidationError", Message: "The referenced SSM parameter type does not match the dynamic reference service.", StatusCode: 400}
 	}
 	var version int64
 	if parameter.Version != nil {

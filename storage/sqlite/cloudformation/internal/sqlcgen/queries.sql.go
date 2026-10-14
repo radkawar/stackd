@@ -1617,8 +1617,8 @@ func (q *Queries) PutOperationTag(ctx context.Context, arg PutOperationTagParams
 }
 
 const putResource = `-- name: PutResource :exec
-INSERT INTO cloudformation_resources (stack_id, logical_id, type, physical_id, ref, token, generation, current, status, status_reason, deletion_policy, update_replace_policy, properties, event_properties, attributes, updated, dynamic_references)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO cloudformation_resources (stack_id, logical_id, type, physical_id, ref, token, generation, current, status, status_reason, deletion_policy, update_replace_policy, properties, event_properties, attributes, updated, dynamic_references, redacted_attributes)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (stack_id, logical_id, generation) DO UPDATE SET
     type = excluded.type,
     physical_id = excluded.physical_id,
@@ -1633,6 +1633,7 @@ ON CONFLICT (stack_id, logical_id, generation) DO UPDATE SET
     event_properties = excluded.event_properties,
     dynamic_references = excluded.dynamic_references,
     attributes = excluded.attributes,
+    redacted_attributes = excluded.redacted_attributes,
     updated = excluded.updated
 `
 
@@ -1654,6 +1655,7 @@ type PutResourceParams struct {
 	Attributes          string
 	Updated             time.Time
 	DynamicReferences   string
+	RedactedAttributes  string
 }
 
 func (q *Queries) PutResource(ctx context.Context, arg PutResourceParams) error {
@@ -1675,6 +1677,7 @@ func (q *Queries) PutResource(ctx context.Context, arg PutResourceParams) error 
 		arg.Attributes,
 		arg.Updated,
 		arg.DynamicReferences,
+		arg.RedactedAttributes,
 	)
 	return err
 }
@@ -1876,9 +1879,10 @@ func (q *Queries) PutStackTag(ctx context.Context, arg PutStackTagParams) error 
 
 const putStep = `-- name: PutStep :exec
 INSERT INTO cloudformation_steps (parent_id, ordinal, position, logical_id, action, state, error, delete_failures, before_stack_id, before_logical_id, before_type, before_physical_id, before_ref, before_token, before_generation, before_current, before_status, before_status_reason, before_deletion_policy, before_update_replace_policy, before_properties, before_event_properties, before_attributes, before_updated, after_stack_id, after_logical_id, after_type, after_physical_id, after_ref, after_token, after_generation, after_current, after_status, after_status_reason, after_deletion_policy, after_update_replace_policy, after_properties, after_event_properties, after_attributes, after_updated, before_dynamic_references, after_dynamic_references,
-    before_delete_started, before_deleted, admission_pending, restore_stack_id, restore_logical_id, restore_type, restore_physical_id, restore_ref, restore_token, restore_generation, restore_current, restore_status, restore_status_reason, restore_deletion_policy, restore_update_replace_policy, restore_properties, restore_event_properties, restore_dynamic_references, restore_attributes, restore_updated)
+    before_delete_started, before_deleted, admission_pending, restore_stack_id, restore_logical_id, restore_type, restore_physical_id, restore_ref, restore_token, restore_generation, restore_current, restore_status, restore_status_reason, restore_deletion_policy, restore_update_replace_policy, restore_properties, restore_event_properties, restore_dynamic_references, restore_attributes, restore_updated,
+    before_redacted_attributes, after_redacted_attributes, restore_redacted_attributes)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (parent_id, ordinal) DO UPDATE SET
     position = excluded.position,
     logical_id = excluded.logical_id,
@@ -1902,6 +1906,7 @@ ON CONFLICT (parent_id, ordinal) DO UPDATE SET
     before_event_properties = excluded.before_event_properties,
     before_dynamic_references = excluded.before_dynamic_references,
     before_attributes = excluded.before_attributes,
+    before_redacted_attributes = excluded.before_redacted_attributes,
     before_updated = excluded.before_updated,
     after_stack_id = excluded.after_stack_id,
     after_logical_id = excluded.after_logical_id,
@@ -1919,6 +1924,7 @@ ON CONFLICT (parent_id, ordinal) DO UPDATE SET
     after_event_properties = excluded.after_event_properties,
     after_dynamic_references = excluded.after_dynamic_references,
     after_attributes = excluded.after_attributes,
+    after_redacted_attributes = excluded.after_redacted_attributes,
     after_updated = excluded.after_updated,
     before_delete_started = excluded.before_delete_started,
     before_deleted = excluded.before_deleted,
@@ -1939,6 +1945,7 @@ ON CONFLICT (parent_id, ordinal) DO UPDATE SET
     restore_event_properties = excluded.restore_event_properties,
     restore_dynamic_references = excluded.restore_dynamic_references,
     restore_attributes = excluded.restore_attributes,
+    restore_redacted_attributes = excluded.restore_redacted_attributes,
     restore_updated = excluded.restore_updated
 `
 
@@ -2005,6 +2012,9 @@ type PutStepParams struct {
 	RestoreDynamicReferences   string
 	RestoreAttributes          string
 	RestoreUpdated             time.Time
+	BeforeRedactedAttributes   string
+	AfterRedactedAttributes    string
+	RestoreRedactedAttributes  string
 }
 
 func (q *Queries) PutStep(ctx context.Context, arg PutStepParams) error {
@@ -2071,12 +2081,15 @@ func (q *Queries) PutStep(ctx context.Context, arg PutStepParams) error {
 		arg.RestoreDynamicReferences,
 		arg.RestoreAttributes,
 		arg.RestoreUpdated,
+		arg.BeforeRedactedAttributes,
+		arg.AfterRedactedAttributes,
+		arg.RestoreRedactedAttributes,
 	)
 	return err
 }
 
 const resources = `-- name: Resources :many
-SELECT stack_id, logical_id, type, physical_id, ref, token, generation, "current", status, status_reason, deletion_policy, update_replace_policy, properties, event_properties, attributes, updated, dynamic_references FROM cloudformation_resources WHERE stack_id = ? ORDER BY logical_id, generation
+SELECT stack_id, logical_id, type, physical_id, ref, token, generation, "current", status, status_reason, deletion_policy, update_replace_policy, properties, event_properties, attributes, updated, dynamic_references, redacted_attributes FROM cloudformation_resources WHERE stack_id = ? ORDER BY logical_id, generation
 `
 
 func (q *Queries) Resources(ctx context.Context, stackID string) ([]CloudformationResource, error) {
@@ -2106,6 +2119,7 @@ func (q *Queries) Resources(ctx context.Context, stackID string) ([]Cloudformati
 			&i.Attributes,
 			&i.Updated,
 			&i.DynamicReferences,
+			&i.RedactedAttributes,
 		); err != nil {
 			return nil, err
 		}
@@ -2363,7 +2377,7 @@ func (q *Queries) Stacks(ctx context.Context, arg StacksParams) ([]Cloudformatio
 }
 
 const steps = `-- name: Steps :many
-SELECT parent_id, ordinal, position, logical_id, "action", state, error, delete_failures, before_stack_id, before_logical_id, before_type, before_physical_id, before_ref, before_token, before_generation, before_current, before_status, before_status_reason, before_deletion_policy, before_update_replace_policy, before_properties, before_event_properties, before_attributes, before_updated, after_stack_id, after_logical_id, after_type, after_physical_id, after_ref, after_token, after_generation, after_current, after_status, after_status_reason, after_deletion_policy, after_update_replace_policy, after_properties, after_event_properties, after_attributes, after_updated, before_dynamic_references, after_dynamic_references, before_delete_started, before_deleted, admission_pending, restore_stack_id, restore_logical_id, restore_type, restore_physical_id, restore_ref, restore_token, restore_generation, restore_current, restore_status, restore_status_reason, restore_deletion_policy, restore_update_replace_policy, restore_properties, restore_event_properties, restore_dynamic_references, restore_attributes, restore_updated FROM cloudformation_steps WHERE parent_id = ? ORDER BY ordinal
+SELECT parent_id, ordinal, position, logical_id, "action", state, error, delete_failures, before_stack_id, before_logical_id, before_type, before_physical_id, before_ref, before_token, before_generation, before_current, before_status, before_status_reason, before_deletion_policy, before_update_replace_policy, before_properties, before_event_properties, before_attributes, before_updated, after_stack_id, after_logical_id, after_type, after_physical_id, after_ref, after_token, after_generation, after_current, after_status, after_status_reason, after_deletion_policy, after_update_replace_policy, after_properties, after_event_properties, after_attributes, after_updated, before_dynamic_references, after_dynamic_references, before_delete_started, before_deleted, admission_pending, restore_stack_id, restore_logical_id, restore_type, restore_physical_id, restore_ref, restore_token, restore_generation, restore_current, restore_status, restore_status_reason, restore_deletion_policy, restore_update_replace_policy, restore_properties, restore_event_properties, restore_dynamic_references, restore_attributes, restore_updated, before_redacted_attributes, after_redacted_attributes, restore_redacted_attributes FROM cloudformation_steps WHERE parent_id = ? ORDER BY ordinal
 `
 
 func (q *Queries) Steps(ctx context.Context, parentID string) ([]CloudformationStep, error) {
@@ -2438,6 +2452,9 @@ func (q *Queries) Steps(ctx context.Context, parentID string) ([]CloudformationS
 			&i.RestoreDynamicReferences,
 			&i.RestoreAttributes,
 			&i.RestoreUpdated,
+			&i.BeforeRedactedAttributes,
+			&i.AfterRedactedAttributes,
+			&i.RestoreRedactedAttributes,
 		); err != nil {
 			return nil, err
 		}

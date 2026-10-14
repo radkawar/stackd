@@ -44,13 +44,14 @@ func (s *Service) finalizeDefinition(ctx, commandCtx context.Context, stack Stac
 			if _, readable := handler.(ResourceResultReader); !readable {
 				continue
 			}
-			previous := ResourceResult{PhysicalID: resource.PhysicalID, Ref: resource.Ref, Attributes: resource.Attributes}
+			previous := ResourceResult{PhysicalID: resource.PhysicalID, Ref: resource.Ref, Attributes: resource.Attributes, RedactedAttributes: resource.RedactedAttributes}
 			result, err := stabilizedResourceResult(commandCtx, handler, resourceRequest(stack, definition, resource, nil), previous)
 			if err != nil {
 				cause = fmt.Errorf("refresh %s: %w", resource.LogicalID, err)
 				break
 			}
 			resource.Ref, resource.Attributes = result.Ref, result.Attributes
+			resource.RedactedAttributes = result.RedactedAttributes
 			refreshed = append(refreshed, resource)
 		}
 	}
@@ -89,17 +90,19 @@ func (s *Service) finalizeDefinition(ctx, commandCtx context.Context, stack Stac
 			return s.failOperation(tx, &stack, &op, cause)
 		}
 		for _, resource := range refreshed {
-			if err := tx.PutResource(resource); err != nil {
+			if err := tx.PutResource(publishedDynamicResource(resource)); err != nil {
 				return err
 			}
 			for i := range op.Steps {
 				after := &op.Steps[i].After
 				if after.LogicalID == resource.LogicalID && after.Generation == resource.Generation && after.Token == resource.Token {
 					after.Ref, after.Attributes = resource.Ref, resource.Attributes
+					after.RedactedAttributes = resource.RedactedAttributes
 				}
 				restore := &op.Steps[i].Restore
 				if restore.LogicalID == resource.LogicalID && restore.Generation == resource.Generation && restore.Token == resource.Token {
 					restore.Ref, restore.Attributes = resource.Ref, resource.Attributes
+					restore.RedactedAttributes = resource.RedactedAttributes
 				}
 			}
 		}

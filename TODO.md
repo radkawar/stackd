@@ -144,10 +144,13 @@ keeps service-specific accounting and error semantics authoritative.
   before effects without persisting plaintext in intent/templates/events; reauthorize
   retries, mask owner failures and reject SecureString on the plain path. Memory/SQLite
   owner fixtures and the actual Google-provider CLI deployment/readback pass.
-- [ ] Implement secure SSM and Secrets Manager dynamic references with current
-  decrypt/read authority and credential-safe state. The marker is in
-  `internal/services/cloudformation/intrinsic.go`; labels/cross-account references
-  remain outside the ordinary String boundary.
+- [x] Resolve secure SSM and Secrets Manager CloudFormation references under
+  current read/decrypt authority without retaining plaintext. Typed operation
+  pins, selector-based rollback, JSON-key conversion and SQLite recovery have
+  SDK coverage. Native AWS probes calibrated selectors, coercion and rollback.
+  The actual CLI consumed both encrypted sources through PostgreSQL passwords.
+  Secure identifiers, evaluation outside Properties and downstream consumption
+  of protected result attributes remain explicit unsupported boundaries.
 - [x] Implement Cognito SOFTWARE_TOKEN_MFA enrollment, RFC 6238 verification,
   rotating bound sessions, preferences and OPTIONAL/ON challenges. Typed state,
   counters and preferences survive SQLite reopen; actual public SDK login proves

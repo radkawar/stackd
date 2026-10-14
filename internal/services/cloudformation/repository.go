@@ -42,10 +42,15 @@ type ResourceRecord struct {
 	// EventProperties retains the NoEcho projection with this incarnation's
 	// resolved properties, including cleanup after the stack template changes.
 	EventProperties Properties
-	// DynamicReferences pins execution-selected SSM versions without retaining values.
-	DynamicReferences map[string]int64
+	// DynamicReferences retains typed operation selectors, never plaintext.
+	// Published resource images retain SSM versions only; Secrets Manager pins
+	// are discarded when the accepted operation finishes.
+	DynamicReferences map[string]DynamicReferencePin
 	Attributes        map[string]any
-	Updated           time.Time
+	// RedactedAttributes survives controller recovery independently of the
+	// projected attribute values, which may legitimately contain mask text.
+	RedactedAttributes map[string]bool
+	Updated            time.Time
 }
 
 type EventRecord struct {

@@ -107,6 +107,14 @@ func ParseTemplate(body string) (*Template, error) {
 	if version, exists := root["AWSTemplateFormatVersion"]; exists && version != "2010-09-09" {
 		return nil, fmt.Errorf("AWSTemplateFormatVersion must be 2010-09-09")
 	}
+	for _, section := range []string{"Metadata", "Outputs", "Conditions", "Rules"} {
+		if err := rejectSecureDynamicOutsideProperties(root[section], section); err != nil {
+			return nil, err
+		}
+	}
+	if metadata, ok := root["Metadata"].(map[string]any); ok && hasDynamicReferences(metadata["AWS::CloudFormation::Init"]) {
+		return nil, invalid("Dynamic references are not supported in AWS::CloudFormation::Init metadata")
+	}
 	t := &Template{Parameters: map[string]TemplateParameter{}, Resources: map[string]TemplateResource{}, Outputs: map[string]TemplateOutput{}, Mappings: map[string]map[string]map[string]any{}, Conditions: map[string]any{}, Rules: map[string]TemplateRule{}}
 	if transform, exists := root["Transform"]; exists {
 		if list, ok := transform.([]any); ok && len(list) == 1 {

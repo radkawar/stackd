@@ -29,6 +29,9 @@ type ResourceRequest struct {
 type ResourceResult struct {
 	PhysicalID, Ref string
 	Attributes      map[string]any
+	// RedactedAttributes marks projections that cannot be consumed as real
+	// intrinsic values. Attributes contains only their safe retained projection.
+	RedactedAttributes map[string]bool
 }
 
 // ResourcePendingError means an owner has not yet admitted the command because

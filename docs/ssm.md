@@ -83,7 +83,7 @@ verifies current permission tags, exact permission/share ARN denials, source and
 target replacement denials without mutation, successful replacement and a newly
 applied denial before token replay.
 
-### CloudFormation ordinary dynamic references
+### CloudFormation ordinary and secure dynamic references
 
 CloudFormation resource properties support `{{resolve:ssm:parameter-name}}` and
 `{{resolve:ssm:parameter-name:version}}` for String parameters, including strings
@@ -102,11 +102,47 @@ Resolved values exist only in the native owner's resource input/state; owner
 failure messages are redacted before CloudFormation retains them.
 
 Plain `ssm` references reject SecureString without requesting decryption.
-`ssm-secure`, Secrets Manager dynamic references, labels and cross-account
-references remain unsupported. Missing parameters, missing versions and IAM
-denials fail the operation rather than admitting a resource with reference text.
-See [AWS plaintext dynamic references](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/dynamic-references-ssm.html)
-for syntax and `ssm:GetParameters` permissions.
+`{{resolve:ssm-secure:parameter-name}}` and its optional numeric-version form
+read actual SecureString parameters through `GetParameters` with
+`WithDecryption=true`. Every initial resolution, retry and rollback uses current
+caller/execution-role `ssm:GetParameters` and KMS decrypt authorization; the
+controller does not retain a plaintext cache. Typed pins distinguish ordinary
+and secure parameter versions from Secrets Manager version IDs. SQLite migration
+410 converts existing numeric SSM pins in current resources and all retained
+before/after/restoration images.
+
+AWS restricts `ssm-secure` to its
+[documented resource/property allowlist](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/dynamic-references-ssm-secure-strings.html),
+including IAM `LoginProfile.Password`, RDS `MasterUserPassword` and ElastiCache
+`AuthToken`. The restriction is checked before source reads, including references
+assembled by intrinsics. An unsupported property is rejected explicitly; adding
+a supported reference does not add a handler for an otherwise unimplemented
+resource type. Parameter labels, public parameters and SSM parameter ARNs are not
+supported reference selectors. See
+[AWS plaintext dynamic references](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/dynamic-references-ssm.html)
+for ordinary syntax and permissions.
+
+Secrets Manager string/JSON-key references use the same ephemeral execution
+boundary; see [the selector rules and native-engine smoke](secretsmanager.md#cloudformation-dynamic-references).
+Secure references in identifiers or outside resource Properties return an
+explicit stackd unsupported boundary, not an invented AWS invalid-input rule.
+AWS itself prohibits secure custom-resource references, EC2 `UserData` dynamic
+references and `AWS::CloudFormation::Init` dynamic-reference metadata.
+
+Destination result attributes that echo secure values retain a redacted
+projection plus separate typed attribute metadata in memory and SQLite. Actual
+`Fn::GetAtt`/`Fn::Sub` consumption of a marked attribute, including stack outputs,
+returns stackd `NotImplementedException`; the mask is never a native resource
+input. Unmarked attributes such as `Arn` remain usable after controller restart.
+This is an emulator coverage limit, not an AWS prohibition on secure attribute
+consumption. TODO: Comeback for real secure attribute consumption without
+persisting plaintext. Direct secure-source password workflows are unchanged.
+
+Changing a source value alone does not update its consumer. Stack updates that
+leave the resource's literal properties and tags unchanged skip source reads and
+native updates. SSM versions remain retained selectors; inferred Secrets Manager
+versions are operation-local only and are not carried into a later update or
+rollback of the published deployment.
 
 The combined SQLite CLI deployment resolves the reported Google `client_secret`
 from a real String parameter and verifies the provider's exact value. AWS CLI
