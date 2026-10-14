@@ -198,6 +198,8 @@ Docker reload is a separately exercised prerequisite-heavy example, not an
 unexecuted hosted claim. GuardDuty's catalog check additionally fetches
 the exact upstream Git revision recorded in `docs/guardduty-findings.json` and
 verifies its source SHA-256 before generation; it never follows upstream HEAD.
+The generator records GitHub HTTPS repository URLs with a `.git` suffix.
+This gives the same provenance for GitHub Actions checkout and ordinary clones.
 These match repository Makefile/hook conventions without invoking the full
 integration suite.
 

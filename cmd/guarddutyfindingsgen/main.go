@@ -261,9 +261,15 @@ func sourceProvenance(source string, data []byte) (Provenance, error) {
 	if err != nil {
 		return Provenance{}, err
 	}
+	// GitHub checkout and ordinary clones spell the same remote with or without
+	// .git. Keep source provenance stable across those checkout methods.
+	repositoryURL := strings.TrimSpace(string(repository))
+	if strings.HasPrefix(repositoryURL, "https://github.com/") {
+		repositoryURL = strings.TrimSuffix(repositoryURL, ".git") + ".git"
+	}
 	digest := sha256.Sum256(data)
 	return Provenance{
-		RepositoryURL:           strings.TrimSpace(string(repository)),
+		RepositoryURL:           repositoryURL,
 		Revision:                strings.TrimSpace(string(revision)),
 		SourceFile:              relative,
 		SourceSHA256:            hex.EncodeToString(digest[:]),
