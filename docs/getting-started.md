@@ -208,6 +208,38 @@ For backups, resets, external-runtime shutdown and common errors, use the
 [operations guide](operations.md). Do not apply blanket Docker pruning or delete
 state directories to stop an instance.
 
+## Terraform provider API requirements
+
+The [provider API map](terraform-provider-apis.json) covers production source in
+all service directories of HashiCorp AWS provider **6.68.0**.
+The pinned commit is `c9b83d813022cdd05fc955480b07e269c6e18023`.
+You do not need a checkout to read the retained map.
+
+To regenerate it, prepare the exact source revision:
+
+```sh
+git clone --branch v6.68.0 --depth 1 \
+  https://github.com/hashicorp/terraform-provider-aws.git clones/terraform-provider-aws
+make generate-terraform-apis
+make generate-terraform-apis-check
+```
+
+Use `priority_counts` and `top_selected_scope_api_gaps` to find missing APIs.
+Each requirement includes SDK operation names, source locations and evidence type.
+Paginator constructors are included. Tests and sweeper files are excluded.
+Dynamic calls, wrappers and ambiguous receivers can remain unresolved.
+
+- `registered-partial`: an operation is registered, not behaviorally complete.
+- `unimplemented`: a selected modeled operation has no registration.
+- `outside-selected-service-scope`: the API is outside the current service selection.
+- `unresolved-or-ambiguous`: the retained inputs do not establish a clear mapping.
+
+This is a static source map, not a Terraform conformance score or IAM policy.
+Source frequency is not runtime frequency or resource popularity.
+Validate real create/read/update/delete workflows and their native data planes.
+For examples, see the [current-provider EIP lifecycle](ec2.md#run-the-current-provider-lifecycle)
+and [RDS capacity and SQL checks](rds.md#runnable-terraform-and-psql-proof).
+
 ## Next steps
 
 - [Configuration](configuration.md): account identity, endpoints, TLS, service

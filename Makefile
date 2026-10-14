@@ -2,6 +2,7 @@
 
 AWS_SDK_PATH ?= clones/aws-sdk-go-v2
 SSM_AGENT_PATH ?= clones/amazon-ssm-agent
+TERRAFORM_PROVIDER_PATH ?= clones/terraform-provider-aws
 SQLC = go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
 
 .PHONY: build
@@ -21,6 +22,7 @@ check:
 	@if test -d "$(AWS_SDK_PATH)/.git"; then $(MAKE) generate-aws-check; fi
 	@if test -d "$(AWS_SDK_PATH)/.git"; then $(MAKE) generate-coverage-check; fi
 	@if test -d "$(SSM_AGENT_PATH)/.git"; then $(MAKE) generate-ssm-agent-check; fi
+	@if test -d "$(TERRAFORM_PROVIDER_PATH)/.git"; then $(MAKE) generate-terraform-apis-check; fi
 	$(MAKE) generate-iam-check
 	$(MAKE) generate-oidc-check
 	$(MAKE) generate-simulation-check
@@ -43,9 +45,9 @@ lint:
 hooks:
 	./scripts/install-hooks.sh
 
-generate: generate-aws generate-iam generate-oidc generate-simulation generate-lambda-runtime generate-sql generate-coverage generate-cloudformation generate-mq-schema generate-guardduty-findings
+generate: generate-aws generate-iam generate-oidc generate-simulation generate-lambda-runtime generate-sql generate-coverage generate-cloudformation generate-mq-schema generate-guardduty-findings generate-terraform-apis
 
-generate-check: generate-aws-check generate-iam-check generate-oidc-check generate-simulation-check generate-lambda-runtime-check generate-sql-check generate-coverage-check generate-cloudformation-check generate-mq-schema-check generate-guardduty-findings-check
+generate-check: generate-aws-check generate-iam-check generate-oidc-check generate-simulation-check generate-lambda-runtime-check generate-sql-check generate-coverage-check generate-cloudformation-check generate-mq-schema-check generate-guardduty-findings-check generate-terraform-apis-check
 
 generate-aws:
 	go run ./cmd/awsgen -sdk "$(AWS_SDK_PATH)"
@@ -131,3 +133,10 @@ generate-mq-schema:
 
 generate-mq-schema-check:
 	go run ./cmd/mqschemagen -check
+
+.PHONY: generate-terraform-apis generate-terraform-apis-check
+generate-terraform-apis:
+	go run ./cmd/terraformapisgen -provider "$(TERRAFORM_PROVIDER_PATH)"
+
+generate-terraform-apis-check:
+	go run ./cmd/terraformapisgen -provider "$(TERRAFORM_PROVIDER_PATH)" -check
