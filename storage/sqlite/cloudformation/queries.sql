@@ -443,8 +443,10 @@ SELECT * FROM cloudformation_steps WHERE parent_id = ? ORDER BY ordinal;
 DELETE FROM cloudformation_steps WHERE parent_id = ?;
 
 -- name: PutStep :exec
-INSERT INTO cloudformation_steps (parent_id, ordinal, position, logical_id, action, state, error, delete_failures, before_stack_id, before_logical_id, before_type, before_physical_id, before_ref, before_token, before_generation, before_current, before_status, before_status_reason, before_deletion_policy, before_update_replace_policy, before_properties, before_event_properties, before_attributes, before_updated, after_stack_id, after_logical_id, after_type, after_physical_id, after_ref, after_token, after_generation, after_current, after_status, after_status_reason, after_deletion_policy, after_update_replace_policy, after_properties, after_event_properties, after_attributes, after_updated, before_dynamic_references, after_dynamic_references)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO cloudformation_steps (parent_id, ordinal, position, logical_id, action, state, error, delete_failures, before_stack_id, before_logical_id, before_type, before_physical_id, before_ref, before_token, before_generation, before_current, before_status, before_status_reason, before_deletion_policy, before_update_replace_policy, before_properties, before_event_properties, before_attributes, before_updated, after_stack_id, after_logical_id, after_type, after_physical_id, after_ref, after_token, after_generation, after_current, after_status, after_status_reason, after_deletion_policy, after_update_replace_policy, after_properties, after_event_properties, after_attributes, after_updated, before_dynamic_references, after_dynamic_references,
+    before_delete_started, before_deleted, admission_pending, restore_stack_id, restore_logical_id, restore_type, restore_physical_id, restore_ref, restore_token, restore_generation, restore_current, restore_status, restore_status_reason, restore_deletion_policy, restore_update_replace_policy, restore_properties, restore_event_properties, restore_dynamic_references, restore_attributes, restore_updated)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (parent_id, ordinal) DO UPDATE SET
     position = excluded.position,
     logical_id = excluded.logical_id,
@@ -485,5 +487,25 @@ ON CONFLICT (parent_id, ordinal) DO UPDATE SET
     after_event_properties = excluded.after_event_properties,
     after_dynamic_references = excluded.after_dynamic_references,
     after_attributes = excluded.after_attributes,
-    after_updated = excluded.after_updated;
+    after_updated = excluded.after_updated,
+    before_delete_started = excluded.before_delete_started,
+    before_deleted = excluded.before_deleted,
+    admission_pending = excluded.admission_pending,
+    restore_stack_id = excluded.restore_stack_id,
+    restore_logical_id = excluded.restore_logical_id,
+    restore_type = excluded.restore_type,
+    restore_physical_id = excluded.restore_physical_id,
+    restore_ref = excluded.restore_ref,
+    restore_token = excluded.restore_token,
+    restore_generation = excluded.restore_generation,
+    restore_current = excluded.restore_current,
+    restore_status = excluded.restore_status,
+    restore_status_reason = excluded.restore_status_reason,
+    restore_deletion_policy = excluded.restore_deletion_policy,
+    restore_update_replace_policy = excluded.restore_update_replace_policy,
+    restore_properties = excluded.restore_properties,
+    restore_event_properties = excluded.restore_event_properties,
+    restore_dynamic_references = excluded.restore_dynamic_references,
+    restore_attributes = excluded.restore_attributes,
+    restore_updated = excluded.restore_updated;
 

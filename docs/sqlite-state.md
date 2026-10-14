@@ -34,6 +34,16 @@ CloudFormation's refusal to delete executed change sets. Unexecuted change sets
 are removed when superseded by execution, but remain ARN-addressable after stack
 deletion until explicitly deleted, as observed in the rule migration capture.
 
+Schema `407_cloudformation_replacement_progress.sql` retains delete-first progress,
+admission state and the typed rollback restoration record. Previously the SQLite
+step codec discarded these fields, so exclusive-resource replacement could lose
+the freshly restored native identity. Migration reconstructs only deletion facts
+proven by historical step states; it does not invent missing restoration records.
+Memory/SQLite SDK regressions cover interrupted replacement and rollback. An
+actual SQLite-backed controller also restored a fresh route-table association
+after a dependent queue conflict, reached `UPDATE_ROLLBACK_COMPLETE`, and deleted
+the stack successfully.
+
 Schema `303_cloudformation_rule_identity.sql` qualifies retained custom-bus
 EventBridge rule physical IDs and references as `busName|ruleName`, preserving
 default-bus bare names. It also upgrades operation before/after images and adds

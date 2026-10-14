@@ -6,7 +6,7 @@ import (
 )
 
 func decodeStep(row sqlcgen.CloudformationStep) (domain.StepRecord, error) {
-	out := domain.StepRecord{Position: int(row.Position), LogicalID: row.LogicalID, Action: row.Action, State: row.State, Error: row.Error, DeleteFailures: int(row.DeleteFailures)}
+	out := domain.StepRecord{Position: int(row.Position), LogicalID: row.LogicalID, Action: row.Action, State: row.State, Error: row.Error, DeleteFailures: int(row.DeleteFailures), BeforeDeleteStarted: row.BeforeDeleteStarted, BeforeDeleted: row.BeforeDeleted, AdmissionPending: row.AdmissionPending}
 	var err error
 	out.Before, err = decodeResource(sqlcgen.CloudformationResource{
 		StackID:             row.BeforeStackID,
@@ -52,11 +52,33 @@ func decodeStep(row sqlcgen.CloudformationStep) (domain.StepRecord, error) {
 	if err != nil {
 		return out, err
 	}
+	out.Restore, err = decodeResource(sqlcgen.CloudformationResource{
+		StackID:             row.RestoreStackID,
+		LogicalID:           row.RestoreLogicalID,
+		Type:                row.RestoreType,
+		PhysicalID:          row.RestorePhysicalID,
+		Ref:                 row.RestoreRef,
+		Token:               row.RestoreToken,
+		Generation:          row.RestoreGeneration,
+		Current:             row.RestoreCurrent,
+		Status:              row.RestoreStatus,
+		StatusReason:        row.RestoreStatusReason,
+		DeletionPolicy:      row.RestoreDeletionPolicy,
+		UpdateReplacePolicy: row.RestoreUpdateReplacePolicy,
+		Properties:          row.RestoreProperties,
+		EventProperties:     row.RestoreEventProperties,
+		DynamicReferences:   row.RestoreDynamicReferences,
+		Attributes:          row.RestoreAttributes,
+		Updated:             row.RestoreUpdated,
+	})
+	if err != nil {
+		return out, err
+	}
 	return out, nil
 }
 
 func encodeStep(parent string, ordinal int, v domain.StepRecord) (sqlcgen.PutStepParams, error) {
-	p := sqlcgen.PutStepParams{ParentID: parent, Ordinal: int64(ordinal), Position: int64(v.Position), LogicalID: v.LogicalID, Action: v.Action, State: v.State, Error: v.Error, DeleteFailures: int64(v.DeleteFailures)}
+	p := sqlcgen.PutStepParams{ParentID: parent, Ordinal: int64(ordinal), Position: int64(v.Position), LogicalID: v.LogicalID, Action: v.Action, State: v.State, Error: v.Error, DeleteFailures: int64(v.DeleteFailures), BeforeDeleteStarted: v.BeforeDeleteStarted, BeforeDeleted: v.BeforeDeleted, AdmissionPending: v.AdmissionPending}
 	before, err := encodeResource(v.Before)
 	if err != nil {
 		return p, err
@@ -99,5 +121,26 @@ func encodeStep(parent string, ordinal int, v domain.StepRecord) (sqlcgen.PutSte
 	p.AfterDynamicReferences = after.DynamicReferences
 	p.AfterAttributes = after.Attributes
 	p.AfterUpdated = after.Updated
+	restore, err := encodeResource(v.Restore)
+	if err != nil {
+		return p, err
+	}
+	p.RestoreStackID = restore.StackID
+	p.RestoreLogicalID = restore.LogicalID
+	p.RestoreType = restore.Type
+	p.RestorePhysicalID = restore.PhysicalID
+	p.RestoreRef = restore.Ref
+	p.RestoreToken = restore.Token
+	p.RestoreGeneration = restore.Generation
+	p.RestoreCurrent = restore.Current
+	p.RestoreStatus = restore.Status
+	p.RestoreStatusReason = restore.StatusReason
+	p.RestoreDeletionPolicy = restore.DeletionPolicy
+	p.RestoreUpdateReplacePolicy = restore.UpdateReplacePolicy
+	p.RestoreProperties = restore.Properties
+	p.RestoreEventProperties = restore.EventProperties
+	p.RestoreDynamicReferences = restore.DynamicReferences
+	p.RestoreAttributes = restore.Attributes
+	p.RestoreUpdated = restore.Updated
 	return p, nil
 }
