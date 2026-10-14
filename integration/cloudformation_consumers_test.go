@@ -1031,3 +1031,41 @@ func TestCloudFormationFailedCreateRollbackBaseline(t *testing.T) {
 		})
 	}
 }
+
+func TestCloudFormationQueuePublicEndpoint(t *testing.T) {
+	for _, backend := range []string{"memory", "sqlite"} {
+		t.Run(backend, func(t *testing.T) {
+			source := clock.NewManual(time.Date(2031, 6, 7, 8, 9, 10, 0, time.UTC))
+			c, _ := retainedCloud(t, backend, stackd.Config{Clock: source}, func(config stackd.Config) (*stackd.Stack, *httptest.Server) {
+				return startPublicCloud(t, config)
+			})
+			client := cloudFormationClient(c, "us-east-1", "test", "test")
+			created, err := client.CreateStack(t.Context(), &cloudformation.CreateStackInput{
+				StackName: aws.String("local-queue-output"), TemplateBody: aws.String(cloudFormationQueueTemplate(t, "local-queue-output", 30, 0)),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			stack := cloudFormationWait(t, c, source, client, aws.ToString(created.StackId), cfntypes.StackStatusCreateComplete)
+			queueURL := cloudFormationQueueURL(t, stack)
+			if queueURL != c.server.URL+"/000000000000/local-queue-output" {
+				t.Fatalf("background-created queue advertised a different origin: %q", queueURL)
+			}
+			queues := c.sqs("test", "test", "")
+			sent, err := queues.SendMessage(t.Context(), &sqs.SendMessageInput{QueueUrl: aws.String(queueURL), MessageBody: aws.String("local CloudFormation consumer")})
+			if err != nil {
+				t.Fatal(err)
+			}
+			received, err := queues.ReceiveMessage(t.Context(), &sqs.ReceiveMessageInput{QueueUrl: aws.String(queueURL)})
+			if err != nil || len(received.Messages) != 1 || aws.ToString(received.Messages[0].MessageId) != aws.ToString(sent.MessageId) || aws.ToString(received.Messages[0].Body) != "local CloudFormation consumer" {
+				t.Fatalf("queue output did not reach its real data plane: %+v, %v", received, err)
+			}
+			if _, err := client.DeleteStack(t.Context(), &cloudformation.DeleteStackInput{StackName: created.StackId}); err != nil {
+				t.Fatal(err)
+			}
+			cloudFormationWait(t, c, source, client, aws.ToString(created.StackId), cfntypes.StackStatusDeleteComplete)
+			_, err = queues.GetQueueAttributes(t.Context(), &sqs.GetQueueAttributesInput{QueueUrl: aws.String(queueURL)})
+			assertAPIError(t, err, "AWS.SimpleQueueService.NonExistentQueue")
+		})
+	}
+}

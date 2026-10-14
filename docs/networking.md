@@ -13,6 +13,12 @@ networking to the existing [container](runtime-containers.md) and
 Neither origin is a listener, route or DNS installer. Keep both explicit when
 host clients and workloads use different routes, including remote Engines.
 
+Queue creation from background owners such as CloudFormation has no incoming HTTP
+Host. With no gateway domain, those commands use the configured public origin
+for queue URLs rather than advertising an AWS hostname. Direct HTTP requests
+retain their request origin. Set a stable, reachable `-public-endpoint` before
+deploying stacks whose outputs or consumers retain queue URLs.
+
 `-gateway-domain dev.stackd.test -gateway-address IP` adds an authoritative root
 and descendant namespace to the selected `-dns-listen IPv4:port` UDP/TCP server.
 Repeat `gateway-address` for deliberate A/AAAA targets; unspecified and multicast

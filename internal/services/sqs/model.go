@@ -108,7 +108,7 @@ func (k queueKey) canonicalURL() string {
 	return "https://sqs." + k.region + "." + suffix + "/" + k.account + "/" + k.name
 }
 func (s *Service) localURL(r *http.Request, k queueKey) (string, *awswire.Error) {
-	if s.endpointDomain != "" {
+	if s.endpointDomain != "" || r.Host == "" && s.publicEndpoint != "" {
 		origin, err := endpoints.ResourceURL(s.publicEndpoint, s.endpointDomain, "sqs", k.region, "")
 		if err != nil {
 			return "", &awswire.Error{Code: "InternalError", Message: err.Error(), StatusCode: 500}
