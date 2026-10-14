@@ -40,12 +40,15 @@ class StackdProcess:
             self.process = subprocess.Popen(command, stdout=log, stderr=log, env=environment)
         run["pid"] = self.process.pid
         deadline = time.monotonic() + timeout
+        # Readiness must reach the owned controller, never an ambient proxy.
+        opener = urllib.request.build_opener(
+            urllib.request.ProxyHandler({}), urllib.request.HTTPSHandler(context=tls))
         while time.monotonic() < deadline:
             status = self.process.poll()
             if status is not None:
                 raise RuntimeError(f"Controller exited {status} before readiness; inspect {log_path}")
             try:
-                with urllib.request.urlopen(endpoint + "/_stackd/health", context=tls, timeout=1) as response:
+                with opener.open(endpoint + "/_stackd/health", timeout=1) as response:
                     if response.status == 200:
                         return
             except OSError:

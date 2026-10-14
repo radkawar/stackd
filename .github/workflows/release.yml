@@ -1,0 +1,150 @@
+name: Tagged releases
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      commit: ${{ steps.commit.outputs.commit }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Validate release tag
+        id: version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: python3 -B -P scripts/release.py validate-version "$TAG"
+      - name: Resolve exact tagged commit
+        id: commit
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          commit=$(git rev-parse --verify "refs/tags/$TAG^{commit}")
+          test "$commit" = "$(git rev-parse HEAD)"
+          printf 'commit=%s\n' "$commit" >> "$GITHUB_OUTPUT"
+
+  checks:
+    needs: tag
+    uses: ./.github/workflows/checks.yml
+
+  package:
+    needs: [tag, checks]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux/amd64
+            suffix: linux_amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+            suffix: linux_arm64
+          - runner: macos-15-intel
+            platform: darwin/amd64
+            suffix: darwin_amd64
+          - runner: macos-15
+            platform: darwin/arm64
+            suffix: darwin_arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version: '1.26.5'
+          cache: true
+      - name: Install pinned AWS CLI for local-only package smoke
+        env:
+          AWS_CLI_VERSION: '2.36.28'
+        shell: bash
+        run: |
+          case "$RUNNER_OS/$RUNNER_ARCH" in
+            Linux/X64) arch=x86_64 ;;
+            Linux/ARM64) arch=aarch64 ;;
+            macOS/*) arch=macos ;;
+            *) exit 1 ;;
+          esac
+          if [[ "$arch" = macos ]]; then
+            curl --fail --silent --show-error --location "https://awscli.amazonaws.com/AWSCLIV2-$AWS_CLI_VERSION.pkg" --output "$RUNNER_TEMP/aws-cli.pkg"
+            sudo installer -pkg "$RUNNER_TEMP/aws-cli.pkg" -target /
+          else
+            curl --fail --silent --show-error --location "https://awscli.amazonaws.com/awscli-exe-linux-$arch-$AWS_CLI_VERSION.zip" --output "$RUNNER_TEMP/aws-cli.zip"
+            unzip -q "$RUNNER_TEMP/aws-cli.zip" -d "$RUNNER_TEMP/aws-cli"
+            "$RUNNER_TEMP/aws-cli/aws/install" --install-dir "$RUNNER_TEMP/aws-cli-install" --bin-dir "$RUNNER_TEMP/aws-cli-bin"
+            echo "$RUNNER_TEMP/aws-cli-bin" >> "$GITHUB_PATH"
+          fi
+      - name: Build archive from tagged source
+        env:
+          TAG: ${{ needs.tag.outputs.version }}
+          PLATFORM: ${{ matrix.platform }}
+        run: python3 -B -P scripts/release.py build "$TAG" --require-tag --platform "$PLATFORM" --output bin/releases
+      - name: Exercise native packaged CLI through AWS APIs
+        env:
+          TAG: ${{ needs.tag.outputs.version }}
+          SUFFIX: ${{ matrix.suffix }}
+        run: python3 -B -P scripts/release.py smoke "bin/releases/stackd_${TAG}_${SUFFIX}.tar.gz"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-${{ matrix.suffix }}
+          path: bin/releases/*.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  publish:
+    needs: [tag, package]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.tag.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: bin/releases
+      - name: Verify complete tagged artifact set and generate checksums
+        env:
+          TAG: ${{ needs.tag.outputs.version }}
+          COMMIT: ${{ needs.tag.outputs.commit }}
+        run: python3 -B -P scripts/release.py verify "$TAG" "$COMMIT" bin/releases
+      - name: Publish only after every native package smoke succeeds
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.tag.outputs.version }}
+          COMMIT: ${{ needs.tag.outputs.commit }}
+          PRERELEASE: ${{ needs.tag.outputs.prerelease }}
+        shell: bash
+        run: |
+          # Do not replace an existing published release or silently overwrite assets.
+          options=()
+          if [[ "$PRERELEASE" = true ]]; then
+            options+=(--prerelease --latest=false)
+          fi
+          gh release create "$TAG" bin/releases/*.tar.gz bin/releases/SHA256SUMS \
+            --verify-tag --target "$COMMIT" --title "$TAG" --generate-notes --draft "${options[@]}" \
+            --notes "Experimental offline AWS sandbox; not complete AWS parity. [Install and verify](https://github.com/${GH_REPO}/blob/${TAG}/docs/releases.md). Archives include both static Linux Lambda telemetry helpers; optional execution runtimes and images are prepared separately."
+          gh release edit "$TAG" --draft=false "${options[@]}"

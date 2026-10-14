@@ -1,0 +1,96 @@
+name: Focused checks
+
+on:
+  workflow_call:
+  pull_request:
+  push:
+    branches:
+      - '**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  focused:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version: '1.26.5'
+          cache: true
+      - name: Check Go formatting without modifying source
+        run: test -z "$(git ls-files -z '*.go' | xargs -0 gofmt -l)"
+      - name: Check release tooling contracts
+        run: python3 -B -P -m unittest discover -s scripts -p release_test.py
+      - name: Vet and lint controller and shared identity/time boundaries
+        run: |
+          go vet ./cmd/stackd ./clock ./iam/policy ./internal/identity ./compute/lambda/cmd/telemetry-buffer
+          go tool staticcheck ./cmd/stackd ./clock ./iam/policy ./internal/identity ./compute/lambda/cmd/telemetry-buffer
+      - name: Run focused identity/time policy tests
+        run: go test -race -timeout 10m ./clock ./iam/policy ./internal/identity
+      - name: Build native CLI and both static Linux telemetry helpers
+        run: make build
+      - name: Exercise focused deployment and encryption regressions
+        run: |
+          go test ./integration -timeout 10m -run '^(TestDefaultAccountIdentitySDK|TestCloudFormationDeleteFirstReplacementRollback|TestCloudFormationRejectedExclusiveReplacementRestoresFreshNativeOwner|TestCloudFormationQueuePublicEndpoint|TestRESTResponseLifecycle|TestS3UpdateObjectEncryption.*)$'
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: '1.15.9'
+          terraform_wrapper: false
+      - name: Exercise actual Terraform and CloudFormation applications
+        run: |
+          python3 -m venv "$RUNNER_TEMP/examples-venv"
+          "$RUNNER_TEMP/examples-venv/bin/pip" install -r examples/requirements.txt
+          mkdir -p "$RUNNER_TEMP/stackd-examples"
+          "$RUNNER_TEMP/examples-venv/bin/python" examples/cloudformation/run.py --work-parent "$RUNNER_TEMP/stackd-examples"
+          "$RUNNER_TEMP/examples-venv/bin/python" examples/terraform/run.py --work-parent "$RUNNER_TEMP/stackd-examples"
+      - name: Retain example controller diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: example-controller-logs
+          path: ${{ runner.temp }}/stackd-examples/**/*.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  generated:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version: '1.26.5'
+          cache: true
+      - name: Read pinned GuardDuty catalog revision
+        id: catalog
+        run: echo "revision=$(jq -r .provenance.revision docs/guardduty-findings.json)" >> "$GITHUB_OUTPUT"
+      - name: Fetch the exact catalog input (not runtime code)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: trustoncloud/aws-guardduty-findings-directory
+          ref: ${{ steps.catalog.outputs.revision }}
+          path: clones/aws-guardduty-findings-directory
+          persist-credentials: false
+      - name: Verify catalog input checksum
+        run: |
+          jq -r '"\(.provenance.source_sha256)  clones/aws-guardduty-findings-directory/findings.json"' docs/guardduty-findings.json | sha256sum --check -
+      - name: Check retained and pinned-source generators
+        run: |
+          make generate-iam-check generate-oidc-check generate-simulation-check \
+            generate-lambda-runtime-check generate-sql-check generate-mq-schema-check \
+            generate-cloudformation-check generate-guardduty-findings-check
