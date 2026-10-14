@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kms/types"
 
 	"stackd/internal/authorization"
+	kmsapi "stackd/internal/awsapi/kms"
 )
 
 func TestSDKGrantConstraintsTokensRevocationAndRetirement(t *testing.T) {
@@ -27,7 +28,7 @@ func TestSDKGrantConstraintsTokensRevocationAndRetirement(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	input := &sdkkms.CreateGrantInput{KeyId: k.KeyId, GranteePrincipal: aws.String(user.PrincipalARN), RetiringPrincipal: aws.String(user.PrincipalARN), Operations: []types.GrantOperation{types.GrantOperationDecrypt, types.GrantOperationDescribeKey, types.GrantOperationRetireGrant}, Name: aws.String("application-read"), Constraints: &types.GrantConstraints{EncryptionContextSubset: map[string]string{"Department": "IT"}}}
+	input := &sdkkms.CreateGrantInput{KeyId: k.KeyId, GranteePrincipal: aws.String(user.PrincipalARN), RetiringPrincipal: aws.String(user.PrincipalARN), Operations: []types.GrantOperation{types.GrantOperationDecrypt, types.GrantOperationDescribeKey, types.GrantOperationRetireGrant}, Name: aws.String("application-read"), Constraints: &types.GrantConstraints{EncryptionContextEquals: map[string]string{}, EncryptionContextSubset: map[string]string{"Department": "IT"}}}
 	created, err := c.CreateGrant(ctx, input)
 	if err != nil {
 		t.Fatal(err)
@@ -111,5 +112,22 @@ func TestSDKDelegatedGrantCannotBroadenConstraints(t *testing.T) {
 	_, err = u.CreateGrant(ctx, &sdkkms.CreateGrantInput{KeyId: k.KeyId, GranteePrincipal: aws.String(user.PrincipalARN), Operations: []types.GrantOperation{types.GrantOperationDecrypt}, Constraints: &types.GrantConstraints{EncryptionContextEquals: map[string]string{"Department": "IT", "Project": "restricted"}}, GrantTokens: []string{*parent.GrantToken}})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestGrantConstraintsTreatEmptyMapsAsAbsent(t *testing.T) {
+	context := kmsapi.EncryptionContextType{"purpose": "terraform"}
+	for _, in := range []*kmsapi.GrantConstraints{
+		{EncryptionContextEquals: context, EncryptionContextSubset: kmsapi.EncryptionContextType{}},
+		{EncryptionContextEquals: kmsapi.EncryptionContextType{}, EncryptionContextSubset: context},
+		{EncryptionContextEquals: kmsapi.EncryptionContextType{}, EncryptionContextSubset: kmsapi.EncryptionContextType{}},
+	} {
+		equals, subset, err := grantConstraints(in)
+		if err != nil || (len(in.EncryptionContextEquals) == 0 && equals != nil) || (len(in.EncryptionContextSubset) == 0 && subset != nil) {
+			t.Fatalf("empty constraint normalization: %+v, %+v, %v", equals, subset, err)
+		}
+	}
+	if _, _, err := grantConstraints(&kmsapi.GrantConstraints{EncryptionContextEquals: context, EncryptionContextSubset: context}); err == nil || err.Code != "ValidationException" {
+		t.Fatalf("two nonempty constraints accepted: %v", err)
 	}
 }

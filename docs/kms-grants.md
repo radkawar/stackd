@@ -45,6 +45,11 @@ independent policy can authorize creation; permission for the cryptographic
 operation alone cannot broaden the parent. The native capture verifies these
 distinctions from AWS's [creation rules](https://docs.aws.amazon.com/kms/latest/developerguide/create-grant-overview.html).
 
+Empty `EncryptionContextEquals` or `EncryptionContextSubset` maps mean no
+constraint of that kind. SDK clients can send an unused alternative as `{}`.
+Two nonempty alternatives still return `ValidationException`; empty maps do
+not add a `kms:GrantConstraintType` condition or weaken a retained constraint.
+
 Named retries compare bound identities and constraints. ARN and unique-ID
 spellings reuse the grant and return interchangeable tokens. Deleting a role
 leaves old bindings intact; list responses render its deleted unique ID.

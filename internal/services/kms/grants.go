@@ -43,14 +43,16 @@ func grantConstraints(in *kmsapi.GrantConstraints) (map[string]string, map[strin
 	if in.SourceArn != nil {
 		return nil, nil, failure("UnsupportedOperationException", "SourceArn grant constraints are not implemented.")
 	}
-	if in.EncryptionContextEquals != nil && in.EncryptionContextSubset != nil {
+	// An empty context map carries no constraint. SDK clients, including the
+	// Terraform provider, can serialize the unused alternative as {}.
+	if len(in.EncryptionContextEquals) > 0 && len(in.EncryptionContextSubset) > 0 {
 		return nil, nil, failure("ValidationException", "Specify only one encryption context grant constraint.")
 	}
 	for _, pairs := range []kmsapi.EncryptionContextType{in.EncryptionContextEquals, in.EncryptionContextSubset} {
-		if pairs == nil {
+		if len(pairs) == 0 {
 			continue
 		}
-		if len(pairs) < 1 || len(pairs) > 8 {
+		if len(pairs) > 8 {
 			return nil, nil, failure("ValidationException", "Grant constraints require between 1 and 8 context pairs.")
 		}
 		for k, v := range pairs {
@@ -60,10 +62,10 @@ func grantConstraints(in *kmsapi.GrantConstraints) (map[string]string, map[strin
 		}
 	}
 	var equals, subset map[string]string
-	if in.EncryptionContextEquals != nil {
+	if len(in.EncryptionContextEquals) > 0 {
 		equals = encryptionContext(in.EncryptionContextEquals)
 	}
-	if in.EncryptionContextSubset != nil {
+	if len(in.EncryptionContextSubset) > 0 {
 		subset = encryptionContext(in.EncryptionContextSubset)
 	}
 	return equals, subset, nil
