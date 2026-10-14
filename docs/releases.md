@@ -200,6 +200,12 @@ the exact upstream Git revision recorded in `docs/guardduty-findings.json` and
 verifies its source SHA-256 before generation; it never follows upstream HEAD.
 The generator records GitHub HTTPS repository URLs with a `.git` suffix.
 This gives the same provenance for GitHub Actions checkout and ordinary clones.
+The provider API check fetches the exact Terraform AWS revision recorded in
+`docs/terraform-provider-apis.json`. It checks the generated source map, not
+all provider resource behavior. The hosted EIP example uses AWS provider 6.68.0.
+Focused regressions also cover secure CloudFormation references, Athena result
+manifests, RDS requested capacity and Glue statistics. Native RDS/Trino acceptance
+remains separately exercised local engine evidence.
 These match repository Makefile/hook conventions without invoking the full
 integration suite.
 
@@ -217,8 +223,9 @@ actionlint .github/workflows/checks.yml .github/workflows/release.yml
 python3 -B -P -m unittest discover -s scripts -p release_test.py
 make generate-iam-check generate-oidc-check generate-simulation-check \
   generate-lambda-runtime-check generate-sql-check generate-mq-schema-check \
-  generate-cloudformation-check generate-guardduty-findings-check
-# The GuardDuty target requires the recorded upstream clone, as prepared by CI.
+  generate-cloudformation-check generate-guardduty-findings-check \
+  generate-terraform-apis-check
+# The GuardDuty/provider targets require the recorded clones, as prepared by CI.
 ```
 
 `actionlint` is an additional maintainer prerequisite, not vendored by stackd.
