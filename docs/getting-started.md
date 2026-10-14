@@ -229,6 +229,29 @@ Each requirement includes SDK operation names, source locations and evidence typ
 Paginator constructors are included. Tests and sweeper files are excluded.
 Dynamic calls, wrappers and ambiguous receivers can remain unresolved.
 
+`lifecycle_inventory.provider_types` lists every managed resource and data source
+from the provider's generated registrations. Aliases keep their actual Terraform
+names. `lifecycle_inventory.implemented_services` includes all 72 stackd services
+with registered owner behavior, including data-only APIs and services with no
+direct provider resource. It distinguishes direct resources from dependencies.
+
+On 2026-10-14, generation found all 1,730 resource types and 685 data-source types.
+Their names matched the installed, pinned provider's `terraform providers schema
+-json` output exactly. This verifies inventory coverage, not resource behavior.
+The per-type API links cover the defining source files; they do not claim a
+complete transitive call graph. Shared helpers and initialization can add calls.
+Lifecycle and native-engine evidence default to `unverified`; registered APIs
+do not change that value to passed.
+
+Without the checkout, `-retained-source` refreshes classifications from the
+retained source snapshot and current stackd operation inventory. It validates
+the snapshot structure but cannot check provider source drift. Use the pinned
+checkout for source verification:
+
+```sh
+go run ./cmd/terraformapisgen -retained-source -check
+```
+
 - `registered-partial`: an operation is registered, not behaviorally complete.
 - `unimplemented`: a selected modeled operation has no registration.
 - `outside-selected-service-scope`: the API is outside the current service selection.

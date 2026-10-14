@@ -159,6 +159,14 @@ func create(conn *sdk.Client) { conn.CreateThing(nil, nil) }
 	if err := run(o); err != nil {
 		t.Fatal(err)
 	}
+	// Missing checkout mode must reproduce the same bytes, but it must not
+	// claim that retained source evidence verifies provider source drift.
+	originalProvider := o.Provider
+	o.Provider = filepath.Join(root, "missing-provider")
+	if err := run(o); err != nil {
+		t.Fatalf("retained-source deterministic check: %v", err)
+	}
+	o.Provider = originalProvider
 	put(o.Out, "stale\n")
 	if err := run(o); err == nil || !strings.Contains(err.Error(), "generated inventory differs") {
 		t.Fatalf("stale check: %v", err)
