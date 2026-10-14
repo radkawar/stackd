@@ -1252,6 +1252,12 @@ carries a same-Region note; the fixtures distinguish source and destination APs
 instead of applying it as a blanket prohibition. They do not establish behavior
 for every partition or AP family.
 
+Copy-source parsing accepts both an escaped key within the bucket/key path and
+a form-encoded complete header. It distinguishes the encoded bucket/key
+separator before splitting the version query, so literal `?`, `+` and `%` in a
+key are not query delimiters. Signed `CopyObject` and `UploadPartCopy` checks
+selected a historical version and recovered its exact 43 binary bytes.
+
 Regional admission preserves the distinction measured in
 `access_point_region_evidence.json.gz`: a correct regional AP/alias endpoint with
 the wrong signing Region returns `AuthorizationHeaderMalformed`, or

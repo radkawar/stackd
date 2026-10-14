@@ -11,7 +11,7 @@ import (
 )
 
 // copySource is the decoded identity, retaining explicit null-version selection.
-// The header is form-decoded once; an encoded question mark remains part of a key.
+// Path-escaped and whole-header form-escaped sources retain distinct delimiters.
 type copySource struct {
 	bucket  string
 	key     string
@@ -21,7 +21,20 @@ type copySource struct {
 func parseCopySource(header string) (copySource, *awswire.Error) {
 	var source copySource
 	path, query, hasQuery := strings.Cut(header, "?")
-	decoded, err := url.QueryUnescape(path)
+	var decoded string
+	var err error
+	if !strings.Contains(strings.TrimPrefix(path, "/"), "/") {
+		// A form-escaped source includes its bucket/key separator and query in
+		// the same encoding layer. Decode that envelope before splitting it.
+		decoded, err = url.QueryUnescape(path)
+		if err == nil && !hasQuery {
+			decoded, query, hasQuery = strings.Cut(decoded, "?")
+		}
+	} else {
+		// SDK path escaping leaves the separator intact. Decode only the path:
+		// %3F is key data here, and a literal plus is not a form-space.
+		decoded, err = url.PathUnescape(path)
+	}
 	if err != nil {
 		return source, argumentError("x-amz-copy-source", "x-amz-copy-source", "Invalid copy source encoding")
 	}
