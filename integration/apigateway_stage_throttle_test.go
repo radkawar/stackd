@@ -57,6 +57,12 @@ func TestRESTStageThrottleLiveUpdatesAndRestart(t *testing.T) {
 					if _, err := owner.PutIntegration(t.Context(), &apigateway.PutIntegrationInput{RestApiId: api.Id, ResourceId: resource.Id, HttpMethod: aws.String(method), Type: types.IntegrationType("MOCK"), RequestTemplates: map[string]string{"application/json": "{\"statusCode\":200}"}}); err != nil {
 						t.Fatal(err)
 					}
+					if _, err := owner.PutIntegrationResponse(t.Context(), &apigateway.PutIntegrationResponseInput{RestApiId: api.Id, ResourceId: resource.Id, HttpMethod: aws.String(method), StatusCode: aws.String("200")}); err != nil {
+						t.Fatal(err)
+					}
+					if _, err := owner.PutMethodResponse(t.Context(), &apigateway.PutMethodResponseInput{RestApiId: api.Id, ResourceId: resource.Id, HttpMethod: aws.String(method), StatusCode: aws.String("200")}); err != nil {
+						t.Fatal(err)
+					}
 				}
 			}
 			if _, err := owner.CreateDeployment(t.Context(), &apigateway.CreateDeploymentInput{RestApiId: api.Id, StageName: aws.String("live")}); err != nil {

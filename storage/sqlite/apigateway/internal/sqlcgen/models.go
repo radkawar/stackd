@@ -314,14 +314,16 @@ type ApigatewayMetricSample struct {
 }
 
 type ApigatewayMockIntegration struct {
-	Partition  string
-	AccountID  string
-	Region     string
-	ApiID      string
-	ResourceID string
-	HttpMethod string
-	StatusCode int64
-	Body       string
+	Partition       string
+	AccountID       string
+	Region          string
+	ApiID           string
+	ResourceID      string
+	HttpMethod      string
+	StatusCode      int64
+	Body            string
+	ResponseDeleted bool
+	TemplatePresent bool
 }
 
 type ApigatewayMockIntegrationHeader struct {
@@ -336,15 +338,17 @@ type ApigatewayMockIntegrationHeader struct {
 }
 
 type ApigatewayMockRoute struct {
-	Partition    string
-	AccountID    string
-	Region       string
-	ApiID        string
-	DeploymentID string
-	ResourceID   string
-	HttpMethod   string
-	StatusCode   int64
-	Body         string
+	Partition       string
+	AccountID       string
+	Region          string
+	ApiID           string
+	DeploymentID    string
+	ResourceID      string
+	HttpMethod      string
+	StatusCode      int64
+	Body            string
+	ResponseDeleted bool
+	TemplatePresent bool
 }
 
 type ApigatewayMockRouteHeader struct {

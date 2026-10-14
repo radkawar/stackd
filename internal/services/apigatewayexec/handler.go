@@ -194,6 +194,10 @@ func (s *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		observation.traceRequest(r, route, body)
 	}
 	if rest && route.Mock != nil {
+		if route.Mock.ResponseDeleted {
+			writeRejection(w, &rejection{http.StatusInternalServerError, "Internal Server Error"})
+			return
+		}
 		for name, value := range route.Mock.Headers {
 			w.Header().Set(name, value)
 		}

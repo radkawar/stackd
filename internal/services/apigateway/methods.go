@@ -24,11 +24,7 @@ func methodOutput(r Reader, v MethodRecord) (*api.Method, error) {
 	if len(v.Responses) != 0 {
 		out.MethodResponses = make(api.MapOfMethodResponse, len(v.Responses))
 		for status, response := range v.Responses {
-			parameters := make(api.MapOfStringToBoolean, len(response.Headers))
-			for name, required := range response.Headers {
-				parameters[api.String("method.response.header."+name)] = api.NullableBoolean(required)
-			}
-			out.MethodResponses[api.String(status)] = api.MethodResponse{StatusCode: new(api.StatusCode(status)), ResponseParameters: parameters}
+			out.MethodResponses[api.String(status)] = *methodResponseOutput(status, response)
 		}
 	}
 	i, err := r.Integration(v.Key)
@@ -174,15 +170,11 @@ func (s *Service) updateMethod(tx Transaction, in *api.UpdateMethodRequest) (*ap
 func integrationOutput(v IntegrationRecord) *api.Integration {
 	if v.Mock != nil {
 		status := strconv.Itoa(v.Mock.StatusCode)
-		parameters := make(api.MapOfStringToString, len(v.Mock.Headers))
-		for name, value := range v.Mock.Headers {
-			parameters[api.String("method.response.header."+name)] = api.String("'" + value + "'")
+		out := &api.Integration{Type: new(api.IntegrationTypeMOCK), RequestTemplates: api.MapOfStringToString{"application/json": api.String("{\"statusCode\":" + status + "}")}, PassthroughBehavior: ptr("WHEN_NO_MATCH"), TimeoutInMillis: new(api.Integer(v.TimeoutMillis))}
+		if !v.Mock.ResponseDeleted {
+			out.IntegrationResponses = api.MapOfIntegrationResponse{api.String(status): *integrationResponseOutput(v.Mock)}
 		}
-		response := api.IntegrationResponse{StatusCode: new(api.StatusCode(status)), ResponseParameters: parameters}
-		if v.Mock.Body != "" {
-			response.ResponseTemplates = api.MapOfStringToString{"application/json": api.String(v.Mock.Body)}
-		}
-		return &api.Integration{Type: new(api.IntegrationTypeMOCK), RequestTemplates: api.MapOfStringToString{"application/json": api.String("{\"statusCode\":" + status + "}")}, IntegrationResponses: api.MapOfIntegrationResponse{api.String(status): response}, PassthroughBehavior: ptr("WHEN_NO_MATCH"), TimeoutInMillis: new(api.Integer(v.TimeoutMillis))}
+		return out
 	}
 	return &api.Integration{Type: new(api.IntegrationTypeAWS_PROXY), HttpMethod: ptr("POST"), Uri: ptr(v.URI), Credentials: optional(v.CredentialsARN), PassthroughBehavior: ptr("WHEN_NO_MATCH"), TimeoutInMillis: new(api.Integer(v.TimeoutMillis)), CacheNamespace: ptr(v.Key.ResourceID), CacheKeyParameters: api.ListOfString{}, ResponseTransferMode: new(api.ResponseTransferModeBUFFERED)}
 }
@@ -256,7 +248,7 @@ func (s *Service) putIntegration(tx Transaction, in *api.PutIntegrationRequest) 
 		if in.TimeoutInMillis != nil && *in.TimeoutInMillis != 29000 {
 			return nil, unsupported("nondefault MOCK timeout")
 		}
-		row := IntegrationRecord{Key: key, TimeoutMillis: 29000, Mock: &apigatewayexec.MockIntegration{StatusCode: status}}
+		row := IntegrationRecord{Key: key, TimeoutMillis: 29000, Mock: &apigatewayexec.MockIntegration{StatusCode: status, ResponseDeleted: true}}
 		if err := tx.PutIntegration(row); err != nil {
 			return nil, err
 		}

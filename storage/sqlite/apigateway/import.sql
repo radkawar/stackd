@@ -41,7 +41,7 @@ SELECT * FROM apigateway_mock_integrations WHERE partition = ? AND account_id = 
 DELETE FROM apigateway_mock_integrations WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND resource_id = ? AND http_method = ?;
 
 -- name: PutMockIntegrations :exec
-INSERT INTO apigateway_mock_integrations (partition, account_id, region, api_id, resource_id, http_method, status_code, body) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO apigateway_mock_integrations (partition, account_id, region, api_id, resource_id, http_method, status_code, body, response_deleted, template_present) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: ListMockIntegrationHeaders :many
 SELECT * FROM apigateway_mock_integration_headers WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND resource_id = ? AND http_method = ? ORDER BY name;
@@ -59,7 +59,7 @@ SELECT * FROM apigateway_mock_routes WHERE partition = ? AND account_id = ? AND 
 DELETE FROM apigateway_mock_routes WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND deployment_id = ? AND resource_id = ? AND http_method = ?;
 
 -- name: PutMockRoutes :exec
-INSERT INTO apigateway_mock_routes (partition, account_id, region, api_id, deployment_id, resource_id, http_method, status_code, body) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO apigateway_mock_routes (partition, account_id, region, api_id, deployment_id, resource_id, http_method, status_code, body, response_deleted, template_present) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: ListMockRouteHeaders :many
 SELECT * FROM apigateway_mock_route_headers WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND deployment_id = ? AND resource_id = ? AND http_method = ? ORDER BY name;

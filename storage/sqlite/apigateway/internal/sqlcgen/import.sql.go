@@ -602,7 +602,7 @@ func (q *Queries) ListMockIntegrationHeaders(ctx context.Context, arg ListMockIn
 }
 
 const listMockIntegrations = `-- name: ListMockIntegrations :many
-SELECT "partition", account_id, region, api_id, resource_id, http_method, status_code, body FROM apigateway_mock_integrations WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND resource_id = ? AND http_method = ? ORDER BY partition, account_id, region, api_id, resource_id, http_method
+SELECT "partition", account_id, region, api_id, resource_id, http_method, status_code, body, response_deleted, template_present FROM apigateway_mock_integrations WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND resource_id = ? AND http_method = ? ORDER BY partition, account_id, region, api_id, resource_id, http_method
 `
 
 type ListMockIntegrationsParams struct {
@@ -639,6 +639,8 @@ func (q *Queries) ListMockIntegrations(ctx context.Context, arg ListMockIntegrat
 			&i.HttpMethod,
 			&i.StatusCode,
 			&i.Body,
+			&i.ResponseDeleted,
+			&i.TemplatePresent,
 		); err != nil {
 			return nil, err
 		}
@@ -709,7 +711,7 @@ func (q *Queries) ListMockRouteHeaders(ctx context.Context, arg ListMockRouteHea
 }
 
 const listMockRoutes = `-- name: ListMockRoutes :many
-SELECT "partition", account_id, region, api_id, deployment_id, resource_id, http_method, status_code, body FROM apigateway_mock_routes WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND deployment_id = ? AND resource_id = ? AND http_method = ? ORDER BY partition, account_id, region, api_id, deployment_id, resource_id, http_method
+SELECT "partition", account_id, region, api_id, deployment_id, resource_id, http_method, status_code, body, response_deleted, template_present FROM apigateway_mock_routes WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND deployment_id = ? AND resource_id = ? AND http_method = ? ORDER BY partition, account_id, region, api_id, deployment_id, resource_id, http_method
 `
 
 type ListMockRoutesParams struct {
@@ -749,6 +751,8 @@ func (q *Queries) ListMockRoutes(ctx context.Context, arg ListMockRoutesParams) 
 			&i.HttpMethod,
 			&i.StatusCode,
 			&i.Body,
+			&i.ResponseDeleted,
+			&i.TemplatePresent,
 		); err != nil {
 			return nil, err
 		}
@@ -955,18 +959,20 @@ func (q *Queries) PutMockIntegrationHeaders(ctx context.Context, arg PutMockInte
 }
 
 const putMockIntegrations = `-- name: PutMockIntegrations :exec
-INSERT INTO apigateway_mock_integrations (partition, account_id, region, api_id, resource_id, http_method, status_code, body) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO apigateway_mock_integrations (partition, account_id, region, api_id, resource_id, http_method, status_code, body, response_deleted, template_present) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type PutMockIntegrationsParams struct {
-	Partition  string
-	AccountID  string
-	Region     string
-	ApiID      string
-	ResourceID string
-	HttpMethod string
-	StatusCode int64
-	Body       string
+	Partition       string
+	AccountID       string
+	Region          string
+	ApiID           string
+	ResourceID      string
+	HttpMethod      string
+	StatusCode      int64
+	Body            string
+	ResponseDeleted bool
+	TemplatePresent bool
 }
 
 func (q *Queries) PutMockIntegrations(ctx context.Context, arg PutMockIntegrationsParams) error {
@@ -979,6 +985,8 @@ func (q *Queries) PutMockIntegrations(ctx context.Context, arg PutMockIntegratio
 		arg.HttpMethod,
 		arg.StatusCode,
 		arg.Body,
+		arg.ResponseDeleted,
+		arg.TemplatePresent,
 	)
 	return err
 }
@@ -1015,19 +1023,21 @@ func (q *Queries) PutMockRouteHeaders(ctx context.Context, arg PutMockRouteHeade
 }
 
 const putMockRoutes = `-- name: PutMockRoutes :exec
-INSERT INTO apigateway_mock_routes (partition, account_id, region, api_id, deployment_id, resource_id, http_method, status_code, body) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO apigateway_mock_routes (partition, account_id, region, api_id, deployment_id, resource_id, http_method, status_code, body, response_deleted, template_present) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type PutMockRoutesParams struct {
-	Partition    string
-	AccountID    string
-	Region       string
-	ApiID        string
-	DeploymentID string
-	ResourceID   string
-	HttpMethod   string
-	StatusCode   int64
-	Body         string
+	Partition       string
+	AccountID       string
+	Region          string
+	ApiID           string
+	DeploymentID    string
+	ResourceID      string
+	HttpMethod      string
+	StatusCode      int64
+	Body            string
+	ResponseDeleted bool
+	TemplatePresent bool
 }
 
 func (q *Queries) PutMockRoutes(ctx context.Context, arg PutMockRoutesParams) error {
@@ -1041,6 +1051,8 @@ func (q *Queries) PutMockRoutes(ctx context.Context, arg PutMockRoutesParams) er
 		arg.HttpMethod,
 		arg.StatusCode,
 		arg.Body,
+		arg.ResponseDeleted,
+		arg.TemplatePresent,
 	)
 	return err
 }

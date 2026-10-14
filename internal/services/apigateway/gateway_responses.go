@@ -138,6 +138,45 @@ func (s *Service) deleteGatewayResponse(tx Transaction, in *api.DeleteGatewayRes
 	delete(owner.GatewayResponses, kind)
 	return &api.Unit{}, tx.PutAPI(owner)
 }
+func (s *Service) updateGatewayResponse(tx Transaction, in *api.UpdateGatewayResponseRequest) (*api.GatewayResponse, error) {
+	kind := string(value(in.ResponseType))
+	owner, err := s.api(tx, value(in.RestApiId), "PATCH", "/gatewayresponses/"+kind)
+	if err != nil {
+		return nil, err
+	}
+	response, ok := owner.GatewayResponses[kind]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	out := gatewayResponseOutput(kind, response)
+	status := string(value(out.StatusCode))
+	parameters, templates := mapIn(out.ResponseParameters), mapIn(out.ResponseTemplates)
+	for _, p := range in.PatchOperations {
+		path := value(p.Path)
+		switch {
+		case path == "/statusCode":
+			err = replace(p, &status)
+		case strings.HasPrefix(path, "/responseParameters/"):
+			err = patchMap(p, "/responseParameters", parameters)
+		case strings.HasPrefix(path, "/responseTemplates/"):
+			err = patchMap(p, "/responseTemplates", templates)
+		default:
+			err = unsupported("gateway response patch path " + path)
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	response, err = parseGatewayResponse(kind, status, parameters, templates)
+	if err != nil {
+		return nil, err
+	}
+	owner.GatewayResponses[kind] = response
+	if err := tx.PutAPI(owner); err != nil {
+		return nil, err
+	}
+	return gatewayResponseOutput(kind, response), nil
+}
 func patchBinaryMediaTypes(row *APIRecord, p api.PatchOperation) error {
 	path := strings.TrimPrefix(value(p.Path), "/binaryMediaTypes/")
 	media := strings.ReplaceAll(strings.ReplaceAll(path, "~1", "/"), "~0", "~")

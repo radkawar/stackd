@@ -76,6 +76,12 @@ func TestRESTCloudFormationStageThrottlePersistsAndExecutes(t *testing.T) {
 			if _, err := gateway.call(ctx, "PutIntegration", map[string]any{"restApiId": apiID, "resourceId": rootID, "httpMethod": "GET", "type": "MOCK", "requestTemplates": map[string]any{"application/json": "{\"statusCode\":200}"}}); err != nil {
 				t.Fatal(err)
 			}
+			if _, err := gateway.call(ctx, "PutMethodResponse", map[string]any{"restApiId": apiID, "resourceId": rootID, "httpMethod": "GET", "statusCode": "200"}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := gateway.call(ctx, "PutIntegrationResponse", map[string]any{"restApiId": apiID, "resourceId": rootID, "httpMethod": "GET", "statusCode": "200"}); err != nil {
+				t.Fatal(err)
+			}
 			deployment, err := gateway.call(ctx, "CreateDeployment", map[string]any{"restApiId": apiID})
 			if err != nil {
 				t.Fatal(err)

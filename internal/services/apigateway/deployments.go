@@ -5,6 +5,7 @@ import (
 	"regexp"
 	api "stackd/internal/awsapi/apigateway"
 	"stackd/internal/services/apigatewayexec"
+	"strconv"
 	"strings"
 )
 
@@ -90,9 +91,15 @@ func (s *Service) createDeployment(tx Transaction, in *api.CreateDeploymentReque
 		route := DeploymentRoute{ResourceID: resource.Key.ResourceID, Path: resource.Path, HTTPMethod: m.Key.HTTPMethod, AuthorizationType: m.AuthorizationType, Scopes: m.Scopes, FunctionARN: arn, TimeoutMillis: integration.TimeoutMillis}
 		if integration.Mock != nil {
 			mock := *integration.Mock
+			response, exists := m.Responses[strconv.Itoa(mock.StatusCode)]
+			if !exists {
+				mock.ResponseDeleted = true
+			}
 			mock.Headers = make(map[string]string, len(integration.Mock.Headers))
 			for name, value := range integration.Mock.Headers {
-				mock.Headers[name] = value
+				if _, declared := response.Headers[name]; declared {
+					mock.Headers[name] = value
+				}
 			}
 			route.Mock = &mock
 		}

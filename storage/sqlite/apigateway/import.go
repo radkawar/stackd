@@ -92,7 +92,7 @@ func (r reader) loadMockIntegration(k domain.MethodKey) (*apigatewayexec.MockInt
 		return nil, nil
 	}
 	row := rows[0]
-	out := &apigatewayexec.MockIntegration{StatusCode: int(row.StatusCode), Body: row.Body, Headers: map[string]string{}}
+	out := &apigatewayexec.MockIntegration{StatusCode: int(row.StatusCode), Body: row.Body, Headers: map[string]string{}, ResponseDeleted: row.ResponseDeleted, TemplatePresent: row.TemplatePresent}
 	headers, err := r.q.ListMockIntegrationHeaders(r.ctx, sqlcgen.ListMockIntegrationHeadersParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, ResourceID: k.ResourceID, HttpMethod: k.HTTPMethod})
 	if err != nil {
 		return nil, err
@@ -112,6 +112,7 @@ func (w writer) putMockIntegration(k domain.MethodKey, v *apigatewayexec.MockInt
 	}
 	p := sqlcgen.PutMockIntegrationsParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, ResourceID: k.ResourceID, HttpMethod: k.HTTPMethod}
 	p.StatusCode, p.Body = int64(v.StatusCode), v.Body
+	p.ResponseDeleted, p.TemplatePresent = v.ResponseDeleted, v.TemplatePresent
 	if err := w.q.PutMockIntegrations(w.ctx, p); err != nil {
 		return err
 	}
@@ -134,7 +135,7 @@ func (r reader) loadMockRoute(k domain.DeploymentKey, resourceID, method string)
 		return nil, nil
 	}
 	row := rows[0]
-	out := &apigatewayexec.MockIntegration{StatusCode: int(row.StatusCode), Body: row.Body, Headers: map[string]string{}}
+	out := &apigatewayexec.MockIntegration{StatusCode: int(row.StatusCode), Body: row.Body, Headers: map[string]string{}, ResponseDeleted: row.ResponseDeleted, TemplatePresent: row.TemplatePresent}
 	headers, err := r.q.ListMockRouteHeaders(r.ctx, sqlcgen.ListMockRouteHeadersParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, DeploymentID: k.DeploymentID, ResourceID: resourceID, HttpMethod: method})
 	if err != nil {
 		return nil, err
@@ -154,6 +155,7 @@ func (w writer) putMockRoute(k domain.DeploymentKey, resourceID, method string, 
 	}
 	p := sqlcgen.PutMockRoutesParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, DeploymentID: k.DeploymentID, ResourceID: resourceID, HttpMethod: method}
 	p.StatusCode, p.Body = int64(v.StatusCode), v.Body
+	p.ResponseDeleted, p.TemplatePresent = v.ResponseDeleted, v.TemplatePresent
 	if err := w.q.PutMockRoutes(w.ctx, p); err != nil {
 		return err
 	}

@@ -12,6 +12,10 @@ type MockIntegration struct {
 	StatusCode int
 	Headers    map[string]string
 	Body       string
+	// ResponseDeleted also marks fresh integrations without a response. Its zero
+	// value preserves responses in older persisted MOCK snapshots.
+	ResponseDeleted bool
+	TemplatePresent bool
 }
 
 // GatewayResponse is live API configuration, not a backend response mapping.

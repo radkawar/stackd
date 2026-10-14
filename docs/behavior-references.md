@@ -2236,6 +2236,28 @@ service time and the existing process-local admission buckets, independently
 of optional API keys. Explicit zero is not omission. Rejected patches roll back;
 reopening retains settings, not process-local burst consumption.
 
+Method and integration responses support native Get/Delete/Update operations;
+`UpdateGatewayResponse` patches live defaults. IAM uses the exact response URI.
+Status-code keys are immutable; add/replace/remove patches decode JSON Pointer
+escaping and rejected patches leave state unchanged. Fresh MOCK integrations
+require explicit integration and method responses. Missing/deleted responses
+produce HTTP 500 after redeployment rather than a fabricated successful body.
+Only declared method-response headers are emitted. Existing deployed responses
+remain unchanged until another deployment; gateway-response updates are live.
+
+Migration 408 retains response absence and empty-template presence on current
+integrations and deployment snapshots. Existing active responses are preserved;
+only nonempty historical bodies establish prior template presence. Memory/SQLite
+SDK workflows exercise scope, native IAM paths, atomic patches and reopen.
+An actual CLI/HTTP workflow proves deployment-gated updates, deletion/recreation
+and live unauthorized-error changes. Supported responses remain one matching
+literal MOCK status, literal headers and `application/json` templates; response
+models, selection patterns, content conversion and general VTL remain unsupported.
+See [response patch operations](https://docs.aws.amazon.com/apigateway/latest/api/patch-operations.html),
+[integration responses](https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateIntegrationResponse.html)
+and [MOCK execution](https://docs.aws.amazon.com/apigateway/latest/developerguide/how-to-mock-integration.html).
+
+
 An actual SQLite CLI deployed the combined reported definition with native
 Python Lambda and a real Cognito pool. Before/after restart, SDK/HTTP calls prove
 static OPTIONS CORS, unauthorized 401 CORS, validated Cognito invocation,
