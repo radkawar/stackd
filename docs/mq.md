@@ -976,9 +976,14 @@ current and pending state unchanged. MQ uses the shared Smithy HTTP encoder,
 including the captured empty HTTP 204 `CreateTags` response.
 
 ActiveMQ broker descriptions and list summaries use the native `ActiveMQ`
-spelling. Creation and catalog APIs still use `ACTIVEMQ`; typed persisted engine
-identity and runtime dispatch are unchanged. The SDK regression and actual broker
-smoke check this distinction alongside restart and replay.
+spelling. Engine input admission is case-insensitive; catalog labels and typed
+persisted engine identity remain `ACTIVEMQ`. The
+[native case capture](../testdata/aws/mq/engine_case_admission.json) shows uppercase,
+mixed-case and lowercase configuration inputs reaching the same engine-version
+validation, without creating resources. A reviewed model correction delegates
+engine validation to the service rather than rejecting mixed case in transport.
+The Terraform 6.68.0 provider lifecycle exercised mixed-case broker creation,
+actual JMS bytes, imports, updates, restart and exact native cleanup.
 
 `TestMQNativeCreateBrokerIdentity` replays the fixture on memory and SQLite and
 checks retained mutations and account/region isolation. Run

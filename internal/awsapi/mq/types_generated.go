@@ -472,11 +472,6 @@ type EncryptionOptions struct {
 // EngineType represents Smithy shape com.amazonaws.mq#EngineType.
 type EngineType string
 
-const (
-	EngineTypeACTIVEMQ EngineType = "ACTIVEMQ"
-	EngineTypeRABBITMQ EngineType = "RABBITMQ"
-)
-
 // EngineVersion represents Smithy shape com.amazonaws.mq#EngineVersion.
 type EngineVersion struct {
 	Name *__string `json:"name,omitempty" smithy:"Name"`
