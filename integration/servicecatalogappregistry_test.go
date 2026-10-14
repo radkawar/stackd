@@ -44,7 +44,13 @@ func TestAppRegistryAttributeIdentityAndPagination(t *testing.T) {
 			changed.Description = new("conflicting creation")
 			_, err = client("us-east-1").CreateApplication(t.Context(), &changed)
 			assertAPIError(t, err, "ConflictException")
-			if _, err := client("us-east-1").UpdateApplication(t.Context(), &servicecatalogappregistry.UpdateApplicationInput{Application: &app, Name: appInput.Name, Description: new("current")}); err != nil {
+			// Replay the provider's legacy Name field through the SDK JSON fixture
+			// boundary; new SDK consumers should not use the deprecated rename API.
+			applicationUpdate, err := json.Marshal(map[string]any{"Application": app, "Name": aws.ToString(appInput.Name), "Description": "current"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := awstest.CallSDK(t.Context(), client("us-east-1"), "UpdateApplication", applicationUpdate); err != nil {
 				t.Fatal(err)
 			}
 
@@ -79,7 +85,11 @@ func TestAppRegistryAttributeIdentityAndPagination(t *testing.T) {
 				t.Fatalf("failed update changed exact document: %q", aws.ToString(got.Attributes))
 			}
 			const currentAttributes = `{"owner":"updated","revision":2}`
-			if _, err := client("us-east-1").UpdateAttributeGroup(t.Context(), &servicecatalogappregistry.UpdateAttributeGroupInput{AttributeGroup: &attr, Name: attributeInput.Name, Description: new("current attribute"), Attributes: new(currentAttributes)}); err != nil {
+			attributeUpdate, err := json.Marshal(map[string]any{"AttributeGroup": attr, "Name": aws.ToString(attributeInput.Name), "Description": "current attribute", "Attributes": currentAttributes})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := awstest.CallSDK(t.Context(), client("us-east-1"), "UpdateAttributeGroup", attributeUpdate); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := client("us-east-1").TagResource(t.Context(), &servicecatalogappregistry.TagResourceInput{ResourceArn: &attr, Tags: map[string]string{"revision": "current"}}); err != nil {
