@@ -27,8 +27,27 @@ keeps service-specific accounting and error semantics authoritative.
   service/execution owners; record the sampled boundaries and remaining work in
   [the consistency audit](docs/service-consistency.md). Correct inventory identity
   mismatches and include complete Signer/SSO/SSO OIDC prerequisite models.
-  The current inventory has 127 services, 8,207 modeled operations, 2,290
+  The current inventory has 127 services, 8,207 modeled operations, 2,313
   registered/partial operations and no registrations outside the selection.
+- [x] Use realistic 12-digit sandbox/member account identities without rewriting
+  retained identities. Fresh stores default to `731842905617`; SQLite preserves
+  its selected account and legacy stores retain zero unless explicitly overridden.
+  Organization reservations are collision-checked and non-sequential. Signed
+  memory/SQLite tests, targeted races and actual controller restart preserve
+  account isolation, pending provisioning and member role identities.
+- [x] Add seven REST method/integration/gateway response lifecycle operations with
+  atomic JSON Pointer patches, native resource IAM and explicit response absence.
+  Deployment snapshots retain method/integration responses; gateway responses
+  remain live. SDK/race and actual HTTP workflows exercise redeployment and
+  missing-response failures. General VTL, models and selection/content handling
+  remain unsupported; see [response boundaries](docs/behavior-references.md).
+- [x] Implement S3 `UpdateObjectEncryption` by wrapping/rewrapping the existing
+  data key, preserving object versions, bytes, checksums and metadata. Recheck
+  current object/key authority after external KMS work before transactional
+  publication. SDK/race and actual SQLite controller restarts exercise key
+  disable/re-enable and historical-version reads. Bucket Keys, cross-account
+  updates, DSSE-KMS and SSE-C sources remain unsupported; see
+  [encryption boundaries](docs/cloudtrail.md).
 - [x] Replace CloudFormation public ownership-marker authority with exact typed
   private incarnation claims, scoped creation receipts and current native IAM.
   Ordinary native/Cloud Control edits preserve claims; same-name recreations and
@@ -155,21 +174,22 @@ keeps service-specific accounting and error semantics authoritative.
   guest/worker import, reachable endpoints, TLS, readiness and retained-state
   shutdown. Built binaries and the local STS/S3/SQS SQLite restart path were
   exercised; this documentation update did not boot guests or start native engines.
-- [ ] Resolve native subnet-route association replacement progress after
-  delete-before-create retirement. Both `TestCloudFormationDeleteFirstReplacementRollback`
-  and `TestCloudFormationRejectedExclusiveReplacementRestoresFreshNativeOwner`
-  timed out on memory/SQLite; an actual SQLite CLI/public SDK smoke also stalled
-  after the old association's `DELETE_COMPLETE`. The restoration result-read
-  regression and affected package/static checks pass; they do not resolve this
-  separate native replacement workflow failure.
+- [x] Retain CloudFormation delete-before-create progress, pending-admission
+  status and fresh restoration identity in SQLite (schema 407). The step codec
+  previously discarded those fields. Both native replacement/rollback regressions
+  now pass on memory/SQLite, including interrupted-progress recovery. A signed
+  SQLite SDK workflow observes old association retirement, failed dependent
+  replacement, a fresh restored association and complete stack teardown.
 - [ ] Resolve integration failures reproduced on the pre-anonymization snapshot:
   `TestCloudFormationKMSAliasStackDiscovery`, `TestCloudTrailKMSNativeReplay`,
-  `TestServiceJobsSDKDrainAndRecovery`,
-  `TestOrganizationAccountAndRoleRollbackTogetherSDK`,
-  `TestOrganizationCreationEventsRollbackSDK`,
-  `TestOrganizationAndServiceRoleRollbackTogetherSDK`, and intermittent
+  `TestServiceJobsSDKDrainAndRecovery`, and intermittent
   `TestAutoScalingNativeControlsAcrossReopen` deletion visibility. Capture
   sanitization and deployment documentation do not establish a green full suite.
+- [x] Route Organizations rollback fault injection through transactional `Attempt`
+  as well as `Update`. Account/role, creation-event and service-role rollback
+  scenarios now pass on memory/SQLite; the previous decorator bypassed injection.
+  A broad internal-integration run exceeded its 180-second deadline; affected
+  REST owner fixtures pass separately. This is not a green full-suite claim.
 - [x] Correct Config resource-scoped IAM, Kinesis post-wait authority, Pipes
   acknowledgement recovery, AppConfig/Identity Center/SES continuation tokens,
   SSO Admin error status, EKS authenticator service time, ElastiCache disabled
@@ -259,17 +279,17 @@ keeps service-specific accounting and error semantics authoritative.
 - [ ] Complete MSK serverless, managed networking/storage/monitoring,
   IAM/client-mTLS data authentication, replication/multi-VPC and mutable fleet
   topology. Current unsupported effects are errors, not accepted inert fields.
-- [ ] Continue EC2/VPC and related services while independent owners build
-  Glue/Athena and ECR/CodeBuild in parallel. EKS follows the analytics path,
-  then the remaining service roadmap. Build real EC2
-  guest execution through a consumer-owned QEMU/KVM interface for firmware-booted
-  HVM images, not a direct-kernel-only or container substitute. Share
-  infrastructure and EC2-owned networking across compute consumers without a
-  generic executor framework. See [EC2 priority and ownership](docs/ec2.md#next-service-priority).
-- [ ] Build ECR and CodeBuild under one independent integration owner. Verify
-  authenticated image push/pull and real build commands, logs and artifacts;
-  reuse core IAM, storage, compute and observability interfaces. Merge only
-  verified behavior, not registry/project CRUD or canned build success.
+- [ ] Deepen EC2/VPC guest execution, native isolation and remaining placement/
+  networking behavior through the existing QEMU/KVM owner. Firmware-booted HVM,
+  Glue/Athena, ECR/CodeBuild and k3d/EKS have retained executable checkpoints;
+  they are no longer prerequisites waiting for initial implementation. Share
+  EC2-owned networking across consumers without a generic executor framework.
+  See [remaining EC2 boundaries](docs/ec2.md#next-service-priority) below.
+- [x] Establish the ECR/CodeBuild application path: authenticated image push/pull,
+  actual build commands, logs and artifacts, current IAM and runtime readiness.
+  Retained proof is `testdata/integration/ecr_codebuild_completion.json`;
+  the detailed ECR/CodeBuild section below retains unsupported scanning,
+  storage, build-mode and native-calibration boundaries.
 - [x] Boot a real Firecracker guest through its Unix-socket API, exercise
   pause/resume and disk retention across VMM replacement, and observe guest
   reboot exiting the VMM. Ordinary poweroff left this guest halted with VMM
@@ -308,6 +328,34 @@ The [2026-09-30 audit](docs/service-consistency.md) records all inspected owners
 rejected false positives and evidence boundaries. At that audit boundary,
 production code retained 472 `TODO: Comeback` markers in 379 files; counts are
 historical snapshots, not a conformance score.
+
+The current backlog review classified all 192 unchecked items present at the
+start of this pass, including numbered kernel tasks and nested analytics/EKS
+items. Reconciled stale ECR/CodeBuild, GuardDuty, SQLite, Lambda and licensing
+bootstrap language against retained implementation/evidence; unclosed behavioral
+and calibration requirements remain visible below. Review is not execution proof.
+
+Next coherent slices after the account/deployment/distribution work:
+
+- Secure CloudFormation SSM/Secrets Manager references: resolve through current
+  read/decrypt authority without persisting plaintext in properties, receipts,
+  events or rollback history.
+- Athena write manifests/`DATA_MANIFEST`: derive paths from real native writes
+  and preserve independent reader S3/KMS checks; never infer manifests from SQL
+  text or guessed object names.
+- Resolve the remaining named integration failures and native EC2 isolation
+  boundaries before broadening fleet or quota fidelity.
+- Account/billing: keep Account identity/contact/region behavior separate from
+  financial reporting. `ce` is selected but all Cost Explorer actions are
+  unsupported; Budgets/Pricing/CUR/Data Exports are not selected. Start with
+  retained source-owned usage facts (for example actual Athena scanned bytes),
+  unit-specific filters/periods and explicit pricing inputs before claiming
+  costs. A proposed USAGE-budget/SNS path needs explicit service selection and
+  source/unit calibration; no fake zero bills, forecasts, invoices or charges.
+  [Cost/usage API units](https://docs.aws.amazon.com/aws-cost-management/latest/APIReference/API_GetCostAndUsage.html),
+  [usage budgets](https://docs.aws.amazon.com/cost-management/latest/userguide/create-usage-budget.html),
+  [budget SNS ownership](https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-sns-policy.html).
+
 
 - [x] Connect AppConfig to shared tagging discovery and native tag mutation
   authority without duplicating resource tags. Preserve captured nested-ARN
@@ -674,10 +722,10 @@ historical snapshots, not a conformance score.
   storage, remaining metric families, engine rollouts, broader configuration semantics,
   remaining create-token conflict calibration and native maintenance edge semantics; preserve
   the complete inventory (24 partial operations and unimplemented Promote).
-- [ ] Build GuardDuty next after MQ service-linked-role admission/protection:
-  add its complete Smithy operation inventory, typed durable detector/finding
-  owners, current IAM and usable application workflows; retain unsupported
-  monitoring/protection dependencies explicitly rather than fabricating findings.
+- [x] Establish GuardDuty's typed durable detector/finding owners, current IAM
+  and journal/audit-derived detection. The detailed checkpoints below distinguish
+  actual telemetry from sample findings; missing producers, protection modes
+  and native behavioral calibration remain open there.
 - [x] Generate GuardDuty's complete 102-operation Smithy contract and implement
   typed detector/sample-finding/filter/tag workflows through current IAM and
   memory/SQLC storage. Verify signed SDK samples, real EventBridge-to-SQS delivery,
@@ -1375,8 +1423,9 @@ See [architecture](docs/architecture.md).
   nested writes stage together and callback failures/cancellation abort the domain.
 - [x] Public `Config.Clock` injection across identity, authorization and current
   built-ins, with manual time and cancelable service timers.
-- [ ] SQLC and SQLite persistence, schema migrations, crash recovery and snapshots;
-  optional PostgreSQL with identical service semantics.
+- [ ] Extend existing SQLC/SQLite migrations and crash recovery to consistent
+  snapshots/forks; add optional PostgreSQL with identical service semantics.
+  SQLite itself is implemented, with owner-specific recovery evidence below.
 - [x] First durable adapter: SQS-owned SQLite tables and SQLC queries for queues,
   delivery state and accepted redrive callers/progress, with shared native
   transaction/schema setup, CLI selection and SDK process-exit recovery tests.
@@ -1472,9 +1521,11 @@ See [architecture](docs/architecture.md).
   configuration sets, tags, templates and simple/raw/bulk MIME acceptance with
   typed retained storage. Verify current IAM/sandbox gates, real captured bytes,
   SQLite restart, native owner tagging and selected CloudTrail delivery to S3.
-- [ ] Complete real SMTP/Internet delivery, SMS and other MFA factors, OIDC/SAML
-  federation, remembered devices, other Lambda triggers/custom challenges and
-  native-user hosted UI/implicit OAuth before admitting active configurations.
+- [ ] Complete real SMTP/Internet delivery, SMS and remaining MFA factors,
+  remembered devices, remaining OIDC/SAML federation paths, other Lambda
+  triggers/custom challenges and native-user hosted UI/implicit OAuth.
+  Software MFA, the evidenced classic triggers and TLS/JWKS inbound federation
+  have completed checkpoints above; they do not establish the residual paths.
   SMTP/SMS success is never manufactured.
 - [ ] Complete SES suppression/contact lists, event destinations, delivery
   analytics, DNS/DKIM domains, custom MAIL FROM, dedicated IPs, tenants, broader
@@ -2051,8 +2102,9 @@ create an implementation obligation.
   The executable SQLite workflow reaches real Lambda, SQS, Logs, metrics and
   selected CloudTrail records, including current-role denial after restart.
   Deterministic deadlines do not claim native jitter or historical target replay.
-- [ ] Add native non-CloudTrail service events into EventBridge and remaining
-  targets and separate EventBridge Scheduler APIs, using native resources separate from LookupEvents aliases.
+- [ ] Extend native non-CloudTrail EventBridge producers and remaining targets
+  through their actual owners. Separate Scheduler APIs and existing EC2/ECS/ASG
+  sources are implemented; keep their native resources distinct from LookupEvents.
 - [x] Generate the Logs frontend and implement scoped groups, streams, event
   ingestion, tags, retention policy and paginated reads on memory/SQLC SQLite.
   Replay native admission limits, rejection indices, filter patterns, pagination
@@ -2150,10 +2202,11 @@ create an implementation obligation.
   namespace-specific behavior and per-sample causality through owned integrations.
 - [ ] Complete entity-associated metrics, native availability/retention behavior,
   remaining query expressions, widget-image rendering/streams and the remaining CloudWatch APIs.
-- [ ] Build AWS service-owned metric publication from actual lifecycle facts.
-  Preserve metric-specific counting, dimensions and cadence; do not derive
-  every metric from API call totals. Alarm evaluation/state/action intents
-  already join the shared clock and scheduler.
+- [ ] Extend service-owned metrics to missing producer families, dimensions and
+  cadence. Actual Athena scanned bytes, ECS measurements and EC2 vCPU/TAP series
+  already publish through shared owners. Preserve metric-specific counting;
+  API call totals are not a universal usage or billing ledger. Alarm evaluation,
+  state and action intents already join the shared clock and scheduler.
 
 The accepted [design](docs/verification-kernel.md) prioritizes these foundations
 within inside-out service completion. [Architecture](docs/architecture.md)
@@ -2242,25 +2295,22 @@ Do not add fidelity labels or provenance headers to AWS responses.
    Expand regional/schema coverage and CI refresh without inferring resource
    semantics from schemas. Unsupported behavior stays an explicit protocol
    error; schema-derived CRUD does not count as a completed resource or service.
-9. [ ] Implement real Lambda Runtime API and extension execution in containers:
-   official AWS base images and real RIC on x86_64/arm64, init/invoke/shutdown,
-   configurable keepalive and forced cold starts, warm `/tmp` persistence,
-   freeze/thaw, hot reload, limits, streaming, cancellation, credentials and logs.
-   No microVM or in-process handler fallback. A missing runtime is an explicit
-   compute configuration error; control-plane-only embedding needs no container.
-   Determinism ends at customer-code API/event edges.
-10. [ ] Inject per-instance Docker/containerd/Kubernetes handles and provision
-    pinned real backends per resource. Own prepare/start, observed readiness,
-    execute/stream, cancellation, limits, cleanup and capability checks. Activation
-    follows actual backend readiness, not a service-time timer. Implement the
-    [backend map](docs/verification-kernel.md#borrow-data-planes-and-run-real-compute):
-    ECS Fargate by default, EKS k3d/k3s or existing kubeconfig, EC2 with QEMU/KVM,
-    Batch/CodeBuild/Glue, real database/broker/search engines, DynamoDB Local and
-    a Kinesis engine. Retain AWS lifecycle, placement and policy logic in Go.
-    Route backend credentials/runtime/logs and AWS API calls back to the emulator;
-    enforce reachability and endpoint policies at execution boundaries. Keep
-    isolated DNS/local-CA integration opt-in and endpoint overrides supported;
-    do not mutate host networking automatically.
+9. [ ] Complete remaining Lambda runtime/host/source combinations and failure
+   boundaries over the existing real Runtime API and extension owner. Official
+   base images/RIC, x86_64/arm64, init/invoke/shutdown, warm `/tmp`, freeze/thaw,
+   hot reload, streaming, cancellation, credentials and logs have scoped
+   executable checkpoints, not universal parity. No in-process handler fallback;
+   missing runtimes remain explicit errors, and determinism ends at customer code.
+10. [ ] Complete missing native backend modes (including Batch), isolation,
+    placement and networking over existing per-instance consumer interfaces.
+    Docker, EKS/k3d, EC2/QEMU/KVM, CodeBuild/Glue and database/broker/search,
+    DynamoDB and Kinesis engines already have scoped implementations; preserve
+    their pinned preparation, observed readiness, execution, cancellation,
+    limits and cleanup. Follow the
+    [backend map](docs/verification-kernel.md#borrow-data-planes-and-run-real-compute).
+    Keep AWS lifecycle/policy in Go; route credentials/logs/API calls through the
+    emulator and enforce endpoint policies at execution boundaries. DNS/local-CA
+    integration stays opt-in; never mutate host networking automatically.
 11. [ ] Implement explicit external/local-model/recorded execution adapters with
     request matching, redaction, stream/cancellation behavior and CI offline
     enforcement. Never automatically forward unsupported calls or expose local
@@ -3685,8 +3735,24 @@ not close either full-service parity target.
   Document configuration, native prerequisites, safe shutdown and state retention.
   Exercise CLI S3/SQS, Python/Go SDK clients, SQLite restart, saved manual time
   and CA-verified HTTPS against a temporary controller, then stop it.
-- [ ] Establish the repository license before public redistribution.
-- [ ] Reproducible offline container/binary packaging and CI.
+- [x] Establish Apache-2.0 repository licensing (`LICENSE`). Dependency notices
+  and optional upstream image redistribution restrictions remain separate.
+- [x] Build deterministic tagged archives for Linux/macOS amd64/arm64 with both
+  static Linux telemetry helpers, checksums, source manifests and license notices.
+  Local builds cover all four targets; the Linux archive passes an actual
+  STS/S3/SQLite restart smoke, including hostile ambient proxy settings.
+  Reusable focused CI gates tag packaging on generators, behavioral regressions
+  and actual IaC lifecycles; four native runner smokes gate GitHub publication.
+  Hosted execution is evidenced by the corresponding Actions run, not local
+  cross-compilation. See [release/install instructions](docs/releases.md).
+- [x] Add executable Terraform and CloudFormation examples with exact S3 bytes,
+  queue delivery, SSM values, idempotent updates and verified resource teardown.
+  Pin Terraform provider hashes for all four release platforms.
+- [x] Add a Docker-backed Lambda live-reload example. Actual Python runtime
+  execution changes the response and process identity after a host edit while
+  preserving function configuration and warm `/tmp` state, then removes resources.
+- [ ] Package optional container/native-engine distributions with their upstream
+  license and redistribution requirements; binary archives do not bundle images.
 - [x] Fast repository hooks: staged Go formatting on commit; changed pushed-package
   vet/Staticcheck on push. Keep full race and generation drift in explicit `make check`
   checkpoints, outside the normal development loop.

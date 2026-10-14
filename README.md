@@ -42,10 +42,12 @@ aws --endpoint-url http://127.0.0.1:4566 sts get-caller-identity
 aws --endpoint-url http://127.0.0.1:4566 s3api create-bucket --bucket hello-stackd
 ```
 
-The default local account is `000000000000`. `test`/`test` is a local bootstrap
-root identity, **not an AWS credential or a secure multi-user login**. Keep the
-listener on loopback. Do not expose the API or local diagnostic endpoints to
-untrusted networks.
+Fresh sandboxes use account `731842905617`. SQLite retains the selected account;
+upgraded databases preserve their historical default. Use STS to discover the
+actual identity and see [account selection](docs/configuration.md) before changing
+an existing deployment. `test`/`test` is a local bootstrap root identity, **not an
+AWS credential or a secure multi-user login**. Keep the listener on loopback. Do
+not expose the API or local diagnostic endpoints to untrusted networks.
 
 Press **Ctrl-C** to stop the controller. Start it again with the same database
 path to retain supported control-plane state. External runtimes have their own
@@ -152,6 +154,9 @@ or engines; follow [owned-infrastructure shutdown](docs/operations.md#stop-all-i
 | --- | --- |
 | Install, start, make requests, and try S3/SQS | [Getting started](docs/getting-started.md) |
 | Configure credentials, endpoints, TLS, persistence, and service time | [Configuration](docs/configuration.md) |
+| Apply and destroy Terraform/CloudFormation applications with byte/message verification | [Executable IaC examples](examples/README.md) |
+| Edit local Lambda source and observe real Docker runtime reinitialization | [Live-reload example](examples/lambda-hot-reload/README.md) |
+| Install packaged CLIs or publish a tagged Linux/macOS release | [Releases](docs/releases.md) |
 | Deploy containers, databases, QEMU/KVM guests, and k3d clusters | [Runtime deployment overview](docs/runtimes.md), [container recipes](docs/runtime-containers.md), [VM/Kubernetes recipes](docs/runtime-vms.md) |
 | Configure native DNS, local CA trust, runtime networking, port pools, and reversible host split DNS | [Native networking](docs/networking.md) |
 | Restart, back up, inspect, troubleshoot, and shut down | [Operations](docs/operations.md) |
