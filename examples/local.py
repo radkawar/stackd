@@ -89,6 +89,9 @@ def controller(args, root, extra=(), containers=False, *,
                 "HTTPS requires existing certificate, private key and trusted CA files")
     # Reject an occupied port before starting; never accidentally use somebody else's server.
     with socket.socket() as probe:
+        # Reopen after a clean shutdown even if accepted sockets retain TIME_WAIT.
+        # This does not permit a second bind over a live listener.
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         probe.bind(("0.0.0.0" if containers else "127.0.0.1", args.port))
     scheme = "https" if tls_enabled else "http"
     endpoint = local_endpoint(f"{scheme}://127.0.0.1:{args.port}")

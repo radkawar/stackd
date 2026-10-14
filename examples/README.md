@@ -53,6 +53,9 @@ names, and stops only its own process. It does not connect to the repository's
 `data/` database or an existing server. Choose other unused unprivileged ports
 with `--port`; `--stackd /absolute/path/to/stackd` selects a prepared binary.
 `--work-parent /existing/directory` changes the parent of the new run directory.
+Reopen checks stop the owned process before they reuse its port and SQLite file.
+Closed TCP connections in `TIME_WAIT` do not block that restart; a live listener
+still causes the runner to fail.
 
 The local fixture account is explicitly `738492615083`; signed STS discovery
 must return that account. It is not a real AWS credential. Every SDK client has
