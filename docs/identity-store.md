@@ -19,17 +19,19 @@ operations:
 - List memberships by group or user, and `IsMemberInGroups`.
 
 Users retain their immutable resource ID, username, display name, structured name,
-email (the AWS model permits one), nickname, profile URL, title, user type,
-preferred language, locale, timezone, birthdate and website. Groups retain their
-immutable ID, display name and description. Usernames and group display names
-are unique within a store. Reserved names are rejected. Duplicate membership
-creation returns a modeled `ConflictException`.
+email, address, phone number, nickname, profile URL, title, user type,
+preferred language, locale, timezone, birthdate and website. Each supplied contact
+list permits one item. Groups retain their immutable ID, display name and
+description. Usernames and group display names are unique within a store.
+Reserved names are rejected. Duplicate membership creation returns a modeled
+`ConflictException`.
 
 Updates apply the supplied attribute operations atomically. Supported paths are
-these scalar user fields, `Name`, its six subfields, and `Emails`; group updates
-support `DisplayName` and `Description`. Absent attribute values remove optional
-attributes; required identity names cannot be removed. Rejected paths or duplicate
-names do not partially update other attributes.
+these scalar user fields, `Name`, its six subfields, `Emails`, `Addresses` and
+`PhoneNumbers`; group updates support `DisplayName` and `Description`. Contact
+updates replace the whole list. Absent or null attribute values remove optional
+attributes; required identity names cannot be removed. Rejected paths, invalid
+contact lists or duplicate names do not partially update other attributes.
 
 Lists are ordered by immutable resource ID. `MaxResults` is 1–100; continuation
 cursors are bound to the operation, store and selection. User and group list
@@ -76,17 +78,18 @@ enclosing transaction context so authority reads and the dependent transition
 share one snapshot. These internal lookups do not confer public IAM authority.
 
 `DeleteStore` joins Identity Center instance deletion and atomically removes the
-store, users, emails, groups and memberships. Store provisioning never transfers
+store, users, contacts, groups and memberships. Store provisioning never transfers
 an existing ID to another owner. No password field or password-setting AWS API is
 invented in Identity Store.
 
 Memory storage joins `memory.Domain`; durable storage uses service-owned SQLC
 queries in the shared SQLite transaction. Migration
 `251_identitystore.sql` contains typed store/user/email/group/membership tables,
-uniqueness constraints and cascading membership foreign keys. No resource JSON
-blobs are persisted. Nested commands and trusted reads join the caller's existing
-transaction; rollback restores directory membership as well as the dependent
-service transition.
+uniqueness constraints and cascading membership foreign keys.
+`413_identitystore_user_contacts.sql` adds typed address and phone-number rows
+with cascading user foreign keys. No resource JSON blobs are persisted. Nested
+commands and trusted reads join the caller's existing transaction; rollback
+restores directory membership as well as the dependent service transition.
 
 API completion metadata joins the journal transaction. Native field-level
 CloudTrail request/response projections are not yet calibrated, so profile and
@@ -97,7 +100,7 @@ email data are not emitted by this owner.
 Primary contracts:
 
 - [CreateUser](https://docs.aws.amazon.com/singlesignon/latest/IdentityStoreAPIReference/API_CreateUser.html),
-  including single-email cardinality and reserved names.
+  including single-item contact lists and reserved names.
 - [IsMemberInGroups](https://docs.aws.amazon.com/singlesignon/latest/IdentityStoreAPIReference/API_IsMemberInGroups.html).
 - [AttributeOperation](https://docs.aws.amazon.com/singlesignon/latest/IdentityStoreAPIReference/API_AttributeOperation.html).
 - AWS SDK Go v2 Smithy model revision
@@ -132,15 +135,14 @@ Focused package tests passed for the service and both storage boundaries. Tests
 exercise transactional deletion rollback, partition/account/region isolation,
 username recreation without inherited membership, group cleanup after restart,
 atomic rejected updates, cursor selection isolation and native negative fixtures.
-Scoped `go vet` and `staticcheck` passed. A targeted race build did not execute:
-Go failed compiling shared `internal/awscatalog` with `prepwrite: bad
- off=1073741824 siz=1`; this is not recorded as a passing race result.
+Contact regressions cover whole-list replacement, removal, rejected multi-field
+updates, transaction rollback, storage alias isolation and SQLite reopen. Focused
+race checks, `go vet` and the repository-pinned `go tool staticcheck` passed.
 
 ## Explicit limits
 
-- Addresses, phone numbers, photos, roles and enterprise extensions are rejected
-  with an unsupported error, never silently stored or dropped. Extension-selected
-  reads are rejected as well.
+- Photos, roles and enterprise extensions are rejected with an unsupported error,
+  never silently stored or dropped. Extension-selected reads are rejected as well.
 - External-ID/SCIM provisioning and lookup are not implemented. The public create
   model does not set external IDs.
 - Legacy `sso-directory` action aliases and organization-member sharing are not

@@ -366,6 +366,10 @@ and calibration requirements remain visible below. Review is not execution proof
   selected-but-unimplemented stackd services are not existing-owner coverage.
   API registration, one resource per service and a green release job do not
   complete this requirement. Keep unverified resource families visible.
+- [x] Retain Identity Store address and phone-number lists in typed storage.
+  Terraform identity lifecycles exercise contact updates, removal and SQLite
+  restart. Whole-list replacement keeps single-item limits and atomic rejection;
+  this does not complete Identity Store or Terraform service coverage.
 
 Next coherent slices after the account/deployment/distribution work:
 
@@ -377,7 +381,7 @@ Next coherent slices after the account/deployment/distribution work:
   derive them from real writer metadata. Hive CTAS/INSERT manifests now use
   successful authenticated object writes; no guessed paths or bucket diffs.
 - Use the [pinned Terraform provider API map](docs/terraform-provider-apis.json)
-  to select complete resource lifecycles. It currently identifies 2,554 missing
+  to select complete resource lifecycles. It currently identifies 2,552 missing
   selected-service requirements and 309 unresolved callsites. These are static
   source counts, not a measure of runtime frequency or semantic completeness.
 - Resolve the remaining named integration failures and native EC2 isolation

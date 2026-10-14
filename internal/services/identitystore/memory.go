@@ -38,7 +38,12 @@ type memoryReader struct {
 type memoryWriter struct{ memoryReader }
 
 func (r memoryReader) Context() context.Context { return r.tx.Context() }
-func cloneUser(v User) User                     { v.Emails = slices.Clone(v.Emails); return v }
+func cloneUser(v User) User {
+	v.Emails = slices.Clone(v.Emails)
+	v.Addresses = slices.Clone(v.Addresses)
+	v.PhoneNumbers = slices.Clone(v.PhoneNumbers)
+	return v
+}
 func (r memoryReader) Store(id string) (Store, error) {
 	if e := r.tx.Check(false); e != nil {
 		return Store{}, e

@@ -19,10 +19,20 @@ type Email struct {
 	Value, Type string
 	Primary     bool
 }
+type Address struct {
+	Country, Formatted, Locality, PostalCode, Region, StreetAddress, Type string
+	Primary                                                               bool
+}
+type PhoneNumber struct {
+	Value, Type string
+	Primary     bool
+}
 type User struct {
 	StoreID, ID, UserName, DisplayName                                                             string
 	Name                                                                                           Name
 	Emails                                                                                         []Email
+	Addresses                                                                                      []Address
+	PhoneNumbers                                                                                   []PhoneNumber
 	NickName, ProfileURL, Title, UserType, PreferredLanguage, Locale, Timezone, Birthdate, Website string
 }
 type Group struct{ StoreID, ID, DisplayName, Description, CloudFormationOwner string }

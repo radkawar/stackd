@@ -4,6 +4,20 @@
 
 package sqlcgen
 
+type IdentitystoreAddress struct {
+	StoreID       string
+	UserID        string
+	Ordinal       int64
+	Country       string
+	Formatted     string
+	Locality      string
+	PostalCode    string
+	Region        string
+	StreetAddress string
+	Type          string
+	IsPrimary     int64
+}
+
 type IdentitystoreEmail struct {
 	StoreID   string
 	UserID    string
@@ -27,6 +41,15 @@ type IdentitystoreMembership struct {
 	UserID              string
 	GroupID             string
 	CloudformationOwner string
+}
+
+type IdentitystorePhoneNumber struct {
+	StoreID   string
+	UserID    string
+	Ordinal   int64
+	Value     string
+	Type      string
+	IsPrimary int64
 }
 
 type IdentitystoreStore struct {

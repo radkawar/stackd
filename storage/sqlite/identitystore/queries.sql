@@ -20,6 +20,18 @@ SELECT * FROM identitystore_emails WHERE store_id=? AND user_id=? ORDER BY ordin
 DELETE FROM identitystore_emails WHERE store_id=? AND user_id=?;
 -- name: PutEmail :exec
 INSERT INTO identitystore_emails(store_id,user_id,ordinal,value,type,is_primary) VALUES(?,?,?,?,?,?);
+-- name: ListAddresses :many
+SELECT * FROM identitystore_addresses WHERE store_id=? AND user_id=? ORDER BY ordinal;
+-- name: DeleteAddresses :exec
+DELETE FROM identitystore_addresses WHERE store_id=? AND user_id=?;
+-- name: PutAddress :exec
+INSERT INTO identitystore_addresses(store_id,user_id,ordinal,country,formatted,locality,postal_code,region,street_address,type,is_primary) VALUES(?,?,?,?,?,?,?,?,?,?,?);
+-- name: ListPhoneNumbers :many
+SELECT * FROM identitystore_phone_numbers WHERE store_id=? AND user_id=? ORDER BY ordinal;
+-- name: DeletePhoneNumbers :exec
+DELETE FROM identitystore_phone_numbers WHERE store_id=? AND user_id=?;
+-- name: PutPhoneNumber :exec
+INSERT INTO identitystore_phone_numbers(store_id,user_id,ordinal,value,type,is_primary) VALUES(?,?,?,?,?,?);
 -- name: GetGroup :one
 SELECT * FROM identitystore_groups WHERE store_id=? AND id=?;
 -- name: GetGroupByName :one

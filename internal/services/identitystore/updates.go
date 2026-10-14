@@ -98,6 +98,30 @@ func (s *Service) updateUser(tx Transaction, in *api.UpdateUserInput) (*api.Upda
 					u.Emails = append(u.Emails, Email{Value: value(v.Value), Type: value(v.Type), Primary: v.Primary != nil && bool(*v.Primary)})
 				}
 			}
+		case "addresses":
+			u.Addresses = nil
+			if op.AttributeValue != nil {
+				var addresses api.Addresses
+				if e := patchObject(op.AttributeValue, &addresses); e != nil {
+					return nil, e
+				}
+				u.Addresses, e = domainAddresses(addresses)
+				if e != nil {
+					return nil, e
+				}
+			}
+		case "phonenumbers":
+			u.PhoneNumbers = nil
+			if op.AttributeValue != nil {
+				var numbers api.PhoneNumbers
+				if e := patchObject(op.AttributeValue, &numbers); e != nil {
+					return nil, e
+				}
+				u.PhoneNumbers, e = domainPhoneNumbers(numbers)
+				if e != nil {
+					return nil, e
+				}
+			}
 		default:
 			return nil, unsupported("Unsupported user attribute path: " + value(op.AttributePath))
 		}

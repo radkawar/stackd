@@ -52,6 +52,20 @@ func (r reader) user(v q.IdentitystoreUser) (d.User, error) {
 	for _, email := range rows {
 		out.Emails = append(out.Emails, d.Email{Value: email.Value, Type: email.Type, Primary: email.IsPrimary != 0})
 	}
+	addresses, e := r.q.ListAddresses(r.ctx, q.ListAddressesParams{StoreID: v.StoreID, UserID: v.ID})
+	if e != nil {
+		return d.User{}, e
+	}
+	for _, address := range addresses {
+		out.Addresses = append(out.Addresses, d.Address{Country: address.Country, Formatted: address.Formatted, Locality: address.Locality, PostalCode: address.PostalCode, Region: address.Region, StreetAddress: address.StreetAddress, Type: address.Type, Primary: address.IsPrimary != 0})
+	}
+	numbers, e := r.q.ListPhoneNumbers(r.ctx, q.ListPhoneNumbersParams{StoreID: v.StoreID, UserID: v.ID})
+	if e != nil {
+		return d.User{}, e
+	}
+	for _, number := range numbers {
+		out.PhoneNumbers = append(out.PhoneNumbers, d.PhoneNumber{Value: number.Value, Type: number.Type, Primary: number.IsPrimary != 0})
+	}
 	return out, nil
 }
 func (r reader) User(k d.Key) (d.User, error) {
@@ -96,6 +110,30 @@ func (w writer) PutUser(v d.User) error {
 			primary = 1
 		}
 		if e := w.q.PutEmail(w.ctx, q.PutEmailParams{StoreID: v.StoreID, UserID: v.ID, Ordinal: int64(i), Value: vv.Value, Type: vv.Type, IsPrimary: primary}); e != nil {
+			return e
+		}
+	}
+	if e := w.q.DeleteAddresses(w.ctx, q.DeleteAddressesParams{StoreID: v.StoreID, UserID: v.ID}); e != nil {
+		return e
+	}
+	for i, address := range v.Addresses {
+		var primary int64
+		if address.Primary {
+			primary = 1
+		}
+		if e := w.q.PutAddress(w.ctx, q.PutAddressParams{StoreID: v.StoreID, UserID: v.ID, Ordinal: int64(i), Country: address.Country, Formatted: address.Formatted, Locality: address.Locality, PostalCode: address.PostalCode, Region: address.Region, StreetAddress: address.StreetAddress, Type: address.Type, IsPrimary: primary}); e != nil {
+			return e
+		}
+	}
+	if e := w.q.DeletePhoneNumbers(w.ctx, q.DeletePhoneNumbersParams{StoreID: v.StoreID, UserID: v.ID}); e != nil {
+		return e
+	}
+	for i, number := range v.PhoneNumbers {
+		var primary int64
+		if number.Primary {
+			primary = 1
+		}
+		if e := w.q.PutPhoneNumber(w.ctx, q.PutPhoneNumberParams{StoreID: v.StoreID, UserID: v.ID, Ordinal: int64(i), Value: number.Value, Type: number.Type, IsPrimary: primary}); e != nil {
 			return e
 		}
 	}

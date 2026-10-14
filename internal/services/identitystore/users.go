@@ -21,9 +21,9 @@ func (s *Service) createUser(tx Transaction, in *api.CreateUserInput) (*api.Crea
 	if e := s.admit(tx, "CreateUser", store, "", "", ""); e != nil {
 		return nil, e
 	}
-	// TODO: Comeback — addresses, phones, photos, roles and enterprise extension attributes.
-	if len(in.Addresses) > 0 || len(in.PhoneNumbers) > 0 || len(in.Photos) > 0 || len(in.Roles) > 0 || len(in.Extensions) > 0 {
-		return nil, unsupported("Addresses, PhoneNumbers, Photos, Roles and Extensions are not implemented.")
+	// TODO: Comeback — photos, roles and enterprise extension attributes.
+	if len(in.Photos) > 0 || len(in.Roles) > 0 || len(in.Extensions) > 0 {
+		return nil, unsupported("Photos, Roles and Extensions are not implemented.")
 	}
 	u := User{StoreID: store, UserName: value(in.UserName), DisplayName: value(in.DisplayName), NickName: value(in.NickName), ProfileURL: value(in.ProfileUrl), Title: value(in.Title), UserType: value(in.UserType), PreferredLanguage: value(in.PreferredLanguage), Locale: value(in.Locale), Timezone: value(in.Timezone), Birthdate: value(in.Birthdate), Website: value(in.Website)}
 	if in.Name != nil {
@@ -31,6 +31,15 @@ func (s *Service) createUser(tx Transaction, in *api.CreateUserInput) (*api.Crea
 	}
 	for _, v := range in.Emails {
 		u.Emails = append(u.Emails, Email{Value: value(v.Value), Type: value(v.Type), Primary: v.Primary != nil && bool(*v.Primary)})
+	}
+	addresses, e := domainAddresses(in.Addresses)
+	if e != nil {
+		return nil, e
+	}
+	u.Addresses = addresses
+	u.PhoneNumbers, e = domainPhoneNumbers(in.PhoneNumbers)
+	if e != nil {
+		return nil, e
 	}
 	if e := validateUser(u); e != nil {
 		return nil, e
@@ -74,6 +83,9 @@ func validateUser(u User) error {
 			return bad("Invalid email attribute value.")
 		}
 	}
+	if len(u.Addresses) > 1 || len(u.PhoneNumbers) > 1 {
+		return bad("At most one address and phone number are supported by Identity Store.")
+	}
 	return nil
 }
 func domainName(v *api.Name) Name {
@@ -89,6 +101,12 @@ func apiUser(v User) api.User {
 	out := api.User{IdentityStoreId: new(api.IdentityStoreId(v.StoreID)), UserId: new(api.ResourceId(v.ID)), UserName: new(api.UserName(v.UserName)), DisplayName: text(v.DisplayName), Name: apiName(v.Name), NickName: text(v.NickName), ProfileUrl: text(v.ProfileURL), Title: text(v.Title), UserType: text(v.UserType), PreferredLanguage: text(v.PreferredLanguage), Locale: text(v.Locale), Timezone: text(v.Timezone), Birthdate: text(v.Birthdate), Website: text(v.Website)}
 	for _, email := range v.Emails {
 		out.Emails = append(out.Emails, api.Email{Value: text(email.Value), Type: text(email.Type), Primary: new(api.BooleanType(email.Primary))})
+	}
+	for _, v := range v.Addresses {
+		out.Addresses = append(out.Addresses, api.Address{Country: text(v.Country), Formatted: text(v.Formatted), Locality: text(v.Locality), PostalCode: text(v.PostalCode), Primary: new(api.BooleanType(v.Primary)), Region: text(v.Region), StreetAddress: text(v.StreetAddress), Type: text(v.Type)})
+	}
+	for _, v := range v.PhoneNumbers {
+		out.PhoneNumbers = append(out.PhoneNumbers, api.PhoneNumber{Value: text(v.Value), Type: text(v.Type), Primary: new(api.BooleanType(v.Primary))})
 	}
 	return out
 }

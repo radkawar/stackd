@@ -9,6 +9,20 @@ import (
 	"context"
 )
 
+const deleteAddresses = `-- name: DeleteAddresses :exec
+DELETE FROM identitystore_addresses WHERE store_id=? AND user_id=?
+`
+
+type DeleteAddressesParams struct {
+	StoreID string
+	UserID  string
+}
+
+func (q *Queries) DeleteAddresses(ctx context.Context, arg DeleteAddressesParams) error {
+	_, err := q.db.ExecContext(ctx, deleteAddresses, arg.StoreID, arg.UserID)
+	return err
+}
+
 const deleteEmails = `-- name: DeleteEmails :exec
 DELETE FROM identitystore_emails WHERE store_id=? AND user_id=?
 `
@@ -48,6 +62,20 @@ type DeleteMembershipParams struct {
 
 func (q *Queries) DeleteMembership(ctx context.Context, arg DeleteMembershipParams) error {
 	_, err := q.db.ExecContext(ctx, deleteMembership, arg.StoreID, arg.ID)
+	return err
+}
+
+const deletePhoneNumbers = `-- name: DeletePhoneNumbers :exec
+DELETE FROM identitystore_phone_numbers WHERE store_id=? AND user_id=?
+`
+
+type DeletePhoneNumbersParams struct {
+	StoreID string
+	UserID  string
+}
+
+func (q *Queries) DeletePhoneNumbers(ctx context.Context, arg DeletePhoneNumbersParams) error {
+	_, err := q.db.ExecContext(ctx, deletePhoneNumbers, arg.StoreID, arg.UserID)
 	return err
 }
 
@@ -251,6 +279,50 @@ func (q *Queries) GetUserByName(ctx context.Context, arg GetUserByNameParams) (I
 	return i, err
 }
 
+const listAddresses = `-- name: ListAddresses :many
+SELECT store_id, user_id, ordinal, country, formatted, locality, postal_code, region, street_address, type, is_primary FROM identitystore_addresses WHERE store_id=? AND user_id=? ORDER BY ordinal
+`
+
+type ListAddressesParams struct {
+	StoreID string
+	UserID  string
+}
+
+func (q *Queries) ListAddresses(ctx context.Context, arg ListAddressesParams) ([]IdentitystoreAddress, error) {
+	rows, err := q.db.QueryContext(ctx, listAddresses, arg.StoreID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []IdentitystoreAddress{}
+	for rows.Next() {
+		var i IdentitystoreAddress
+		if err := rows.Scan(
+			&i.StoreID,
+			&i.UserID,
+			&i.Ordinal,
+			&i.Country,
+			&i.Formatted,
+			&i.Locality,
+			&i.PostalCode,
+			&i.Region,
+			&i.StreetAddress,
+			&i.Type,
+			&i.IsPrimary,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEmails = `-- name: ListEmails :many
 SELECT store_id, user_id, ordinal, value, type, is_primary FROM identitystore_emails WHERE store_id=? AND user_id=? ORDER BY ordinal
 `
@@ -362,6 +434,45 @@ func (q *Queries) ListMemberships(ctx context.Context, arg ListMembershipsParams
 	return items, nil
 }
 
+const listPhoneNumbers = `-- name: ListPhoneNumbers :many
+SELECT store_id, user_id, ordinal, value, type, is_primary FROM identitystore_phone_numbers WHERE store_id=? AND user_id=? ORDER BY ordinal
+`
+
+type ListPhoneNumbersParams struct {
+	StoreID string
+	UserID  string
+}
+
+func (q *Queries) ListPhoneNumbers(ctx context.Context, arg ListPhoneNumbersParams) ([]IdentitystorePhoneNumber, error) {
+	rows, err := q.db.QueryContext(ctx, listPhoneNumbers, arg.StoreID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []IdentitystorePhoneNumber{}
+	for rows.Next() {
+		var i IdentitystorePhoneNumber
+		if err := rows.Scan(
+			&i.StoreID,
+			&i.UserID,
+			&i.Ordinal,
+			&i.Value,
+			&i.Type,
+			&i.IsPrimary,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUsers = `-- name: ListUsers :many
 SELECT store_id, id, user_name, display_name, name_formatted, name_family, name_given, name_middle, name_prefix, name_suffix, nick_name, profile_url, title, user_type, preferred_language, locale, timezone, birthdate, website FROM identitystore_users WHERE store_id=? ORDER BY id
 `
@@ -407,6 +518,41 @@ func (q *Queries) ListUsers(ctx context.Context, storeID string) ([]Identitystor
 		return nil, err
 	}
 	return items, nil
+}
+
+const putAddress = `-- name: PutAddress :exec
+INSERT INTO identitystore_addresses(store_id,user_id,ordinal,country,formatted,locality,postal_code,region,street_address,type,is_primary) VALUES(?,?,?,?,?,?,?,?,?,?,?)
+`
+
+type PutAddressParams struct {
+	StoreID       string
+	UserID        string
+	Ordinal       int64
+	Country       string
+	Formatted     string
+	Locality      string
+	PostalCode    string
+	Region        string
+	StreetAddress string
+	Type          string
+	IsPrimary     int64
+}
+
+func (q *Queries) PutAddress(ctx context.Context, arg PutAddressParams) error {
+	_, err := q.db.ExecContext(ctx, putAddress,
+		arg.StoreID,
+		arg.UserID,
+		arg.Ordinal,
+		arg.Country,
+		arg.Formatted,
+		arg.Locality,
+		arg.PostalCode,
+		arg.Region,
+		arg.StreetAddress,
+		arg.Type,
+		arg.IsPrimary,
+	)
+	return err
 }
 
 const putEmail = `-- name: PutEmail :exec
@@ -477,6 +623,31 @@ func (q *Queries) PutMembership(ctx context.Context, arg PutMembershipParams) er
 		arg.UserID,
 		arg.GroupID,
 		arg.CloudformationOwner,
+	)
+	return err
+}
+
+const putPhoneNumber = `-- name: PutPhoneNumber :exec
+INSERT INTO identitystore_phone_numbers(store_id,user_id,ordinal,value,type,is_primary) VALUES(?,?,?,?,?,?)
+`
+
+type PutPhoneNumberParams struct {
+	StoreID   string
+	UserID    string
+	Ordinal   int64
+	Value     string
+	Type      string
+	IsPrimary int64
+}
+
+func (q *Queries) PutPhoneNumber(ctx context.Context, arg PutPhoneNumberParams) error {
+	_, err := q.db.ExecContext(ctx, putPhoneNumber,
+		arg.StoreID,
+		arg.UserID,
+		arg.Ordinal,
+		arg.Value,
+		arg.Type,
+		arg.IsPrimary,
 	)
 	return err
 }
