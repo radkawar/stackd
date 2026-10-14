@@ -28,6 +28,15 @@ func (q *Queries) DeleteZone(ctx context.Context, id string) error {
 	return err
 }
 
+const deleteZoneTags = `-- name: DeleteZoneTags :exec
+DELETE FROM route53_zone_tags WHERE zone_id=?
+`
+
+func (q *Queries) DeleteZoneTags(ctx context.Context, zoneID string) error {
+	_, err := q.db.ExecContext(ctx, deleteZoneTags, zoneID)
+	return err
+}
+
 const getChange = `-- name: GetChange :one
 SELECT id, "partition", account_id, zone_id, comment, submitted, ready FROM route53_changes WHERE id=?
 `
@@ -126,6 +135,38 @@ func (q *Queries) ListRecordValues(ctx context.Context, zoneID string) ([]Route5
 			&i.Position,
 			&i.Value,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listZoneTags = `-- name: ListZoneTags :many
+SELECT key,value FROM route53_zone_tags WHERE zone_id=? ORDER BY key
+`
+
+type ListZoneTagsRow struct {
+	Key   string
+	Value string
+}
+
+func (q *Queries) ListZoneTags(ctx context.Context, zoneID string) ([]ListZoneTagsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listZoneTags, zoneID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListZoneTagsRow{}
+	for rows.Next() {
+		var i ListZoneTagsRow
+		if err := rows.Scan(&i.Key, &i.Value); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -285,5 +326,20 @@ func (q *Queries) PutZone(ctx context.Context, arg PutZoneParams) error {
 		arg.Comment,
 		arg.Created,
 	)
+	return err
+}
+
+const putZoneTag = `-- name: PutZoneTag :exec
+INSERT INTO route53_zone_tags(zone_id,key,value) VALUES(?,?,?)
+`
+
+type PutZoneTagParams struct {
+	ZoneID string
+	Key    string
+	Value  string
+}
+
+func (q *Queries) PutZoneTag(ctx context.Context, arg PutZoneTagParams) error {
+	_, err := q.db.ExecContext(ctx, putZoneTag, arg.ZoneID, arg.Key, arg.Value)
 	return err
 }

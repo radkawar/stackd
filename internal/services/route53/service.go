@@ -73,6 +73,9 @@ func New(c Config) (*Service, error) {
 	register(s, "ChangeResourceRecordSets", s.changeResourceRecordSets)
 	register(s, "ListResourceRecordSets", s.listResourceRecordSets)
 	register(s, "GetChange", s.getChange)
+	register(s, "ChangeTagsForResource", s.changeTagsForResource)
+	register(s, "ListTagsForResource", s.listTagsForResource)
+	register(s, "ListTagsForResources", s.listTagsForResources)
 	if c.DNSAuthority != nil {
 		var err error
 		s.release, err = c.DNSAuthority.Register(s)

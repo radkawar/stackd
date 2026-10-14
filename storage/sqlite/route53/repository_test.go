@@ -115,17 +115,24 @@ func TestRetainedAuthorityAcrossSQLiteRestartAndRollback(t *testing.T) {
 	open()
 	t.Cleanup(close)
 	zone := command[api.CreateHostedZoneResponse](t, s, owner(), "CreateHostedZone", &api.CreateHostedZoneRequest{Name: new(api.DNSName("restart.test")), CallerReference: new(api.Nonce("retained"))})
+	tags := &api.ChangeTagsForResourceRequest{ResourceType: new(api.TagResourceTypeHostedzone), ResourceId: new(api.TagResourceId(*zone.HostedZone.Id)), AddTags: api.TagList{{Key: new(api.TagKey("Revision")), Value: new(api.TagValue("retained"))}}}
+	command[api.ChangeTagsForResourceResponse](t, s, owner(), "ChangeTagsForResource", tags)
 	record := &api.ResourceRecordSet{Name: new(api.DNSName("app.restart.test")), Type: new(api.RRTypeA), TTL: new(api.TTL(60)), ResourceRecords: api.ResourceRecords{{Value: new(api.RData("192.0.2.42"))}}}
 	add := command[api.ChangeResourceRecordSetsResponse](t, s, owner(), "ChangeResourceRecordSets", &api.ChangeResourceRecordSetsRequest{HostedZoneId: zone.HostedZone.Id, ChangeBatch: &api.ChangeBatch{Changes: api.Changes{{Action: new(api.ChangeActionCREATE), ResourceRecordSet: record}}}})
 	rollback := errors.New("abort enclosing transaction")
 	if e := repo.Update(owner(), func(tx domain.Transaction) error {
 		command[api.ChangeResourceRecordSetsResponse](t, s, tx.Context(), "ChangeResourceRecordSets", &api.ChangeResourceRecordSetsRequest{HostedZoneId: zone.HostedZone.Id, ChangeBatch: &api.ChangeBatch{Changes: api.Changes{{Action: new(api.ChangeActionDELETE), ResourceRecordSet: record}}}})
+		command[api.ChangeTagsForResourceResponse](t, s, tx.Context(), "ChangeTagsForResource", &api.ChangeTagsForResourceRequest{ResourceType: tags.ResourceType, ResourceId: tags.ResourceId, RemoveTagKeys: api.TagKeyList{"Revision"}})
 		return rollback
 	}); !errors.Is(e, rollback) {
 		t.Fatal(e)
 	}
 	close()
 	open()
+	retained := command[api.ListTagsForResourceResponse](t, s, owner(), "ListTagsForResource", &api.ListTagsForResourceRequest{ResourceType: tags.ResourceType, ResourceId: tags.ResourceId})
+	if len(retained.ResourceTagSet.Tags) != 1 || *retained.ResourceTagSet.Tags[0].Value != "retained" {
+		t.Fatal(retained)
+	}
 	if e := at.Advance(time.Second); e != nil {
 		t.Fatal(e)
 	}
@@ -155,6 +162,10 @@ func TestRetainedAuthorityAcrossSQLiteRestartAndRollback(t *testing.T) {
 		t.Fatalf("deleted record revived: %#v", deleted)
 	}
 	command[api.DeleteHostedZoneResponse](t, s, owner(), "DeleteHostedZone", &api.DeleteHostedZoneRequest{Id: zone.HostedZone.Id})
+	var tagCount int
+	if err := db.QueryRowContext(t.Context(), "SELECT COUNT(*) FROM route53_zone_tags WHERE zone_id=?", string(*retained.ResourceTagSet.ResourceId)).Scan(&tagCount); err != nil || tagCount != 0 {
+		t.Fatalf("deleted zone tags: count=%d error=%v", tagCount, err)
+	}
 	absent := requestDNS(t, server.Address(), "udp", dnsmessage.TypeA)
 	if absent.RCode != dnsmessage.RCodeRefused {
 		t.Fatalf("deleted zone still authoritative: %#v", absent)

@@ -51,7 +51,10 @@ Implemented commands are:
 - `CreateHostedZone`, `GetHostedZone`, `ListHostedZones`,
   `ListHostedZonesByName`, `GetHostedZoneCount`;
 - `UpdateHostedZoneComment`, `DeleteHostedZone`;
-- `ChangeResourceRecordSets`, `ListResourceRecordSets`, `GetChange`.
+- `ChangeResourceRecordSets`, `ListResourceRecordSets`, `GetChange`;
+- `ChangeTagsForResource`, `ListTagsForResource`, `ListTagsForResources`
+  for hosted zones. Health-check tags require a health-check owner and return
+  `NotImplemented`.
 
 The API is global within a partition and account; request region does not fork
 hosted zones. Other accounts cannot read or mutate a zone/change by guessing its
@@ -67,6 +70,13 @@ zone *names* are valid control-plane resources; their DNS ambiguity is handled
 explicitly below. Apex NS/SOA records cannot be deleted. A hosted zone cannot be
 deleted while other record sets remain. Its change receipts remain readable by
 the owning account after deletion.
+
+Hosted-zone tags share the zone's typed state and transaction. A zone can have
+up to 10 tags. An add operation replaces the value for an existing key; a remove
+operation deletes the named key. Invalid batches do not change retained tags.
+Tag reads and writes use the current IAM decision and caller account scope.
+The multi-resource read accepts 1 through 10 zone IDs. Zone deletion removes
+its tags. Tag changes do not create DNS records or change DNS routing.
 
 CREATE rejects an existing record-set key; UPSERT creates or replaces it;
 DELETE must match the stored set's name, type, identifier, policy, TTL, all
@@ -160,7 +170,7 @@ its current runtime is IPv4-only. `EvaluateTargetHealth=true` is unsupported.
 Memory repositories join `storage/memory.Domain`. SQLite repositories use
 `storage/sqlite/route53.New(*sql.DB)` and the shared transaction/savepoint kernel.
 The service schema owns normalized `route53_zones`, `route53_record_sets`,
-`route53_record_values` and `route53_changes` tables. There are no opaque JSON
+`route53_record_values`, `route53_zone_tags` and `route53_changes` tables. There are no opaque JSON
 resource rows. Record children and changes commit atomically with the zone;
 change receipts deliberately outlive zone deletion. Canonical `sqlc.yaml`
 generates `storage/sqlite/route53/internal/sqlcgen`.
@@ -205,11 +215,33 @@ Focused verification on 2026-09-28:
   The SDK decodes the gateway-assigned `X-Amzn-Requestid`, without stackd-specific
   response headers; its exact-owned hosted zone was deleted.
 
+The current-provider [API fixture](../examples/terraform-api/main.tf) pins
+Terraform 1.15.9 and AWS provider 6.68.0. Its runner uses a fresh owned controller
+and explicit UDP/TCP DNS. It checks changed records, same-zone aliases and
+certificate-verified API Gateway SNI routing through an actual DNS answer.
+Hosted-zone tags unblock the provider's create, refresh and destroy reads.
+The [resource-level remainder map](../examples/terraform-api/coverage.json)
+lists all 65 managed resource types and 19 data sources in the four API service
+directories, not just the fixture's 26 managed types. The final fixture and new
+tag tests are **unverified** until the integration owner runs them.
+
+The companion [API controls fixture](../examples/terraform-api-controls/main.tf)
+uses the provider's exclusive record owner. Its runner creates a stray owned
+record, then checks that Terraform removes it from actual DNS answers. It checks
+A, AAAA, TXT, CNAME, PTR, MX, SRV and CAA records, weighted and multivalue answers,
+and an NS referral with in-zone glue over UDP and TCP. Exclusive-owner Delete
+does not remove records in provider 6.68.0; the owned hosted zone uses
+`force_destroy` for final cleanup. This does not provide Internet delegation or
+a generic successful resolver. Its [resource-level remainder map](../examples/terraform-api-controls/coverage.json)
+also records API authorization, WebSocket and native GraphQL consumer plans.
+All new controls lifecycle evidence is **unverified** until the integration
+owner runs the complete workflow.
+
 Remaining explicit boundaries (`TODO: Comeback` in the owning source) are escaped
 or binary DNS label codecs; health/location-based routing; non-A/AAAA same-zone
 aliases and additional real external target owners; and the remaining generated
 operations such as health checks, DNSSEC, traffic policies, reusable delegation
-sets, tags and private-VPC zones. Unsupported record types are rejected. Query
+sets, health-check tags and private-VPC zones. Unsupported record types are rejected. Query
 logging, Internet recursion, DNSSEC signing, EDNS/client-subnet routing, public
 registrar delegation and multi-server propagation are not implemented. These
 bounds are not claims of complete Route 53 parity.
@@ -221,3 +253,4 @@ Primary contracts:
 - [DNS name and wildcard rules](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/DomainNameFormat.html)
 - [Record value syntax](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/ResourceRecordTypes.html)
 - [Weighted routing and all-zero groups](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy-weighted.html)
+- [Hosted-zone tag changes and limits](https://docs.aws.amazon.com/Route53/latest/APIReference/API_ChangeTagsForResource.html)

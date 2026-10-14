@@ -964,6 +964,9 @@ Next coherent slices after the account/deployment/distribution work:
 - [x] Build [Route 53](docs/route53.md) with real UDP/TCP DNS and [ACM](docs/acm.md)
   validation through that owner; exercise actual ALB TLS, renewal, current-use
   protection and SQLite restart.
+- [x] Add Route 53 hosted-zone tag writes and single-zone/multi-zone reads.
+  Actual signed SDK calls verified add, replace, remove, independent zone
+  tags, SQLite restart and deletion. Health-check tags remain unsupported.
 - [ ] Complete Route 53 private VPC/DNSSEC/health and remaining routing/control
   families, and ACM public-trust/CAA/CT/OCSP, email/private-CA and remaining
   certificate controls. Local CA certificates do not imply AWS public trust.

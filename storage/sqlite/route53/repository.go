@@ -60,6 +60,16 @@ func (r reader) Zones() ([]domain.Zone, error) {
 }
 func (r reader) zone(row sqlcgen.Route53Zone) (domain.Zone, error) {
 	z := domain.Zone{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID}, ID: row.ID, Name: row.Name, CallerReference: row.CallerReference, Comment: row.Comment, Created: row.Created}
+	tags, e := r.q.ListZoneTags(r.ctx, z.ID)
+	if e != nil {
+		return z, e
+	}
+	if len(tags) != 0 {
+		z.Tags = make(map[string]string, len(tags))
+		for _, tag := range tags {
+			z.Tags[tag.Key] = tag.Value
+		}
+	}
 	records, e := r.q.ListRecordSets(r.ctx, z.ID)
 	if e != nil {
 		return z, e
@@ -91,6 +101,14 @@ func (r reader) zone(row sqlcgen.Route53Zone) (domain.Zone, error) {
 func (w writer) PutZone(z domain.Zone) error {
 	if e := w.q.PutZone(w.ctx, sqlcgen.PutZoneParams{ID: z.ID, Partition: z.Partition, AccountID: z.AccountID, Name: z.Name, CallerReference: z.CallerReference, Comment: z.Comment, Created: z.Created}); e != nil {
 		return e
+	}
+	if e := w.q.DeleteZoneTags(w.ctx, z.ID); e != nil {
+		return e
+	}
+	for key, value := range z.Tags {
+		if e := w.q.PutZoneTag(w.ctx, sqlcgen.PutZoneTagParams{ZoneID: z.ID, Key: key, Value: value}); e != nil {
+			return e
+		}
 	}
 	if e := w.q.DeleteRecordSets(w.ctx, z.ID); e != nil {
 		return e

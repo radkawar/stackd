@@ -39,6 +39,7 @@ type memoryWriter struct{ memoryReader }
 
 func (r memoryReader) Context() context.Context { return r.t.Context() }
 func cloneZone(z Zone) Zone {
+	z.Tags = maps.Clone(z.Tags)
 	z.Records = slices.Clone(z.Records)
 	for i := range z.Records {
 		z.Records[i].Values = slices.Clone(z.Records[i].Values)

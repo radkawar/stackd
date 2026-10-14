@@ -20,3 +20,9 @@ INSERT INTO route53_record_values(zone_id,name,type,identifier,position,value) V
 SELECT * FROM route53_changes WHERE id=?;
 -- name: PutChange :exec
 INSERT INTO route53_changes(id,partition,account_id,zone_id,comment,submitted,ready) VALUES(?,?,?,?,?,?,?);
+-- name: ListZoneTags :many
+SELECT key,value FROM route53_zone_tags WHERE zone_id=? ORDER BY key;
+-- name: DeleteZoneTags :exec
+DELETE FROM route53_zone_tags WHERE zone_id=?;
+-- name: PutZoneTag :exec
+INSERT INTO route53_zone_tags(zone_id,key,value) VALUES(?,?,?);

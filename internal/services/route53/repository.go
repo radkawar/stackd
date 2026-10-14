@@ -28,6 +28,7 @@ type Zone struct {
 	ID, Name, CallerReference, Comment string
 	Created                            time.Time
 	Records                            []RecordSet
+	Tags                               map[string]string
 }
 type Change struct {
 	Scope
