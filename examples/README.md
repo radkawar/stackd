@@ -57,8 +57,11 @@ Reopen checks stop the owned process before they reuse its port and SQLite file.
 Closed TCP connections in `TIME_WAIT` do not block that restart; a live listener
 still causes the runner to fail.
 
-The local fixture account is explicitly `738492615083`; signed STS discovery
-must return that account. It is not a real AWS credential. Every SDK client has
+The shared controller helper defaults to fixture account `738492615083`.
+Runners can pass an explicit `account=` value; signed STS discovery must match
+that value. Keep the same account when reopening the owned SQLite database.
+Use distinct accounts for concurrent native runs that share host networking.
+These IDs are local fixture identities, not AWS credentials. Every SDK client has
 an explicit loopback endpoint, static `test` / `test` credentials, region
 `us-east-1`, disabled proxies, and no credential-chain fallback. HTTP is the
 default. HTTPS examples must pass their owned certificate, key and CA to the

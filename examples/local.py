@@ -78,7 +78,7 @@ def workspace(args, example):
 
 
 @contextlib.contextmanager
-def controller(args, root, extra=(), containers=False, *,
+def controller(args, root, extra=(), containers=False, *, account=ACCOUNT,
                tls_certificate=None, tls_key=None, tls_ca=None):
     require(args.stackd.is_file(), f"Build the controller first: make build ({args.stackd})")
     require(1024 <= args.port <= 65535, "Choose an unprivileged port in 1024..65535")
@@ -97,7 +97,7 @@ def controller(args, root, extra=(), containers=False, *,
     endpoint = local_endpoint(f"{scheme}://127.0.0.1:{args.port}")
     command = [str(args.stackd.resolve()), "-listen",
                f"{'0.0.0.0' if containers else '127.0.0.1'}:{args.port}",
-               "-account-id", ACCOUNT, "-public-endpoint", endpoint,
+               "-account-id", account, "-public-endpoint", endpoint,
                "-database", str(root / "stackd.sqlite"), *extra]
     if tls_enabled:
         command.extend(["-tls-cert", str(Path(tls_certificate).resolve()),
@@ -111,7 +111,7 @@ def controller(args, root, extra=(), containers=False, *,
                 require(process.poll() is None, f"Controller exited; read {root / 'stackd.log'}")
                 try:
                     identity = client("sts", endpoint, ca_file=tls_ca).get_caller_identity()
-                    require(identity["Account"] == ACCOUNT, f"Unexpected account: {identity}")
+                    require(identity["Account"] == account, f"Unexpected account: {identity}")
                     require(process.poll() is None, "Owned controller exited during readiness")
                     break
                 except EndpointConnectionError:
