@@ -278,7 +278,7 @@ func (s *Service) createPermissionSet(tx Transaction, in *api.CreatePermissionSe
 	return &api.CreatePermissionSetOutput{PermissionSet: wirePermission(p)}, nil
 }
 func wirePermission(p PermissionSet) *api.PermissionSet {
-	out := &api.PermissionSet{PermissionSetArn: new(api.PermissionSetArn(p.ARN)), Name: new(api.PermissionSetName(p.Name)), CreatedDate: new(api.Date(p.Created)), SessionDuration: new(api.Duration("PT" + strconv.FormatInt(int64(p.Duration/time.Second), 10) + "S"))}
+	out := &api.PermissionSet{PermissionSetArn: new(api.PermissionSetArn(p.ARN)), Name: new(api.PermissionSetName(p.Name)), CreatedDate: new(api.Date(p.Created)), SessionDuration: new(api.Duration(permissionDuration(p.Duration)))}
 	if p.Description != "" {
 		out.Description = new(api.PermissionSetDescription(p.Description))
 	}
@@ -286,6 +286,23 @@ func wirePermission(p PermissionSet) *api.PermissionSet {
 		out.RelayState = new(api.RelayState(p.RelayState))
 	}
 	return out
+}
+
+func permissionDuration(duration time.Duration) string {
+	var out strings.Builder
+	out.WriteString("PT")
+	for _, unit := range []struct {
+		duration time.Duration
+		suffix   byte
+	}{{time.Hour, 'H'}, {time.Minute, 'M'}, {time.Second, 'S'}} {
+		value := duration / unit.duration
+		duration %= unit.duration
+		if value != 0 {
+			out.WriteString(strconv.FormatInt(int64(value), 10))
+			out.WriteByte(unit.suffix)
+		}
+	}
+	return out.String()
 }
 func parseDuration(raw string) (time.Duration, error) {
 	if raw == "" {

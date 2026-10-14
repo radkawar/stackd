@@ -94,6 +94,13 @@ configuration; it does not synthesize empty values or reset the session duration
 Explicit empty description or relay state still fails the native
 [UpdatePermissionSet minimum-length contract](https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_UpdatePermissionSet.html).
 
+Permission-set responses use canonical ISO-8601 duration units: `PT3600S`
+returns `PT1H`, and `PT3661S` returns `PT1H1M1S`. Zero components are omitted.
+The default remains one hour. The
+[native duration capture](../testdata/aws/identitycenter_duration.json) records
+create/update/read behavior and confirmed deletion of two unique, unassigned
+probe permission sets. Existing assignments and provisioned roles were not changed.
+
 `ListAccounts`, `ListAccountRoles`, and `GetRoleCredentials` resolve the current directory user, direct assignments, group memberships, Organizations eligibility, and current provisioning. Removing membership/assignment or deleting the user prevents new exchanges. Already-issued IAM sessions remain subject to current IAM policy, trust, role incarnation, and expiry. Portal account records currently contain account IDs, not optional display names/email addresses.
 
 ## Session and persistence semantics
