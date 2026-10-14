@@ -5,9 +5,11 @@ import (
 	"crypto/rand"
 	"encoding/base32"
 	"encoding/base64"
+	"encoding/binary"
 	"errors"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,9 +18,20 @@ import (
 
 var accountPattern = regexp.MustCompile(`^[0-9]{12}$`)
 
-// DefaultAccountID is the stable bootstrap account for fresh local state.
-// Existing databases retain their selected account independently of this default.
-const DefaultAccountID = "731842905617"
+// NewAccountID generates a local 12-digit account identity. The caller owns
+// persistence; an account ID must not change when its sandbox restarts.
+func NewAccountID() string {
+	const count = uint64(900_000_000_000)
+	const ceiling = ^uint64(0) - (^uint64(0) % count)
+	var entropy [8]byte
+	for {
+		_, _ = rand.Read(entropy[:])
+		value := binary.LittleEndian.Uint64(entropy[:])
+		if value < ceiling {
+			return strconv.FormatUint(100_000_000_000+value%count, 10)
+		}
+	}
+}
 
 // Store implements credential lifecycles over a replaceable transactional
 // repository. Development root identities are resolved without registration.
@@ -48,7 +61,7 @@ type Config struct {
 func NewWithConfig(config Config) *Store {
 	defaultAccount, repository := config.AccountID, config.Repository
 	if defaultAccount == "" {
-		defaultAccount = DefaultAccountID
+		defaultAccount = NewAccountID()
 	}
 	if !accountPattern.MatchString(defaultAccount) {
 		panic("identity: default account must contain 12 digits")

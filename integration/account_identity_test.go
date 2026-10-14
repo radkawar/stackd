@@ -16,7 +16,6 @@ import (
 
 	"stackd"
 	"stackd/clock"
-	"stackd/internal/identity"
 	"stackd/storage"
 	"stackd/storage/sqlite"
 	sqlbackends "stackd/storage/sqlite/backends"
@@ -96,9 +95,6 @@ func TestDefaultAccountIdentitySDK(t *testing.T) {
 					return cloudClients{server}
 				}
 				want := explicit
-				if want == "" {
-					want = identity.DefaultAccountID
-				}
 				assertCaller := func(c cloudClients, key, account string) {
 					t.Helper()
 					out, err := c.sts(key, "test", "").GetCallerIdentity(t.Context(), &sts.GetCallerIdentityInput{})
@@ -107,6 +103,16 @@ func TestDefaultAccountIdentitySDK(t *testing.T) {
 					}
 				}
 				c := start(explicit)
+				if want == "" {
+					caller, err := c.sts("test", "test", "").GetCallerIdentity(t.Context(), &sts.GetCallerIdentityInput{})
+					if err != nil {
+						t.Fatal(err)
+					}
+					want = aws.ToString(caller.Account)
+					if _, err := strconv.ParseUint(want, 10, 64); err != nil || len(want) != 12 || strings.HasPrefix(want, "0") {
+						t.Fatalf("fresh account is not a generated 12-digit ID: %q", want)
+					}
+				}
 				assertCaller(c, "test", want)
 				assertCaller(c, "609274183506", "609274183506")
 				if _, err := c.iam("test", "test", "").CreateUser(t.Context(), &iam.CreateUserInput{UserName: aws.String("retained-owner")}); err != nil {
@@ -154,5 +160,26 @@ func TestDefaultAccountIdentitySDK(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestCustomStorageRequiresAccountSelection(t *testing.T) {
+	backends := storage.NewMemory()
+	backends.ResolveAccountID = nil
+	if cloud, err := stackd.New(stackd.Config{Storage: backends}); err == nil {
+		_ = cloud.Close()
+		t.Fatal("custom storage silently selected an unretained account")
+	}
+	const account = "820493716052"
+	cloud, err := stackd.New(stackd.Config{AccountID: account, Storage: backends})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = cloud.Close() })
+	server := httptest.NewServer(cloud)
+	t.Cleanup(server.Close)
+	caller, err := (cloudClients{server}).sts("test", "test", "").GetCallerIdentity(t.Context(), &sts.GetCallerIdentityInput{})
+	if err != nil || aws.ToString(caller.Account) != account || aws.ToString(caller.Arn) != "arn:aws:iam::"+account+":root" {
+		t.Fatalf("explicit custom storage identity = %+v, %v", caller, err)
 	}
 }

@@ -386,6 +386,8 @@ func New(config Config) (stack *Stack, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("resolve retained sandbox account: %w", err)
 		}
+	} else if config.AccountID == "" {
+		return nil, fmt.Errorf("custom storage requires an explicit account ID or a retained account resolver")
 	}
 	var dnsServer *dnsruntime.Server
 	var dnsAuthority elbv2.DNSAuthority

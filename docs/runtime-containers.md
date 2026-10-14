@@ -216,7 +216,13 @@ unset AWS_SESSION_TOKEN AWS_PROFILE
 aws --endpoint-url http://127.0.0.1:4566 sts get-caller-identity
 ```
 
-Fresh sandboxes use account `731842905617`; existing SQLite state preserves its previous account and `-account-id` selects an explicit account. Read the actual account from STS rather than inferring it from the access key. This checks API access, not engine readiness. Use each service's Describe/Get status and a real native operation before treating its resource as ready. The service sections link the supported provisioning contracts; a container-create response or elapsed sleep is not readiness. If your workflow consumes advertised resource URLs from containers, substitute your shared reachable origin for the host-only endpoint in **all** provisioning calls.
+Fresh sandboxes generate a random 12-digit account ID. Use `--account-id` to set
+the ID at creation. SQLite keeps it across restarts. Read the ID through STS.
+This check proves API access, not engine readiness. Check the service status and
+run a real native operation before you use the resource. A container-create
+response or elapsed time does not prove readiness. The service sections describe
+the supported provisioning steps. If containers use advertised resource URLs,
+use the shared reachable origin in **all** provisioning calls.
 
 ## Lambda
 

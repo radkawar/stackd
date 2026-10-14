@@ -72,11 +72,11 @@ unset AWS_SESSION_TOKEN AWS_PROFILE AWS_DEFAULT_PROFILE
 aws --endpoint-url http://127.0.0.1:4566 sts get-caller-identity
 ```
 
-With fresh state, the returned account is `731842905617` and the identity is its
-local root. SQLite retains the selected account across restarts; upgraded legacy
-databases preserve their historical zero default. If you previously supplied
-`-account-id`, keep that same override for the first upgraded start so it can be
-saved. See [account selection and upgrades](configuration.md#credentials-iam-and-regions).
+Fresh state generates a random 12-digit account ID. The returned identity is its
+local root. To choose the ID, use `--account-id 123456789012` at creation.
+SQLite keeps the ID across restarts. A conflicting flag returns an error.
+For old databases with no saved selection, see
+[account selection and upgrades](configuration.md#credentials-iam-and-regions).
 A 12-digit access key with secret `test` selects another local account without
 moving resources between accounts. These are fixture/bootstrap identities, not
 real AWS credentials. IAM-created keys and STS sessions instead use their issued

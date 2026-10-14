@@ -42,10 +42,11 @@ aws --endpoint-url http://127.0.0.1:4566 sts get-caller-identity
 aws --endpoint-url http://127.0.0.1:4566 s3api create-bucket --bucket hello-stackd
 ```
 
-Fresh sandboxes use account `731842905617`. SQLite retains the selected account;
-upgraded databases preserve their historical default. Use STS to discover the
-actual identity and see [account selection](docs/configuration.md) before changing
-an existing deployment. `test`/`test` is a local bootstrap root identity, **not an
+Fresh sandboxes generate a random 12-digit account ID. To set the ID at creation,
+use `--account-id 123456789012`. SQLite keeps the ID across restarts. A conflicting
+flag returns an error. Use STS to read the ID. See
+[account selection](docs/configuration.md) for upgrade rules.
+`test`/`test` is a local bootstrap root identity, **not an
 AWS credential or a secure multi-user login**. Keep the listener on loopback. Do
 not expose the API or local diagnostic endpoints to untrusted networks.
 

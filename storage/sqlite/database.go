@@ -47,6 +47,14 @@ func Open(ctx context.Context, path string) (*sql.DB, error) {
 			return err
 		}
 		fresh := version == 0
+		legacySelection := false
+		if !fresh && version < bootstrapVersion {
+			var present bool
+			if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = 'instance_identity')").Scan(&present); err != nil {
+				return err
+			}
+			legacySelection = !present
+		}
 		if version == 0 {
 			// Empty databases need the current schema, not historical rewrites.
 			// The generated bootstrap includes the migrations' seed rows/version.
@@ -59,7 +67,13 @@ func Open(ctx context.Context, path string) (*sql.DB, error) {
 			return err
 		}
 		if fresh {
-			_, err := tx.ExecContext(ctx, "UPDATE instance_identity SET account_id = ? WHERE singleton = 1", identity.DefaultAccountID)
+			_, err := tx.ExecContext(ctx, "UPDATE instance_identity SET account_id = ?, selected = FALSE WHERE singleton = 1", identity.NewAccountID())
+			return err
+		}
+		if legacySelection {
+			// Older releases did not save an explicit bootstrap account. Permit
+			// its operator to restore that choice once during the upgrade.
+			_, err := tx.ExecContext(ctx, "UPDATE instance_identity SET selected = FALSE WHERE singleton = 1")
 			return err
 		}
 		return nil

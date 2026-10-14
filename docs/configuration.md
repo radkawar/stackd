@@ -17,7 +17,7 @@ This runs in the foreground. The basic API emulator needs no Docker. Omit `-data
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `-listen` | `127.0.0.1:4566` | TCP address on which the AWS API and local control endpoints bind. |
-| `-account-id` | saved account; `731842905617` for fresh state | Local account selected by the bootstrap `test` access key. Explicit values must be 12 digits and are retained with the backend. |
+| `-account-id` | retained ID; random for fresh state | Select the 12-digit bootstrap account at creation. On restart, an explicit value must match the retained ID. |
 | `-database` | empty | SQLite file; empty selects memory. |
 | `-public-endpoint` | derived from listener | Advertised HTTP(S) origin, not a bind address. |
 | `-clock-start` | empty | Initialize manual service time at an RFC3339 instant; saved SQLite time wins. |
@@ -42,9 +42,24 @@ unset AWS_SESSION_TOKEN
 aws --endpoint-url http://127.0.0.1:4566 sts get-caller-identity
 ```
 
-These fixture credentials are a bootstrap **local root identity**, not an authentication-off mode. Fresh state uses account `731842905617`. To select another local account, use its 12-digit account ID as the access key, with secret `test`; `-account-id` changes and saves which account the `test` key selects. This never renames existing accounts, credentials or resource ARNs. Do not use real AWS credentials. Keep explicit local endpoints unless you deliberately configure the isolated [standard AWS HTTPS routing](networking.md#isolated-opt-in-standard-aws-https-routing) path.
+These credentials select a bootstrap **local root identity**. Authentication
+remains enabled. Fresh state generates a random 12-digit account ID. To choose
+the ID, supply `--account-id 123456789012` on the first start. SQLite retains this
+choice. A reused memory backend also retains it. A conflicting flag returns an
+error; it does not move resources to another account.
 
-SQLite remembers this selection across restarts; reusing a memory backend remembers it until that backend is discarded. Databases created before retained account selection keep the historical `000000000000` default when upgraded. If an older deployment used an explicit account override, keep that same `-account-id` on its first upgraded start: earlier versions did not save the override, so it cannot be inferred safely from a multi-account database. Subsequent starts can omit the flag. To preserve an intentionally zero account, `-account-id 000000000000` remains valid. To start fresh without old resources, use a different database path rather than changing the account alias and expecting resource migration.
+To access another local account, use its 12-digit ID as the access key and `test`
+as the secret. This is a local fixture feature, not AWS credential behavior.
+Do not use real AWS credentials. Keep explicit local endpoints unless you use
+the isolated [standard AWS HTTPS routing](networking.md#isolated-opt-in-standard-aws-https-routing) path.
+
+An old database that has no saved account selection needs a one-time upgrade
+choice. If that deployment used `-account-id`, supply the same ID on its first
+upgraded start. Otherwise it keeps the historical `000000000000` account.
+The controller cannot infer an old explicit choice from a multi-account database.
+After this first choice, omit the flag or supply the same ID. Existing saved
+selections do not change. Zero-prefixed IDs remain valid explicit inputs.
+To create a new sandbox, use a different database path.
 
 AWS defines an [account ID as a unique 12-digit number](https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-identifiers.html). Organizations-created local accounts use deterministic, nonconsecutive 12-digit IDs with collision checks against accounts and retained creation reservations. IDs are opaque: discover them through STS and Organizations responses rather than adding one to a previous account number. This local allocation algorithm is not a claim about how AWS generates account IDs.
 
@@ -87,8 +102,9 @@ Signed requests select their region through the verified SigV4 signing scope; th
 Organizations defaults to ten accounts, counting the management account and closed members. An explicit applied quota override is repeatable and scoped to partition/management account:
 
 ```sh
-./bin/stackd -database ./data/stackd.sqlite \
-  -organization-account-quota aws/731842905617=5000
+./bin/stackd -database ./data/quota-example.sqlite \
+  -account-id 123456789012 \
+  -organization-account-quota aws/123456789012=5000
 ```
 
 It applies across regions and recovered account-creation jobs. Reducing it does not remove existing accounts. See [Organizations account access](organizations-account-access.md).

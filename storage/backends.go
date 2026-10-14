@@ -78,9 +78,9 @@ import (
 // IAM resources and credentials: splitting them would break atomic identity
 // mutations. STS uses those same credentials and needs no separate repository.
 //
-// Repositories and Read are required; ResolveAccountID is optional for custom
-// bundles. Use NewMemory or supply coordinated typed contracts whose decorators
-// preserve transaction contexts.
+// Repositories and Read are required. Custom bundles may omit ResolveAccountID
+// only when the caller supplies an explicit account ID. Use NewMemory or supply
+// coordinated typed contracts whose decorators preserve transaction contexts.
 // The caller owns backend lifecycle; Stack.Close
 // stops service workers without closing injected backends. Backends may be reused
 // after that Stack closes, but must not be shared by simultaneously active stacks.
@@ -90,9 +90,9 @@ import (
 // KMS service-role creation and current IAM principal bindings in key/queue
 // policies. External effects must run outside repository callbacks.
 type Backends struct {
-	// ResolveAccountID retains the bootstrap test-key account. Empty requests
-	// select the saved default; explicit IDs select and retain that account.
-	// Custom bundles may omit this hook and manage account selection themselves.
+	// ResolveAccountID retains the first bootstrap test-key account selection.
+	// Empty requests use the retained identity or generate one for fresh state.
+	// Explicit IDs must match after selection. Custom bundles may instead require an explicit ID.
 	ResolveAccountID func(context.Context, string) (string, error)
 	// Read supplies a shared read snapshot for cross-service job discovery.
 	// The callback must use its context and perform no writes or external effects.

@@ -30,8 +30,9 @@ keeps service-specific accounting and error semantics authoritative.
   The current inventory has 127 services, 8,207 modeled operations, 2,313
   registered/partial operations and no registrations outside the selection.
 - [x] Use realistic 12-digit sandbox/member account identities without rewriting
-  retained identities. Fresh stores default to `731842905617`; SQLite preserves
-  its selected account and legacy stores retain zero unless explicitly overridden.
+  retained identities. Fresh stores generate a random ID unless the CLI supplies
+  one. SQLite keeps the first selection and rejects later conflicting flags.
+  Legacy stores with no saved choice allow one upgrade selection.
   Organization reservations are collision-checked and non-sequential. Signed
   memory/SQLite tests, targeted races and actual controller restart preserve
   account isolation, pending provisioning and member role identities.

@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"stackd/internal/awstest"
-	"stackd/internal/identity"
 	"stackd/journal"
 	"stackd/storage/sqlite"
 	sqljournal "stackd/storage/sqlite/journal"
@@ -29,7 +28,16 @@ func TestSQLiteAccountSelectionReopenAndRollback(t *testing.T) {
 			t.Fatalf("saved account = %q, %v; want %q", got, err, want)
 		}
 	}
-	check(identity.DefaultAccountID)
+	abort := errors.New("abort first identity selection")
+	err = sqlite.Transact(t.Context(), db, false, func(ctx context.Context, _ *sql.Tx) error {
+		if _, err := sqlite.ResolveAccountID(ctx, db, "000000000000"); err != nil {
+			return err
+		}
+		return abort
+	})
+	if !errors.Is(err, abort) {
+		t.Fatal(err)
+	}
 	const override = "820493716052"
 	if got, err := sqlite.ResolveAccountID(t.Context(), db, override); err != nil || got != override {
 		t.Fatalf("override = %q, %v", got, err)
@@ -42,15 +50,8 @@ func TestSQLiteAccountSelectionReopenAndRollback(t *testing.T) {
 		t.Fatal(err)
 	}
 	check(override)
-	abort := errors.New("abort identity change")
-	err = sqlite.Transact(t.Context(), db, false, func(ctx context.Context, _ *sql.Tx) error {
-		if _, err := sqlite.ResolveAccountID(ctx, db, "000000000000"); err != nil {
-			return err
-		}
-		return abort
-	})
-	if !errors.Is(err, abort) {
-		t.Fatal(err)
+	if _, err := sqlite.ResolveAccountID(t.Context(), db, "000000000000"); err == nil {
+		t.Fatal("changed the retained account")
 	}
 	check(override)
 	if _, err := sqlite.ResolveAccountID(t.Context(), db, "invalid"); err == nil {
@@ -102,5 +103,37 @@ func TestSQLiteAccountSelectionLegacyUpgrade(t *testing.T) {
 				t.Fatalf("upgrade changed retained account event: %+v, %v", rows, err)
 			}
 		})
+	}
+}
+
+func TestSQLiteAccountSelectionRetainedUpgrade(t *testing.T) {
+	files, err := filepath.Glob("schema/*.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	version := slices.Index(files, filepath.Join("schema", "409_instance_identity_selection.sql"))
+	if version < 0 {
+		t.Fatal("first-selection migration not found")
+	}
+	path := filepath.Join(t.TempDir(), "selected.sqlite")
+	legacy := awstest.HistoricalSQLite(t, path, "schema", version, "", nil)
+	const account = "820493716052"
+	if _, err := legacy.ExecContext(t.Context(), "UPDATE instance_identity SET account_id = ?", account); err != nil {
+		t.Fatal(err)
+	}
+	if err := legacy.Close(); err != nil {
+		t.Fatal(err)
+	}
+	db, err := sqlite.Open(t.Context(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := sqlite.ResolveAccountID(t.Context(), db, "609274183506"); err == nil {
+		t.Fatal("upgrade allowed a retained account to change")
+	}
+	got, err := sqlite.ResolveAccountID(t.Context(), db, "")
+	if err != nil || got != account {
+		t.Fatalf("upgrade changed saved account: %q, %v", got, err)
 	}
 }
