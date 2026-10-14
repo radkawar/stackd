@@ -1,66 +1,41 @@
 package sqlite_test
 
 import (
-	"database/sql"
 	"fmt"
-	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
+	"slices"
 	"testing"
+	"time"
 
+	"stackd/internal/awstest"
+	domain "stackd/storage/mq"
 	"stackd/storage/sqlite"
+	sqlmq "stackd/storage/sqlite/mq"
 )
 
 func TestMQActiveMQAPIVersionUpgradeRetainsState(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "mq.sqlite")
-	db, err := sql.Open("sqlite", path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	db.SetMaxOpenConns(1)
-	t.Cleanup(func() { _ = db.Close() })
-	if _, err := db.ExecContext(t.Context(), "PRAGMA foreign_keys=ON"); err != nil {
-		t.Fatal(err)
-	}
 	files, err := filepath.Glob("schema/*.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
-	tx, err := db.BeginTx(t.Context(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer tx.Rollback()
-	version := 0
-	for _, file := range files {
-		if strings.HasSuffix(file, "_mq_activemq_api_version.sql") {
-			break
-		}
-		body, err := os.ReadFile(file)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := tx.ExecContext(t.Context(), string(body)); err != nil {
-			t.Fatalf("historical migration %s: %v", file, err)
-		}
-		version++
-	}
-	if version == len(files) {
+	// schema.Apply counts ordered files, not their numeric filename prefixes.
+	version := slices.Index(files, filepath.Join("schema", "295_mq_activemq_api_version.sql"))
+	if version < 0 {
 		t.Fatal("MQ API version migration not found")
 	}
-	if _, err := tx.ExecContext(t.Context(), fmt.Sprintf("PRAGMA user_version=%d", version)); err != nil {
-		t.Fatal(err)
-	}
-	if err := tx.Commit(); err != nil {
-		t.Fatal(err)
-	}
+	db := awstest.HistoricalSQLite(t, path, "schema", version, "", nil)
+	t.Cleanup(func() { _ = db.Close() })
 	exec := func(query string, args ...any) {
 		t.Helper()
 		if _, err := db.ExecContext(t.Context(), query, args...); err != nil {
 			t.Fatal(err)
 		}
 	}
+	var brokers []domain.BrokerRecord
+	var configurations []domain.ConfigurationRecord
+	created := time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC)
 	for i, fixture := range []struct {
 		partition, account, region, engine, version string
 	}{
@@ -91,46 +66,50 @@ func TestMQActiveMQAPIVersionUpgradeRetainsState(t *testing.T) {
 		exec(`INSERT INTO mq_configuration_tags VALUES(?,'owner','configuration')`, configARN)
 		exec(`INSERT INTO mq_configuration_revisions VALUES(?,1,'effective','<broker name="effective"/>','2031-01-01T00:00:00Z'),(?,2,'pending','<broker name="pending"/>','2031-01-02T00:00:00Z')`, configARN, configARN)
 		exec(`INSERT INTO mq_broker_configurations VALUES(?,'current',0,?,1,'<broker name="effective"/>'),(?,'pending',0,?,2,'<broker name="pending"/>'),(?,'history',0,?,1,'<broker name="historical"/>'),(?,'history',1,?,1,'<broker name="historical"/>')`, brokerARN, id, brokerARN, id, brokerARN, id, brokerARN, id)
-	}
-	tables := []string{"mq_brokers", "mq_broker_tags", "mq_broker_users", "mq_broker_user_groups", "mq_configurations", "mq_configuration_tags", "mq_configuration_revisions", "mq_broker_configurations"}
-	readRows := func(table string, upgradeExpected bool) []map[string]any {
-		t.Helper()
-		rows, err := db.QueryContext(t.Context(), "SELECT * FROM "+table+" ORDER BY rowid")
-		if err != nil {
-			t.Fatal(err)
+		engineVersion := fixture.version
+		if fixture.engine == "ACTIVEMQ" && engineVersion == "5.18.7" {
+			engineVersion = "5.18"
 		}
-		defer rows.Close()
-		columns, err := rows.Columns()
-		if err != nil {
-			t.Fatal(err)
-		}
-		var out []map[string]any
-		for rows.Next() {
-			values := make([]any, len(columns))
-			pointers := make([]any, len(columns))
-			for i := range values {
-				pointers[i] = &values[i]
-			}
-			if err := rows.Scan(pointers...); err != nil {
-				t.Fatal(err)
-			}
-			row := make(map[string]any, len(columns))
-			for i, column := range columns {
-				row[column] = values[i]
-			}
-			if upgradeExpected && row["engine"] == "ACTIVEMQ" && row["engine_version"] == "5.18.7" {
-				row["engine_version"] = "5.18"
-			}
-			out = append(out, row)
-		}
-		if err := rows.Err(); err != nil {
-			t.Fatal(err)
-		}
-		return out
-	}
-	want := make(map[string][]map[string]any, len(tables))
-	for _, table := range tables {
-		want[table] = readRows(table, true)
+		scope := domain.Scope{Partition: fixture.partition, AccountID: fixture.account, Region: fixture.region}
+		brokers = append(brokers, domain.BrokerRecord{
+			Scope: scope, ID: id, ARN: brokerARN, Name: id,
+			Engine: fixture.engine, EngineVersion: engineVersion, InstanceType: "mq.m5.large",
+			State: "REBOOT_IN_PROGRESS", CreatorRequestID: "request", Operation: "reboot",
+			Failure: "retained failure", Version: 19, Created: created, Due: created.Add(24 * time.Hour),
+			Username: "initial", Password: "initial-password",
+			Endpoint: domain.Endpoint{
+				Address: "ssl://localhost:61617", ConsoleURL: "https://localhost:8162",
+				NativeID: "native-container", CAPEM: []byte{1, 2, 3},
+			},
+			Tags: map[string]string{"owner": "retained"},
+			Users: []domain.UserRecord{{
+				Username: "initial", Password: "native-password", ConsoleAccess: true,
+				Groups: []string{"effective-group"}, PendingChange: "UPDATE",
+				PendingPassword: "pending-password", PendingGroups: []string{"pending-group"},
+			}},
+			Configuration:        domain.ConfigurationReference{ID: id, Revision: 1, Data: `<broker name="effective"/>`},
+			PendingConfiguration: domain.ConfigurationReference{ID: id, Revision: 2, Data: `<broker name="pending"/>`},
+			ConfigurationHistory: []domain.ConfigurationReference{
+				{ID: id, Revision: 1, Data: `<broker name="historical"/>`},
+				{ID: id, Revision: 1, Data: `<broker name="historical"/>`},
+			},
+			MaintenanceDay: "MONDAY", MaintenanceTime: "03:00", MaintenanceZone: "UTC",
+			MaintenanceDue: created.Add(48 * time.Hour), MaintenanceAdjustments: 2,
+			Logs: domain.LogSettings{General: true}, PendingLogs: &domain.LogSettings{Audit: true},
+			GeneralLogCursor: domain.LogCursor{FileID: "general-file", Offset: 123},
+			AuditLogCursor:   domain.LogCursor{FileID: "audit-file", Offset: 456},
+			LogDeliveryError: "delivery failure", LogDue: created.Add(72 * time.Hour),
+		})
+		configurations = append(configurations, domain.ConfigurationRecord{
+			Scope: scope, ID: id, ARN: configARN, Name: id,
+			Description: "retained description", Engine: fixture.engine, EngineVersion: engineVersion,
+			AuthenticationStrategy: "simple", Created: created,
+			Tags: map[string]string{"owner": "configuration"},
+			Revisions: []domain.ConfigurationRevisionRecord{
+				{Revision: 1, Description: "effective", Data: `<broker name="effective"/>`, Created: created},
+				{Revision: 2, Description: "pending", Data: `<broker name="pending"/>`, Created: created.Add(24 * time.Hour)},
+			},
+		})
 	}
 	for reopen := range 2 {
 		if err := db.Close(); err != nil {
@@ -140,17 +119,62 @@ func TestMQActiveMQAPIVersionUpgradeRetainsState(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, table := range tables {
-			if got := readRows(table, false); !reflect.DeepEqual(got, want[table]) {
-				t.Fatalf("reopen %d changed retained MQ state in %s: got %#v, want %#v", reopen, table, got, want[table])
+		if err := sqlmq.New(db).View(t.Context(), func(r domain.Reader) error {
+			for i, want := range brokers {
+				got, err := r.Broker(want.Scope, want.ID)
+				if err != nil {
+					return err
+				}
+				if got.Scope != want.Scope || got.ID != want.ID || got.ARN != want.ARN || got.Name != want.Name ||
+					got.Engine != want.Engine || got.EngineVersion != want.EngineVersion || got.InstanceType != want.InstanceType ||
+					got.CreatorRequestID != want.CreatorRequestID || !reflect.DeepEqual(got.Tags, want.Tags) {
+					t.Fatalf("reopen %d changed broker identity or engine: got %#v, want %#v", reopen, got, want)
+				}
+				if !reflect.DeepEqual(got.Endpoint, want.Endpoint) {
+					t.Fatalf("reopen %d changed native endpoint: got %#v, want %#v", reopen, got.Endpoint, want.Endpoint)
+				}
+				if got.Username != want.Username || got.Password != want.Password || !reflect.DeepEqual(got.Users, want.Users) {
+					t.Fatalf("reopen %d changed effective or pending credentials: got %#v, want %#v", reopen, got, want)
+				}
+				if got.State != want.State || got.Operation != want.Operation || got.Failure != want.Failure ||
+					got.Version != want.Version || !got.Created.Equal(want.Created) || !got.Due.Equal(want.Due) {
+					t.Fatalf("reopen %d changed retained lifecycle work: got %#v, want %#v", reopen, got, want)
+				}
+				if got.Configuration != want.Configuration || got.PendingConfiguration != want.PendingConfiguration ||
+					!reflect.DeepEqual(got.ConfigurationHistory, want.ConfigurationHistory) {
+					t.Fatalf("reopen %d changed admitted configuration or history: got %#v, want %#v", reopen, got, want)
+				}
+				if got.MaintenanceDay != want.MaintenanceDay || got.MaintenanceTime != want.MaintenanceTime ||
+					got.MaintenanceZone != want.MaintenanceZone || !got.MaintenanceDue.Equal(want.MaintenanceDue) ||
+					got.MaintenanceAdjustments != want.MaintenanceAdjustments {
+					t.Fatalf("reopen %d changed retained maintenance work: got %#v, want %#v", reopen, got, want)
+				}
+				if got.Logs != want.Logs || !reflect.DeepEqual(got.PendingLogs, want.PendingLogs) ||
+					got.GeneralLogCursor != want.GeneralLogCursor || got.AuditLogCursor != want.AuditLogCursor ||
+					got.LogDeliveryError != want.LogDeliveryError || !got.LogDue.Equal(want.LogDue) {
+					t.Fatalf("reopen %d changed pending logs or native log offsets: got %#v, want %#v", reopen, got, want)
+				}
+				wantConfiguration := configurations[i]
+				configuration, err := r.Configuration(wantConfiguration.Scope, wantConfiguration.ID)
+				if err != nil {
+					return err
+				}
+				if configuration.Scope != wantConfiguration.Scope || configuration.ID != wantConfiguration.ID ||
+					configuration.ARN != wantConfiguration.ARN || configuration.Name != wantConfiguration.Name ||
+					configuration.Engine != wantConfiguration.Engine || configuration.EngineVersion != wantConfiguration.EngineVersion ||
+					configuration.Description != wantConfiguration.Description ||
+					configuration.AuthenticationStrategy != wantConfiguration.AuthenticationStrategy ||
+					!configuration.Created.Equal(wantConfiguration.Created) {
+					t.Fatalf("reopen %d changed configuration identity or engine: got %#v, want %#v", reopen, configuration, wantConfiguration)
+				}
+				if !reflect.DeepEqual(configuration.Tags, wantConfiguration.Tags) ||
+					!reflect.DeepEqual(configuration.Revisions, wantConfiguration.Revisions) {
+					t.Fatalf("reopen %d changed configuration tags or revision payloads: got %#v, want %#v", reopen, configuration, wantConfiguration)
+				}
 			}
-		}
-		var currentVersion int
-		if err := db.QueryRowContext(t.Context(), "PRAGMA user_version").Scan(&currentVersion); err != nil {
+			return nil
+		}); err != nil {
 			t.Fatal(err)
-		}
-		if currentVersion != len(files) {
-			t.Fatalf("schema version = %d, want %d", currentVersion, len(files))
 		}
 		rows, err := db.QueryContext(t.Context(), "PRAGMA foreign_key_check")
 		if err != nil {

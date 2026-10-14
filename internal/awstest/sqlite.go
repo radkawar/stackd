@@ -13,9 +13,11 @@ import (
 )
 
 // HistoricalSQLite builds a historical fixture from the authoritative migration
-// SQL. An optional source database supplies SDK-created state; selects overrides
-// the source SELECT for tables whose historical representation differs. Current
-// adapters must only use the returned database after the production upgrade.
+// SQL. Version counts lexically ordered migration files, as schema.Apply does;
+// filename prefixes are not versions. An optional source database supplies
+// SDK-created state; selects overrides the source SELECT for tables whose
+// historical representation differs. Current adapters must only use the returned
+// database after the production upgrade.
 // Stop source service workers first and keep their database open until copying
 // finishes, so attaching the source does not race its final WAL connection close.
 func HistoricalSQLite(t *testing.T, path, schemaDir string, version int, source string, selects map[string]string) *sql.DB {
@@ -40,17 +42,20 @@ func HistoricalSQLite(t *testing.T, path, schemaDir string, version int, source 
 		t.Fatalf("begin historical fixture: %v", err)
 	}
 	defer tx.Rollback()
-	for n := 1; n <= version; n++ {
-		files, err := filepath.Glob(filepath.Join(schemaDir, fmt.Sprintf("%03d_*.sql", n)))
-		if err != nil || len(files) != 1 {
-			t.Fatalf("migration %d: files=%v error=%v", n, files, err)
-		}
-		data, err := os.ReadFile(files[0])
+	migrations, err := filepath.Glob(filepath.Join(schemaDir, "*.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if version < 0 || version > len(migrations) {
+		t.Fatalf("unsupported historical SQLite schema version %d", version)
+	}
+	for _, migration := range migrations[:version] {
+		data, err := os.ReadFile(migration)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if _, err := tx.ExecContext(t.Context(), string(data)); err != nil {
-			t.Fatalf("migration %d: %v", n, err)
+			t.Fatalf("migration %s: %v", migration, err)
 		}
 	}
 	if _, err := tx.ExecContext(t.Context(), fmt.Sprintf("PRAGMA user_version=%d", version)); err != nil {
