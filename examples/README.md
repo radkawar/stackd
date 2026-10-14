@@ -56,8 +56,11 @@ with `--port`; `--stackd /absolute/path/to/stackd` selects a prepared binary.
 
 The local fixture account is explicitly `738492615083`; signed STS discovery
 must return that account. It is not a real AWS credential. Every SDK client has
-an explicit `http://127.0.0.1:PORT` endpoint, static `test` / `test` credentials,
-region `us-east-1`, disabled proxies, and no credential-chain fallback. The
+an explicit loopback endpoint, static `test` / `test` credentials, region
+`us-east-1`, disabled proxies, and no credential-chain fallback. HTTP is the
+default. HTTPS examples must pass their owned certificate, key and CA to the
+shared controller helper and trust that CA explicitly in SDK/provider clients.
+They do not disable certificate or hostname verification. The
 controller/Terraform subprocess environment drops inherited AWS credentials,
 endpoint overrides, Terraform arguments, and proxy settings. Terraform also
 uses a private CLI configuration, the local backend, and explicit endpoints for
