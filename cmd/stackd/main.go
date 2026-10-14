@@ -73,7 +73,7 @@ func run() (result error) {
 	https := flag.Bool("tls", false, "serve HTTPS using live ACM custom-domain certificates; optional tls-cert/tls-key fallback for the ordinary API endpoint")
 	tlsCert := flag.String("tls-cert", "", "PEM certificate chain for HTTPS; requires -tls-key")
 	tlsKey := flag.String("tls-key", "", "PEM private key for HTTPS; requires -tls-cert")
-	account := flag.String("account-id", "000000000000", "account selected by the test access key")
+	account := flag.String("account-id", "", "12-digit account selected by the test access key (saved account, or 731842905617 for fresh state)")
 	publicEndpoint := flag.String("public-endpoint", "", "public HTTP(S) origin for federation, SNS certificates, Lambda URLs and code downloads (defaults to listener address)")
 	database := flag.String("database", "", "persist typed service state and the shared journal in this SQLite file")
 	clockStart := flag.String("clock-start", "", "initialize manual service time at an RFC3339 instant; a saved SQLite timeline takes precedence")

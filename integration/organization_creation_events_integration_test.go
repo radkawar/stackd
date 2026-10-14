@@ -31,7 +31,7 @@ import (
 
 func creationEventCloud(t *testing.T, backends *storage.Backends, source *clock.Manual) (*stackd.Stack, cloudClients, func()) {
 	t.Helper()
-	cloud, err := stackd.New(stackd.Config{Storage: backends, Clock: source})
+	cloud, err := stackd.New(stackd.Config{AccountID: "000000000000", Storage: backends, Clock: source})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,10 +178,16 @@ func TestOrganizationCreationEventsRecoverySDK(t *testing.T) {
 
 type creationCommitFailure struct {
 	orgstore.Storage
-	mode atomic.Int32
+	mode      atomic.Int32
+	accountID atomic.Value // string: attempted reservation, including rolled-back admission
 }
 
 func (s *creationCommitFailure) CompareAndSwap(ctx context.Context, partition string, revision uint64, record orgstore.PartitionRecord, commit func(context.Context) error) (bool, error) {
+	for _, organization := range record.Organizations {
+		for _, job := range organization.Creations {
+			s.accountID.Store(job.AccountID)
+		}
+	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	return s.Storage.CompareAndSwap(ctx, partition, revision, record, func(ctx context.Context) error {
@@ -286,8 +292,12 @@ func TestOrganizationCreationEventsRollbackSDK(t *testing.T) {
 					if rows := lifecycleEvents(t, history); !reflect.DeepEqual(rows, baseline) {
 						t.Fatal("failed publication retained an event", rows)
 					}
+					reserved, ok := state.accountID.Load().(string)
+					if !ok || reserved == "" {
+						t.Fatal("failed publication did not attempt an account reservation")
+					}
 					if err := backends.IAM.View(t.Context(), func(tx iamstore.ReadTx) error {
-						roles, err := tx.Roles(iamstore.Scope{Partition: "aws", AccountID: "100000000001"})
+						roles, err := tx.Roles(iamstore.Scope{Partition: "aws", AccountID: reserved})
 						if len(roles) != 0 {
 							t.Error("failed publication retained account roles", roles)
 						}
@@ -296,7 +306,7 @@ func TestOrganizationCreationEventsRollbackSDK(t *testing.T) {
 						t.Fatal(err)
 					}
 					if err := backends.Account.View(t.Context(), func(tx accountstore.Reader) error {
-						_, found, err := tx.Contact(accountstore.Scope{Partition: "aws", AccountID: "100000000001"})
+						_, found, err := tx.Contact(accountstore.Scope{Partition: "aws", AccountID: reserved})
 						if found {
 							t.Error("failed publication retained copied contact")
 						}

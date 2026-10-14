@@ -16,6 +16,10 @@ import (
 
 var accountPattern = regexp.MustCompile(`^[0-9]{12}$`)
 
+// DefaultAccountID is the stable bootstrap account for fresh local state.
+// Existing databases retain their selected account independently of this default.
+const DefaultAccountID = "731842905617"
+
 // Store implements credential lifecycles over a replaceable transactional
 // repository. Development root identities are resolved without registration.
 type Store struct {
@@ -44,7 +48,7 @@ type Config struct {
 func NewWithConfig(config Config) *Store {
 	defaultAccount, repository := config.AccountID, config.Repository
 	if defaultAccount == "" {
-		defaultAccount = "000000000000"
+		defaultAccount = DefaultAccountID
 	}
 	if !accountPattern.MatchString(defaultAccount) {
 		panic("identity: default account must contain 12 digits")

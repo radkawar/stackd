@@ -72,11 +72,15 @@ unset AWS_SESSION_TOKEN AWS_PROFILE AWS_DEFAULT_PROFILE
 aws --endpoint-url http://127.0.0.1:4566 sts get-caller-identity
 ```
 
-With the default server account, the returned account is `000000000000` and the
-identity is its local root. A 12-digit access key with secret `test` selects
-another local account. These are fixture/bootstrap identities, not real AWS
-credentials. IAM-created keys and STS sessions instead use their issued secrets
-and session tokens and are subject to current local policy.
+With fresh state, the returned account is `731842905617` and the identity is its
+local root. SQLite retains the selected account across restarts; upgraded legacy
+databases preserve their historical zero default. If you previously supplied
+`-account-id`, keep that same override for the first upgraded start so it can be
+saved. See [account selection and upgrades](configuration.md#credentials-iam-and-regions).
+A 12-digit access key with secret `test` selects another local account without
+moving resources between accounts. These are fixture/bootstrap identities, not
+real AWS credentials. IAM-created keys and STS sessions instead use their issued
+secrets and session tokens and are subject to current local policy.
 
 **Keep the endpoint override on every CLI command.** Omitting it normally sends
 the request to AWS. SDK endpoint overrides must be configured separately for

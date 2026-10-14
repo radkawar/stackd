@@ -72,7 +72,7 @@ func TestOrganizationCreationJournalProcessExit(t *testing.T) {
 		t.Fatal("crash did not retain only the accepted intent", state, err)
 	}
 	if err := backends.IAM.View(t.Context(), func(tx iamstore.ReadTx) error {
-		roles, err := tx.Roles(iamstore.Scope{Partition: "aws", AccountID: "100000000001"})
+		roles, err := tx.Roles(iamstore.Scope{Partition: "aws", AccountID: state.Organizations[0].Creations[0].AccountID})
 		if len(roles) != 0 {
 			t.Error("crash exposed uncommitted roles", roles)
 		}

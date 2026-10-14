@@ -61,7 +61,7 @@ func TestOrganizationAccountQuotaAWSDefaultsAndAppliedOverrideSDK(t *testing.T) 
 	for _, useApplied := range []bool{false, true} {
 		t.Run(fmt.Sprint(useApplied), func(t *testing.T) {
 			source := clock.NewManual(time.Unix(0, 0))
-			config := stackd.Config{Clock: source}
+			config := stackd.Config{AccountID: "000000000000", Clock: source}
 			members := standard - 1
 			if useApplied {
 				config.OrganizationAccountQuotas = []stackd.OrganizationAccountQuota{{Partition: "aws", ManagementAccountID: "000000000000", Maximum: applied}}
@@ -94,7 +94,7 @@ func TestOrganizationAccountQuotaAWSDefaultsAndAppliedOverrideSDK(t *testing.T) 
 func TestOrganizationAccountQuotaCountsManagementAndClosedAccountsSDK(t *testing.T) {
 	source := clock.NewManual(time.Unix(0, 0))
 	overrides := []stackd.OrganizationAccountQuota{{Partition: "aws", ManagementAccountID: "000000000000", Maximum: 2}}
-	c := clockCloud(t, stackd.Config{Clock: source, OrganizationAccountQuotas: overrides})
+	c := clockCloud(t, stackd.Config{AccountID: "000000000000", Clock: source, OrganizationAccountQuotas: overrides})
 	overrides[0].Maximum = 100 // Configuration is detached at construction.
 	org := quotaOrganization(t, c, "test")
 	created := waitAccountCreation(t, org, quotaAccount(t, org, "only-member"), source)
@@ -122,7 +122,7 @@ func TestOrganizationAccountQuotaCountsManagementAndClosedAccountsSDK(t *testing
 func TestOrganizationAccountQuotaCompetingCreationsSDK(t *testing.T) {
 	source := clock.NewManual(time.Unix(0, 0))
 	backends := storage.NewMemory()
-	c := clockCloud(t, stackd.Config{Clock: source, Storage: backends, OrganizationAccountQuotas: []stackd.OrganizationAccountQuota{{Partition: "aws", ManagementAccountID: "000000000000", Maximum: 2}}})
+	c := clockCloud(t, stackd.Config{AccountID: "000000000000", Clock: source, Storage: backends, OrganizationAccountQuotas: []stackd.OrganizationAccountQuota{{Partition: "aws", ManagementAccountID: "000000000000", Maximum: 2}}})
 	org := quotaOrganization(t, c, "test")
 	jobs := []*orgtypes.CreateAccountStatus{quotaAccount(t, org, "first"), quotaAccount(t, org, "second")}
 	advanceClock(t, source, time.Second)
@@ -170,7 +170,7 @@ func TestOrganizationAccountQuotaCompetingCreationsSDK(t *testing.T) {
 func TestOrganizationAccountQuotaReconfigurationAndRecoverySDK(t *testing.T) {
 	source := clock.NewManual(time.Unix(0, 0))
 	backends := storage.NewMemory()
-	config := stackd.Config{Clock: source, Storage: backends, OrganizationAccountQuotas: []stackd.OrganizationAccountQuota{{Partition: "aws", ManagementAccountID: "000000000000", Maximum: 3}}}
+	config := stackd.Config{AccountID: "000000000000", Clock: source, Storage: backends, OrganizationAccountQuotas: []stackd.OrganizationAccountQuota{{Partition: "aws", ManagementAccountID: "000000000000", Maximum: 3}}}
 	first := clockCloud(t, config)
 	org := quotaOrganization(t, first, "test")
 	member := waitAccountCreation(t, org, quotaAccount(t, org, "retained"), source)

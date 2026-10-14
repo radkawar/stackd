@@ -111,6 +111,9 @@ func TestAccessReportSnapshotEntityHierarchy(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			slices.SortFunc(tc.accounts, func(a, b provider.AccessReportAccount) int {
+				return strings.Compare(a.AccountID, b.AccountID)
+			})
 			snapshot, err := g.service.AccessReportSnapshot(g.ctx, tc.path, "")
 			if err != nil {
 				t.Fatal(err)
@@ -166,6 +169,7 @@ func TestAccessReportSnapshotOptionalPolicySelection(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			slices.Sort(tc.accounts)
 			snapshot, err := g.service.AccessReportSnapshot(g.ctx, tc.path, tc.policy)
 			if err != nil {
 				t.Fatal(err)

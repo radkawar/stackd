@@ -19,7 +19,7 @@ import (
 func TestSDKServiceRoutingAndInstanceIsolation(t *testing.T) {
 	ctx := context.Background()
 	newInstance := func() *httptest.Server {
-		handler, err := stackd.New(stackd.Config{})
+		handler, err := stackd.New(stackd.Config{AccountID: "000000000000"})
 		if err != nil {
 			t.Fatal(err)
 		}

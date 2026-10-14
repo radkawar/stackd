@@ -1,6 +1,8 @@
 package organizations
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"net/http"
 	"strings"
@@ -81,11 +83,37 @@ func (s *Service) registerAccountOperations() {
 // both refer to the same candidate in this operation's partition snapshot.
 func (s *operationState) nextAccountID() (string, uint64) {
 	for next := s.nextAccount + 1; ; next++ {
-		id := fmt.Sprintf("%012d", next)
-		if _, exists := s.knownAccounts[id]; !exists {
+		id := allocatedAccountID(next)
+		if _, exists := s.knownAccounts[id]; exists || id == s.caller {
+			continue
+		}
+		reserved := false
+		for _, organization := range s.orgs {
+			for _, job := range organization.creations {
+				if job.AccountID == id {
+					reserved = true
+					break
+				}
+			}
+			if reserved {
+				break
+			}
+		}
+		if !reserved {
 			return id, next
 		}
 	}
+}
+
+// The durable sequence is an allocation cursor, not the public account number.
+// Hashing it keeps allocation deterministic across retries and restarts without
+// exposing consecutive IDs or touching global random state. Collision checks
+// above include pending and terminal reservations as well as existing accounts.
+func allocatedAccountID(sequence uint64) string {
+	var input [8]byte
+	binary.BigEndian.PutUint64(input[:], sequence)
+	sum := sha256.Sum256(input[:])
+	return fmt.Sprintf("%012d", 100000000000+binary.BigEndian.Uint64(sum[:8])%900000000000)
 }
 
 // validEmail follows the Organizations CreateAccount email contract, which is

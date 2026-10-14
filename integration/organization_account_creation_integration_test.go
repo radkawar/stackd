@@ -116,7 +116,8 @@ func assertCapturedAccountStatus(t *testing.T, status *orgtypes.CreateAccountSta
 }
 
 func TestOrganizationAccountCreationPendingQuotaAndIsolationSDK(t *testing.T) {
-	f := newOrganizationReportFixture(t, nil)
+	backends := storage.NewMemory()
+	f := newOrganizationReportFixture(t, backends)
 	var pending []*orgtypes.CreateAccountStatus
 	for i := range 5 {
 		out, err := f.org.CreateAccount(t.Context(), &organizations.CreateAccountInput{AccountName: aws.String(fmt.Sprintf("member-%d", i)), Email: aws.String(fmt.Sprintf("member-%d@example.test", i))})
@@ -126,11 +127,15 @@ func TestOrganizationAccountCreationPendingQuotaAndIsolationSDK(t *testing.T) {
 		pending = append(pending, out.CreateAccountStatus)
 	}
 	in := &organizations.CreateAccountInput{AccountName: aws.String("sixth"), Email: aws.String("sixth@example.test")}
+	beforeRejected := organizationAccountSequence(t, backends)
 	_, err := f.org.CreateAccount(t.Context(), in)
 	assertAPIError(t, err, "ConstraintViolationException")
 	var limit *orgtypes.ConstraintViolationException
 	if !errors.As(err, &limit) || limit.Reason != orgtypes.ConstraintViolationExceptionReasonAccountCreationRateLimitExceeded {
 		t.Fatalf("pending quota reason: %v", err)
+	}
+	if got := organizationAccountSequence(t, backends); got != beforeRejected {
+		t.Fatalf("rejected request consumed allocation: %d, want %d", got, beforeRejected)
 	}
 	accounts, err := f.org.ListAccounts(t.Context(), &organizations.ListAccountsInput{})
 	if err != nil || len(accounts.Accounts) != 1 {
@@ -171,8 +176,8 @@ func TestOrganizationAccountCreationPendingQuotaAndIsolationSDK(t *testing.T) {
 		t.Fatal("completion did not release a pending slot", err)
 	}
 	status := waitAccountCreation(t, f.org, next.CreateAccountStatus, f.clock)
-	if status.State != orgtypes.CreateAccountStateSucceeded || aws.ToString(status.AccountId) != "100000000006" {
-		t.Fatalf("rejected request consumed allocation: %+v", status)
+	if status.State != orgtypes.CreateAccountStateSucceeded || organizationAccountSequence(t, backends) != beforeRejected+1 {
+		t.Fatalf("successful request did not consume exactly one allocation: %+v", status)
 	}
 }
 
@@ -192,7 +197,7 @@ func TestOrganizationAccountCreationRecoversRetainedBackendSDK(t *testing.T) {
 		t.Fatal(err)
 	}
 	advanceClock(t, f.clock, 3*time.Second)
-	c := clockCloud(t, stackd.Config{Storage: backends, Clock: f.clock})
+	c := clockCloud(t, stackd.Config{AccountID: "000000000000", Storage: backends, Clock: f.clock})
 	org := c.organizations("test", "test")
 	status := waitAccountCreation(t, org, created.CreateAccountStatus, nil)
 	if status.State != orgtypes.CreateAccountStateSucceeded || !status.CompletedTimestamp.Equal(f.clock.Now()) {
@@ -213,7 +218,7 @@ func TestOrganizationAccountCreationRecoversRetainedBackendSDK(t *testing.T) {
 	if err := c.server.Config.Handler.(*stackd.Stack).Close(); err != nil {
 		t.Fatal(err)
 	}
-	again := clockCloud(t, stackd.Config{Storage: backends, Clock: f.clock})
+	again := clockCloud(t, stackd.Config{AccountID: "000000000000", Storage: backends, Clock: f.clock})
 	current, err := again.iam(*status.AccountId, "test", "").GetRole(t.Context(), &iam.GetRoleInput{RoleName: role.Role.RoleName})
 	if err != nil || aws.ToString(current.Role.Description) != "customer edit" || aws.ToString(current.Role.RoleId) != aws.ToString(role.Role.RoleId) {
 		t.Fatalf("replayed completed job: %+v, %v", current, err)
@@ -223,12 +228,12 @@ func TestOrganizationAccountCreationRecoversRetainedBackendSDK(t *testing.T) {
 func TestOrganizationAccountCreationProvisioningConflictSDK(t *testing.T) {
 	backends := storage.NewMemory()
 	f := newOrganizationReportFixture(t, backends)
-	member := f.cloud.iam("100000000001", "test", "")
-	existing, err := member.CreateRole(t.Context(), &iam.CreateRoleInput{RoleName: aws.String("OrganizationAccountAccessRole"), AssumeRolePolicyDocument: aws.String(`{"Statement":{"Effect":"Allow","Principal":{"AWS":"arn:aws:iam::000000000000:root"},"Action":"sts:AssumeRole"}}`)})
+	created, err := f.org.CreateAccount(t.Context(), &organizations.CreateAccountInput{AccountName: aws.String("collision"), Email: aws.String("collision@example.test")})
 	if err != nil {
 		t.Fatal(err)
 	}
-	created, err := f.org.CreateAccount(t.Context(), &organizations.CreateAccountInput{AccountName: aws.String("collision"), Email: aws.String("collision@example.test")})
+	member := f.cloud.iam(reservedOrganizationAccount(t, backends, aws.ToString(created.CreateAccountStatus.Id)), "test", "")
+	existing, err := member.CreateRole(t.Context(), &iam.CreateRoleInput{RoleName: aws.String("OrganizationAccountAccessRole"), AssumeRolePolicyDocument: aws.String(`{"Statement":{"Effect":"Allow","Principal":{"AWS":"arn:aws:iam::000000000000:root"},"Action":"sts:AssumeRole"}}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -255,6 +260,7 @@ func TestOrganizationAccountCreationRejectsInvalidAdmissionSDK(t *testing.T) {
 	orgs := &accountCreationStorage{Storage: backends.Organizations}
 	backends.Organizations = orgs
 	f := newOrganizationReportFixture(t, backends)
+	initialSequence := organizationAccountSequence(t, backends)
 	for _, test := range []struct {
 		name   string
 		change func(*organizations.CreateAccountInput)
@@ -286,12 +292,15 @@ func TestOrganizationAccountCreationRejectsInvalidAdmissionSDK(t *testing.T) {
 	if err != nil || len(listed.CreateAccountStatuses) != 0 {
 		t.Fatalf("rejected admission retained a job: %+v, %v", listed, err)
 	}
+	if got := organizationAccountSequence(t, backends); got != initialSequence {
+		t.Fatalf("rejected admission consumed allocation: %d, want %d", got, initialSequence)
+	}
 	accepted, err := f.org.CreateAccount(t.Context(), in)
 	if err != nil {
 		t.Fatal(err)
 	}
 	status := waitAccountCreation(t, f.org, accepted.CreateAccountStatus, f.clock)
-	if status.State != orgtypes.CreateAccountStateSucceeded || aws.ToString(status.AccountId) != "100000000001" {
+	if status.State != orgtypes.CreateAccountStateSucceeded || organizationAccountSequence(t, backends) != initialSequence+1 {
 		t.Fatalf("rejected admission consumed account identity: %+v", status)
 	}
 }

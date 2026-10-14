@@ -52,7 +52,7 @@ func New(registry *Registry, config Config) (*Gateway, error) {
 		config.Clock = clock.Real{}
 	}
 	if config.AccountID == "" {
-		config.AccountID = "000000000000"
+		config.AccountID = identity.DefaultAccountID
 	}
 	if !accountPattern.MatchString(config.AccountID) {
 		return nil, fmt.Errorf("account ID must have 12 digits")

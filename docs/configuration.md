@@ -17,7 +17,7 @@ This runs in the foreground. The basic API emulator needs no Docker. Omit `-data
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `-listen` | `127.0.0.1:4566` | TCP address on which the AWS API and local control endpoints bind. |
-| `-account-id` | `000000000000` | Local account selected by the bootstrap `test` access key. Must be 12 digits. |
+| `-account-id` | saved account; `731842905617` for fresh state | Local account selected by the bootstrap `test` access key. Explicit values must be 12 digits and are retained with the backend. |
 | `-database` | empty | SQLite file; empty selects memory. |
 | `-public-endpoint` | derived from listener | Advertised HTTP(S) origin, not a bind address. |
 | `-clock-start` | empty | Initialize manual service time at an RFC3339 instant; saved SQLite time wins. |
@@ -42,7 +42,43 @@ unset AWS_SESSION_TOKEN
 aws --endpoint-url http://127.0.0.1:4566 sts get-caller-identity
 ```
 
-These fixture credentials are a bootstrap **local root identity**, not an authentication-off mode. The default account is `000000000000`. To select another local account, use its 12-digit account ID as the access key, with secret `test`; `-account-id` only changes which account the `test` key selects. Do not use real AWS credentials. Keep explicit local endpoints unless you deliberately configure the isolated [standard AWS HTTPS routing](networking.md#isolated-opt-in-standard-aws-https-routing) path.
+These fixture credentials are a bootstrap **local root identity**, not an authentication-off mode. Fresh state uses account `731842905617`. To select another local account, use its 12-digit account ID as the access key, with secret `test`; `-account-id` changes and saves which account the `test` key selects. This never renames existing accounts, credentials or resource ARNs. Do not use real AWS credentials. Keep explicit local endpoints unless you deliberately configure the isolated [standard AWS HTTPS routing](networking.md#isolated-opt-in-standard-aws-https-routing) path.
+
+SQLite remembers this selection across restarts; reusing a memory backend remembers it until that backend is discarded. Databases created before retained account selection keep the historical `000000000000` default when upgraded. If an older deployment used an explicit account override, keep that same `-account-id` on its first upgraded start: earlier versions did not save the override, so it cannot be inferred safely from a multi-account database. Subsequent starts can omit the flag. To preserve an intentionally zero account, `-account-id 000000000000` remains valid. To start fresh without old resources, use a different database path rather than changing the account alias and expecting resource migration.
+
+AWS defines an [account ID as a unique 12-digit number](https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-identifiers.html). Organizations-created local accounts use deterministic, nonconsecutive 12-digit IDs with collision checks against accounts and retained creation reservations. IDs are opaque: discover them through STS and Organizations responses rather than adding one to a previous account number. This local allocation algorithm is not a claim about how AWS generates account IDs.
+
+To smoke-test allocation on a fresh instance with the client environment above:
+
+```sh
+ENDPOINT=http://127.0.0.1:4566
+ROOT_ACCOUNT=$(aws --endpoint-url "$ENDPOINT" sts get-caller-identity --query Account --output text)
+aws --endpoint-url "$ENDPOINT" organizations create-organization
+REQUEST=$(aws --endpoint-url "$ENDPOINT" organizations create-account \
+  --account-name identity-smoke --email identity-smoke@example.test \
+  --query CreateAccountStatus.Id --output text)
+STATE=IN_PROGRESS
+for attempt in $(seq 1 30); do
+  STATE=$(aws --endpoint-url "$ENDPOINT" organizations describe-create-account-status \
+    --create-account-request-id "$REQUEST" --query CreateAccountStatus.State --output text)
+  [ "$STATE" = IN_PROGRESS ] || break
+  sleep 1
+done
+test "$STATE" = SUCCEEDED
+MEMBER=$(aws --endpoint-url "$ENDPOINT" organizations describe-create-account-status \
+  --create-account-request-id "$REQUEST" --query CreateAccountStatus.AccountId --output text)
+test "$MEMBER" != "$ROOT_ACCOUNT"
+AWS_ACCESS_KEY_ID="$MEMBER" aws --endpoint-url "$ENDPOINT" sts get-caller-identity
+AWS_ACCESS_KEY_ID="$MEMBER" aws --endpoint-url "$ENDPOINT" iam get-role \
+  --role-name OrganizationAccountAccessRole
+```
+
+Use a normal running clock for this example; a paused manual clock requires an
+explicit service-time advance. Restart with the same database and repeat STS and
+`organizations list-accounts` to check retention, without creating the organization
+again. [Getting started](getting-started.md#aws-sdk-for-go-v2) has the equivalent
+STS SDK client. Account creation also provisions IAM access and is asynchronous;
+an accepted request alone is not proof that the member exists.
 
 For strict permission scenarios, bootstrap IAM users/roles and policies, create local IAM access keys or obtain STS session credentials, then switch the client to those credentials. Set `AWS_SESSION_TOKEN` for STS credentials; unset it when returning to long-lived keys. IAM users start without permissions. Local signatures, key status, expiry and session tokens are checked, and implemented operations enforce applicable identity/resource policies, boundaries, session policies and Organizations controls. There is no CLI `-strict` or `-disable-iam` switch: use the appropriate identity rather than treating bootstrap root success as evidence that a limited user is authorized. See [IAM evaluation](iam-evaluation.md), [resource controls](iam-resource-controls.md) and [role assumption/federation](oidc-federation.md).
 
@@ -52,7 +88,7 @@ Organizations defaults to ten accounts, counting the management account and clos
 
 ```sh
 ./bin/stackd -database ./data/stackd.sqlite \
-  -organization-account-quota aws/000000000000=5000
+  -organization-account-quota aws/731842905617=5000
 ```
 
 It applies across regions and recovered account-creation jobs. Reducing it does not remove existing accounts. See [Organizations account access](organizations-account-access.md).

@@ -37,7 +37,7 @@ type organizationReportFixture struct {
 func newOrganizationReportFixture(t *testing.T, backends *storage.Backends) organizationReportFixture {
 	t.Helper()
 	source := clock.NewManual(time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC))
-	c := clockCloud(t, stackd.Config{Clock: source, Storage: backends})
+	c := clockCloud(t, stackd.Config{AccountID: "000000000000", Clock: source, Storage: backends})
 	return organizationFixture(t, c, source)
 }
 

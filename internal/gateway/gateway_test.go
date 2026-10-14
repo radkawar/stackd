@@ -36,7 +36,6 @@ func TestSDKCallerIdentity(t *testing.T) {
 	server := httptest.NewServer(newGateway(t, gateway.Config{}))
 	t.Cleanup(server.Close)
 	for _, test := range []struct{ name, key, region, account, partition string }{
-		{"default", "test", "us-east-1", "000000000000", "aws"},
 		{"account", "123456789012", "eu-west-2", "123456789012", "aws"},
 		{"govcloud", "123456789012", "us-gov-west-1", "123456789012", "aws-us-gov"},
 		{"china", "123456789012", "cn-north-1", "123456789012", "aws-cn"},

@@ -45,7 +45,7 @@ func openSQLiteCloud(t *testing.T, path string, backends *storage.Backends, sour
 	t.Helper()
 	persistent, closeDatabase := openSQLiteBackends(t, path)
 	*backends = *persistent
-	cloud, err := stackd.New(stackd.Config{Storage: backends, Clock: source})
+	cloud, err := stackd.New(stackd.Config{AccountID: "000000000000", Storage: backends, Clock: source})
 	if err != nil {
 		closeDatabase()
 		t.Fatal(err)

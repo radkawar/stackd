@@ -24,6 +24,10 @@ import (
 
 func clockCloud(t *testing.T, config stackd.Config) cloudClients {
 	t.Helper()
+	// Historical service-time fixtures name this account in retained policies.
+	if config.AccountID == "" {
+		config.AccountID = "000000000000"
+	}
 	cloud, err := stackd.New(config)
 	if err != nil {
 		t.Fatal(err)

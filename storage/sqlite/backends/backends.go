@@ -82,6 +82,9 @@ func New(ctx context.Context, db *sql.DB) (*storage.Backends, error) {
 		return nil, fmt.Errorf("prepare workflow storage: %w", err)
 	}
 	return &storage.Backends{
+		ResolveAccountID: func(ctx context.Context, requested string) (string, error) {
+			return sqlite.ResolveAccountID(ctx, db, requested)
+		},
 		Read: func(ctx context.Context, fn func(context.Context) error) error {
 			return sqlite.Transact(ctx, db, true, func(ctx context.Context, _ *sql.Tx) error {
 				return fn(ctx)

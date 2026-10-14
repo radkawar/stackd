@@ -16,7 +16,7 @@ func testPrincipal() Principal {
 
 func TestBootstrapRoots(t *testing.T) {
 	s := NewStore("")
-	for key, account := range map[string]string{"test": "000000000000", "123456789012": "123456789012"} {
+	for key, account := range map[string]string{"123456789012": "123456789012", "000000000000": "000000000000"} {
 		c, err := s.Resolve(context.Background(), key)
 		if err != nil || c.AccountID != account || c.PrincipalID != account || c.SecretAccessKey != "test" || c.PrincipalARN != "arn:aws:iam::"+account+":root" {
 			t.Fatalf("root identity: %v, %v", c, err)

@@ -210,7 +210,7 @@ func retainedDelegationCloud(t *testing.T, backend string, source *clock.Manual)
 		if backend == "sqlite" {
 			return openSQLiteCloud(t, path, backends, source)
 		}
-		cloud, err := stackd.New(stackd.Config{Storage: backends, Clock: source})
+		cloud, err := stackd.New(stackd.Config{AccountID: "000000000000", Storage: backends, Clock: source})
 		if err != nil {
 			t.Fatal(err)
 		}

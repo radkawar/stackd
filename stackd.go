@@ -381,6 +381,12 @@ func New(config Config) (stack *Stack, err error) {
 	if err := backends.Validate(); err != nil {
 		return nil, err
 	}
+	if backends.ResolveAccountID != nil {
+		config.AccountID, err = backends.ResolveAccountID(context.Background(), config.AccountID)
+		if err != nil {
+			return nil, fmt.Errorf("resolve retained sandbox account: %w", err)
+		}
+	}
 	var dnsServer *dnsruntime.Server
 	var dnsAuthority elbv2.DNSAuthority
 	var certificateDNS acm.DNSResolver

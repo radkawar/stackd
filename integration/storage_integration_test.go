@@ -24,6 +24,11 @@ import (
 // Each reopen closes the previous HTTP server and workers before opening storage.
 func retainedCloud(t *testing.T, backend string, config stackd.Config, start ...func(stackd.Config) (*stackd.Stack, *httptest.Server)) (cloudClients, func() cloudClients) {
 	t.Helper()
+	// Retained fixtures use the published anonymized account independently of
+	// the fresh sandbox's operator-facing default identity.
+	if config.AccountID == "" {
+		config.AccountID = "000000000000"
+	}
 	config.Storage = storage.NewMemory()
 	path := filepath.Join(t.TempDir(), "state.sqlite")
 	var closeCurrent func()
@@ -68,6 +73,9 @@ func retainedCloud(t *testing.T, backend string, config stackd.Config, start ...
 // SNS signing-certificate links. The caller owns server and stack shutdown.
 func startPublicCloud(t *testing.T, config stackd.Config) (*stackd.Stack, *httptest.Server) {
 	t.Helper()
+	if config.AccountID == "" {
+		config.AccountID = "000000000000"
+	}
 	server := httptest.NewUnstartedServer(nil)
 	config.PublicEndpoint = "http://" + server.Listener.Addr().String()
 	cloud, err := stackd.New(config)

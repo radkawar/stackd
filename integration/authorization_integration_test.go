@@ -21,7 +21,7 @@ type cloudClients struct{ server *httptest.Server }
 
 func newCloudClients(t *testing.T) cloudClients {
 	t.Helper()
-	cloud, err := stackd.New(stackd.Config{})
+	cloud, err := stackd.New(stackd.Config{AccountID: "000000000000"})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"stackd/internal/identity"
 	"stackd/storage/sqlite/schema"
 
 	_ "modernc.org/sqlite" // Register the database/sql driver.
@@ -45,6 +46,7 @@ func Open(ctx context.Context, path string) (*sql.DB, error) {
 		if err := tx.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 			return err
 		}
+		fresh := version == 0
 		if version == 0 {
 			// Empty databases need the current schema, not historical rewrites.
 			// The generated bootstrap includes the migrations' seed rows/version.
@@ -53,8 +55,14 @@ func Open(ctx context.Context, path string) (*sql.DB, error) {
 			}
 			version = bootstrapVersion
 		}
-		_, err := schema.Apply(ctx, tx, version)
-		return err
+		if _, err := schema.Apply(ctx, tx, version); err != nil {
+			return err
+		}
+		if fresh {
+			_, err := tx.ExecContext(ctx, "UPDATE instance_identity SET account_id = ? WHERE singleton = 1", identity.DefaultAccountID)
+			return err
+		}
+		return nil
 	}); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("open SQLite state: %w", err)

@@ -216,7 +216,7 @@ unset AWS_SESSION_TOKEN AWS_PROFILE
 aws --endpoint-url http://127.0.0.1:4566 sts get-caller-identity
 ```
 
-The local account is `000000000000`. This checks API access, not engine readiness. Use each service's Describe/Get status and a real native operation before treating its resource as ready. The service sections link the supported provisioning contracts; a container-create response or elapsed sleep is not readiness. If your workflow consumes advertised resource URLs from containers, substitute your shared reachable origin for the host-only endpoint in **all** provisioning calls.
+Fresh sandboxes use account `731842905617`; existing SQLite state preserves its previous account and `-account-id` selects an explicit account. Read the actual account from STS rather than inferring it from the access key. This checks API access, not engine readiness. Use each service's Describe/Get status and a real native operation before treating its resource as ready. The service sections link the supported provisioning contracts; a container-create response or elapsed sleep is not readiness. If your workflow consumes advertised resource URLs from containers, substitute your shared reachable origin for the host-only endpoint in **all** provisioning calls.
 
 ## Lambda
 

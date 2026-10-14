@@ -107,7 +107,9 @@ func TestOrganizationAccountCreationUsesOrganizationsPermissionsSDK(t *testing.T
 }
 
 func TestOrganizationCreationMissingPartitionTemplateRollsBackSDK(t *testing.T) {
-	f := newOrganizationReportFixture(t, nil)
+	backends := storage.NewMemory()
+	f := newOrganizationReportFixture(t, backends)
+	initialSequence := organizationAccountSequence(t, backends)
 	client := organizations.New(organizations.Options{Region: "us-gov-west-1", BaseEndpoint: aws.String(f.cloud.server.URL), Credentials: credentials.NewStaticCredentialsProvider("test", "test", ""), HTTPClient: f.cloud.server.Client(), RetryMaxAttempts: 1})
 	_, err := client.CreateOrganization(t.Context(), &organizations.CreateOrganizationInput{})
 	assertAPIError(t, err, "NotImplemented")
@@ -117,7 +119,7 @@ func TestOrganizationCreationMissingPartitionTemplateRollsBackSDK(t *testing.T) 
 	assertAPIError(t, err, "ConstraintViolationException")
 	// The rejected GovCloud operation does not reserve commercial identities.
 	member := f.account(t, f.rootID, "missing-template")
-	if member != "100000000001" {
+	if member == "" || organizationAccountSequence(t, backends) != initialSequence+1 {
 		t.Fatalf("commercial member = %s", member)
 	}
 }
@@ -129,10 +131,18 @@ type accountRoleRepository struct {
 }
 
 func (r *accountRoleRepository) Update(ctx context.Context, fn func(iamstore.WriteTx) error) error {
+	return r.transact(ctx, fn, r.Repository.Update)
+}
+
+func (r *accountRoleRepository) Attempt(ctx context.Context, fn func(iamstore.WriteTx) error) error {
+	return r.transact(ctx, fn, r.Repository.Attempt)
+}
+
+func (r *accountRoleRepository) transact(ctx context.Context, fn func(iamstore.WriteTx) error, run func(context.Context, func(iamstore.WriteTx) error) error) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	wrote := false
-	err := r.Repository.Update(ctx, func(tx iamstore.WriteTx) error {
+	err := run(ctx, func(tx iamstore.WriteTx) error {
 		if err := fn(accountRoleTx{WriteTx: tx, wrote: &wrote}); err != nil {
 			return err
 		}
@@ -199,6 +209,7 @@ func TestOrganizationAccountAndRoleRollbackTogetherSDK(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			reserved := reservedOrganizationAccount(t, backends, aws.ToString(created.CreateAccountStatus.Id))
 			switch mode {
 			case "IAM commit":
 				repository.mode.Store(1)
@@ -225,7 +236,7 @@ func TestOrganizationAccountAndRoleRollbackTogetherSDK(t *testing.T) {
 			// Read the typed repository so checking the absent account does not
 			// itself initialize that account through an IAM API request.
 			if err := backends.IAM.View(t.Context(), func(tx iamstore.ReadTx) error {
-				roles, err := tx.Roles(iamstore.Scope{Partition: "aws", AccountID: "100000000001"})
+				roles, err := tx.Roles(iamstore.Scope{Partition: "aws", AccountID: reserved})
 				if err == nil && len(roles) != 0 {
 					t.Fatalf("failed publication retained IAM roles: %+v", roles)
 				}
@@ -236,11 +247,11 @@ func TestOrganizationAccountAndRoleRollbackTogetherSDK(t *testing.T) {
 			repository.mode.Store(0)
 			orgs.fail.Store(false)
 			status := waitAccountCreation(t, f.org, created.CreateAccountStatus, f.clock)
-			if status.State != orgtypes.CreateAccountStateSucceeded || aws.ToString(status.AccountId) != "100000000001" {
+			if status.State != orgtypes.CreateAccountStateSucceeded || aws.ToString(status.AccountId) != reserved {
 				t.Fatalf("retry did not recover account allocation: %+v", status)
 			}
 
-			if _, err := f.cloud.iam("100000000001", "test", "").GetRole(t.Context(), &iam.GetRoleInput{RoleName: aws.String("OrganizationAccountAccessRole")}); err != nil {
+			if _, err := f.cloud.iam(reserved, "test", "").GetRole(t.Context(), &iam.GetRoleInput{RoleName: aws.String("OrganizationAccountAccessRole")}); err != nil {
 				t.Fatal("retry did not provision access role", err)
 			}
 		})
