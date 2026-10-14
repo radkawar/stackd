@@ -111,7 +111,7 @@ func (s *Service) updateApplication(tx Transaction, in *api.UpdateApplicationReq
 	if err != nil {
 		return nil, err
 	}
-	if in.Name != nil {
+	if in.Name != nil && value(in.Name) != a.Name {
 		return nil, failure("ValidationException", "Updating the application name is not supported.")
 	}
 	if in.Description != nil {

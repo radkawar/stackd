@@ -153,6 +153,12 @@ after update/restart from reverting state. Deletion requires explicit
 disassociation and never deletes customer resources. Lists use scoped,
 operation/association-bound cursors.
 
+Application and attribute-group updates accept an explicit unchanged name.
+This permits Terraform's description and attribute updates without treating the
+current name as a rename. Current IAM checks still run; actual name changes
+remain unsupported. SDK memory/SQLite regressions and the Terraform governance
+update/reopen lifecycle exercised this behavior.
+
 An application has separate servicecatalog, legacy application-group and modern
 application-group identities. **The modern Resource Groups ARN** is the
 `awsApplication` tag value. Legacy groups contain actual stack/tag-query child

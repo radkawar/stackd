@@ -44,7 +44,7 @@ func TestAppRegistryAttributeIdentityAndPagination(t *testing.T) {
 			changed.Description = new("conflicting creation")
 			_, err = client("us-east-1").CreateApplication(t.Context(), &changed)
 			assertAPIError(t, err, "ConflictException")
-			if _, err := client("us-east-1").UpdateApplication(t.Context(), &servicecatalogappregistry.UpdateApplicationInput{Application: &app, Description: new("current")}); err != nil {
+			if _, err := client("us-east-1").UpdateApplication(t.Context(), &servicecatalogappregistry.UpdateApplicationInput{Application: &app, Name: appInput.Name, Description: new("current")}); err != nil {
 				t.Fatal(err)
 			}
 
@@ -79,7 +79,7 @@ func TestAppRegistryAttributeIdentityAndPagination(t *testing.T) {
 				t.Fatalf("failed update changed exact document: %q", aws.ToString(got.Attributes))
 			}
 			const currentAttributes = `{"owner":"updated","revision":2}`
-			if _, err := client("us-east-1").UpdateAttributeGroup(t.Context(), &servicecatalogappregistry.UpdateAttributeGroupInput{AttributeGroup: &attr, Description: new("current attribute"), Attributes: new(currentAttributes)}); err != nil {
+			if _, err := client("us-east-1").UpdateAttributeGroup(t.Context(), &servicecatalogappregistry.UpdateAttributeGroupInput{AttributeGroup: &attr, Name: attributeInput.Name, Description: new("current attribute"), Attributes: new(currentAttributes)}); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := client("us-east-1").TagResource(t.Context(), &servicecatalogappregistry.TagResourceInput{ResourceArn: &attr, Tags: map[string]string{"revision": "current"}}); err != nil {

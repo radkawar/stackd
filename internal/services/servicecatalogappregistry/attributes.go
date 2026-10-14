@@ -143,7 +143,7 @@ func (s *Service) updateAttributeGroup(tx Transaction, in *api.UpdateAttributeGr
 	if err != nil {
 		return nil, err
 	}
-	if in.Name != nil {
+	if in.Name != nil && value(in.Name) != group.Name {
 		return nil, failure("ValidationException", "Updating the attribute group name is not supported.")
 	}
 	if in.Attributes != nil {
