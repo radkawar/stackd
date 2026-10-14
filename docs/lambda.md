@@ -1863,9 +1863,10 @@ be omitted to retain that part of the uploaded deployment. The full ARN preserve
 account/region/partition isolation; published versions never use these overrides.
 
 ```sh
-go run ./cmd/stackd -listen 0.0.0.0:4566 -docker-host unix:///var/run/docker.sock \
-  -lambda-hot-reload-code 'arn:aws:lambda:us-east-1:000000000000:function:worker=/absolute/code' \
-  -lambda-hot-reload-layers 'arn:aws:lambda:us-east-1:000000000000:function:worker=/absolute/merged-opt'
+go run ./cmd/stackd -listen 0.0.0.0:4566 -account-id 738492615083 \
+  -lambda-runtime -docker-host unix:///var/run/docker.sock \
+  -lambda-hot-reload-code 'arn:aws:lambda:us-east-1:738492615083:function:worker=/absolute/code' \
+  -lambda-hot-reload-layers 'arn:aws:lambda:us-east-1:738492615083:function:worker=/absolute/merged-opt'
 ```
 
 Repeat either flag for other functions. Directories must already exist and be

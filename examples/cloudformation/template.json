@@ -1,0 +1,34 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Local stackd binary payload queue application",
+  "Parameters": {
+    "Name": {"Type": "String"},
+    "Revision": {"Type": "String", "Default": "v1"}
+  },
+  "Resources": {
+    "Payloads": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {"BucketName": {"Fn::Sub": "${Name}-payloads"}}
+    },
+    "Jobs": {
+      "Type": "AWS::SQS::Queue",
+      "Properties": {
+        "QueueName": {"Fn::Sub": "${Name}-jobs"},
+        "VisibilityTimeout": 30
+      }
+    },
+    "RevisionParameter": {
+      "Type": "AWS::SSM::Parameter",
+      "Properties": {
+        "Name": {"Fn::Sub": "/${Name}/revision"},
+        "Type": "String",
+        "Value": {"Ref": "Revision"}
+      }
+    }
+  },
+  "Outputs": {
+    "Bucket": {"Value": {"Ref": "Payloads"}},
+    "QueueUrl": {"Value": {"Ref": "Jobs"}},
+    "ParameterName": {"Value": {"Ref": "RevisionParameter"}}
+  }
+}
