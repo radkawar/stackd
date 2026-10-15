@@ -27,6 +27,29 @@ func familyEngine(f string) string {
 	return ""
 }
 
+// parametersEqual compares effective native values without turning omitted
+// engine defaults into retained user overrides.
+func parametersEqual(eng string, a, b map[string]string) bool {
+	for name, value := range a {
+		other, ok := b[name]
+		if !ok {
+			other, ok = engine.DefaultParameter(eng, name)
+		}
+		if !ok || value != other {
+			return false
+		}
+	}
+	for name, value := range b {
+		if _, ok := a[name]; ok {
+			continue
+		}
+		if fallback, ok := engine.DefaultParameter(eng, name); !ok || value != fallback {
+			return false
+		}
+	}
+	return true
+}
+
 func (s *Service) groupParameters(ctx context.Context, tx Reader, kind, name, eng string) (map[string]string, error) {
 	if name == "" {
 		return map[string]string{}, nil
@@ -258,7 +281,7 @@ func (s *Service) changeParameters(ctx context.Context, tx Transaction, kind, na
 					}
 				}
 			}
-			if !maps.Equal(db.Parameters, active) {
+			if !parametersEqual(db.Engine, db.Parameters, active) {
 				// Retain native intent before I/O. Unrelated pending-reboot
 				// values stay in the group, not in this active generation.
 				db.Parameters = active
@@ -267,7 +290,7 @@ func (s *Service) changeParameters(ctx context.Context, tx Transaction, kind, na
 				db.Due = s.clock.Now()
 			}
 		}
-		db.PendingParameters = !maps.Equal(db.Parameters, v.Parameters)
+		db.PendingParameters = !parametersEqual(db.Engine, db.Parameters, v.Parameters)
 		db.Version++
 		if e = tx.PutDatabase(db); e != nil {
 			return v, e
@@ -418,8 +441,8 @@ func (s *Service) readParameters(ctx context.Context, tx Reader, kind, name, sou
 	if kind == "cluster-pg" {
 		action = "DescribeDBClusterParameters"
 	}
-	if source != "" && source != "user" {
-		return nil, nil, unsupported("Only configured user parameters are exposed; cloud default catalogs are not implemented.")
+	if source != "" && source != "user" && source != "engine-default" && source != "system" {
+		return nil, nil, unsupported("Only configured user parameters and supported native engine defaults are exposed.")
 	}
 	if len(filters) > 0 {
 		return nil, nil, unsupported("Parameter filters are not supported.")
@@ -432,10 +455,28 @@ func (s *Service) readParameters(ctx context.Context, tx Reader, kind, name, sou
 	if e != nil {
 		return nil, nil, e
 	}
+	parameters := maps.Clone(v.Parameters)
+	if parameters == nil {
+		parameters = map[string]string{}
+	}
+	eng := familyEngine(v.Family)
+	if fallback, ok := engine.DefaultParameter(eng, "rds.force_ssl"); ok {
+		if _, configured := parameters["rds.force_ssl"]; !configured {
+			parameters["rds.force_ssl"] = fallback
+		}
+	}
 	out := api.ParametersList{}
 	last := ""
-	for _, n := range slices.Sorted(maps.Keys(v.Parameters)) {
+	for _, n := range slices.Sorted(maps.Keys(parameters)) {
 
+		_, configured := v.Parameters[n]
+		parameterSource, method := "user", v.ApplyMethods[n]
+		if !configured {
+			parameterSource, method = "system", "pending-reboot"
+		}
+		if source != "" && source != parameterSource {
+			continue
+		}
 		if n <= start {
 			continue
 		}
@@ -443,10 +484,18 @@ func (s *Service) readParameters(ctx context.Context, tx Reader, kind, name, sou
 			return out, pageMarker(ctx, action, last), nil
 		}
 		applyType := "dynamic"
-		if engine.StaticParameter(familyEngine(v.Family), n) {
+		if engine.StaticParameter(eng, n) {
 			applyType = "static"
 		}
-		out = append(out, api.Parameter{ParameterName: new(api.String(n)), ParameterValue: new(api.PotentiallySensitiveParameterValue(v.Parameters[n])), ApplyMethod: new(api.ApplyMethod(v.ApplyMethods[n])), Source: new(api.String("user")), ApplyType: new(api.String(applyType)), IsModifiable: new(api.Boolean(true))})
+		parameter := api.Parameter{ParameterName: new(api.String(n)), ParameterValue: new(api.PotentiallySensitiveParameterValue(parameters[n])), ApplyMethod: new(api.ApplyMethod(method)), Source: new(api.String(parameterSource)), ApplyType: new(api.String(applyType)), IsModifiable: new(api.Boolean(true))}
+		if n == "rds.force_ssl" {
+			parameter.DataType = new(api.String("boolean"))
+			parameter.AllowedValues = new(api.String("0,1"))
+			if eng == "aurora-postgresql" {
+				parameter.SupportedEngineModes = api.EngineModeList{api.String("provisioned")}
+			}
+		}
+		out = append(out, parameter)
 		last = n
 
 	}

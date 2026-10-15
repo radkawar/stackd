@@ -1,6 +1,7 @@
 package rdsdata
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"database/sql"
@@ -116,7 +117,9 @@ func (s *Service) acquire(ctx context.Context, id string, target target, checkDa
 	case <-t.gate:
 	}
 	s.mu.Lock()
-	valid := s.transactions[id] == t && t.resource == target.cluster.ARN && t.secret == target.secret && t.partition == m.Partition && t.account == m.AccountID && t.region == m.Region && t.endpoint == target.cluster.Endpoint && t.engine == target.cluster.Engine && (!checkDatabase || t.database == target.database)
+	valid := s.transactions[id] == t && t.resource == target.cluster.ARN && t.secret == target.secret && t.partition == m.Partition && t.account == m.AccountID && t.region == m.Region &&
+		t.endpoint.Address == target.cluster.Endpoint.Address && t.endpoint.Port == target.cluster.Endpoint.Port && bytes.Equal(t.endpoint.CA, target.cluster.Endpoint.CA) &&
+		t.engine == target.cluster.Engine && (!checkDatabase || t.database == target.database)
 	expired := !s.clock.Now().Before(t.due)
 	if !valid || expired {
 		if valid && expired {

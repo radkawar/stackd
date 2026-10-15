@@ -59,8 +59,15 @@ keeps service-specific accounting and error semantics authoritative.
   PostgreSQL and MySQL creation at 20 GiB, immediate growth to 30 GiB, no-change
   refresh across controller restart and destroy. Native SQL proved commit,
   rollback, retained rows and wrong-password rejection for `lindm_admin`.
-  TLS enforcement, encrypted storage, managed passwords, VPC packet controls
-  and automated backups remain unsupported; see [RDS boundaries](docs/rds.md).
+  Encrypted storage, managed passwords, VPC packet controls and automated backups
+  remain unsupported; see [RDS boundaries](docs/rds.md).
+- [x] Enforce real PostgreSQL TLS and `rds.force_ssl` for both supported
+  PostgreSQL 17 families. Native AWS read-only metadata establishes default 1
+  and dynamic application. Native TLS 1.2/1.3, plaintext/identity rejection,
+  retained sessions, snapshot trust isolation and Data API transaction fencing
+  pass. An old-CLI database upgrade and second SQLite reopen preserve native
+  system identity, endpoint and binary SQL bytes. Managed CA rotation, MySQL TLS
+  and AWS database-role equivalence remain open.
 - [x] Publish Hive Athena CTAS/INSERT manifests from actual native S3 writes.
   The existing Python probe and consumer matched retained AWS response,
   metadata, byte-token and current-IAM contracts. Real Trino outputs and tokens

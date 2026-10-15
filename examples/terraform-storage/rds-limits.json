@@ -18,7 +18,7 @@
     "controller": "Existing built bin/stackd; -rds-runtime=true; same owned SQLite installation across restart; local Docker unix:///var/run/docker.sock",
     "services": ["sts", "rds", "rdsdata", "secretsmanager"],
     "python": "examples/requirements.txt",
-    "postgres_client": "Host psql supporting -XqAt -w and ON_ERROR_STOP",
+    "postgres_client": "Host psql supporting -XqAt -w, ON_ERROR_STOP and verify-full TLS1.2/1.3; export only the exact-owned native database public CA using Docker",
     "mysql_client": "Optional Oracle MySQL CLI supporting --no-defaults --protocol=TCP --ssl-mode=DISABLED --get-server-public-key; otherwise pinned image's mysql CLI using --pull=never --network=host. The explicit loopback plaintext adapter uses RSA password exchange for uncached caching_sha2_password authentication, including wrong-password checks; it does not claim trusted remote TLS.",
     "preinstalled_images": [
       "postgres@sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652",
@@ -37,6 +37,7 @@
     "aws_db_instance.restored[postgres]",
     "aws_db_instance.restored[mysql]",
     "aws_rds_cluster.data[postgres]",
+    "aws_rds_cluster_parameter_group.data",
     "aws_rds_cluster.data[mysql]",
     "aws_rds_cluster_instance.writer[postgres]",
     "aws_rds_cluster_instance.writer[mysql]",
@@ -49,6 +50,8 @@
   "native_assertions": [
     "Exact PostgreSQL 17.11 and MySQL 8.4.11 native versions; underscore master username",
     "Real CLI commit, rollback, retained rows, wrong password and old-password rejection after Terraform rotation",
+    "PostgreSQL TLS1.2/1.3 with verified native CA/hostname; default and explicit rds.force_ssl=1 reject plaintext, immediate force0 admits it while keeping TLS available",
+    "Both PostgreSQL families support explicit pending-reboot force0, native reboot and reset to system default1 without weakening TLS verification",
     "Immediate PostgreSQL statement_timeout SHOW 7s to 9s; native MySQL session wait_timeout SELECT 7000 to 9000",
     "Terraform tagging and requested AllocatedStorage 20 to 30 GiB control intent",
     "Repeated normal and refresh-only plans have detailed exit code zero",
@@ -62,12 +65,11 @@
     "aurora": "Single local native PostgreSQL/MySQL writer, not managed Aurora replication or distributed storage. Terraform creates cluster controls before their native primary writers. Empty controls have no SQL endpoint and cannot execute Data API statements. A normal refresh-only apply records the completed writer topology before separate strict no-change plans. Omitted or explicit default PromotionTier0 is supported; nonzero tiers and native writer failover remain unsupported.",
     "password_import": "Passwords cannot be read back from RDS imports. Independent import proof is refresh-only; primary lifecycle state supplies no-change normal plans.",
     "snapshots": "Manual local physical capture/restore only, private ACL. Cross-account/public sharing remains unsupported; DescribeDBSnapshotAttributes reads actual scoped ownership, including not-found and authorization. Attached writer deletion does not require SkipFinalSnapshot: the cluster owns snapshots. Standalone instance and cluster deletion still require SkipFinalSnapshot=true; final snapshot creation remains unsupported.",
-    "network_security": "No managed VPC/security-group isolation, TLS or IAM database authentication. Native password authentication uses loopback CLI with TLS disabled.",
+    "network_security": "PostgreSQL uses actual verified TLS with per-incarnation local CA and dynamic rds.force_ssl enforcement. MySQL remains the existing loopback plaintext adapter. Managed VPC/security-group isolation, AWS CA selection/rotation, AWS database-role equivalence and IAM database authentication remain unsupported.",
     "managed_flags": "Explicit false storage_encrypted/publicly_accessible/auto_minor_version_upgrade and zero backup_retention_period are disabled intent, not managed capabilities. Nonzero automated backup retention, true managed encryption or security-group IDs must not be accepted as implemented features."
   },
   "not_exercised_resources": [
     "aws_db_subnet_group",
-    "aws_rds_cluster_parameter_group",
     "aws_db_cluster_snapshot",
     "aws_db_snapshot_copy",
     "aws_rds_cluster_snapshot_copy",

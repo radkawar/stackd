@@ -85,3 +85,70 @@ func TestDataResolverDoesNotBorrowDescribeAuthorityOrCrossScope(t *testing.T) {
 		}
 	}
 }
+
+func TestMemoryEndpointTrustIsCurrentScopedAndIsolated(t *testing.T) {
+	s := New(Config{})
+	t.Cleanup(func() { _ = s.Close() })
+	v := retainedDatabase(time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC))
+	v.Endpoint.CA = []byte("original-public-ca")
+	seedDatabase(t, s, v)
+	v.Endpoint.CA[0] = 'X'
+	if err := s.repository.View(t.Context(), func(r Reader) error {
+		one, err := r.Database(v.Key)
+		if err != nil {
+			return err
+		}
+		if string(one.Endpoint.CA) != "original-public-ca" {
+			t.Fatal("write input retained mutable trust ownership")
+		}
+		one.Endpoint.CA[0] = 'Y'
+		all, err := r.AllDatabases()
+		if err != nil {
+			return err
+		}
+		all[0].Endpoint.CA[0] = 'Z'
+		scoped, err := r.Databases(v.Key.Scope)
+		if err != nil {
+			return err
+		}
+		if string(scoped[0].Endpoint.CA) != "original-public-ca" {
+			t.Fatal("read mutations changed current trust authority")
+		}
+		alien := v.Key
+		alien.Region = "us-west-2"
+		if _, err := r.Database(alien); err == nil {
+			t.Fatal("endpoint trust crossed region scope")
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	rejected := context.Canceled
+	if err := s.repository.Update(t.Context(), func(tx Transaction) error {
+		current, err := tx.Database(v.Key)
+		if err != nil {
+			return err
+		}
+		current.Endpoint.CA = []byte("rolled-back-ca")
+		if err := tx.PutDatabase(current); err != nil {
+			return err
+		}
+		return rejected
+	}); err != rejected {
+		t.Fatalf("rollback result = %v", err)
+	}
+	if got := readDatabase(t, s, v.Key); string(got.Endpoint.CA) != "original-public-ca" {
+		t.Fatal("rolled-back trust became current")
+	}
+	if err := s.repository.Update(t.Context(), func(tx Transaction) error {
+		if err := tx.DeleteDatabase(v.Key); err != nil {
+			return err
+		}
+		return tx.PutDatabase(Database{Key: v.Key, RuntimeID: "replacement"})
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if got := readDatabase(t, s, v.Key); got.RuntimeID != "replacement" || len(got.Endpoint.CA) != 0 {
+		t.Fatal("replacement inherited another incarnation's trust")
+	}
+}

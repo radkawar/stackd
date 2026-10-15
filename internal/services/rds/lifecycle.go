@@ -216,7 +216,6 @@ func (j databaseJobs) Run(ctx context.Context, job scheduler.Job) error {
 		}
 		if nativeErr != nil {
 
-			current.Endpoint = engine.Endpoint{}
 			if current.Operation != "delete" && current.Operation != "stop" && current.Operation != "detach" {
 				current.Status = "failed"
 			}
@@ -380,7 +379,8 @@ func (s *Service) observeDatabase(ctx context.Context, v Database) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	return s.repository.Update(ctx, func(tx Transaction) error {
+	queued := false
+	err := s.repository.Update(ctx, func(tx Transaction) error {
 		current, e := tx.Database(v.Key)
 		if errors.Is(e, ErrNotFound) {
 			return nil
@@ -391,19 +391,25 @@ func (s *Service) observeDatabase(ctx context.Context, v Database) error {
 		if current.Version != v.Version || current.RuntimeID != v.RuntimeID || current.Status != "available" {
 			return nil
 		}
+		// Status gates every public SQL projection. Keep the retained port and
+		// trust as private recovery hints; the native owner preserves the data.
 		current.Status = "starting"
-		current.Endpoint = engine.Endpoint{}
 		current.Operation = "reconcile"
 		current.Version++
 		current.Due = s.clock.Now()
 		if e = tx.PutDatabase(current); e != nil {
 			return e
 		}
+		queued = true
 		if current.Key.Kind == "cluster" {
 			return s.mirrorMembers(tx, current)
 		}
 		return nil
 	})
+	if err == nil && queued {
+		s.jobs.Wake()
+	}
+	return err
 }
 
 func (s *Service) observeScope(ctx context.Context) error {

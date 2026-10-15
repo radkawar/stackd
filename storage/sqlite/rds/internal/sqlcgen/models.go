@@ -39,6 +39,7 @@ type RdsDatabase struct {
 	OwnerLogicalID     string
 	OwnerToken         string
 	AllocatedStorage   int64
+	Ca                 []byte
 }
 
 type RdsGlobalCluster struct {

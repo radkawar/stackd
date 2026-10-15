@@ -56,6 +56,14 @@ resource "aws_db_parameter_group" "native" {
     value        = var.revision == "initial" ? each.value.initial : each.value.updated
     apply_method = "immediate"
   }
+  dynamic "parameter" {
+    for_each = each.key == "postgres" ? [1] : []
+    content {
+      name         = "rds.force_ssl"
+      value        = var.revision == "initial" ? "1" : "0"
+      apply_method = "immediate"
+    }
+  }
   tags = local.tags
 }
 
@@ -103,11 +111,24 @@ resource "aws_db_instance" "restored" {
   tags                       = local.tags
 }
 
+resource "aws_rds_cluster_parameter_group" "data" {
+  name        = "${var.name}-aurora-postgres"
+  family      = "aurora-postgresql17"
+  description = "Verified TLS and native force_ssl policy"
+  parameter {
+    name         = "rds.force_ssl"
+    value        = var.revision == "initial" ? "1" : "0"
+    apply_method = "immediate"
+  }
+  tags = local.tags
+}
+
 resource "aws_rds_cluster" "data" {
   for_each                   = local.engines
   cluster_identifier         = "${var.name}-aurora-${each.key}"
   engine                     = each.value.aurora
   engine_version             = each.value.version
+  db_cluster_parameter_group_name = each.key == "postgres" ? aws_rds_cluster_parameter_group.data.name : null
   database_name              = "proof"
   master_username            = "lindm_admin"
   master_password            = var.password

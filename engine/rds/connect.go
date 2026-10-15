@@ -2,6 +2,8 @@ package rds
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -26,9 +28,10 @@ func family(engine string) (string, error) {
 	}
 }
 
-// Open authenticates over the native wire protocol and pings. The caller closes
-// the pool. Native SQL errors remain available with errors.As; credentials are
-// never included in a connection string or diagnostic message.
+// Open authenticates over the native wire protocol and pings. PostgreSQL always
+// verifies TLS against endpoint.CA and the endpoint hostname, with no plaintext
+// fallback. The caller closes the pool. Native SQL errors remain available with
+// errors.As; credentials are never included in connection strings or diagnostics.
 func Open(ctx context.Context, engine string, endpoint Endpoint, database, username, password string) (*sql.DB, error) {
 	kind, err := family(engine)
 	if err != nil {
@@ -39,6 +42,10 @@ func Open(ctx context.Context, engine string, endpoint Endpoint, database, usern
 	}
 	var db *sql.DB
 	if kind == "postgres" {
+		roots := x509.NewCertPool()
+		if !roots.AppendCertsFromPEM(endpoint.CA) {
+			return nil, errors.New("invalid native PostgreSQL CA")
+		}
 		if database == "" {
 			database = "postgres"
 		}
@@ -50,7 +57,8 @@ func Open(ctx context.Context, engine string, endpoint Endpoint, database, usern
 		}
 		config.Host, config.Port = endpoint.Address, uint16(endpoint.Port)
 		config.Database, config.User, config.Password = database, username, password
-		config.TLSConfig, config.Fallbacks = nil, nil
+		config.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots, ServerName: endpoint.Address}
+		config.Fallbacks = nil
 		config.ConnectTimeout = 5 * time.Second
 		config.RuntimeParams = map[string]string{"application_name": "stackd-rds"}
 		db = stdlib.OpenDB(*config)
@@ -98,7 +106,7 @@ func (d *Docker) SetPassword(ctx context.Context, spec Specification, password s
 	if err := d.checkDatabase(state, spec); err != nil {
 		return err
 	}
-	endpoint, err := state.endpoint(d.endpointHost, spec.Engine)
+	endpoint, err := d.endpoint(ctx, state, spec.Engine)
 	if err != nil {
 		return err
 	}

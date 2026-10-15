@@ -4,10 +4,12 @@ Invoked only by run.py; requires Terraform 1.15.9, AWS provider 6.68.0,
 Python dependencies in examples/requirements.txt, host psql, Linux Docker at
 unix:///var/run/docker.sock, and both preinstalled engine digests below. An
 Oracle MySQL CLI is optional; the exact MySQL image supplies the fallback CLI.
-SQL uses loopback, password authentication and no TLS. Managed AWS encryption,
-network isolation, automated backups and physical GiB quotas are not claimed.
+PostgreSQL SQL verifies its exact native owner's public CA and hostname; MySQL
+transport is unchanged. Managed AWS storage encryption, network isolation,
+automated backups and physical GiB quotas are not claimed.
 """
 
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -35,6 +37,7 @@ def run(args, root, endpoint, terraform, variables, stages):
     """
     root = Path(root)
     root.chmod(0o700)
+    namespace = "stackd-rds-" + hashlib.sha256(str(root.parent / "stackd.sqlite").encode()).hexdigest()[:24]
     local_endpoint(endpoint)
     require(shutil.which("psql"), "RDS native proof requires host psql")
     require(shutil.which("docker"), "RDS runtime requires Docker CLI and local daemon")
@@ -81,15 +84,37 @@ def run(args, root, endpoint, terraform, variables, stages):
                        "stdout": str(prefix) + ".stdout", "stderr": str(prefix) + ".stderr"})
         return result
 
-    def sql(engine, target, text, password, label, denied=False):
+    def postgres_ca(target):
+        rds = client("rds", endpoint)
+        if "writer" in target:
+            state = rds.describe_db_clusters(DBClusterIdentifier=target["identifier"])["DBClusters"][0]
+            native_id = state["DbClusterResourceId"].removeprefix("cluster-")
+        else:
+            state = rds.describe_db_instances(DBInstanceIdentifier=target["identifier"])["DBInstances"][0]
+            native_id = state["DbiResourceId"].removeprefix("db-")
+        identifiers = subprocess.check_output([*DOCKER, "ps", "-q", "--filter",
+            "label=stackd.rds.namespace=" + namespace, "--filter", "label=stackd.rds.id=" + native_id,
+            "--filter", "label=stackd.rds.role=database"], env=environment(), text=True).split()
+        require(len(identifiers) == 1, "No exact-owned native PostgreSQL writer exists")
+        # This Docker admin read exports only the public CA, never the private key.
+        public_ca = subprocess.check_output([*DOCKER, "exec", identifiers[0], "cat",
+            "/var/lib/postgresql/data/security/ca.pem"], env=environment())
+        ca = root / (native_id + "-ca.pem")
+        ca.write_bytes(public_ca)
+        ca.chmod(0o600)
+        return ca
+
+    def sql(engine, target, text, password, label, denied=False, *, plaintext=False, policy_denied=False):
         require(target["host"] == "127.0.0.1" and 1024 <= target["port"] <= 65535,
                 "Refusing non-loopback native database endpoint")
         env = {key: value for key, value in environment().items()
                if not key.startswith(("PG", "MYSQL"))}
         if engine == "postgres":
             env["PGPASSWORD"] = password
+            env["PGSSLROOTCERT"] = str(postgres_ca(target))
+            mode = "disable" if plaintext else "verify-full"
             argv = ["psql", "-XqAt", "-w", "-v", "ON_ERROR_STOP=1", "-d",
-                    f"host=127.0.0.1 port={target['port']} user=lindm_admin dbname=proof sslmode=disable connect_timeout=5",
+                    f"host=127.0.0.1 port={target['port']} user=lindm_admin dbname=proof sslmode={mode} connect_timeout=5",
                     "-c", text]
         else:
             env["MYSQL_PWD"] = password
@@ -99,7 +124,10 @@ def run(args, root, endpoint, terraform, variables, stages):
                     "--host=127.0.0.1", f"--port={target['port']}", "--user=lindm_admin", "--database=proof",
                     "--batch", "--skip-column-names", "-e", text]
         result = command(label, argv, env)
-        if denied:
+        if policy_denied:
+            require(result.returncode != 0 and "pg_hba.conf" in result.stderr,
+                    f"{label}: plaintext was not rejected by native PostgreSQL admission")
+        elif denied:
             marker = "password authentication failed" if engine == "postgres" else "Access denied for user"
             require(result.returncode != 0 and marker in result.stderr,
                     f"{label}: wrong credentials were not rejected by native authentication")
@@ -211,6 +239,8 @@ def run(args, root, endpoint, terraform, variables, stages):
                 retained(engine, target, source_rows if group == "native" else "1|committed", config["password"], group + "-retained-" + engine)
                 native_setting(engine, target, group + "-setting-" + engine)
                 sql(engine, target, "SELECT 1;", "definitely-wrong-password", group + "-wrong-password-" + engine, denied=True)
+                if engine == "postgres":
+                    verify_postgres_tls(target, group + "-tls")
         for target in outputs["snapshots"].values():
             snapshot = rds.describe_db_snapshots(DBSnapshotIdentifier=target["identifier"])["DBSnapshots"][0]
             require(snapshot["Status"] == "available" and snapshot["AllocatedStorage"] == 30,
@@ -219,9 +249,67 @@ def run(args, root, endpoint, terraform, variables, stages):
             require(attributes["DBSnapshotAttributes"] == [{"AttributeName": "restore", "AttributeValues": []}],
                     "Manual snapshot unexpectedly has shared restore authority")
         verify_data(current_endpoint)
+        verify_postgres_tls(outputs["data"]["postgres"], "aurora-tls")
         verify_authority(current_endpoint)
         no_change("retained")
         stage("native-retained", capacity_intent_gib=config["capacity"], physical_quota_claimed=False)
+
+    def verify_postgres_tls(target, label):
+        observed = sql("postgres", target,
+            "SELECT ssl::text || '|' || version FROM pg_stat_ssl WHERE pid = pg_backend_pid();",
+            config["password"], label)
+        require(observed in ("true|TLSv1.2", "true|TLSv1.3"),
+                f"{label}: native SQL did not negotiate verified TLS1.2/1.3: {observed!r}")
+        # This is an explicit policy challenge, not a retry/fallback for SQL use.
+        sql("postgres", target, "SELECT 1;", config["password"], label + "-plaintext",
+            plaintext=True, policy_denied=config["revision"] == "initial")
+
+    def verify_sdk_force_ssl_lifecycle():
+        rds = client("rds", endpoint)
+        for clustered, target in ((False, outputs["native"]["postgres"]), (True, outputs["data"]["postgres"])):
+            group_name = config["name"] + ("-aurora-postgres" if clustered else "-postgres")
+            group_key = "DBClusterParameterGroupName" if clustered else "DBParameterGroupName"
+            modify = rds.modify_db_cluster_parameter_group if clustered else rds.modify_db_parameter_group
+            reset = rds.reset_db_cluster_parameter_group if clustered else rds.reset_db_parameter_group
+            describe = rds.describe_db_cluster_parameters if clustered else rds.describe_db_parameters
+            group = {group_key: group_name}
+            label = "aurora" if clustered else "postgres"
+            writer = target.get("writer", target["identifier"])
+            def ready():
+                rds.get_waiter("db_instance_available").wait(DBInstanceIdentifier=writer,
+                    WaiterConfig={"Delay": 1, "MaxAttempts": 240})
+            def projection(source):
+                return next(p for p in describe(**group, Source=source)["Parameters"]
+                            if p["ParameterName"] == "rds.force_ssl")
+            modify(**group, Parameters=[{"ParameterName": "rds.force_ssl", "ParameterValue": "0",
+                                        "ApplyMethod": "pending-reboot"}])
+            require(projection("user")["ParameterValue"] == "0", "SDK lost deferred force_ssl intent")
+            if clustered:
+                state = rds.describe_db_clusters(DBClusterIdentifier=target["identifier"])["DBClusters"][0]
+                status = state["DBClusterMembers"][0]["DBClusterParameterGroupStatus"]
+            else:
+                state = rds.describe_db_instances(DBInstanceIdentifier=writer)["DBInstances"][0]
+                status = state["DBParameterGroups"][0]["ParameterApplyStatus"]
+            require(status == "pending-reboot", "SDK did not retain the explicit pending-reboot policy")
+            sql("postgres", target, "SELECT 1;", config["password"], label + "-before-reboot",
+                plaintext=True, policy_denied=True)
+            rds.reboot_db_instance(DBInstanceIdentifier=writer)
+            ready()
+            sql("postgres", target, "SELECT 1;", config["password"], label + "-after-reboot",
+                plaintext=True)
+            reset(**group, Parameters=[{"ParameterName": "rds.force_ssl", "ApplyMethod": "immediate"}])
+            ready()
+            default = projection("system")
+            require(default["ParameterValue"] == "1" and default["ApplyType"] == "dynamic"
+                    and default["DataType"] == "boolean" and default["AllowedValues"] == "0,1",
+                    "SDK reset did not expose the pinned real native force_ssl default")
+            verify_postgres_tls(target, label + "-after-reset")
+            # Restore the explicitly declared Terraform override without hiding drift.
+            modify(**group, Parameters=[{"ParameterName": "rds.force_ssl", "ParameterValue": "1",
+                                        "ApplyMethod": "immediate"}])
+            ready()
+        no_change("sdk-force-ssl-restored")
+        stage("sdk-force-ssl-pending-reboot-reset-defaults", families=["postgres17", "aurora-postgresql17"])
 
     def cleanup(current_endpoint=None):
         current_endpoint = local_endpoint(current_endpoint or endpoint)
@@ -261,6 +349,7 @@ def run(args, root, endpoint, terraform, variables, stages):
                 "BEGIN; INSERT INTO capacity_proof VALUES (2, 'rolled back'); ROLLBACK;", initial_password, "transactions-" + engine)
         verify_data(endpoint, initialize=True)
         verify()
+        verify_sdk_force_ssl_lifecycle()
         stage("initial-20-gib-proof")
         config.update(capacity=30, revision="updated", password=rotated_password)
         private_variables()
@@ -289,6 +378,8 @@ def run(args, root, endpoint, terraform, variables, stages):
                                               SecretId=outputs["data"][engine]["secret"])["VersionId"]),
                                          ("aws_rds_cluster_instance.writer", outputs["data"][engine]["writer"])):
                 terraform(["import", "-input=false", f'{resource}["{engine}"]', identifier], imports)
+        terraform(["import", "-input=false", "aws_rds_cluster_parameter_group.data",
+                   config["name"] + "-aurora-postgres"], imports)
         refresh = terraform(["plan", "-refresh-only", "-input=false", "-detailed-exitcode", "-no-color",
                              "-out=import-refresh.tfplan"], imports, check=False)
         require(refresh.returncode in (0, 2), "Imported native resource refresh failed")
@@ -300,6 +391,7 @@ def run(args, root, endpoint, terraform, variables, stages):
         addresses = [f'{resource}["{engine}"]' for engine in ENGINES for resource in (
             "aws_db_instance.native", "aws_db_parameter_group.native", "aws_rds_cluster.data",
             "aws_rds_cluster_instance.writer", "aws_secretsmanager_secret.data", "aws_secretsmanager_secret_version.data")]
+        addresses.append("aws_rds_cluster_parameter_group.data")
         terraform(["state", "rm", *addresses], imports)
         stage("independent-import-refresh", password_readback_claimed=False)
         config["snapshots"] = True

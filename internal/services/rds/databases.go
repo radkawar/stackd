@@ -3,7 +3,6 @@ package rds
 import (
 	"context"
 	"errors"
-	"maps"
 	"strings"
 	"time"
 
@@ -237,7 +236,6 @@ func (s *Service) modifyDatabase(ctx context.Context, tx Transaction, action, ki
 		}
 		v.Status = "modifying"
 		v.Operation = "password"
-		v.Endpoint = engine.Endpoint{}
 		v.Due = s.clock.Now()
 
 	}
@@ -248,7 +246,7 @@ func (s *Service) modifyDatabase(ctx context.Context, tx Transaction, action, ki
 			return v, e
 		}
 		v.ParameterGroup = string(*group)
-		v.PendingParameters = !maps.Equal(v.Parameters, parameters)
+		v.PendingParameters = !parametersEqual(v.Engine, v.Parameters, parameters)
 
 	}
 	if protection != nil {
@@ -362,7 +360,6 @@ func (s *Service) transition(ctx context.Context, tx Transaction, action, kind, 
 
 	}
 	v.Operation = op
-	v.Endpoint = engine.Endpoint{}
 	v.Version++
 	v.Due = s.clock.Now()
 	if e = tx.PutDatabase(v); e != nil {

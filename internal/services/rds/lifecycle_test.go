@@ -317,3 +317,57 @@ func TestNativeFailureRetainsUnavailableReconciliationIntent(t *testing.T) {
 		t.Fatalf("failed native creation claimed readiness or lost intent: %#v", got)
 	}
 }
+
+func TestLegacyPostgresTrustReconcilesSameIncarnationBeforeExposure(t *testing.T) {
+	for _, eng := range []string{"postgres", "aurora-postgresql"} {
+		t.Run(eng, func(t *testing.T) {
+			now := time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC)
+			calls := 0
+			publicCA := []byte("native-owned-public-ca")
+			s := New(Config{Clock: clock.NewManual(now), Cipher: testCipher{}, Runtime: controlledRuntime{ensure: func(_ context.Context, spec engine.Specification) (engine.Endpoint, error) {
+				calls++
+				if spec.ID != "incarnation-a" || spec.RetainedPort != 15432 || spec.Parameters["rds.force_ssl"] != "0" {
+					t.Fatalf("legacy migration changed native identity/data policy: %#v", spec)
+				}
+				return engine.Endpoint{Address: "127.0.0.1", Port: 15432, CA: publicCA}, nil
+			}}})
+			t.Cleanup(func() { _ = s.Close() })
+			v := retainedDatabase(now)
+			v.Engine, v.Status, v.Operation = eng, "available", ""
+			v.Endpoint = engine.Endpoint{Address: "127.0.0.1", Port: 15432}
+			v.Parameters = map[string]string{"rds.force_ssl": "0"}
+			if eng == "aurora-postgresql" {
+				v.Key.Kind = "cluster"
+				member := v
+				member.Key.Kind, member.Key.Name, member.Cluster = "db", "writer", v.Key.Name
+				seedDatabase(t, s, member)
+			}
+			seedDatabase(t, s, v)
+			if err := s.observeDatabase(t.Context(), v); err != nil {
+				t.Fatal(err)
+			}
+			current := readDatabase(t, s, v.Key)
+			if calls != 0 || current.Status != "starting" || current.Operation != "reconcile" || current.RuntimeID != v.RuntimeID || current.Endpoint.Port != 15432 || instanceDTO(current).Endpoint != nil {
+				t.Fatalf("untrusted endpoint was exposed or lost recovery ownership: %#v", current)
+			}
+			if err := (databaseJobs{s}).Run(t.Context(), selectDatabase(t, s)); err != nil {
+				t.Fatal(err)
+			}
+			publicCA[0] = 'X'
+			current = readDatabase(t, s, v.Key)
+			if calls != 1 || current.Status != "available" || current.RuntimeID != v.RuntimeID || string(current.Endpoint.CA) != "native-owned-public-ca" {
+				t.Fatalf("native completion lost immutable incarnation trust: %#v", current)
+			}
+			if v.Key.Kind == "cluster" {
+				writer := readDatabase(t, s, Key{Scope: v.Key.Scope, Kind: "db", Name: "writer"})
+				if writer.Status != "available" || string(writer.Endpoint.CA) != string(current.Endpoint.CA) {
+					t.Fatalf("writer projection lost actual cluster trust: %#v", writer)
+				}
+				writer.Endpoint.CA[0] = 'Y'
+				if got := readDatabase(t, s, v.Key); string(got.Endpoint.CA) != "native-owned-public-ca" {
+					t.Fatal("writer trust mutation crossed the repository boundary")
+				}
+			}
+		})
+	}
+}

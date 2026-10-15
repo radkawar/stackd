@@ -339,6 +339,15 @@ process-local and roll back at shutdown; restart invalidates their IDs.
 Shared scheduling owns idle/hard deadlines. [RDS boundaries](rds.md) distinguish
 these concrete engines from unimplemented AWS Aurora/VPC capabilities.
 
+PostgreSQL endpoints retain public per-incarnation CA bytes in schema423; private
+keys stay in exact-owned native volumes outside snapshot database directories.
+Native connectors verify TLS hostname and trust. PostgreSQL 17 and its Aurora
+counterpart default `rds.force_ssl` to 1; immediate changes reload real HBA policy,
+while explicitly deferred changes wait for reboot. Legacy plaintext endpoints
+queue same-incarnation reconciliation before they can be published again.
+Restored databases receive independent trust. Data API transaction bindings
+include the CA bytes, not only the address and port.
+
 DocumentDB has its own typed cluster/member/snapshot repository and native
 TLS/SCRAM document engine, while RDS composes their genuinely shared Query
 namespace. Engine and current owner select mutations; authoritative owner

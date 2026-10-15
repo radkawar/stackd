@@ -11,6 +11,15 @@ import (
 	"time"
 )
 
+// DefaultParameter returns defaults for the supported pinned native families.
+// PostgreSQL 17 and Aurora PostgreSQL 17 both require TLS by default.
+func DefaultParameter(engine, name string) (string, bool) {
+	if (engine == "postgres" || engine == "aurora-postgresql") && name == "rds.force_ssl" {
+		return "1", true
+	}
+	return "", false
+}
+
 // StaticParameter identifies supported settings whose RDS apply contract requires
 // a restart, even where the upstream engine can also change the value dynamically.
 func StaticParameter(engine, name string) bool {
@@ -24,7 +33,7 @@ func StaticParameter(engine, name string) bool {
 // Docker command arguments. PostgreSQL reloads its configuration; MySQL changes
 // global defaults (existing sessions retain their session-scoped values).
 // The caller holds the runtime gate, outside any control-plane transaction.
-func (d *Docker) applyParameters(ctx context.Context, endpoint Endpoint, spec Specification) error {
+func (d *Docker) applyParameters(ctx context.Context, id string, endpoint Endpoint, spec Specification) error {
 	db, err := Open(ctx, spec.Engine, endpoint, spec.Database, spec.Username, spec.Password)
 	if err != nil {
 		return err
@@ -82,7 +91,7 @@ func (d *Docker) applyParameters(ctx context.Context, endpoint Endpoint, spec Sp
 	}
 	for _, name := range slices.Sorted(maps.Keys(spec.Parameters)) {
 		value := spec.Parameters[name]
-		if StaticParameter(spec.Engine, name) || persisted[name] == value {
+		if name == "rds.force_ssl" || StaticParameter(spec.Engine, name) || persisted[name] == value {
 			continue
 		}
 		if kind == "postgres" {
@@ -104,6 +113,12 @@ func (d *Docker) applyParameters(ctx context.Context, endpoint Endpoint, spec Sp
 		}
 	}
 	if kind == "postgres" {
+		// rds.force_ssl is an RDS policy, not a PostgreSQL GUC. Both supported
+		// version-17 families expose it as dynamic: replace the durable HBA
+		// policy and reload, preserving the process and existing sessions.
+		if err := d.applyPostgresHBA(ctx, id, spec.Parameters); err != nil {
+			return err
+		}
 		// Also reload on recovery when ALTER SYSTEM committed but the previous
 		// controller died before dispatching SIGHUP or recording completion.
 		return reloadPostgres(ctx, conn)

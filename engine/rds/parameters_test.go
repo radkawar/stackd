@@ -1,6 +1,7 @@
 package rds
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"testing"
@@ -61,7 +62,7 @@ func TestNativeDynamicParametersPreserveSessionsAndRestart(t *testing.T) {
 			}
 			spec.Parameters = map[string]string{name: "7000"}
 			changed, err := d.Ensure(ctx, spec)
-			if err != nil || changed != endpoint {
+			if err != nil || changed.Address != endpoint.Address || changed.Port != endpoint.Port || !bytes.Equal(changed.CA, endpoint.CA) {
 				t.Fatalf("live application endpoint=%v error=%v", changed, err)
 			}
 			var retained int
@@ -88,7 +89,7 @@ func TestNativeDynamicParametersPreserveSessionsAndRestart(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			endpoint, err = state.endpoint(d.endpointHost, spec.Engine)
+			endpoint, err = d.endpoint(ctx, state, spec.Engine)
 			if err != nil {
 				t.Fatal(err)
 			}

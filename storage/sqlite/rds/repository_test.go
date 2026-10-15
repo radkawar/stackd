@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	engine "stackd/engine/rds"
 	"stackd/internal/authorization"
 	"stackd/internal/awsapi"
 	rdsapi "stackd/internal/awsapi/rds"
@@ -41,8 +42,11 @@ func TestPendingCredentialAndParameterIntentSurvivesRollbackAndRestart(t *testin
 	due := time.Unix(0, 0).UTC()
 	original := domain.Database{Key: key, RuntimeID: "original-incarnation", Engine: "postgres", EngineVersion: "17.11", Username: "owner", Status: "modifying", Desired: "running", Operation: "password", Ciphertext: []byte{0x81, 0x42}, PendingCiphertext: []byte{0x95, 0x13}, ParameterGroup: "configured", Parameters: map[string]string{"statement_timeout": "1000"}, Tags: map[string]string{"owner": "team"}, PendingParameters: true, Version: 7, Created: created, Due: due}
 	original.ResourceID, original.Owner = "native-row-incarnation", domain.CloudFormationOwner{StackID: "stack", LogicalID: "Database", Token: "claim-token"}
+	original.Endpoint = engine.Endpoint{Address: "127.0.0.1", Port: 15432, CA: []byte("original-public-ca")}
+	original.Parameters["rds.force_ssl"] = "0"
 	group := domain.ParameterGroup{Key: domain.Key{Scope: scope, Kind: "pg", Name: "configured"}, Family: "postgres17", Description: "owned", Parameters: map[string]string{"statement_timeout": "5000"}, ApplyMethods: map[string]string{"statement_timeout": "pending-reboot"}, Tags: map[string]string{}}
 	group.ResourceID, group.Owner = "parameter-row-incarnation", domain.CloudFormationOwner{StackID: "stack", LogicalID: "Parameters", Token: "parameter-token"}
+	group.Parameters["rds.force_ssl"], group.ApplyMethods["rds.force_ssl"] = "1", "pending-reboot"
 	appendEvent := func(ctx context.Context) error {
 		return events.AppendAPICallCompleted(ctx, journal.Envelope{At: created, Partition: scope.Partition, AccountID: scope.AccountID, Region: scope.Region}, journal.APICallCompleted{EventID: "accepted-command", EventSource: "rds.amazonaws.com", EventName: "ModifyDBInstance", Category: journal.CategoryManagement})
 	}
@@ -57,11 +61,13 @@ func TestPendingCredentialAndParameterIntentSurvivesRollbackAndRestart(t *testin
 	}); e != nil {
 		t.Fatal(e)
 	}
+	original.Endpoint.CA[0] = 'X'
 	changed := original
 	changed.Ciphertext = []byte{0xFF}
 	changed.PendingCiphertext = nil
 	changed.Parameters = nil
 	changed.PendingParameters = false
+	changed.Endpoint.CA = []byte("rejected-public-ca")
 	changed.Version++
 	if e = repo.Update(t.Context(), func(tx domain.Transaction) error {
 		if e := tx.PutDatabase(changed); e != nil {
@@ -90,6 +96,25 @@ func TestPendingCredentialAndParameterIntentSurvivesRollbackAndRestart(t *testin
 		if got.RuntimeID != original.RuntimeID || got.Operation != "password" || got.Status != "modifying" || got.Version != 7 || !bytes.Equal(got.Ciphertext, original.Ciphertext) || !bytes.Equal(got.PendingCiphertext, original.PendingCiphertext) || !got.PendingParameters || got.Parameters["statement_timeout"] != "1000" {
 			t.Fatalf("credential/parameter intent escaped rollback or restart: %#v", got)
 		}
+		if string(got.Endpoint.CA) != "original-public-ca" || got.Endpoint.Address != "127.0.0.1" || got.Endpoint.Port != 15432 || got.Parameters["rds.force_ssl"] != "0" {
+			t.Fatalf("native trust/policy escaped write isolation, rollback or restart: %#v", got)
+		}
+		got.Endpoint.CA[0] = 'Y'
+		listed, e := r.AllDatabases()
+		if e != nil {
+			return e
+		}
+		if len(listed) != 1 || string(listed[0].Endpoint.CA) != "original-public-ca" {
+			t.Fatal("read mutation changed current native trust authority")
+		}
+		listed[0].Endpoint.CA[0] = 'Z'
+		scoped, e := r.Databases(scope)
+		if e != nil {
+			return e
+		}
+		if len(scoped) != 1 || string(scoped[0].Endpoint.CA) != "original-public-ca" {
+			t.Fatal("list mutation changed scoped native trust authority")
+		}
 		if got.ResourceID != original.ResourceID || got.Owner != original.Owner {
 			t.Fatalf("private database authority escaped rollback or restart: %#v", got)
 		}
@@ -100,7 +125,7 @@ func TestPendingCredentialAndParameterIntentSurvivesRollbackAndRestart(t *testin
 		if e != nil {
 			return e
 		}
-		if retained.Parameters["statement_timeout"] != "5000" || retained.ApplyMethods["statement_timeout"] != "pending-reboot" {
+		if retained.Parameters["statement_timeout"] != "5000" || retained.ApplyMethods["statement_timeout"] != "pending-reboot" || retained.Parameters["rds.force_ssl"] != "1" || retained.ApplyMethods["rds.force_ssl"] != "pending-reboot" {
 			t.Fatalf("pending parameter configuration lost: %#v", retained)
 		}
 		if retained.ResourceID != group.ResourceID || retained.Owner != group.Owner {
@@ -129,7 +154,7 @@ func TestPendingCredentialAndParameterIntentSurvivesRollbackAndRestart(t *testin
 		if e != nil {
 			return e
 		}
-		if got.RuntimeID != "new-incarnation" || len(got.Tags) != 0 || len(got.Parameters) != 0 || len(got.Ciphertext) != 0 || len(got.PendingCiphertext) != 0 {
+		if got.RuntimeID != "new-incarnation" || len(got.Tags) != 0 || len(got.Parameters) != 0 || len(got.Ciphertext) != 0 || len(got.PendingCiphertext) != 0 || len(got.Endpoint.CA) != 0 {
 			t.Fatalf("recreated name inherited previous incarnation state: %#v", got)
 		}
 		return nil

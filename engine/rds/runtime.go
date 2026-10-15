@@ -7,7 +7,8 @@ import "context"
 // Specification identifies one immutable database incarnation. Password is only
 // used at the native boundary and must not be persisted in control-plane state.
 // Port is the host-side port; zero selects one from the configured pool (or OS
-// ephemeral ports without a pool). Parameters are validated native server settings.
+// ephemeral ports without a pool). Parameters are validated native settings and
+// emulator-owned policies such as PostgreSQL rds.force_ssl.
 type Specification struct {
 	ID, Engine, Database, Username, Password string
 	Port                                     int32
@@ -20,6 +21,8 @@ type Specification struct {
 type Endpoint struct {
 	Address string
 	Port    int32
+	// CA is the public per-incarnation PostgreSQL trust root; MySQL leaves it nil.
+	CA []byte
 }
 
 // Statistics contains measured native counters, not provisioned capacity.

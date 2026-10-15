@@ -286,9 +286,23 @@ def main():
                 writer_state = sdk["rds"].describe_db_instances(DBInstanceIdentifier=writer)["DBInstances"][0]
                 address = writer_state["Endpoint"]
                 require(address["Address"] == "127.0.0.1", "Native SQL endpoint is not owned loopback")
-                pg_env = env.copy()
-                pg_env.update(PGPASSWORD=password, PGSSLMODE="disable", PGSERVICEFILE=os.devnull,
-                              PGPASSFILE=os.devnull, PGOPTIONS="")
+                cluster_state = sdk["rds"].describe_db_clusters(DBClusterIdentifier=cluster)["DBClusters"][0]
+                native_id = cluster_state["DbClusterResourceId"].removeprefix("cluster-")
+                namespace = "stackd-rds-" + hashlib.sha256(str(root / "stackd.sqlite").encode()).hexdigest()[:24]
+                docker = ["docker", "--host", args.docker_host]
+                identifiers = subprocess.check_output([*docker, "ps", "-q", "--filter",
+                    "label=stackd.rds.namespace=" + namespace, "--filter", "label=stackd.rds.id=" + native_id,
+                    "--filter", "label=stackd.rds.role=database"], env=env, text=True).split()
+                require(len(identifiers) == 1, "No exact-owned native PostgreSQL writer exists")
+                # Export only the public trust root through the owned Docker admin path.
+                public_ca = subprocess.check_output([*docker, "exec", identifiers[0], "cat",
+                    "/var/lib/postgresql/data/security/ca.pem"], env=env)
+                native_ca = root / "rds-public-ca.pem"
+                native_ca.write_bytes(public_ca)
+                native_ca.chmod(0o600)
+                pg_env = {key: value for key, value in env.items() if not key.startswith("PG")}
+                pg_env.update(PGPASSWORD=password, PGSSLMODE="verify-full", PGSSLROOTCERT=str(native_ca),
+                              PGGSSENCMODE="disable", PGSERVICEFILE=os.devnull, PGPASSFILE=os.devnull, PGOPTIONS="")
                 actual = subprocess.check_output(["psql", "-h", address["Address"], "-p", str(address["Port"]),
                                                   "-U", "owner", "-d", "appdb", "-v", "ON_ERROR_STOP=1", "-A", "-t",
                                                   "-c", "SELECT value FROM records WHERE id='" + nonce + "'"],

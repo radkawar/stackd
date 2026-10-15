@@ -63,6 +63,7 @@ func compareKey(a, b Key) int {
 func cloneDatabase(v Database) Database {
 	v.Ciphertext = slices.Clone(v.Ciphertext)
 	v.PendingCiphertext = slices.Clone(v.PendingCiphertext)
+	v.Endpoint.CA = slices.Clone(v.Endpoint.CA)
 	v.Parameters = maps.Clone(v.Parameters)
 	v.Tags = maps.Clone(v.Tags)
 	return v

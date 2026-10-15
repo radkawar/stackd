@@ -92,8 +92,13 @@ func (d *Docker) databaseConfig(spec Specification) containerConfig {
 		if database == "" {
 			database = "postgres"
 		}
+		// TODO: Comeback model AWS database-role privilege boundaries; the
+		// upstream bootstrap user still has native administrator privileges.
 		config.Env = []string{"POSTGRES_USER=" + spec.Username, "POSTGRES_DB=" + database, "POSTGRES_PASSWORD_FILE=/run/stackd-rds-password", "PGDATA=" + subdir, "POSTGRES_HOST_AUTH_METHOD=scram-sha-256"}
 		config.Cmd = []string{"postgres", "-c", "listen_addresses=*", "-c", "log_statement=none", "-c", "log_min_error_statement=panic"}
+		config.Cmd = append(config.Cmd, "-c", "ssl=on", "-c", "ssl_min_protocol_version=TLSv1.2", "-c", "ssl_max_protocol_version=TLSv1.3",
+			"-c", "ssl_cert_file="+postgresSecurity+"/server.crt", "-c", "ssl_key_file="+postgresSecurity+"/server.key",
+			"-c", "hba_file="+postgresSecurity+"/pg_hba.conf")
 	} else {
 		config.Env = []string{"MYSQL_DATABASE=" + spec.Database, "MYSQL_ROOT_PASSWORD_FILE=/run/stackd-rds-password", "MYSQL_INITDB_SKIP_TZINFO=1"}
 		if spec.Username == "root" {
@@ -105,7 +110,7 @@ func (d *Docker) databaseConfig(spec Specification) containerConfig {
 	}
 	names := make([]string, 0, len(spec.Parameters))
 	for name := range spec.Parameters {
-		if StaticParameter(spec.Engine, name) {
+		if StaticParameter(spec.Engine, name) && name != "rds.force_ssl" {
 			names = append(names, name)
 		}
 	}
@@ -205,6 +210,11 @@ func (d *Docker) initializeContainer(ctx context.Context, state containerState, 
 	// also preserves trailing newlines otherwise stripped by *_PASSWORD_FILE.
 	bootstrap := rand.Text()
 	kind, _ := family(spec.Engine)
+	if kind == "postgres" {
+		if err := d.initializePostgresTLS(ctx, state, spec.Parameters); err != nil {
+			return err
+		}
+	}
 	literal := "'" + strings.ReplaceAll(spec.Password, "'", "''") + "'"
 	statement := "SET standard_conforming_strings = on;\nALTER ROLE \"" + spec.Username + "\" PASSWORD " + literal + ";\n"
 	if kind == "mysql" {
@@ -419,14 +429,14 @@ func (d *Docker) ensure(ctx context.Context, spec Specification) (Endpoint, erro
 	if err != nil {
 		return Endpoint{}, err
 	}
-	endpoint, err := state.endpoint(d.endpointHost, spec.Engine)
+	endpoint, err := d.endpoint(ctx, state, spec.Engine)
 	if err != nil {
 		return Endpoint{}, err
 	}
 	if err := d.ready(ctx, state.ID, endpoint, spec); err != nil {
 		return Endpoint{}, err
 	}
-	return endpoint, d.applyParameters(ctx, endpoint, spec)
+	return endpoint, d.applyParameters(ctx, state.ID, endpoint, spec)
 }
 func (d *Docker) ready(ctx context.Context, id string, endpoint Endpoint, spec Specification) error {
 	ticker := time.NewTicker(150 * time.Millisecond)

@@ -10,7 +10,7 @@ import (
 )
 
 const allDatabases = `-- name: AllDatabases :many
-SELECT "partition", account_id, region, kind, name, engine, engine_version, database_name, username, class, parameter_group, cluster, runtime_id, status, desired, operation, restore_snapshot, ciphertext, pending_ciphertext, address, port, requested_port, version, created, due, deletion_protection, http_enabled, copy_tags, pending_parameters, resource_id, owner_stack_id, owner_logical_id, owner_token, allocated_storage FROM rds_database ORDER BY partition,account_id,region,kind,name
+SELECT "partition", account_id, region, kind, name, engine, engine_version, database_name, username, class, parameter_group, cluster, runtime_id, status, desired, operation, restore_snapshot, ciphertext, pending_ciphertext, address, port, requested_port, version, created, due, deletion_protection, http_enabled, copy_tags, pending_parameters, resource_id, owner_stack_id, owner_logical_id, owner_token, allocated_storage, ca FROM rds_database ORDER BY partition,account_id,region,kind,name
 `
 
 func (q *Queries) AllDatabases(ctx context.Context) ([]RdsDatabase, error) {
@@ -57,6 +57,7 @@ func (q *Queries) AllDatabases(ctx context.Context) ([]RdsDatabase, error) {
 			&i.OwnerLogicalID,
 			&i.OwnerToken,
 			&i.AllocatedStorage,
+			&i.Ca,
 		); err != nil {
 			return nil, err
 		}
@@ -283,7 +284,7 @@ func (q *Queries) DeleteTags(ctx context.Context, arg DeleteTagsParams) error {
 }
 
 const getDatabase = `-- name: GetDatabase :one
-SELECT "partition", account_id, region, kind, name, engine, engine_version, database_name, username, class, parameter_group, cluster, runtime_id, status, desired, operation, restore_snapshot, ciphertext, pending_ciphertext, address, port, requested_port, version, created, due, deletion_protection, http_enabled, copy_tags, pending_parameters, resource_id, owner_stack_id, owner_logical_id, owner_token, allocated_storage FROM rds_database WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND kind = ?4 AND name = ?5
+SELECT "partition", account_id, region, kind, name, engine, engine_version, database_name, username, class, parameter_group, cluster, runtime_id, status, desired, operation, restore_snapshot, ciphertext, pending_ciphertext, address, port, requested_port, version, created, due, deletion_protection, http_enabled, copy_tags, pending_parameters, resource_id, owner_stack_id, owner_logical_id, owner_token, allocated_storage, ca FROM rds_database WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND kind = ?4 AND name = ?5
 `
 
 type GetDatabaseParams struct {
@@ -338,6 +339,7 @@ func (q *Queries) GetDatabase(ctx context.Context, arg GetDatabaseParams) (RdsDa
 		&i.OwnerLogicalID,
 		&i.OwnerToken,
 		&i.AllocatedStorage,
+		&i.Ca,
 	)
 	return i, err
 }
@@ -465,7 +467,7 @@ func (q *Queries) GetSubnetGroup(ctx context.Context, arg GetSubnetGroupParams) 
 }
 
 const listDatabases = `-- name: ListDatabases :many
-SELECT "partition", account_id, region, kind, name, engine, engine_version, database_name, username, class, parameter_group, cluster, runtime_id, status, desired, operation, restore_snapshot, ciphertext, pending_ciphertext, address, port, requested_port, version, created, due, deletion_protection, http_enabled, copy_tags, pending_parameters, resource_id, owner_stack_id, owner_logical_id, owner_token, allocated_storage FROM rds_database WHERE partition=?1 AND account_id=?2 AND region=?3 ORDER BY kind,name
+SELECT "partition", account_id, region, kind, name, engine, engine_version, database_name, username, class, parameter_group, cluster, runtime_id, status, desired, operation, restore_snapshot, ciphertext, pending_ciphertext, address, port, requested_port, version, created, due, deletion_protection, http_enabled, copy_tags, pending_parameters, resource_id, owner_stack_id, owner_logical_id, owner_token, allocated_storage, ca FROM rds_database WHERE partition=?1 AND account_id=?2 AND region=?3 ORDER BY kind,name
 `
 
 type ListDatabasesParams struct {
@@ -518,6 +520,7 @@ func (q *Queries) ListDatabases(ctx context.Context, arg ListDatabasesParams) ([
 			&i.OwnerLogicalID,
 			&i.OwnerToken,
 			&i.AllocatedStorage,
+			&i.Ca,
 		); err != nil {
 			return nil, err
 		}
@@ -828,7 +831,7 @@ func (q *Queries) ListTags(ctx context.Context, arg ListTagsParams) ([]RdsTag, e
 }
 
 const putDatabase = `-- name: PutDatabase :exec
-INSERT INTO rds_database (partition,account_id,region,kind,name,engine,engine_version,database_name,username,class,parameter_group,cluster,runtime_id,status,desired,operation,restore_snapshot,ciphertext,pending_ciphertext,address,port,requested_port,version,created,due,deletion_protection,http_enabled,copy_tags,pending_parameters,resource_id,owner_stack_id,owner_logical_id,owner_token,allocated_storage) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34) ON CONFLICT (partition,account_id,region,kind,name) DO UPDATE SET engine=excluded.engine,engine_version=excluded.engine_version,database_name=excluded.database_name,username=excluded.username,class=excluded.class,parameter_group=excluded.parameter_group,cluster=excluded.cluster,runtime_id=excluded.runtime_id,status=excluded.status,desired=excluded.desired,operation=excluded.operation,restore_snapshot=excluded.restore_snapshot,ciphertext=excluded.ciphertext,pending_ciphertext=excluded.pending_ciphertext,address=excluded.address,port=excluded.port,requested_port=excluded.requested_port,version=excluded.version,created=excluded.created,due=excluded.due,deletion_protection=excluded.deletion_protection,http_enabled=excluded.http_enabled,copy_tags=excluded.copy_tags,pending_parameters=excluded.pending_parameters,resource_id=excluded.resource_id,owner_stack_id=excluded.owner_stack_id,owner_logical_id=excluded.owner_logical_id,owner_token=excluded.owner_token,allocated_storage=excluded.allocated_storage
+INSERT INTO rds_database (partition,account_id,region,kind,name,engine,engine_version,database_name,username,class,parameter_group,cluster,runtime_id,status,desired,operation,restore_snapshot,ciphertext,pending_ciphertext,address,port,requested_port,version,created,due,deletion_protection,http_enabled,copy_tags,pending_parameters,resource_id,owner_stack_id,owner_logical_id,owner_token,allocated_storage,ca) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35) ON CONFLICT (partition,account_id,region,kind,name) DO UPDATE SET engine=excluded.engine,engine_version=excluded.engine_version,database_name=excluded.database_name,username=excluded.username,class=excluded.class,parameter_group=excluded.parameter_group,cluster=excluded.cluster,runtime_id=excluded.runtime_id,status=excluded.status,desired=excluded.desired,operation=excluded.operation,restore_snapshot=excluded.restore_snapshot,ciphertext=excluded.ciphertext,pending_ciphertext=excluded.pending_ciphertext,address=excluded.address,port=excluded.port,requested_port=excluded.requested_port,version=excluded.version,created=excluded.created,due=excluded.due,deletion_protection=excluded.deletion_protection,http_enabled=excluded.http_enabled,copy_tags=excluded.copy_tags,pending_parameters=excluded.pending_parameters,resource_id=excluded.resource_id,owner_stack_id=excluded.owner_stack_id,owner_logical_id=excluded.owner_logical_id,owner_token=excluded.owner_token,allocated_storage=excluded.allocated_storage,ca=excluded.ca
 `
 
 type PutDatabaseParams struct {
@@ -866,6 +869,7 @@ type PutDatabaseParams struct {
 	OwnerLogicalID     string
 	OwnerToken         string
 	AllocatedStorage   int64
+	Ca                 []byte
 }
 
 func (q *Queries) PutDatabase(ctx context.Context, arg PutDatabaseParams) error {
@@ -904,6 +908,7 @@ func (q *Queries) PutDatabase(ctx context.Context, arg PutDatabaseParams) error 
 		arg.OwnerLogicalID,
 		arg.OwnerToken,
 		arg.AllocatedStorage,
+		arg.Ca,
 	)
 	return err
 }

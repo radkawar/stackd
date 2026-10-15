@@ -1,6 +1,7 @@
 package rdsdata
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -272,6 +273,22 @@ func TestNativeDataAPI(t *testing.T) {
 				t.Fatal("commit did not persist native insert")
 			}
 			tx = begin()
+			if family == "aurora-postgresql" {
+				encrypted := must("SELECT CASE WHEN ssl THEN 1 ELSE 0 END FROM pg_stat_ssl WHERE pid=pg_backend_pid()", tx)
+				if encrypted.Records[0][0].(*types.FieldMemberLongValue).Value != 1 {
+					t.Fatal("Data API transaction did not use native TLS")
+				}
+				source.mu.Lock()
+				ca := source.cluster.Endpoint.CA
+				source.cluster.Endpoint.CA = nil
+				source.mu.Unlock()
+				_, err = statement("INSERT INTO items(id) VALUES (99)", tx)
+				assertCode(err, "TransactionNotFoundException")
+				source.mu.Lock()
+				source.cluster.Endpoint.CA = bytes.Clone(ca)
+				source.mu.Unlock()
+				must("SELECT 1", tx)
+			}
 			for _, change := range []func(*sdk.ExecuteStatementInput){func(in *sdk.ExecuteStatementInput) { in.ResourceArn = new(testCluster + "-other") }, func(in *sdk.ExecuteStatementInput) { in.SecretArn = new(testSecret + "-other") }, func(in *sdk.ExecuteStatementInput) { in.Database = new("other") }} {
 				in := &sdk.ExecuteStatementInput{ResourceArn: new(testCluster), SecretArn: new(testSecret), Database: new("app"), TransactionId: tx, Sql: new("INSERT INTO items(id) VALUES (99)")}
 				change(in)

@@ -226,6 +226,7 @@ resource "aws_db_instance" "proof" {
 }
 output "postgres_host" { value = aws_db_instance.proof["postgres"].address }
 output "postgres_port" { value = aws_db_instance.proof["postgres"].port }
+output "postgres_resource_id" { value = aws_db_instance.proof["postgres"].resource_id }
 output "mysql_host" { value = aws_db_instance.proof["mysql"].address }
 output "mysql_port" { value = aws_db_instance.proof["mysql"].port }
 output "capacity" {
@@ -236,8 +237,18 @@ output "capacity" {
 ```sh
 terraform init
 terraform apply -auto-approve
+# Match the absolute SQLite path used by the controller above.
+RDS_NAMESPACE="stackd-rds-$(printf '%s' /tmp/owned-rds.sqlite | sha256sum | cut -c1-24)"
+POSTGRES_ID="$(terraform output -raw postgres_resource_id)"
+POSTGRES_CONTAINER="$(docker ps -q \
+  --filter "label=stackd.rds.namespace=$RDS_NAMESPACE" \
+  --filter "label=stackd.rds.id=${POSTGRES_ID#db-}" \
+  --filter "label=stackd.rds.role=database")"
+test -n "$POSTGRES_CONTAINER"
+docker cp "$POSTGRES_CONTAINER:/var/lib/postgresql/data/security/ca.pem" ./postgres-ca.pem
+export PGSSLROOTCERT="$PWD/postgres-ca.pem"
 export PGPASSWORD=local-proof-password
-psql "host=$(terraform output -raw postgres_host) port=$(terraform output -raw postgres_port) user=lindm_admin dbname=proof sslmode=disable" \
+psql "host=$(terraform output -raw postgres_host) port=$(terraform output -raw postgres_port) user=lindm_admin dbname=proof sslmode=verify-full" \
   -v ON_ERROR_STOP=1 <<'SQL'
 SELECT current_user, current_setting('server_version');
 CREATE TABLE capacity_proof (id integer PRIMARY KEY, note text NOT NULL);
@@ -316,27 +327,53 @@ python3 examples/terraform-storage/run.py --services rds \
   --provider-mirror /absolute/path/to/provider/mirror
 ```
 
-The new fixture is **unverified until run**. It retains the original proof above
-as separate evidence, checks import/update/no-change refresh and controller
-reopen, and destroys only its owned resources.
+The TLS-enabled fixture run completed initial provider creation, native SQL,
+Data API, password rejection and PostgreSQL TLS checks. Its ordinary retained
+plan returned zero, but the strict refresh-only plan returned exit 2 at the
+known Terraform Core boundary. Cleanup completed through the normal fixture
+path. This is **not** a full lifecycle pass: later SDK parameter transitions,
+updates, imports, snapshots and controller reopen were not reached in that run.
 [`rds-limits.json`](../examples/terraform-storage/rds-limits.json) lists exact
 prerequisites and resource/settings gaps. Neither this fixture nor registered
 API counts establish support for all provider resources.
 
 
-### Production security controls are still blocked
+### PostgreSQL TLS and remaining production security controls
 
-`rds.force_ssl=1` remains rejected. It is an RDS-specific parameter, not an
-upstream PostgreSQL GUC. Accepting `password_encryption=scram-sha-256` only changes
-password hashing; it does not require encrypted connections. The native runtime
-has no server certificate/key/CA provisioning, hostname validation or rotation
-owner; its PostgreSQL internal connector explicitly uses `sslmode=disable`.
-The supplied local `pg_stat_ssl=false` observation is ground truth, not production
-TLS evidence. Real enforcement needs native `ssl=on`, owned certificate/key mounts,
-`hostssl`/`hostnossl` admission in `pg_hba.conf` (including existing-volume upgrade),
-TLS-aware readiness/Data API connectors, trusted endpoint identities, rotation
-and negative plaintext/positive verified-TLS tests. MySQL's upstream TLS features
-likewise do not establish managed RDS certificate lifecycle or enforced policy.
+PostgreSQL 17.11 and the Aurora PostgreSQL 17-compatible runtime now use real
+TLS 1.2/1.3. Each native database incarnation has a retained local CA and server
+certificate for its configured endpoint host. The CA is not an AWS/public trust
+root. Export only `security/ca.pem` from the exact-owned container, as above;
+never export the server private key. Public trust is retained in typed SQLite
+state and supplied to readiness, password, statistics and RDS Data connections.
+Internal clients verify the certificate chain and hostname without plaintext
+fallback. MySQL transport is unchanged.
+
+`rds.force_ssl` defaults to **1** for both supported version-17 families.
+[Native AWS metadata](../testdata/aws/rds/postgres_tls_defaults.json)
+reports `ApplyType=dynamic`, `DataType=boolean`, allowed values `0,1`, and
+`Source=system`. Default and fresh unattached groups read back
+`ApplyMethod=pending-reboot`; the two temporary probe groups were deleted.
+Immediate changes update and reload actual PostgreSQL HBA
+policy without replacing the process or existing sessions. Explicit
+`pending-reboot` changes remain deferred until reboot. Reset restores default 1.
+Value 0 permits plaintext clients but leaves verified TLS available; value 1
+rejects new plaintext connections. This is an RDS policy translation, not an
+invented PostgreSQL GUC. SCRAM password hashing alone does not enforce TLS.
+
+Native tests exercised both engine names, verified TLS 1.2/1.3, wrong CA,
+hostname and password rejection, dynamic policy transitions with a retained
+session, binary SQL snapshot/restore and independent restored trust. A separate
+old-CLI-to-new-CLI upgrade preserved the database's native system identifier,
+ARN, resource ID, port and committed binary row while enabling TLS. A second
+SQLite/controller reopen retained trust and bytes; normal deletion removed the
+owned database container and volume. The earlier `pg_stat_ssl=false` report
+remains valid historical evidence, not evidence of the new TLS implementation.
+
+Managed CA selection, certificate rotation and AWS database-role equivalence
+remain outside this local TLS contract. The Docker daemon and host remain
+trusted. See the official [RDS PostgreSQL TLS rules](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/PostgreSQL.Concepts.General.SSL.html)
+and [Aurora PostgreSQL TLS rules](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraPostgreSQL.Security.html).
 
 The other report controls remain explicit rejection, not silent metadata:
 
@@ -515,9 +552,9 @@ the two installed pinned images and an empty owned state directory. It does not
 use ambient AWS credentials.
 
 Unsupported cloud capabilities remain explicit errors: Aurora distributed
-storage/readers/failover/global databases/serverless scaling, Multi-AZ,
+storage/readers/failover/global replication/serverless scaling, Multi-AZ,
 managed physical storage allocation/IOPS/autoscaling/encryption, engine upgrades, VPC/security-group
-packet enforcement, TLS certificate lifecycle, IAM database authentication,
+packet enforcement, managed TLS CA selection/rotation, IAM database authentication,
 managed-secret rotation, automated backups/PITR/export and the remaining RDS
 operations. Upstream PostgreSQL/MySQL is a real local SQL data plane, **not the
 Aurora storage service**. No ElastiCache, OpenSearch or MSK implementation is

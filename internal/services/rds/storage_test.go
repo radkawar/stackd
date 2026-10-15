@@ -1,6 +1,7 @@
 package rds
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"os"
@@ -423,7 +424,7 @@ func TestNativeAllocatedStorageAndUnderscoreUsername(t *testing.T) {
 				t.Fatal(err)
 			}
 			v = readDatabase(t, s, k)
-			if v.Endpoint != before {
+			if v.Endpoint.Address != before.Address || v.Endpoint.Port != before.Port || !bytes.Equal(v.Endpoint.CA, before.CA) {
 				t.Fatal("metadata capacity growth replaced native endpoint")
 			}
 			var count int

@@ -215,7 +215,7 @@ func ValidateParameters(engine string, parameters map[string]string) error {
 		allowed := false
 		if kind == "postgres" {
 			switch name {
-			case "max_connections", "shared_buffers", "work_mem", "maintenance_work_mem", "statement_timeout", "idle_in_transaction_session_timeout", "timezone":
+			case "max_connections", "shared_buffers", "work_mem", "maintenance_work_mem", "statement_timeout", "idle_in_transaction_session_timeout", "timezone", "rds.force_ssl":
 				allowed = true
 			}
 		} else {
@@ -229,6 +229,9 @@ func ValidateParameters(engine string, parameters map[string]string) error {
 		}
 		if value == "" || strings.ContainsAny(value, "\x00\r\n") {
 			return fmt.Errorf("invalid native parameter %q", name)
+		}
+		if kind == "postgres" && name == "rds.force_ssl" && value != "0" && value != "1" {
+			return errors.New("rds.force_ssl must be 0 or 1")
 		}
 	}
 	return nil

@@ -19,7 +19,7 @@ func (d *Docker) Statistics(ctx context.Context, spec Specification) (Statistics
 	if err := d.checkDatabase(state, spec); err != nil {
 		return Statistics{}, err
 	}
-	endpoint, err := state.endpoint(d.endpointHost, spec.Engine)
+	endpoint, err := d.endpoint(ctx, state, spec.Engine)
 	if err != nil {
 		return Statistics{}, err
 	}
