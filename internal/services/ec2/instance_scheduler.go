@@ -178,7 +178,7 @@ func (s *Service) instanceSpecification(ctx context.Context, record InstanceReco
 		if err != nil {
 			return err
 		}
-		spec.Network, err = networkSpecification(ctx, tx, eni)
+		spec.Network, err = networkSpecification(ctx, tx, eni, s.flowCaptureNamespace)
 		return err
 	})
 	return spec, err

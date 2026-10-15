@@ -33,7 +33,7 @@ func equalNATRoutes(a, b []NATRoute) bool {
 	return true
 }
 
-func writeNATChains(b *strings.Builder, routes []NATRoute) {
+func writeNATChains(b *strings.Builder, routes []NATRoute, flow *policyFlowCapture) {
 	for i, route := range routes {
 		if !route.Allowed {
 			continue
@@ -45,31 +45,31 @@ func writeNATChains(b *strings.Builder, routes []NATRoute) {
 			}
 			fmt.Fprintf(b, "chain nat_%s_%d {\n", direction, i)
 			for _, rule := range acl {
-				verdict := "drop"
+				verdict := flow.drop(direction)
 				if rule.Allow {
 					verdict = "return"
 				}
 				fmt.Fprintf(b, "%s counter %s\n", nftIPMatch(rule.Rule, field), verdict)
 			}
-			b.WriteString("counter drop\n}\n")
+			fmt.Fprintf(b, "counter %s\n}\n", flow.drop(direction))
 		}
 	}
 }
 
-func writeNATAdmission(b *strings.Builder, routes []NATRoute, direction string) {
+func writeNATAdmission(b *strings.Builder, routes []NATRoute, direction string, flow *policyFlowCapture) {
 	field, state := "daddr", ""
 	if direction == "to" {
 		field, state = "saddr", "ct state established,related "
 	}
 	for i, route := range routes {
 		if !route.Allowed {
-			fmt.Fprintf(b, "ip %s %s counter drop\n", field, route.Destination)
+			fmt.Fprintf(b, "ip %s %s counter %s\n", field, route.Destination, flow.drop(direction))
 			continue
 		}
 		fmt.Fprintf(b, "%sip %s %s jump nat_%s_%d\n", state, field, route.Destination, direction, i)
 		fmt.Fprintf(b, "%sip %s %s return\n", state, field, route.Destination)
 	}
-	b.WriteString("counter drop\n")
+	fmt.Fprintf(b, "counter %s\n", flow.drop(direction))
 }
 
 func (b *Bridges) VerifyPrivateEgress(ctx context.Context, networkID string) error {

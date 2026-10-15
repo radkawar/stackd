@@ -1,0 +1,4266 @@
+{
+  "Source": {
+    "observedAt": "2026-10-15T16:30:47.693095+00:00",
+    "observedThrough": "2026-10-15T16:45:15.196764+00:00",
+    "account": "<ACCOUNT>",
+    "region": "us-east-1",
+    "modelAPIversion": {
+      "ec2": "2016-11-15",
+      "s3": "2006-03-01",
+      "sts": "2011-06-15"
+    },
+    "modelVersionSource": "Installed botocore service models; native requests used AWS CLI transport.",
+    "sourceURLs": [
+      "https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-s3-permissions.html",
+      "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateFlowLogs.html",
+      "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeFlowLogs.html",
+      "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DestinationOptionsResponse.html",
+      "https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-s3.html"
+    ],
+    "aws_documentation_revision": "AWS live documentation; immutable revision not exposed",
+    "transport": "scripts/aws/aws_cli.py using explicit official STS/EC2/S3 endpoints; isolated environment discarded local endpoint overrides and environment credentials; account checked before resource operations",
+    "redaction": "Native account, bucket, resource, client-token, random and canonical-owner identifiers replaced by stable placeholders. Placeholders are scoped independently to each calibration run. No credentials or caller identity retained."
+  },
+  "Observations": {
+    "bucketPolicy": "An existing unrelated owner-only GetObject statement was preserved. AWS appended delivery.logs.amazonaws.com PutObject and GetBucketAcl grants with SourceAccount/SourceArn conditions. With no prior policy AWS supplied Id AWSLogDeliveryWrite20150319. An additional Hive custom-prefix destination appended AWSLogDeliveryWrite2 and reused AWSLogDeliveryAclCheck1.",
+    "defaults": {
+      "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+      "MaxAggregationInterval": 600,
+      "DestinationOptions": {
+        "FileFormat": "plain-text",
+        "HiveCompatiblePartitions": false,
+        "PerHourPartition": false
+      },
+      "FlowLogStatus": "ACTIVE",
+      "DeliverLogsStatus": "SUCCESS",
+      "Tags": []
+    },
+    "clientToken": "Same token with changed valid TrafficType, aggregation interval, tags or S3 destination bucket/prefix reused the original default-format subscription. A changed log format created another subscription; replaying default format afterward returned only its default-format group. Adding another resource accumulated IDs within the token/format group. Deleted IDs were not retained: replay recreated the deleted resource subscription. Invalid TrafficType and empty ResourceIds were rejected despite an already used token. Fresh token identical configuration failed FlowLogAlreadyExists; fresh token REJECT created a separate subscription. ID order varied between runs.",
+    "marker": {
+      "defaultKey": "AWSLogs/<ACCOUNT>/",
+      "ContentLength": 0,
+      "ContentType": "application/octet-stream",
+      "ServerSideEncryption": "AES256",
+      "Metadata": {},
+      "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+      "ACL": "Only the canonical owner had FULL_CONTROL.",
+      "timing": "Default marker already existed at the first list, 3.109 seconds after phase start (which included CreateFlowLogs and GetBucketPolicy). LastModified was in the following wall-clock second after flow CreationTime. This does not establish whether the write preceded the CreateFlowLogs response.",
+      "hiveHourlyCustomPrefix": "Second-flow experiment: polls through 42.964 seconds observed only the pre-existing default marker. Fresh-bucket comparison then established that a FIRST Hive flow DOES create custom-prefix/AWSLogs/aws-account-id=<ACCOUNT>/, and a FIRST plain-text custom-prefix flow creates custom-prefix/AWSLogs/<ACCOUNT>/. Neither marker includes hour/date/region partitions.",
+      "hivePolicyWriteResource": "arn:aws:s3:::<BUCKET>/custom-prefix/AWSLogs/aws-account-id=<ACCOUNT>/*"
+    }
+  },
+  "Inferences": [
+    {
+      "topic": "token grouping",
+      "statement": "Token plus log format is consistent with observed replay grouping across resources. Exact service-internal key and behavior for untested destination types/options are not established. Do not treat this as a generic token-only response cache."
+    },
+    {
+      "topic": "marker timing",
+      "statement": "Native zero-byte S3 markers were created without dataplane traffic for first default, first Hive/custom-prefix, and first plain/custom-prefix flows. Precise synchronous/asynchronous response ordering is unproven. A missing second-flow marker in a bucket with a pre-existing marker does not establish that Hive suppresses marker creation."
+    }
+  ],
+  "Cleanup": {
+    "verified": true,
+    "scope": "Every calibration created only exact-owned empty VPCs, private S3 buckets and flow-log subscriptions. No workloads, ENIs, paid compute, generated traffic or existing-resource mutations. Native service-created zero-byte markers were deleted with their owned buckets.",
+    "evidence": "Each Runs entry retains DeleteFlowLogs results, empty DescribeFlowLogs, successful owned-object/bucket/VPC deletion, bucket HeadBucket 404 and DescribeVpcs InvalidVpcID.NotFound.",
+    "remainingOwnedResources": []
+  },
+  "Runs": [
+    {
+      "label": "first_flow_empty_bucket_hive_and_plain_prefix_markers",
+      "observedAt": "2026-10-15T16:44:19.017273+00:00",
+      "finishedAt": "2026-10-15T16:45:15.196764+00:00",
+      "accountVerified": true,
+      "scope": "One fresh empty VPC and two fresh private empty buckets. Each bucket received its first flow subscription with custom-prefix. No traffic.",
+      "Calls": [
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": ["<VPC>"],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>/custom-prefix",
+            "ClientToken": "<CLIENT_TOKEN>",
+            "LogFormat": "${interface-id}",
+            "DestinationOptions": {"FileFormat": "plain-text", "HiveCompatiblePartitions": true, "PerHourPartition": true}
+          },
+          "code": "Success",
+          "output": {"ClientToken": "<CLIENT_TOKEN>", "FlowLogIds": ["<FLOWLOG_1>"], "Unsuccessful": []}
+        },
+        {
+          "service": "s3api",
+          "operation": "HeadObject",
+          "input": {"Bucket": "<BUCKET>", "Key": "custom-prefix/AWSLogs/aws-account-id=<ACCOUNT>/", "ExpectedBucketOwner": "<ACCOUNT>"},
+          "code": "Success",
+          "output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-10-15T16:44:25+00:00",
+            "ContentLength": 0,
+            "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+            "ContentType": "application/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          }
+        },
+        {
+          "service": "s3api",
+          "operation": "GetObjectAcl",
+          "input": {"Bucket": "<BUCKET>", "Key": "custom-prefix/AWSLogs/aws-account-id=<ACCOUNT>/", "ExpectedBucketOwner": "<ACCOUNT>"},
+          "code": "Success",
+          "output": {"Owner": {"ID": "<CANONICAL_OWNER>"}, "Grants": [{"Grantee": {"ID": "<CANONICAL_OWNER>", "Type": "CanonicalUser"}, "Permission": "FULL_CONTROL"}]}
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": ["<VPC>"],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<SECOND_BUCKET>/custom-prefix",
+            "ClientToken": "<PLAIN_CLIENT_TOKEN>"
+          },
+          "code": "Success",
+          "output": {"ClientToken": "<PLAIN_CLIENT_TOKEN>", "FlowLogIds": ["<FLOWLOG_2>"], "Unsuccessful": []}
+        },
+        {
+          "service": "s3api",
+          "operation": "HeadObject",
+          "input": {"Bucket": "<SECOND_BUCKET>", "Key": "custom-prefix/AWSLogs/<ACCOUNT>/", "ExpectedBucketOwner": "<ACCOUNT>"},
+          "code": "Success",
+          "output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-10-15T16:44:45+00:00",
+            "ContentLength": 0,
+            "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+            "ContentType": "application/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          }
+        },
+        {
+          "service": "s3api",
+          "operation": "GetObjectAcl",
+          "input": {"Bucket": "<SECOND_BUCKET>", "Key": "custom-prefix/AWSLogs/<ACCOUNT>/", "ExpectedBucketOwner": "<ACCOUNT>"},
+          "code": "Success",
+          "output": {"Owner": {"ID": "<CANONICAL_OWNER>"}, "Grants": [{"Grantee": {"ID": "<CANONICAL_OWNER>", "Type": "CanonicalUser"}, "Permission": "FULL_CONTROL"}]}
+        }
+      ],
+      "phases": {
+        "firstFlowHiveHourlyCustomPrefix": {
+          "flowCreationTime": "2026-10-15T16:44:23.877000+00:00",
+          "markerLastModified": "2026-10-15T16:44:25+00:00",
+          "observedKeys": ["custom-prefix/AWSLogs/aws-account-id=<ACCOUNT>/"],
+          "firstObservedElapsedSeconds": 3.037,
+          "finalPollElapsedSeconds": 17.124,
+          "pollCount": 4,
+          "DeliverLogsStatus": "SUCCESS",
+          "FlowLogStatus": "ACTIVE",
+          "policy": {
+            "Version": "2012-10-17",
+            "Id": "AWSLogDeliveryWrite20150319",
+            "Statement": [
+              {"Sid": "AWSLogDeliveryWrite1", "Effect": "Allow", "Principal": {"Service": "delivery.logs.amazonaws.com"}, "Action": "s3:PutObject", "Resource": "arn:aws:s3:::<BUCKET>/custom-prefix/AWSLogs/aws-account-id=<ACCOUNT>/*", "Condition": {"StringEquals": {"aws:SourceAccount": "<ACCOUNT>", "s3:x-amz-acl": "bucket-owner-full-control"}, "ArnLike": {"aws:SourceArn": "arn:aws:logs:us-east-1:<ACCOUNT>:*"}}},
+              {"Sid": "AWSLogDeliveryAclCheck1", "Effect": "Allow", "Principal": {"Service": "delivery.logs.amazonaws.com"}, "Action": "s3:GetBucketAcl", "Resource": "arn:aws:s3:::<BUCKET>", "Condition": {"StringEquals": {"aws:SourceAccount": "<ACCOUNT>"}, "ArnLike": {"aws:SourceArn": "arn:aws:logs:us-east-1:<ACCOUNT>:*"}}}
+            ]
+          }
+        },
+        "firstFlowPlainCustomPrefix": {
+          "flowCreationTime": "2026-10-15T16:44:44.715000+00:00",
+          "markerLastModified": "2026-10-15T16:44:45+00:00",
+          "observedKeys": ["custom-prefix/AWSLogs/<ACCOUNT>/"],
+          "firstObservedElapsedSeconds": 3.363,
+          "finalPollElapsedSeconds": 17.326,
+          "pollCount": 4,
+          "DeliverLogsStatus": "SUCCESS",
+          "FlowLogStatus": "ACTIVE",
+          "policy": {
+            "Version": "2012-10-17",
+            "Id": "AWSLogDeliveryWrite20150319",
+            "Statement": [
+              {"Sid": "AWSLogDeliveryWrite1", "Effect": "Allow", "Principal": {"Service": "delivery.logs.amazonaws.com"}, "Action": "s3:PutObject", "Resource": "arn:aws:s3:::<SECOND_BUCKET>/custom-prefix/AWSLogs/<ACCOUNT>/*", "Condition": {"StringEquals": {"aws:SourceAccount": "<ACCOUNT>", "s3:x-amz-acl": "bucket-owner-full-control"}, "ArnLike": {"aws:SourceArn": "arn:aws:logs:us-east-1:<ACCOUNT>:*"}}},
+              {"Sid": "AWSLogDeliveryAclCheck1", "Effect": "Allow", "Principal": {"Service": "delivery.logs.amazonaws.com"}, "Action": "s3:GetBucketAcl", "Resource": "arn:aws:s3:::<SECOND_BUCKET>", "Condition": {"StringEquals": {"aws:SourceAccount": "<ACCOUNT>"}, "ArnLike": {"aws:SourceArn": "arn:aws:logs:us-east-1:<ACCOUNT>:*"}}}
+            ]
+          }
+        }
+      },
+      "observation": "FIRST flows on empty buckets created markers under their actual custom-prefix and account partition. Hive/hourly used aws-account-id=<ACCOUNT> but no hour/date/region suffix for this marker. This corrects any inference from the previous SECOND-flow experiment that Hive creates no marker.",
+      "inference": "Marker existence by first list is observed; whether writing is synchronous with CreateFlowLogs remains unproven. The reason a later flow on a bucket with an existing marker did not create a second marker was not isolated.",
+      "cleanup": {
+        "Calls": [
+          {"service": "ec2", "operation": "DeleteFlowLogs", "input": {"FlowLogIds": ["<FLOWLOG_1>", "<FLOWLOG_2>"]}, "code": "Success", "output": {"Unsuccessful": []}},
+          {"service": "ec2", "operation": "DescribeFlowLogs", "input": {"Filter": [{"Name": "resource-id", "Values": ["<VPC>"]}]}, "code": "Success", "output": {"FlowLogs": []}},
+          {"service": "s3api", "operation": "DeleteObjects", "input": {"Bucket": "<BUCKET>", "ExpectedBucketOwner": "<ACCOUNT>", "Delete": {"Objects": [{"Key": "custom-prefix/AWSLogs/aws-account-id=<ACCOUNT>/"}]}}, "code": "Success", "output": {"Deleted": [{"Key": "custom-prefix/AWSLogs/aws-account-id=<ACCOUNT>/"}]}},
+          {"service": "s3api", "operation": "DeleteBucket", "input": {"Bucket": "<BUCKET>", "ExpectedBucketOwner": "<ACCOUNT>"}, "code": "Success", "output": {}},
+          {"service": "s3api", "operation": "HeadBucket", "input": {"Bucket": "<BUCKET>", "ExpectedBucketOwner": "<ACCOUNT>"}, "code": "404", "message": "Not Found"},
+          {"service": "s3api", "operation": "DeleteObjects", "input": {"Bucket": "<SECOND_BUCKET>", "ExpectedBucketOwner": "<ACCOUNT>", "Delete": {"Objects": [{"Key": "custom-prefix/AWSLogs/<ACCOUNT>/"}]}}, "code": "Success", "output": {"Deleted": [{"Key": "custom-prefix/AWSLogs/<ACCOUNT>/"}]}},
+          {"service": "s3api", "operation": "DeleteBucket", "input": {"Bucket": "<SECOND_BUCKET>", "ExpectedBucketOwner": "<ACCOUNT>"}, "code": "Success", "output": {}},
+          {"service": "s3api", "operation": "HeadBucket", "input": {"Bucket": "<SECOND_BUCKET>", "ExpectedBucketOwner": "<ACCOUNT>"}, "code": "404", "message": "Not Found"},
+          {"service": "ec2", "operation": "DeleteVpc", "input": {"VpcId": "<VPC>"}, "code": "Success", "output": {}},
+          {"service": "ec2", "operation": "DescribeVpcs", "input": {"VpcIds": ["<VPC>"]}, "code": "InvalidVpcID.NotFound", "message": "The vpc ID '<VPC>' does not exist"}
+        ],
+        "bucketAbsence": {"code": "404", "message": "Not Found"},
+        "secondBucketAbsence": {"code": "404", "message": "Not Found"},
+        "vpcAbsence": {"code": "InvalidVpcID.NotFound", "message": "The vpc ID '<VPC>' does not exist"},
+        "remainingOwnedResources": []
+      }
+    },
+    {
+      "label": "policy_preservation_and_defaults",
+      "observedAt": "2026-10-15T16:30:47.693095+00:00",
+      "finishedAt": "2026-10-15T16:31:06.146682+00:00",
+      "accountVerified": true,
+      "Calls": [
+        {
+          "service": "s3api",
+          "operation": "PutBucketPolicy",
+          "input": {
+            "Bucket": "<BUCKET>",
+            "ExpectedBucketOwner": "<ACCOUNT>",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"UnrelatedOwnerReadOnly\", \"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::<ACCOUNT>:root\"}, \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:::<BUCKET>/unrelated-owner-prefix/*\"}]}"
+          },
+          "code": "Success",
+          "output": {}
+        },
+        {
+          "service": "s3api",
+          "operation": "GetBucketPolicy",
+          "input": {
+            "Bucket": "<BUCKET>",
+            "ExpectedBucketOwner": "<ACCOUNT>"
+          },
+          "code": "Success",
+          "output": {
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"UnrelatedOwnerReadOnly\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::<ACCOUNT>:root\"},\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::<BUCKET>/unrelated-owner-prefix/*\"}]}"
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>"
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>"
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "REJECT",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>"
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "DescribeFlowLogs",
+          "input": {
+            "Filter": [
+              {
+                "Name": "resource-id",
+                "Values": [
+                  "<VPC>"
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "FlowLogs": [
+              {
+                "CreationTime": "2026-10-15T16:30:54.274000+00:00",
+                "DeliverLogsStatus": "SUCCESS",
+                "FlowLogId": "<FLOWLOG_1>",
+                "FlowLogStatus": "ACTIVE",
+                "ResourceId": "<VPC>",
+                "TrafficType": "ALL",
+                "LogDestinationType": "s3",
+                "LogDestination": "arn:aws:s3:::<BUCKET>",
+                "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+                "Tags": [],
+                "MaxAggregationInterval": 600,
+                "DestinationOptions": {
+                  "FileFormat": "plain-text",
+                  "HiveCompatiblePartitions": false,
+                  "PerHourPartition": false
+                }
+              }
+            ]
+          }
+        },
+        {
+          "service": "s3api",
+          "operation": "GetBucketPolicy",
+          "input": {
+            "Bucket": "<BUCKET>",
+            "ExpectedBucketOwner": "<ACCOUNT>"
+          },
+          "code": "Success",
+          "output": {
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"UnrelatedOwnerReadOnly\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::<ACCOUNT>:root\"},\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::<BUCKET>/unrelated-owner-prefix/*\"},{\"Sid\":\"AWSLogDeliveryWrite1\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"delivery.logs.amazonaws.com\"},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::<BUCKET>/AWSLogs/<ACCOUNT>/*\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"<ACCOUNT>\",\"s3:x-amz-acl\":\"bucket-owner-full-control\"},\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:logs:us-east-1:<ACCOUNT>:*\"}}},{\"Sid\":\"AWSLogDeliveryAclCheck1\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"delivery.logs.amazonaws.com\"},\"Action\":\"s3:GetBucketAcl\",\"Resource\":\"arn:aws:s3:::<BUCKET>\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"<ACCOUNT>\"},\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:logs:us-east-1:<ACCOUNT>:*\"}}}]}"
+          }
+        }
+      ],
+      "policyBefore": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "UnrelatedOwnerReadOnly",
+            "Effect": "Allow",
+            "Principal": {
+              "AWS": "arn:aws:iam::<ACCOUNT>:root"
+            },
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::<BUCKET>/unrelated-owner-prefix/*"
+          }
+        ]
+      },
+      "policyAfter": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "UnrelatedOwnerReadOnly",
+            "Effect": "Allow",
+            "Principal": {
+              "AWS": "arn:aws:iam::<ACCOUNT>:root"
+            },
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::<BUCKET>/unrelated-owner-prefix/*"
+          },
+          {
+            "Sid": "AWSLogDeliveryWrite1",
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "delivery.logs.amazonaws.com"
+            },
+            "Action": "s3:PutObject",
+            "Resource": "arn:aws:s3:::<BUCKET>/AWSLogs/<ACCOUNT>/*",
+            "Condition": {
+              "StringEquals": {
+                "aws:SourceAccount": "<ACCOUNT>",
+                "s3:x-amz-acl": "bucket-owner-full-control"
+              },
+              "ArnLike": {
+                "aws:SourceArn": "arn:aws:logs:us-east-1:<ACCOUNT>:*"
+              }
+            }
+          },
+          {
+            "Sid": "AWSLogDeliveryAclCheck1",
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "delivery.logs.amazonaws.com"
+            },
+            "Action": "s3:GetBucketAcl",
+            "Resource": "arn:aws:s3:::<BUCKET>",
+            "Condition": {
+              "StringEquals": {
+                "aws:SourceAccount": "<ACCOUNT>"
+              },
+              "ArnLike": {
+                "aws:SourceArn": "arn:aws:logs:us-east-1:<ACCOUNT>:*"
+              }
+            }
+          }
+        ]
+      },
+      "unrelatedStatementPreserved": true,
+      "describeFinal": {
+        "FlowLogs": [
+          {
+            "CreationTime": "2026-10-15T16:30:54.274000+00:00",
+            "DeliverLogsStatus": "SUCCESS",
+            "FlowLogId": "<FLOWLOG_1>",
+            "FlowLogStatus": "ACTIVE",
+            "ResourceId": "<VPC>",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+            "Tags": [],
+            "MaxAggregationInterval": 600,
+            "DestinationOptions": {
+              "FileFormat": "plain-text",
+              "HiveCompatiblePartitions": false,
+              "PerHourPartition": false
+            }
+          }
+        ]
+      },
+      "cleanup": {
+        "Calls": [
+          {
+            "service": "ec2",
+            "operation": "DescribeFlowLogs",
+            "input": {
+              "Filter": [
+                {
+                  "Name": "resource-id",
+                  "Values": [
+                    "<VPC>"
+                  ]
+                }
+              ]
+            },
+            "code": "Success",
+            "output": {
+              "FlowLogs": [
+                {
+                  "CreationTime": "2026-10-15T16:30:54.274000+00:00",
+                  "DeliverLogsStatus": "SUCCESS",
+                  "FlowLogId": "<FLOWLOG_1>",
+                  "FlowLogStatus": "ACTIVE",
+                  "ResourceId": "<VPC>",
+                  "TrafficType": "ALL",
+                  "LogDestinationType": "s3",
+                  "LogDestination": "arn:aws:s3:::<BUCKET>",
+                  "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+                  "Tags": [],
+                  "MaxAggregationInterval": 600,
+                  "DestinationOptions": {
+                    "FileFormat": "plain-text",
+                    "HiveCompatiblePartitions": false,
+                    "PerHourPartition": false
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "service": "ec2",
+            "operation": "DeleteFlowLogs",
+            "input": {
+              "FlowLogIds": [
+                "<FLOWLOG_1>"
+              ]
+            },
+            "code": "Success",
+            "output": {
+              "Unsuccessful": []
+            }
+          },
+          {
+            "service": "ec2",
+            "operation": "DescribeFlowLogs",
+            "input": {
+              "Filter": [
+                {
+                  "Name": "resource-id",
+                  "Values": [
+                    "<VPC>"
+                  ]
+                }
+              ]
+            },
+            "code": "Success",
+            "output": {
+              "FlowLogs": []
+            }
+          },
+          {
+            "service": "s3api",
+            "operation": "ListObjectsV2",
+            "input": {
+              "Bucket": "<BUCKET>",
+              "ExpectedBucketOwner": "<ACCOUNT>"
+            },
+            "code": "Success",
+            "output": {
+              "IsTruncated": false,
+              "Name": "<BUCKET>",
+              "Prefix": "",
+              "MaxKeys": 1000,
+              "EncodingType": "url",
+              "KeyCount": 0
+            }
+          },
+          {
+            "service": "s3api",
+            "operation": "DeleteBucket",
+            "input": {
+              "Bucket": "<BUCKET>",
+              "ExpectedBucketOwner": "<ACCOUNT>"
+            },
+            "code": "Success",
+            "output": {}
+          },
+          {
+            "service": "s3api",
+            "operation": "HeadBucket",
+            "input": {
+              "Bucket": "<BUCKET>",
+              "ExpectedBucketOwner": "<ACCOUNT>"
+            },
+            "code": "404",
+            "message": "Not Found"
+          },
+          {
+            "service": "ec2",
+            "operation": "DeleteVpc",
+            "input": {
+              "VpcId": "<VPC>"
+            },
+            "code": "Success",
+            "output": {}
+          },
+          {
+            "service": "ec2",
+            "operation": "DescribeVpcs",
+            "input": {
+              "VpcIds": [
+                "<VPC>"
+              ]
+            },
+            "code": "InvalidVpcID.NotFound",
+            "message": "The vpc ID '<VPC>' does not exist"
+          }
+        ],
+        "bucketAbsence": "404",
+        "vpcAbsence": "InvalidVpcID.NotFound"
+      }
+    },
+    {
+      "label": "token_parameter_matrix",
+      "observedAt": "2026-10-15T16:33:07.118670+00:00",
+      "finishedAt": "2026-10-15T16:33:36.350953+00:00",
+      "accountVerified": true,
+      "Calls": [
+        {
+          "service": "s3api",
+          "operation": "PutBucketPolicy",
+          "input": {
+            "Bucket": "<BUCKET>",
+            "ExpectedBucketOwner": "<ACCOUNT>",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"UnrelatedOwnerReadOnly\", \"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::<ACCOUNT>:root\"}, \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:::<BUCKET>/unrelated-owner-prefix/*\"}]}"
+          },
+          "code": "Success",
+          "output": {}
+        },
+        {
+          "service": "s3api",
+          "operation": "GetBucketPolicy",
+          "input": {
+            "Bucket": "<BUCKET>",
+            "ExpectedBucketOwner": "<ACCOUNT>"
+          },
+          "code": "Success",
+          "output": {
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"UnrelatedOwnerReadOnly\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::<ACCOUNT>:root\"},\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::<BUCKET>/unrelated-owner-prefix/*\"}]}"
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "REJECT",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ]
+              }
+            ],
+            "MaxAggregationInterval": 60
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ]
+              }
+            ],
+            "LogFormat": "${interface-id}"
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_2>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "changed"
+                  }
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<SECOND_VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_3>",
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "INVALID",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ]
+              }
+            ]
+          },
+          "code": "InvalidParameterValue",
+          "message": "1 validation error detected: Value 'INVALID' at 'trafficType' has an invalid format"
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ]
+              }
+            ]
+          },
+          "code": "MissingParameter",
+          "message": "The request must include the ResourceIds parameter. Add the required parameter and retry the request."
+        },
+        {
+          "service": "ec2",
+          "operation": "DescribeFlowLogs",
+          "input": {
+            "Filter": [
+              {
+                "Name": "resource-id",
+                "Values": [
+                  "<SECOND_VPC>"
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "FlowLogs": [
+              {
+                "CreationTime": "2026-10-15T16:33:21.923000+00:00",
+                "DeliverLogsStatus": "SUCCESS",
+                "FlowLogId": "<FLOWLOG_3>",
+                "FlowLogStatus": "ACTIVE",
+                "ResourceId": "<SECOND_VPC>",
+                "TrafficType": "ALL",
+                "LogDestinationType": "s3",
+                "LogDestination": "arn:aws:s3:::<BUCKET>",
+                "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ],
+                "MaxAggregationInterval": 600,
+                "DestinationOptions": {
+                  "FileFormat": "plain-text",
+                  "HiveCompatiblePartitions": false,
+                  "PerHourPartition": false
+                }
+              }
+            ]
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "DescribeFlowLogs",
+          "input": {
+            "Filter": [
+              {
+                "Name": "resource-id",
+                "Values": [
+                  "<VPC>"
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "FlowLogs": [
+              {
+                "CreationTime": "2026-10-15T16:33:13.483000+00:00",
+                "DeliverLogsStatus": "SUCCESS",
+                "FlowLogId": "<FLOWLOG_1>",
+                "FlowLogStatus": "ACTIVE",
+                "ResourceId": "<VPC>",
+                "TrafficType": "ALL",
+                "LogDestinationType": "s3",
+                "LogDestination": "arn:aws:s3:::<BUCKET>",
+                "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ],
+                "MaxAggregationInterval": 600,
+                "DestinationOptions": {
+                  "FileFormat": "plain-text",
+                  "HiveCompatiblePartitions": false,
+                  "PerHourPartition": false
+                }
+              },
+              {
+                "CreationTime": "2026-10-15T16:33:19.475000+00:00",
+                "DeliverLogsStatus": "SUCCESS",
+                "FlowLogId": "<FLOWLOG_2>",
+                "FlowLogStatus": "ACTIVE",
+                "ResourceId": "<VPC>",
+                "TrafficType": "ALL",
+                "LogDestinationType": "s3",
+                "LogDestination": "arn:aws:s3:::<BUCKET>",
+                "LogFormat": "${interface-id}",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ],
+                "MaxAggregationInterval": 600,
+                "DestinationOptions": {
+                  "FileFormat": "plain-text",
+                  "HiveCompatiblePartitions": false,
+                  "PerHourPartition": false
+                }
+              }
+            ]
+          }
+        },
+        {
+          "service": "s3api",
+          "operation": "GetBucketPolicy",
+          "input": {
+            "Bucket": "<BUCKET>",
+            "ExpectedBucketOwner": "<ACCOUNT>"
+          },
+          "code": "Success",
+          "output": {
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"UnrelatedOwnerReadOnly\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::<ACCOUNT>:root\"},\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::<BUCKET>/unrelated-owner-prefix/*\"},{\"Sid\":\"AWSLogDeliveryWrite1\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"delivery.logs.amazonaws.com\"},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::<BUCKET>/AWSLogs/<ACCOUNT>/*\",\"Condition\":{\"StringEquals\":{\"s3:x-amz-acl\":\"bucket-owner-full-control\",\"aws:SourceAccount\":\"<ACCOUNT>\"},\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:logs:us-east-1:<ACCOUNT>:*\"}}},{\"Sid\":\"AWSLogDeliveryAclCheck1\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"delivery.logs.amazonaws.com\"},\"Action\":\"s3:GetBucketAcl\",\"Resource\":\"arn:aws:s3:::<BUCKET>\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"<ACCOUNT>\"},\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:logs:us-east-1:<ACCOUNT>:*\"}}}]}"
+          }
+        }
+      ],
+      "policyBefore": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "UnrelatedOwnerReadOnly",
+            "Effect": "Allow",
+            "Principal": {
+              "AWS": "arn:aws:iam::<ACCOUNT>:root"
+            },
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::<BUCKET>/unrelated-owner-prefix/*"
+          }
+        ]
+      },
+      "policyAfter": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "UnrelatedOwnerReadOnly",
+            "Effect": "Allow",
+            "Principal": {
+              "AWS": "arn:aws:iam::<ACCOUNT>:root"
+            },
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::<BUCKET>/unrelated-owner-prefix/*"
+          },
+          {
+            "Sid": "AWSLogDeliveryWrite1",
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "delivery.logs.amazonaws.com"
+            },
+            "Action": "s3:PutObject",
+            "Resource": "arn:aws:s3:::<BUCKET>/AWSLogs/<ACCOUNT>/*",
+            "Condition": {
+              "StringEquals": {
+                "s3:x-amz-acl": "bucket-owner-full-control",
+                "aws:SourceAccount": "<ACCOUNT>"
+              },
+              "ArnLike": {
+                "aws:SourceArn": "arn:aws:logs:us-east-1:<ACCOUNT>:*"
+              }
+            }
+          },
+          {
+            "Sid": "AWSLogDeliveryAclCheck1",
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "delivery.logs.amazonaws.com"
+            },
+            "Action": "s3:GetBucketAcl",
+            "Resource": "arn:aws:s3:::<BUCKET>",
+            "Condition": {
+              "StringEquals": {
+                "aws:SourceAccount": "<ACCOUNT>"
+              },
+              "ArnLike": {
+                "aws:SourceArn": "arn:aws:logs:us-east-1:<ACCOUNT>:*"
+              }
+            }
+          }
+        ]
+      },
+      "unrelatedStatementPreserved": true,
+      "replayVariants": {
+        "aggregationInterval": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        "logFormat": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_2>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        "tagValue": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        "otherResourceId": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_3>",
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        "invalidTrafficType": {
+          "code": "InvalidParameterValue",
+          "message": "1 validation error detected: Value 'INVALID' at 'trafficType' has an invalid format"
+        },
+        "emptyResourceIds": {
+          "code": "MissingParameter",
+          "message": "The request must include the ResourceIds parameter. Add the required parameter and retry the request."
+        }
+      },
+      "describeFinal": {
+        "FlowLogs": [
+          {
+            "CreationTime": "2026-10-15T16:33:13.483000+00:00",
+            "DeliverLogsStatus": "SUCCESS",
+            "FlowLogId": "<FLOWLOG_1>",
+            "FlowLogStatus": "ACTIVE",
+            "ResourceId": "<VPC>",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+            "Tags": [
+              {
+                "Key": "Calibration",
+                "Value": "original"
+              }
+            ],
+            "MaxAggregationInterval": 600,
+            "DestinationOptions": {
+              "FileFormat": "plain-text",
+              "HiveCompatiblePartitions": false,
+              "PerHourPartition": false
+            }
+          },
+          {
+            "CreationTime": "2026-10-15T16:33:19.475000+00:00",
+            "DeliverLogsStatus": "SUCCESS",
+            "FlowLogId": "<FLOWLOG_2>",
+            "FlowLogStatus": "ACTIVE",
+            "ResourceId": "<VPC>",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "LogFormat": "${interface-id}",
+            "Tags": [
+              {
+                "Key": "Calibration",
+                "Value": "original"
+              }
+            ],
+            "MaxAggregationInterval": 600,
+            "DestinationOptions": {
+              "FileFormat": "plain-text",
+              "HiveCompatiblePartitions": false,
+              "PerHourPartition": false
+            }
+          }
+        ]
+      },
+      "secondVpcFlows": {
+        "FlowLogs": [
+          {
+            "CreationTime": "2026-10-15T16:33:21.923000+00:00",
+            "DeliverLogsStatus": "SUCCESS",
+            "FlowLogId": "<FLOWLOG_3>",
+            "FlowLogStatus": "ACTIVE",
+            "ResourceId": "<SECOND_VPC>",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+            "Tags": [
+              {
+                "Key": "Calibration",
+                "Value": "original"
+              }
+            ],
+            "MaxAggregationInterval": 600,
+            "DestinationOptions": {
+              "FileFormat": "plain-text",
+              "HiveCompatiblePartitions": false,
+              "PerHourPartition": false
+            }
+          }
+        ]
+      },
+      "cleanup": {
+        "Calls": [
+          {
+            "service": "ec2",
+            "operation": "DescribeFlowLogs",
+            "input": {
+              "Filter": [
+                {
+                  "Name": "resource-id",
+                  "Values": [
+                    "<VPC>",
+                    "<SECOND_VPC>"
+                  ]
+                }
+              ]
+            },
+            "code": "Success",
+            "output": {
+              "FlowLogs": [
+                {
+                  "CreationTime": "2026-10-15T16:33:13.483000+00:00",
+                  "DeliverLogsStatus": "SUCCESS",
+                  "FlowLogId": "<FLOWLOG_1>",
+                  "FlowLogStatus": "ACTIVE",
+                  "ResourceId": "<VPC>",
+                  "TrafficType": "ALL",
+                  "LogDestinationType": "s3",
+                  "LogDestination": "arn:aws:s3:::<BUCKET>",
+                  "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+                  "Tags": [
+                    {
+                      "Key": "Calibration",
+                      "Value": "original"
+                    }
+                  ],
+                  "MaxAggregationInterval": 600,
+                  "DestinationOptions": {
+                    "FileFormat": "plain-text",
+                    "HiveCompatiblePartitions": false,
+                    "PerHourPartition": false
+                  }
+                },
+                {
+                  "CreationTime": "2026-10-15T16:33:19.475000+00:00",
+                  "DeliverLogsStatus": "SUCCESS",
+                  "FlowLogId": "<FLOWLOG_2>",
+                  "FlowLogStatus": "ACTIVE",
+                  "ResourceId": "<VPC>",
+                  "TrafficType": "ALL",
+                  "LogDestinationType": "s3",
+                  "LogDestination": "arn:aws:s3:::<BUCKET>",
+                  "LogFormat": "${interface-id}",
+                  "Tags": [
+                    {
+                      "Key": "Calibration",
+                      "Value": "original"
+                    }
+                  ],
+                  "MaxAggregationInterval": 600,
+                  "DestinationOptions": {
+                    "FileFormat": "plain-text",
+                    "HiveCompatiblePartitions": false,
+                    "PerHourPartition": false
+                  }
+                },
+                {
+                  "CreationTime": "2026-10-15T16:33:21.923000+00:00",
+                  "DeliverLogsStatus": "SUCCESS",
+                  "FlowLogId": "<FLOWLOG_3>",
+                  "FlowLogStatus": "ACTIVE",
+                  "ResourceId": "<SECOND_VPC>",
+                  "TrafficType": "ALL",
+                  "LogDestinationType": "s3",
+                  "LogDestination": "arn:aws:s3:::<BUCKET>",
+                  "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+                  "Tags": [
+                    {
+                      "Key": "Calibration",
+                      "Value": "original"
+                    }
+                  ],
+                  "MaxAggregationInterval": 600,
+                  "DestinationOptions": {
+                    "FileFormat": "plain-text",
+                    "HiveCompatiblePartitions": false,
+                    "PerHourPartition": false
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "service": "ec2",
+            "operation": "DeleteFlowLogs",
+            "input": {
+              "FlowLogIds": [
+                "<FLOWLOG_1>",
+                "<FLOWLOG_2>",
+                "<FLOWLOG_3>"
+              ]
+            },
+            "code": "Success",
+            "output": {
+              "Unsuccessful": []
+            }
+          },
+          {
+            "service": "ec2",
+            "operation": "DescribeFlowLogs",
+            "input": {
+              "Filter": [
+                {
+                  "Name": "resource-id",
+                  "Values": [
+                    "<VPC>",
+                    "<SECOND_VPC>"
+                  ]
+                }
+              ]
+            },
+            "code": "Success",
+            "output": {
+              "FlowLogs": []
+            }
+          },
+          {
+            "service": "s3api",
+            "operation": "ListObjectsV2",
+            "input": {
+              "Bucket": "<BUCKET>",
+              "ExpectedBucketOwner": "<ACCOUNT>"
+            },
+            "code": "Success",
+            "output": {
+              "IsTruncated": false,
+              "Name": "<BUCKET>",
+              "Prefix": "",
+              "MaxKeys": 1000,
+              "EncodingType": "url",
+              "KeyCount": 0
+            }
+          },
+          {
+            "service": "s3api",
+            "operation": "DeleteBucket",
+            "input": {
+              "Bucket": "<BUCKET>",
+              "ExpectedBucketOwner": "<ACCOUNT>"
+            },
+            "code": "Success",
+            "output": {}
+          },
+          {
+            "service": "s3api",
+            "operation": "HeadBucket",
+            "input": {
+              "Bucket": "<BUCKET>",
+              "ExpectedBucketOwner": "<ACCOUNT>"
+            },
+            "code": "404",
+            "message": "Not Found"
+          },
+          {
+            "service": "ec2",
+            "operation": "DeleteVpc",
+            "input": {
+              "VpcId": "<VPC>"
+            },
+            "code": "Success",
+            "output": {}
+          },
+          {
+            "service": "ec2",
+            "operation": "DescribeVpcs",
+            "input": {
+              "VpcIds": [
+                "<VPC>"
+              ]
+            },
+            "code": "InvalidVpcID.NotFound",
+            "message": "The vpc ID '<VPC>' does not exist"
+          },
+          {
+            "service": "ec2",
+            "operation": "DeleteVpc",
+            "input": {
+              "VpcId": "<SECOND_VPC>"
+            },
+            "code": "Success",
+            "output": {}
+          },
+          {
+            "service": "ec2",
+            "operation": "DescribeVpcs",
+            "input": {
+              "VpcIds": [
+                "<SECOND_VPC>"
+              ]
+            },
+            "code": "InvalidVpcID.NotFound",
+            "message": "The vpc ID '<SECOND_VPC>' does not exist"
+          }
+        ],
+        "bucketAbsence": "404",
+        "vpcAbsence": "InvalidVpcID.NotFound",
+        "secondVpcAbsence": "InvalidVpcID.NotFound"
+      }
+    },
+    {
+      "label": "token_accumulation_and_deletion",
+      "observedAt": "2026-10-15T16:35:28.711479+00:00",
+      "finishedAt": "2026-10-15T16:35:58.479728+00:00",
+      "accountVerified": true,
+      "Calls": [
+        {
+          "service": "s3api",
+          "operation": "PutBucketPolicy",
+          "input": {
+            "Bucket": "<BUCKET>",
+            "ExpectedBucketOwner": "<ACCOUNT>",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"UnrelatedOwnerReadOnly\", \"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::<ACCOUNT>:root\"}, \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:::<BUCKET>/unrelated-owner-prefix/*\"}]}"
+          },
+          "code": "Success",
+          "output": {}
+        },
+        {
+          "service": "s3api",
+          "operation": "GetBucketPolicy",
+          "input": {
+            "Bucket": "<BUCKET>",
+            "ExpectedBucketOwner": "<ACCOUNT>"
+          },
+          "code": "Success",
+          "output": {
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"UnrelatedOwnerReadOnly\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::<ACCOUNT>:root\"},\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::<BUCKET>/unrelated-owner-prefix/*\"}]}"
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<SECOND_VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>",
+              "<FLOWLOG_2>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>",
+              "<FLOWLOG_2>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>/changed-prefix",
+            "ClientToken": "<CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>",
+              "<FLOWLOG_2>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<FRESH_CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ]
+              }
+            ]
+          },
+          "code": "FlowLogAlreadyExists",
+          "message": "Error. There is an existing Flow Log with the same configuration and log destination."
+        },
+        {
+          "service": "ec2",
+          "operation": "DescribeFlowLogs",
+          "input": {
+            "Filter": [
+              {
+                "Name": "resource-id",
+                "Values": [
+                  "<VPC>",
+                  "<SECOND_VPC>"
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "FlowLogs": [
+              {
+                "CreationTime": "2026-10-15T16:35:39.190000+00:00",
+                "DeliverLogsStatus": "SUCCESS",
+                "FlowLogId": "<FLOWLOG_2>",
+                "FlowLogStatus": "ACTIVE",
+                "ResourceId": "<SECOND_VPC>",
+                "TrafficType": "ALL",
+                "LogDestinationType": "s3",
+                "LogDestination": "arn:aws:s3:::<BUCKET>",
+                "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ],
+                "MaxAggregationInterval": 600,
+                "DestinationOptions": {
+                  "FileFormat": "plain-text",
+                  "HiveCompatiblePartitions": false,
+                  "PerHourPartition": false
+                }
+              }
+            ]
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_3>",
+              "<FLOWLOG_2>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "DescribeFlowLogs",
+          "input": {
+            "Filter": [
+              {
+                "Name": "resource-id",
+                "Values": [
+                  "<SECOND_VPC>"
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "FlowLogs": [
+              {
+                "CreationTime": "2026-10-15T16:35:39.190000+00:00",
+                "DeliverLogsStatus": "SUCCESS",
+                "FlowLogId": "<FLOWLOG_2>",
+                "FlowLogStatus": "ACTIVE",
+                "ResourceId": "<SECOND_VPC>",
+                "TrafficType": "ALL",
+                "LogDestinationType": "s3",
+                "LogDestination": "arn:aws:s3:::<BUCKET>",
+                "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ],
+                "MaxAggregationInterval": 600,
+                "DestinationOptions": {
+                  "FileFormat": "plain-text",
+                  "HiveCompatiblePartitions": false,
+                  "PerHourPartition": false
+                }
+              }
+            ]
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "DescribeFlowLogs",
+          "input": {
+            "Filter": [
+              {
+                "Name": "resource-id",
+                "Values": [
+                  "<VPC>"
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "FlowLogs": [
+              {
+                "CreationTime": "2026-10-15T16:35:45.596000+00:00",
+                "DeliverLogsStatus": "SUCCESS",
+                "FlowLogId": "<FLOWLOG_3>",
+                "FlowLogStatus": "ACTIVE",
+                "ResourceId": "<VPC>",
+                "TrafficType": "ALL",
+                "LogDestinationType": "s3",
+                "LogDestination": "arn:aws:s3:::<BUCKET>",
+                "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ],
+                "MaxAggregationInterval": 600,
+                "DestinationOptions": {
+                  "FileFormat": "plain-text",
+                  "HiveCompatiblePartitions": false,
+                  "PerHourPartition": false
+                }
+              }
+            ]
+          }
+        },
+        {
+          "service": "s3api",
+          "operation": "GetBucketPolicy",
+          "input": {
+            "Bucket": "<BUCKET>",
+            "ExpectedBucketOwner": "<ACCOUNT>"
+          },
+          "code": "Success",
+          "output": {
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"UnrelatedOwnerReadOnly\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::<ACCOUNT>:root\"},\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::<BUCKET>/unrelated-owner-prefix/*\"},{\"Sid\":\"AWSLogDeliveryWrite1\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"delivery.logs.amazonaws.com\"},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::<BUCKET>/AWSLogs/<ACCOUNT>/*\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"<ACCOUNT>\",\"s3:x-amz-acl\":\"bucket-owner-full-control\"},\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:logs:us-east-1:<ACCOUNT>:*\"}}},{\"Sid\":\"AWSLogDeliveryAclCheck1\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"delivery.logs.amazonaws.com\"},\"Action\":\"s3:GetBucketAcl\",\"Resource\":\"arn:aws:s3:::<BUCKET>\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"<ACCOUNT>\"},\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:logs:us-east-1:<ACCOUNT>:*\"}}}]}"
+          }
+        }
+      ],
+      "policyBefore": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "UnrelatedOwnerReadOnly",
+            "Effect": "Allow",
+            "Principal": {
+              "AWS": "arn:aws:iam::<ACCOUNT>:root"
+            },
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::<BUCKET>/unrelated-owner-prefix/*"
+          }
+        ]
+      },
+      "policyAfter": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "UnrelatedOwnerReadOnly",
+            "Effect": "Allow",
+            "Principal": {
+              "AWS": "arn:aws:iam::<ACCOUNT>:root"
+            },
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::<BUCKET>/unrelated-owner-prefix/*"
+          },
+          {
+            "Sid": "AWSLogDeliveryWrite1",
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "delivery.logs.amazonaws.com"
+            },
+            "Action": "s3:PutObject",
+            "Resource": "arn:aws:s3:::<BUCKET>/AWSLogs/<ACCOUNT>/*",
+            "Condition": {
+              "StringEquals": {
+                "aws:SourceAccount": "<ACCOUNT>",
+                "s3:x-amz-acl": "bucket-owner-full-control"
+              },
+              "ArnLike": {
+                "aws:SourceArn": "arn:aws:logs:us-east-1:<ACCOUNT>:*"
+              }
+            }
+          },
+          {
+            "Sid": "AWSLogDeliveryAclCheck1",
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "delivery.logs.amazonaws.com"
+            },
+            "Action": "s3:GetBucketAcl",
+            "Resource": "arn:aws:s3:::<BUCKET>",
+            "Condition": {
+              "StringEquals": {
+                "aws:SourceAccount": "<ACCOUNT>"
+              },
+              "ArnLike": {
+                "aws:SourceArn": "arn:aws:logs:us-east-1:<ACCOUNT>:*"
+              }
+            }
+          }
+        ]
+      },
+      "unrelatedStatementPreserved": true,
+      "sequence": {
+        "A_baseline": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        "B_secondVpcSameToken": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>",
+              "<FLOWLOG_2>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        "C_firstVpcReplayAfterB": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>",
+              "<FLOWLOG_2>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        "D_changedDestinationPrefix": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>",
+              "<FLOWLOG_2>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        "E_baselineWithFreshToken": {
+          "code": "FlowLogAlreadyExists",
+          "message": "Error. There is an existing Flow Log with the same configuration and log destination."
+        },
+        "F_baselineReplayAfterOriginalDelete": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_3>",
+              "<FLOWLOG_2>"
+            ],
+            "Unsuccessful": []
+          }
+        }
+      },
+      "replayVariants": {
+        "B_secondVpcSameToken": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>",
+              "<FLOWLOG_2>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        "C_firstVpcReplayAfterB": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>",
+              "<FLOWLOG_2>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        "D_changedDestinationPrefix": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>",
+              "<FLOWLOG_2>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        "E_baselineWithFreshToken": {
+          "code": "FlowLogAlreadyExists",
+          "message": "Error. There is an existing Flow Log with the same configuration and log destination."
+        }
+      },
+      "describeFinal": {
+        "FlowLogs": [
+          {
+            "CreationTime": "2026-10-15T16:35:45.596000+00:00",
+            "DeliverLogsStatus": "SUCCESS",
+            "FlowLogId": "<FLOWLOG_3>",
+            "FlowLogStatus": "ACTIVE",
+            "ResourceId": "<VPC>",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+            "Tags": [
+              {
+                "Key": "Calibration",
+                "Value": "original"
+              }
+            ],
+            "MaxAggregationInterval": 600,
+            "DestinationOptions": {
+              "FileFormat": "plain-text",
+              "HiveCompatiblePartitions": false,
+              "PerHourPartition": false
+            }
+          }
+        ]
+      },
+      "secondVpcFlows": {
+        "FlowLogs": [
+          {
+            "CreationTime": "2026-10-15T16:35:39.190000+00:00",
+            "DeliverLogsStatus": "SUCCESS",
+            "FlowLogId": "<FLOWLOG_2>",
+            "FlowLogStatus": "ACTIVE",
+            "ResourceId": "<SECOND_VPC>",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+            "Tags": [
+              {
+                "Key": "Calibration",
+                "Value": "original"
+              }
+            ],
+            "MaxAggregationInterval": 600,
+            "DestinationOptions": {
+              "FileFormat": "plain-text",
+              "HiveCompatiblePartitions": false,
+              "PerHourPartition": false
+            }
+          }
+        ]
+      },
+      "afterOriginalDelete": {
+        "FlowLogs": [
+          {
+            "CreationTime": "2026-10-15T16:35:39.190000+00:00",
+            "DeliverLogsStatus": "SUCCESS",
+            "FlowLogId": "<FLOWLOG_2>",
+            "FlowLogStatus": "ACTIVE",
+            "ResourceId": "<SECOND_VPC>",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+            "Tags": [
+              {
+                "Key": "Calibration",
+                "Value": "original"
+              }
+            ],
+            "MaxAggregationInterval": 600,
+            "DestinationOptions": {
+              "FileFormat": "plain-text",
+              "HiveCompatiblePartitions": false,
+              "PerHourPartition": false
+            }
+          }
+        ]
+      },
+      "cleanup": {
+        "Calls": [
+          {
+            "service": "ec2",
+            "operation": "DescribeFlowLogs",
+            "input": {
+              "Filter": [
+                {
+                  "Name": "resource-id",
+                  "Values": [
+                    "<VPC>",
+                    "<SECOND_VPC>"
+                  ]
+                }
+              ]
+            },
+            "code": "Success",
+            "output": {
+              "FlowLogs": [
+                {
+                  "CreationTime": "2026-10-15T16:35:39.190000+00:00",
+                  "DeliverLogsStatus": "SUCCESS",
+                  "FlowLogId": "<FLOWLOG_2>",
+                  "FlowLogStatus": "ACTIVE",
+                  "ResourceId": "<SECOND_VPC>",
+                  "TrafficType": "ALL",
+                  "LogDestinationType": "s3",
+                  "LogDestination": "arn:aws:s3:::<BUCKET>",
+                  "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+                  "Tags": [
+                    {
+                      "Key": "Calibration",
+                      "Value": "original"
+                    }
+                  ],
+                  "MaxAggregationInterval": 600,
+                  "DestinationOptions": {
+                    "FileFormat": "plain-text",
+                    "HiveCompatiblePartitions": false,
+                    "PerHourPartition": false
+                  }
+                },
+                {
+                  "CreationTime": "2026-10-15T16:35:45.596000+00:00",
+                  "DeliverLogsStatus": "SUCCESS",
+                  "FlowLogId": "<FLOWLOG_3>",
+                  "FlowLogStatus": "ACTIVE",
+                  "ResourceId": "<VPC>",
+                  "TrafficType": "ALL",
+                  "LogDestinationType": "s3",
+                  "LogDestination": "arn:aws:s3:::<BUCKET>",
+                  "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+                  "Tags": [
+                    {
+                      "Key": "Calibration",
+                      "Value": "original"
+                    }
+                  ],
+                  "MaxAggregationInterval": 600,
+                  "DestinationOptions": {
+                    "FileFormat": "plain-text",
+                    "HiveCompatiblePartitions": false,
+                    "PerHourPartition": false
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "service": "ec2",
+            "operation": "DeleteFlowLogs",
+            "input": {
+              "FlowLogIds": [
+                "<FLOWLOG_2>",
+                "<FLOWLOG_3>"
+              ]
+            },
+            "code": "Success",
+            "output": {
+              "Unsuccessful": []
+            }
+          },
+          {
+            "service": "ec2",
+            "operation": "DescribeFlowLogs",
+            "input": {
+              "Filter": [
+                {
+                  "Name": "resource-id",
+                  "Values": [
+                    "<VPC>",
+                    "<SECOND_VPC>"
+                  ]
+                }
+              ]
+            },
+            "code": "Success",
+            "output": {
+              "FlowLogs": []
+            }
+          },
+          {
+            "service": "s3api",
+            "operation": "ListObjectsV2",
+            "input": {
+              "Bucket": "<BUCKET>",
+              "ExpectedBucketOwner": "<ACCOUNT>"
+            },
+            "code": "Success",
+            "output": {
+              "IsTruncated": false,
+              "Contents": [
+                {
+                  "Key": "AWSLogs/<ACCOUNT>/",
+                  "LastModified": "2026-10-15T16:35:46+00:00",
+                  "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+                  "ChecksumAlgorithm": [
+                    "CRC64NVME"
+                  ],
+                  "ChecksumType": "FULL_OBJECT",
+                  "Size": 0,
+                  "StorageClass": "STANDARD"
+                }
+              ],
+              "Name": "<BUCKET>",
+              "Prefix": "",
+              "MaxKeys": 1000,
+              "EncodingType": "url",
+              "KeyCount": 1
+            }
+          },
+          {
+            "service": "s3api",
+            "operation": "DeleteObjects",
+            "input": {
+              "Bucket": "<BUCKET>",
+              "ExpectedBucketOwner": "<ACCOUNT>",
+              "Delete": {
+                "Objects": [
+                  {
+                    "Key": "AWSLogs/<ACCOUNT>/"
+                  }
+                ]
+              }
+            },
+            "code": "Success",
+            "output": {
+              "Deleted": [
+                {
+                  "Key": "AWSLogs/<ACCOUNT>/"
+                }
+              ]
+            }
+          },
+          {
+            "service": "s3api",
+            "operation": "DeleteBucket",
+            "input": {
+              "Bucket": "<BUCKET>",
+              "ExpectedBucketOwner": "<ACCOUNT>"
+            },
+            "code": "Success",
+            "output": {}
+          },
+          {
+            "service": "s3api",
+            "operation": "HeadBucket",
+            "input": {
+              "Bucket": "<BUCKET>",
+              "ExpectedBucketOwner": "<ACCOUNT>"
+            },
+            "code": "404",
+            "message": "Not Found"
+          },
+          {
+            "service": "ec2",
+            "operation": "DeleteVpc",
+            "input": {
+              "VpcId": "<VPC>"
+            },
+            "code": "Success",
+            "output": {}
+          },
+          {
+            "service": "ec2",
+            "operation": "DescribeVpcs",
+            "input": {
+              "VpcIds": [
+                "<VPC>"
+              ]
+            },
+            "code": "InvalidVpcID.NotFound",
+            "message": "The vpc ID '<VPC>' does not exist"
+          },
+          {
+            "service": "ec2",
+            "operation": "DeleteVpc",
+            "input": {
+              "VpcId": "<SECOND_VPC>"
+            },
+            "code": "Success",
+            "output": {}
+          },
+          {
+            "service": "ec2",
+            "operation": "DescribeVpcs",
+            "input": {
+              "VpcIds": [
+                "<SECOND_VPC>"
+              ]
+            },
+            "code": "InvalidVpcID.NotFound",
+            "message": "The vpc ID '<SECOND_VPC>' does not exist"
+          }
+        ],
+        "bucketAbsence": "404",
+        "vpcAbsence": "InvalidVpcID.NotFound",
+        "secondVpcAbsence": "InvalidVpcID.NotFound"
+      }
+    },
+    {
+      "label": "token_format_destination_identity",
+      "observedAt": "2026-10-15T16:37:07.592318+00:00",
+      "finishedAt": "2026-10-15T16:37:44.711120+00:00",
+      "accountVerified": true,
+      "Calls": [
+        {
+          "service": "s3api",
+          "operation": "PutBucketPolicy",
+          "input": {
+            "Bucket": "<BUCKET>",
+            "ExpectedBucketOwner": "<ACCOUNT>",
+            "Policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Sid\": \"UnrelatedOwnerReadOnly\", \"Effect\": \"Allow\", \"Principal\": {\"AWS\": \"arn:aws:iam::<ACCOUNT>:root\"}, \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:::<BUCKET>/unrelated-owner-prefix/*\"}]}"
+          },
+          "code": "Success",
+          "output": {}
+        },
+        {
+          "service": "s3api",
+          "operation": "GetBucketPolicy",
+          "input": {
+            "Bucket": "<BUCKET>",
+            "ExpectedBucketOwner": "<ACCOUNT>"
+          },
+          "code": "Success",
+          "output": {
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"UnrelatedOwnerReadOnly\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::<ACCOUNT>:root\"},\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::<BUCKET>/unrelated-owner-prefix/*\"}]}"
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "REJECT",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<FRESH_CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<FRESH_CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_2>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ]
+              }
+            ],
+            "LogFormat": "${interface-id}"
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_3>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<SECOND_BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<SECOND_VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>",
+            "TagSpecifications": [
+              {
+                "ResourceType": "<VPC>low-log",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ]
+              }
+            ],
+            "LogFormat": "${interface-id}"
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_3>",
+              "<FLOWLOG_4>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "DescribeFlowLogs",
+          "input": {
+            "Filter": [
+              {
+                "Name": "resource-id",
+                "Values": [
+                  "<SECOND_VPC>"
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "FlowLogs": [
+              {
+                "CreationTime": "2026-10-15T16:37:28.697000+00:00",
+                "DeliverLogsStatus": "SUCCESS",
+                "FlowLogId": "<FLOWLOG_4>",
+                "FlowLogStatus": "ACTIVE",
+                "ResourceId": "<SECOND_VPC>",
+                "TrafficType": "ALL",
+                "LogDestinationType": "s3",
+                "LogDestination": "arn:aws:s3:::<BUCKET>",
+                "LogFormat": "${interface-id}",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ],
+                "MaxAggregationInterval": 600,
+                "DestinationOptions": {
+                  "FileFormat": "plain-text",
+                  "HiveCompatiblePartitions": false,
+                  "PerHourPartition": false
+                }
+              }
+            ]
+          }
+        },
+        {
+          "service": "ec2",
+          "operation": "DescribeFlowLogs",
+          "input": {
+            "Filter": [
+              {
+                "Name": "resource-id",
+                "Values": [
+                  "<VPC>"
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "FlowLogs": [
+              {
+                "CreationTime": "2026-10-15T16:37:15.656000+00:00",
+                "DeliverLogsStatus": "SUCCESS",
+                "FlowLogId": "<FLOWLOG_1>",
+                "FlowLogStatus": "ACTIVE",
+                "ResourceId": "<VPC>",
+                "TrafficType": "ALL",
+                "LogDestinationType": "s3",
+                "LogDestination": "arn:aws:s3:::<BUCKET>",
+                "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ],
+                "MaxAggregationInterval": 600,
+                "DestinationOptions": {
+                  "FileFormat": "plain-text",
+                  "HiveCompatiblePartitions": false,
+                  "PerHourPartition": false
+                }
+              },
+              {
+                "CreationTime": "2026-10-15T16:37:23.855000+00:00",
+                "DeliverLogsStatus": "SUCCESS",
+                "FlowLogId": "<FLOWLOG_2>",
+                "FlowLogStatus": "ACTIVE",
+                "ResourceId": "<VPC>",
+                "TrafficType": "REJECT",
+                "LogDestinationType": "s3",
+                "LogDestination": "arn:aws:s3:::<BUCKET>",
+                "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ],
+                "MaxAggregationInterval": 600,
+                "DestinationOptions": {
+                  "FileFormat": "plain-text",
+                  "HiveCompatiblePartitions": false,
+                  "PerHourPartition": false
+                }
+              },
+              {
+                "CreationTime": "2026-10-15T16:37:25.202000+00:00",
+                "DeliverLogsStatus": "SUCCESS",
+                "FlowLogId": "<FLOWLOG_3>",
+                "FlowLogStatus": "ACTIVE",
+                "ResourceId": "<VPC>",
+                "TrafficType": "ALL",
+                "LogDestinationType": "s3",
+                "LogDestination": "arn:aws:s3:::<BUCKET>",
+                "LogFormat": "${interface-id}",
+                "Tags": [
+                  {
+                    "Key": "Calibration",
+                    "Value": "original"
+                  }
+                ],
+                "MaxAggregationInterval": 600,
+                "DestinationOptions": {
+                  "FileFormat": "plain-text",
+                  "HiveCompatiblePartitions": false,
+                  "PerHourPartition": false
+                }
+              }
+            ]
+          }
+        },
+        {
+          "service": "s3api",
+          "operation": "GetBucketPolicy",
+          "input": {
+            "Bucket": "<BUCKET>",
+            "ExpectedBucketOwner": "<ACCOUNT>"
+          },
+          "code": "Success",
+          "output": {
+            "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"UnrelatedOwnerReadOnly\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::<ACCOUNT>:root\"},\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::<BUCKET>/unrelated-owner-prefix/*\"},{\"Sid\":\"AWSLogDeliveryWrite1\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"delivery.logs.amazonaws.com\"},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::<BUCKET>/AWSLogs/<ACCOUNT>/*\",\"Condition\":{\"StringEquals\":{\"s3:x-amz-acl\":\"bucket-owner-full-control\",\"aws:SourceAccount\":\"<ACCOUNT>\"},\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:logs:us-east-1:<ACCOUNT>:*\"}}},{\"Sid\":\"AWSLogDeliveryAclCheck1\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"delivery.logs.amazonaws.com\"},\"Action\":\"s3:GetBucketAcl\",\"Resource\":\"arn:aws:s3:::<BUCKET>\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"<ACCOUNT>\"},\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:logs:us-east-1:<ACCOUNT>:*\"}}}]}"
+          }
+        }
+      ],
+      "policyBefore": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "UnrelatedOwnerReadOnly",
+            "Effect": "Allow",
+            "Principal": {
+              "AWS": "arn:aws:iam::<ACCOUNT>:root"
+            },
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::<BUCKET>/unrelated-owner-prefix/*"
+          }
+        ]
+      },
+      "policyAfter": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "UnrelatedOwnerReadOnly",
+            "Effect": "Allow",
+            "Principal": {
+              "AWS": "arn:aws:iam::<ACCOUNT>:root"
+            },
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::<BUCKET>/unrelated-owner-prefix/*"
+          },
+          {
+            "Sid": "AWSLogDeliveryWrite1",
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "delivery.logs.amazonaws.com"
+            },
+            "Action": "s3:PutObject",
+            "Resource": "arn:aws:s3:::<BUCKET>/AWSLogs/<ACCOUNT>/*",
+            "Condition": {
+              "StringEquals": {
+                "s3:x-amz-acl": "bucket-owner-full-control",
+                "aws:SourceAccount": "<ACCOUNT>"
+              },
+              "ArnLike": {
+                "aws:SourceArn": "arn:aws:logs:us-east-1:<ACCOUNT>:*"
+              }
+            }
+          },
+          {
+            "Sid": "AWSLogDeliveryAclCheck1",
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "delivery.logs.amazonaws.com"
+            },
+            "Action": "s3:GetBucketAcl",
+            "Resource": "arn:aws:s3:::<BUCKET>",
+            "Condition": {
+              "StringEquals": {
+                "aws:SourceAccount": "<ACCOUNT>"
+              },
+              "ArnLike": {
+                "aws:SourceArn": "arn:aws:logs:us-east-1:<ACCOUNT>:*"
+              }
+            }
+          }
+        ]
+      },
+      "unrelatedStatementPreserved": true,
+      "sequence": {
+        "A_baseline": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        "B_freshTokenReject": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<FRESH_CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_2>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        "C_sameTokenCustomFormat": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_3>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        "D_originalTokenBaselineAfterCustom": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        "E_sameTokenDifferentBucket": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        "F_sameTokenCustomFormatSecondVpc": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_3>",
+              "<FLOWLOG_4>"
+            ],
+            "Unsuccessful": []
+          }
+        }
+      },
+      "replayVariants": {
+        "B_freshTokenReject": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<FRESH_CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_2>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        "C_sameTokenCustomFormat": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_3>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        "D_originalTokenBaselineAfterCustom": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        "E_sameTokenDifferentBucket": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          }
+        },
+        "F_sameTokenCustomFormatSecondVpc": {
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_3>",
+              "<FLOWLOG_4>"
+            ],
+            "Unsuccessful": []
+          }
+        }
+      },
+      "describeFinal": {
+        "FlowLogs": [
+          {
+            "CreationTime": "2026-10-15T16:37:15.656000+00:00",
+            "DeliverLogsStatus": "SUCCESS",
+            "FlowLogId": "<FLOWLOG_1>",
+            "FlowLogStatus": "ACTIVE",
+            "ResourceId": "<VPC>",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+            "Tags": [
+              {
+                "Key": "Calibration",
+                "Value": "original"
+              }
+            ],
+            "MaxAggregationInterval": 600,
+            "DestinationOptions": {
+              "FileFormat": "plain-text",
+              "HiveCompatiblePartitions": false,
+              "PerHourPartition": false
+            }
+          },
+          {
+            "CreationTime": "2026-10-15T16:37:23.855000+00:00",
+            "DeliverLogsStatus": "SUCCESS",
+            "FlowLogId": "<FLOWLOG_2>",
+            "FlowLogStatus": "ACTIVE",
+            "ResourceId": "<VPC>",
+            "TrafficType": "REJECT",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+            "Tags": [
+              {
+                "Key": "Calibration",
+                "Value": "original"
+              }
+            ],
+            "MaxAggregationInterval": 600,
+            "DestinationOptions": {
+              "FileFormat": "plain-text",
+              "HiveCompatiblePartitions": false,
+              "PerHourPartition": false
+            }
+          },
+          {
+            "CreationTime": "2026-10-15T16:37:25.202000+00:00",
+            "DeliverLogsStatus": "SUCCESS",
+            "FlowLogId": "<FLOWLOG_3>",
+            "FlowLogStatus": "ACTIVE",
+            "ResourceId": "<VPC>",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "LogFormat": "${interface-id}",
+            "Tags": [
+              {
+                "Key": "Calibration",
+                "Value": "original"
+              }
+            ],
+            "MaxAggregationInterval": 600,
+            "DestinationOptions": {
+              "FileFormat": "plain-text",
+              "HiveCompatiblePartitions": false,
+              "PerHourPartition": false
+            }
+          }
+        ]
+      },
+      "secondVpcFlows": {
+        "FlowLogs": [
+          {
+            "CreationTime": "2026-10-15T16:37:28.697000+00:00",
+            "DeliverLogsStatus": "SUCCESS",
+            "FlowLogId": "<FLOWLOG_4>",
+            "FlowLogStatus": "ACTIVE",
+            "ResourceId": "<SECOND_VPC>",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "LogFormat": "${interface-id}",
+            "Tags": [
+              {
+                "Key": "Calibration",
+                "Value": "original"
+              }
+            ],
+            "MaxAggregationInterval": 600,
+            "DestinationOptions": {
+              "FileFormat": "plain-text",
+              "HiveCompatiblePartitions": false,
+              "PerHourPartition": false
+            }
+          }
+        ]
+      },
+      "cleanup": {
+        "Calls": [
+          {
+            "service": "ec2",
+            "operation": "DescribeFlowLogs",
+            "input": {
+              "Filter": [
+                {
+                  "Name": "resource-id",
+                  "Values": [
+                    "<VPC>",
+                    "<SECOND_VPC>"
+                  ]
+                }
+              ]
+            },
+            "code": "Success",
+            "output": {
+              "FlowLogs": [
+                {
+                  "CreationTime": "2026-10-15T16:37:15.656000+00:00",
+                  "DeliverLogsStatus": "SUCCESS",
+                  "FlowLogId": "<FLOWLOG_1>",
+                  "FlowLogStatus": "ACTIVE",
+                  "ResourceId": "<VPC>",
+                  "TrafficType": "ALL",
+                  "LogDestinationType": "s3",
+                  "LogDestination": "arn:aws:s3:::<BUCKET>",
+                  "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+                  "Tags": [
+                    {
+                      "Key": "Calibration",
+                      "Value": "original"
+                    }
+                  ],
+                  "MaxAggregationInterval": 600,
+                  "DestinationOptions": {
+                    "FileFormat": "plain-text",
+                    "HiveCompatiblePartitions": false,
+                    "PerHourPartition": false
+                  }
+                },
+                {
+                  "CreationTime": "2026-10-15T16:37:23.855000+00:00",
+                  "DeliverLogsStatus": "SUCCESS",
+                  "FlowLogId": "<FLOWLOG_2>",
+                  "FlowLogStatus": "ACTIVE",
+                  "ResourceId": "<VPC>",
+                  "TrafficType": "REJECT",
+                  "LogDestinationType": "s3",
+                  "LogDestination": "arn:aws:s3:::<BUCKET>",
+                  "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+                  "Tags": [
+                    {
+                      "Key": "Calibration",
+                      "Value": "original"
+                    }
+                  ],
+                  "MaxAggregationInterval": 600,
+                  "DestinationOptions": {
+                    "FileFormat": "plain-text",
+                    "HiveCompatiblePartitions": false,
+                    "PerHourPartition": false
+                  }
+                },
+                {
+                  "CreationTime": "2026-10-15T16:37:25.202000+00:00",
+                  "DeliverLogsStatus": "SUCCESS",
+                  "FlowLogId": "<FLOWLOG_3>",
+                  "FlowLogStatus": "ACTIVE",
+                  "ResourceId": "<VPC>",
+                  "TrafficType": "ALL",
+                  "LogDestinationType": "s3",
+                  "LogDestination": "arn:aws:s3:::<BUCKET>",
+                  "LogFormat": "${interface-id}",
+                  "Tags": [
+                    {
+                      "Key": "Calibration",
+                      "Value": "original"
+                    }
+                  ],
+                  "MaxAggregationInterval": 600,
+                  "DestinationOptions": {
+                    "FileFormat": "plain-text",
+                    "HiveCompatiblePartitions": false,
+                    "PerHourPartition": false
+                  }
+                },
+                {
+                  "CreationTime": "2026-10-15T16:37:28.697000+00:00",
+                  "DeliverLogsStatus": "SUCCESS",
+                  "FlowLogId": "<FLOWLOG_4>",
+                  "FlowLogStatus": "ACTIVE",
+                  "ResourceId": "<SECOND_VPC>",
+                  "TrafficType": "ALL",
+                  "LogDestinationType": "s3",
+                  "LogDestination": "arn:aws:s3:::<BUCKET>",
+                  "LogFormat": "${interface-id}",
+                  "Tags": [
+                    {
+                      "Key": "Calibration",
+                      "Value": "original"
+                    }
+                  ],
+                  "MaxAggregationInterval": 600,
+                  "DestinationOptions": {
+                    "FileFormat": "plain-text",
+                    "HiveCompatiblePartitions": false,
+                    "PerHourPartition": false
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "service": "ec2",
+            "operation": "DeleteFlowLogs",
+            "input": {
+              "FlowLogIds": [
+                "<FLOWLOG_1>",
+                "<FLOWLOG_2>",
+                "<FLOWLOG_3>",
+                "<FLOWLOG_4>"
+              ]
+            },
+            "code": "Success",
+            "output": {
+              "Unsuccessful": []
+            }
+          },
+          {
+            "service": "ec2",
+            "operation": "DescribeFlowLogs",
+            "input": {
+              "Filter": [
+                {
+                  "Name": "resource-id",
+                  "Values": [
+                    "<VPC>",
+                    "<SECOND_VPC>"
+                  ]
+                }
+              ]
+            },
+            "code": "Success",
+            "output": {
+              "FlowLogs": []
+            }
+          },
+          {
+            "service": "s3api",
+            "operation": "ListObjectsV2",
+            "input": {
+              "Bucket": "<BUCKET>",
+              "ExpectedBucketOwner": "<ACCOUNT>"
+            },
+            "code": "Success",
+            "output": {
+              "IsTruncated": false,
+              "Contents": [
+                {
+                  "Key": "AWSLogs/<ACCOUNT>/",
+                  "LastModified": "2026-10-15T16:37:29+00:00",
+                  "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+                  "ChecksumAlgorithm": [
+                    "CRC64NVME"
+                  ],
+                  "ChecksumType": "FULL_OBJECT",
+                  "Size": 0,
+                  "StorageClass": "STANDARD"
+                }
+              ],
+              "Name": "<BUCKET>",
+              "Prefix": "",
+              "MaxKeys": 1000,
+              "EncodingType": "url",
+              "KeyCount": 1
+            }
+          },
+          {
+            "service": "s3api",
+            "operation": "DeleteObjects",
+            "input": {
+              "Bucket": "<BUCKET>",
+              "ExpectedBucketOwner": "<ACCOUNT>",
+              "Delete": {
+                "Objects": [
+                  {
+                    "Key": "AWSLogs/<ACCOUNT>/"
+                  }
+                ]
+              }
+            },
+            "code": "Success",
+            "output": {
+              "Deleted": [
+                {
+                  "Key": "AWSLogs/<ACCOUNT>/"
+                }
+              ]
+            }
+          },
+          {
+            "service": "s3api",
+            "operation": "DeleteBucket",
+            "input": {
+              "Bucket": "<BUCKET>",
+              "ExpectedBucketOwner": "<ACCOUNT>"
+            },
+            "code": "Success",
+            "output": {}
+          },
+          {
+            "service": "s3api",
+            "operation": "HeadBucket",
+            "input": {
+              "Bucket": "<BUCKET>",
+              "ExpectedBucketOwner": "<ACCOUNT>"
+            },
+            "code": "404",
+            "message": "Not Found"
+          },
+          {
+            "service": "s3api",
+            "operation": "ListObjectsV2",
+            "input": {
+              "Bucket": "<SECOND_BUCKET>",
+              "ExpectedBucketOwner": "<ACCOUNT>"
+            },
+            "code": "Success",
+            "output": {
+              "IsTruncated": false,
+              "Name": "<SECOND_BUCKET>",
+              "Prefix": "",
+              "MaxKeys": 1000,
+              "EncodingType": "url",
+              "KeyCount": 0
+            }
+          },
+          {
+            "service": "s3api",
+            "operation": "DeleteBucket",
+            "input": {
+              "Bucket": "<SECOND_BUCKET>",
+              "ExpectedBucketOwner": "<ACCOUNT>"
+            },
+            "code": "Success",
+            "output": {}
+          },
+          {
+            "service": "s3api",
+            "operation": "HeadBucket",
+            "input": {
+              "Bucket": "<SECOND_BUCKET>",
+              "ExpectedBucketOwner": "<ACCOUNT>"
+            },
+            "code": "404",
+            "message": "Not Found"
+          },
+          {
+            "service": "ec2",
+            "operation": "DeleteVpc",
+            "input": {
+              "VpcId": "<VPC>"
+            },
+            "code": "Success",
+            "output": {}
+          },
+          {
+            "service": "ec2",
+            "operation": "DescribeVpcs",
+            "input": {
+              "VpcIds": [
+                "<VPC>"
+              ]
+            },
+            "code": "InvalidVpcID.NotFound",
+            "message": "The vpc ID '<VPC>' does not exist"
+          },
+          {
+            "service": "ec2",
+            "operation": "DeleteVpc",
+            "input": {
+              "VpcId": "<SECOND_VPC>"
+            },
+            "code": "Success",
+            "output": {}
+          },
+          {
+            "service": "ec2",
+            "operation": "DescribeVpcs",
+            "input": {
+              "VpcIds": [
+                "<SECOND_VPC>"
+              ]
+            },
+            "code": "InvalidVpcID.NotFound",
+            "message": "The vpc ID '<SECOND_VPC>' does not exist"
+          }
+        ],
+        "bucketAbsence": "404",
+        "vpcAbsence": "InvalidVpcID.NotFound",
+        "secondBucketAbsence": "404",
+        "secondVpcAbsence": "InvalidVpcID.NotFound"
+      }
+    },
+    {
+      "label": "native_delivery_marker",
+      "observedAt": "2026-10-15T16:39:52.574479+00:00",
+      "finishedAt": "2026-10-15T16:41:33.923913+00:00",
+      "accountVerified": true,
+      "Calls": [
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>"
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          },
+          "observedAt": "2026-10-15T16:39:58.078798+00:00"
+        },
+        {
+          "service": "s3api",
+          "operation": "GetBucketPolicy",
+          "input": {
+            "Bucket": "<BUCKET>",
+            "ExpectedBucketOwner": "<ACCOUNT>"
+          },
+          "code": "Success",
+          "output": {
+            "Policy": "{\"Version\":\"2012-10-17\",\"Id\":\"AWSLogDeliveryWrite20150319\",\"Statement\":[{\"Sid\":\"AWSLogDeliveryWrite1\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"delivery.logs.amazonaws.com\"},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::<BUCKET>/AWSLogs/<ACCOUNT>/*\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"<ACCOUNT>\",\"s3:x-amz-acl\":\"bucket-owner-full-control\"},\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:logs:us-east-1:<ACCOUNT>:*\"}}},{\"Sid\":\"AWSLogDeliveryAclCheck1\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"delivery.logs.amazonaws.com\"},\"Action\":\"s3:GetBucketAcl\",\"Resource\":\"arn:aws:s3:::<BUCKET>\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"<ACCOUNT>\"},\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:logs:us-east-1:<ACCOUNT>:*\"}}}]}"
+          },
+          "observedAt": "2026-10-15T16:39:58.799565+00:00"
+        },
+        {
+          "service": "s3api",
+          "operation": "HeadObject",
+          "input": {
+            "Bucket": "<BUCKET>",
+            "Key": "AWSLogs/<ACCOUNT>/",
+            "ExpectedBucketOwner": "<ACCOUNT>"
+          },
+          "code": "Success",
+          "output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-10-15T16:39:58+00:00",
+            "ContentLength": 0,
+            "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+            "ContentType": "application/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "observedAt": "2026-10-15T16:40:00.337688+00:00"
+        },
+        {
+          "service": "s3api",
+          "operation": "GetObjectAcl",
+          "input": {
+            "Bucket": "<BUCKET>",
+            "Key": "AWSLogs/<ACCOUNT>/",
+            "ExpectedBucketOwner": "<ACCOUNT>"
+          },
+          "code": "Success",
+          "output": {
+            "Owner": {
+              "ID": "<CANONICAL_OWNER>"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "<CANONICAL_OWNER>",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          },
+          "observedAt": "2026-10-15T16:40:01.160983+00:00"
+        },
+        {
+          "service": "s3api",
+          "operation": "GetBucketPolicy",
+          "input": {
+            "Bucket": "<BUCKET>",
+            "ExpectedBucketOwner": "<ACCOUNT>"
+          },
+          "code": "Success",
+          "output": {
+            "Policy": "{\"Version\":\"2012-10-17\",\"Id\":\"AWSLogDeliveryWrite20150319\",\"Statement\":[{\"Sid\":\"AWSLogDeliveryWrite1\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"delivery.logs.amazonaws.com\"},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::<BUCKET>/AWSLogs/<ACCOUNT>/*\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"<ACCOUNT>\",\"s3:x-amz-acl\":\"bucket-owner-full-control\"},\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:logs:us-east-1:<ACCOUNT>:*\"}}},{\"Sid\":\"AWSLogDeliveryAclCheck1\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"delivery.logs.amazonaws.com\"},\"Action\":\"s3:GetBucketAcl\",\"Resource\":\"arn:aws:s3:::<BUCKET>\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"<ACCOUNT>\"},\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:logs:us-east-1:<ACCOUNT>:*\"}}}]}"
+          },
+          "observedAt": "2026-10-15T16:40:40.237811+00:00"
+        },
+        {
+          "service": "ec2",
+          "operation": "DescribeFlowLogs",
+          "input": {
+            "Filter": [
+              {
+                "Name": "resource-id",
+                "Values": [
+                  "<VPC>"
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "FlowLogs": [
+              {
+                "CreationTime": "2026-10-15T16:39:57.492000+00:00",
+                "DeliverLogsStatus": "SUCCESS",
+                "FlowLogId": "<FLOWLOG_1>",
+                "FlowLogStatus": "ACTIVE",
+                "ResourceId": "<VPC>",
+                "TrafficType": "ALL",
+                "LogDestinationType": "s3",
+                "LogDestination": "arn:aws:s3:::<BUCKET>",
+                "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+                "Tags": [],
+                "MaxAggregationInterval": 600,
+                "DestinationOptions": {
+                  "FileFormat": "plain-text",
+                  "HiveCompatiblePartitions": false,
+                  "PerHourPartition": false
+                }
+              }
+            ]
+          },
+          "observedAt": "2026-10-15T16:40:41.217118+00:00"
+        },
+        {
+          "service": "ec2",
+          "operation": "CreateFlowLogs",
+          "input": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>/custom-prefix",
+            "ClientToken": "<HIVE_CLIENT_TOKEN>",
+            "LogFormat": "${interface-id}",
+            "DestinationOptions": {
+              "FileFormat": "plain-text",
+              "HiveCompatiblePartitions": true,
+              "PerHourPartition": true
+            }
+          },
+          "code": "Success",
+          "output": {
+            "ClientToken": "<HIVE_CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_2>"
+            ],
+            "Unsuccessful": []
+          },
+          "observedAt": "2026-10-15T16:40:42.796358+00:00"
+        },
+        {
+          "service": "s3api",
+          "operation": "GetBucketPolicy",
+          "input": {
+            "Bucket": "<BUCKET>",
+            "ExpectedBucketOwner": "<ACCOUNT>"
+          },
+          "code": "Success",
+          "output": {
+            "Policy": "{\"Version\":\"2012-10-17\",\"Id\":\"AWSLogDeliveryWrite20150319\",\"Statement\":[{\"Sid\":\"AWSLogDeliveryWrite1\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"delivery.logs.amazonaws.com\"},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::<BUCKET>/AWSLogs/<ACCOUNT>/*\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"<ACCOUNT>\",\"s3:x-amz-acl\":\"bucket-owner-full-control\"},\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:logs:us-east-1:<ACCOUNT>:*\"}}},{\"Sid\":\"AWSLogDeliveryAclCheck1\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"delivery.logs.amazonaws.com\"},\"Action\":\"s3:GetBucketAcl\",\"Resource\":\"arn:aws:s3:::<BUCKET>\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"<ACCOUNT>\"},\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:logs:us-east-1:<ACCOUNT>:*\"}}},{\"Sid\":\"AWSLogDeliveryWrite2\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"delivery.logs.amazonaws.com\"},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::<BUCKET>/custom-prefix/AWSLogs/aws-account-id=<ACCOUNT>/*\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"<ACCOUNT>\",\"s3:x-amz-acl\":\"bucket-owner-full-control\"},\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:logs:us-east-1:<ACCOUNT>:*\"}}}]}"
+          },
+          "observedAt": "2026-10-15T16:40:43.694508+00:00"
+        },
+        {
+          "service": "s3api",
+          "operation": "HeadObject",
+          "input": {
+            "Bucket": "<BUCKET>",
+            "Key": "AWSLogs/<ACCOUNT>/",
+            "ExpectedBucketOwner": "<ACCOUNT>"
+          },
+          "code": "Success",
+          "output": {
+            "AcceptRanges": "bytes",
+            "LastModified": "2026-10-15T16:39:58+00:00",
+            "ContentLength": 0,
+            "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+            "ContentType": "application/octet-stream",
+            "ServerSideEncryption": "AES256",
+            "Metadata": {}
+          },
+          "observedAt": "2026-10-15T16:40:45.225323+00:00"
+        },
+        {
+          "service": "s3api",
+          "operation": "GetObjectAcl",
+          "input": {
+            "Bucket": "<BUCKET>",
+            "Key": "AWSLogs/<ACCOUNT>/",
+            "ExpectedBucketOwner": "<ACCOUNT>"
+          },
+          "code": "Success",
+          "output": {
+            "Owner": {
+              "ID": "<CANONICAL_OWNER>"
+            },
+            "Grants": [
+              {
+                "Grantee": {
+                  "ID": "<CANONICAL_OWNER>",
+                  "Type": "CanonicalUser"
+                },
+                "Permission": "FULL_CONTROL"
+              }
+            ]
+          },
+          "observedAt": "2026-10-15T16:40:45.941917+00:00"
+        },
+        {
+          "service": "s3api",
+          "operation": "GetBucketPolicy",
+          "input": {
+            "Bucket": "<BUCKET>",
+            "ExpectedBucketOwner": "<ACCOUNT>"
+          },
+          "code": "Success",
+          "output": {
+            "Policy": "{\"Version\":\"2012-10-17\",\"Id\":\"AWSLogDeliveryWrite20150319\",\"Statement\":[{\"Sid\":\"AWSLogDeliveryWrite1\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"delivery.logs.amazonaws.com\"},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::<BUCKET>/AWSLogs/<ACCOUNT>/*\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"<ACCOUNT>\",\"s3:x-amz-acl\":\"bucket-owner-full-control\"},\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:logs:us-east-1:<ACCOUNT>:*\"}}},{\"Sid\":\"AWSLogDeliveryAclCheck1\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"delivery.logs.amazonaws.com\"},\"Action\":\"s3:GetBucketAcl\",\"Resource\":\"arn:aws:s3:::<BUCKET>\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"<ACCOUNT>\"},\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:logs:us-east-1:<ACCOUNT>:*\"}}},{\"Sid\":\"AWSLogDeliveryWrite2\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"delivery.logs.amazonaws.com\"},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::<BUCKET>/custom-prefix/AWSLogs/aws-account-id=<ACCOUNT>/*\",\"Condition\":{\"StringEquals\":{\"aws:SourceAccount\":\"<ACCOUNT>\",\"s3:x-amz-acl\":\"bucket-owner-full-control\"},\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:logs:us-east-1:<ACCOUNT>:*\"}}}]}"
+          },
+          "observedAt": "2026-10-15T16:41:24.907437+00:00"
+        },
+        {
+          "service": "ec2",
+          "operation": "DescribeFlowLogs",
+          "input": {
+            "Filter": [
+              {
+                "Name": "resource-id",
+                "Values": [
+                  "<VPC>"
+                ]
+              }
+            ]
+          },
+          "code": "Success",
+          "output": {
+            "FlowLogs": [
+              {
+                "CreationTime": "2026-10-15T16:39:57.492000+00:00",
+                "DeliverLogsStatus": "SUCCESS",
+                "FlowLogId": "<FLOWLOG_1>",
+                "FlowLogStatus": "ACTIVE",
+                "ResourceId": "<VPC>",
+                "TrafficType": "ALL",
+                "LogDestinationType": "s3",
+                "LogDestination": "arn:aws:s3:::<BUCKET>",
+                "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+                "Tags": [],
+                "MaxAggregationInterval": 600,
+                "DestinationOptions": {
+                  "FileFormat": "plain-text",
+                  "HiveCompatiblePartitions": false,
+                  "PerHourPartition": false
+                }
+              },
+              {
+                "CreationTime": "2026-10-15T16:40:42.288000+00:00",
+                "DeliverLogsStatus": "SUCCESS",
+                "FlowLogId": "<FLOWLOG_2>",
+                "FlowLogStatus": "ACTIVE",
+                "ResourceId": "<VPC>",
+                "TrafficType": "ALL",
+                "LogDestinationType": "s3",
+                "LogDestination": "arn:aws:s3:::<BUCKET>/custom-prefix",
+                "LogFormat": "${interface-id}",
+                "Tags": [],
+                "MaxAggregationInterval": 600,
+                "DestinationOptions": {
+                  "FileFormat": "plain-text",
+                  "HiveCompatiblePartitions": true,
+                  "PerHourPartition": true
+                }
+              }
+            ]
+          },
+          "observedAt": "2026-10-15T16:41:25.750414+00:00"
+        }
+      ],
+      "phases": {
+        "default": {
+          "createRequest": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>",
+            "ClientToken": "<CLIENT_TOKEN>"
+          },
+          "createResponse": {
+            "ClientToken": "<CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_1>"
+            ],
+            "Unsuccessful": []
+          },
+          "objects": {
+            "AWSLogs/<ACCOUNT>/": {
+              "firstObservedElapsedSeconds": 3.109,
+              "listing": {
+                "Key": "AWSLogs/<ACCOUNT>/",
+                "LastModified": "2026-10-15T16:39:58+00:00",
+                "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "ChecksumType": "FULL_OBJECT",
+                "Size": 0,
+                "StorageClass": "STANDARD"
+              },
+              "head": {
+                "code": "Success",
+                "output": {
+                  "AcceptRanges": "bytes",
+                  "LastModified": "2026-10-15T16:39:58+00:00",
+                  "ContentLength": 0,
+                  "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+                  "ContentType": "application/octet-stream",
+                  "ServerSideEncryption": "AES256",
+                  "Metadata": {}
+                }
+              },
+              "acl": {
+                "code": "Success",
+                "output": {
+                  "Owner": {
+                    "ID": "<CANONICAL_OWNER>"
+                  },
+                  "Grants": [
+                    {
+                      "Grantee": {
+                        "ID": "<CANONICAL_OWNER>",
+                        "Type": "CanonicalUser"
+                      },
+                      "Permission": "FULL_CONTROL"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "policyAfterCreate": {
+            "Version": "2012-10-17",
+            "Id": "AWSLogDeliveryWrite20150319",
+            "Statement": [
+              {
+                "Sid": "AWSLogDeliveryWrite1",
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "delivery.logs.amazonaws.com"
+                },
+                "Action": "s3:PutObject",
+                "Resource": "arn:aws:s3:::<BUCKET>/AWSLogs/<ACCOUNT>/*",
+                "Condition": {
+                  "StringEquals": {
+                    "aws:SourceAccount": "<ACCOUNT>",
+                    "s3:x-amz-acl": "bucket-owner-full-control"
+                  },
+                  "ArnLike": {
+                    "aws:SourceArn": "arn:aws:logs:us-east-1:<ACCOUNT>:*"
+                  }
+                }
+              },
+              {
+                "Sid": "AWSLogDeliveryAclCheck1",
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "delivery.logs.amazonaws.com"
+                },
+                "Action": "s3:GetBucketAcl",
+                "Resource": "arn:aws:s3:::<BUCKET>",
+                "Condition": {
+                  "StringEquals": {
+                    "aws:SourceAccount": "<ACCOUNT>"
+                  },
+                  "ArnLike": {
+                    "aws:SourceArn": "arn:aws:logs:us-east-1:<ACCOUNT>:*"
+                  }
+                }
+              }
+            ]
+          },
+          "policyFinal": {
+            "Version": "2012-10-17",
+            "Id": "AWSLogDeliveryWrite20150319",
+            "Statement": [
+              {
+                "Sid": "AWSLogDeliveryWrite1",
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "delivery.logs.amazonaws.com"
+                },
+                "Action": "s3:PutObject",
+                "Resource": "arn:aws:s3:::<BUCKET>/AWSLogs/<ACCOUNT>/*",
+                "Condition": {
+                  "StringEquals": {
+                    "aws:SourceAccount": "<ACCOUNT>",
+                    "s3:x-amz-acl": "bucket-owner-full-control"
+                  },
+                  "ArnLike": {
+                    "aws:SourceArn": "arn:aws:logs:us-east-1:<ACCOUNT>:*"
+                  }
+                }
+              },
+              {
+                "Sid": "AWSLogDeliveryAclCheck1",
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "delivery.logs.amazonaws.com"
+                },
+                "Action": "s3:GetBucketAcl",
+                "Resource": "arn:aws:s3:::<BUCKET>",
+                "Condition": {
+                  "StringEquals": {
+                    "aws:SourceAccount": "<ACCOUNT>"
+                  },
+                  "ArnLike": {
+                    "aws:SourceArn": "arn:aws:logs:us-east-1:<ACCOUNT>:*"
+                  }
+                }
+              }
+            ]
+          },
+          "describe": {
+            "FlowLogs": [
+              {
+                "CreationTime": "2026-10-15T16:39:57.492000+00:00",
+                "DeliverLogsStatus": "SUCCESS",
+                "FlowLogId": "<FLOWLOG_1>",
+                "FlowLogStatus": "ACTIVE",
+                "ResourceId": "<VPC>",
+                "TrafficType": "ALL",
+                "LogDestinationType": "s3",
+                "LogDestination": "arn:aws:s3:::<BUCKET>",
+                "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+                "Tags": [],
+                "MaxAggregationInterval": 600,
+                "DestinationOptions": {
+                  "FileFormat": "plain-text",
+                  "HiveCompatiblePartitions": false,
+                  "PerHourPartition": false
+                }
+              }
+            ]
+          },
+          "polls": [
+            {
+              "elapsedSeconds": 3.109,
+              "listing": {
+                "IsTruncated": false,
+                "Contents": [
+                  {
+                    "Key": "AWSLogs/<ACCOUNT>/",
+                    "LastModified": "2026-10-15T16:39:58+00:00",
+                    "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+                    "ChecksumAlgorithm": [
+                      "CRC64NVME"
+                    ],
+                    "ChecksumType": "FULL_OBJECT",
+                    "Size": 0,
+                    "StorageClass": "STANDARD"
+                  }
+                ],
+                "Name": "<BUCKET>",
+                "Prefix": "",
+                "MaxKeys": 1000,
+                "EncodingType": "url",
+                "KeyCount": 1
+              }
+            },
+            {
+              "elapsedSeconds": 43.036,
+              "listing": {
+                "IsTruncated": false,
+                "Contents": [
+                  {
+                    "Key": "AWSLogs/<ACCOUNT>/",
+                    "LastModified": "2026-10-15T16:39:58+00:00",
+                    "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+                    "ChecksumAlgorithm": [
+                      "CRC64NVME"
+                    ],
+                    "ChecksumType": "FULL_OBJECT",
+                    "Size": 0,
+                    "StorageClass": "STANDARD"
+                  }
+                ],
+                "Name": "<BUCKET>",
+                "Prefix": "",
+                "MaxKeys": 1000,
+                "EncodingType": "url",
+                "KeyCount": 1
+              }
+            }
+          ],
+          "pollCount": 11
+        },
+        "hiveHourlyCustomPrefix": {
+          "createRequest": {
+            "ResourceIds": [
+              "<VPC>"
+            ],
+            "ResourceType": "VPC",
+            "TrafficType": "ALL",
+            "LogDestinationType": "s3",
+            "LogDestination": "arn:aws:s3:::<BUCKET>/custom-prefix",
+            "ClientToken": "<HIVE_CLIENT_TOKEN>",
+            "LogFormat": "${interface-id}",
+            "DestinationOptions": {
+              "FileFormat": "plain-text",
+              "HiveCompatiblePartitions": true,
+              "PerHourPartition": true
+            }
+          },
+          "createResponse": {
+            "ClientToken": "<HIVE_CLIENT_TOKEN>",
+            "FlowLogIds": [
+              "<FLOWLOG_2>"
+            ],
+            "Unsuccessful": []
+          },
+          "objects": {
+            "AWSLogs/<ACCOUNT>/": {
+              "firstObservedElapsedSeconds": 3.246,
+              "listing": {
+                "Key": "AWSLogs/<ACCOUNT>/",
+                "LastModified": "2026-10-15T16:39:58+00:00",
+                "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+                "ChecksumAlgorithm": [
+                  "CRC64NVME"
+                ],
+                "ChecksumType": "FULL_OBJECT",
+                "Size": 0,
+                "StorageClass": "STANDARD"
+              },
+              "head": {
+                "code": "Success",
+                "output": {
+                  "AcceptRanges": "bytes",
+                  "LastModified": "2026-10-15T16:39:58+00:00",
+                  "ContentLength": 0,
+                  "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+                  "ContentType": "application/octet-stream",
+                  "ServerSideEncryption": "AES256",
+                  "Metadata": {}
+                }
+              },
+              "acl": {
+                "code": "Success",
+                "output": {
+                  "Owner": {
+                    "ID": "<CANONICAL_OWNER>"
+                  },
+                  "Grants": [
+                    {
+                      "Grantee": {
+                        "ID": "<CANONICAL_OWNER>",
+                        "Type": "CanonicalUser"
+                      },
+                      "Permission": "FULL_CONTROL"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "policyAfterCreate": {
+            "Version": "2012-10-17",
+            "Id": "AWSLogDeliveryWrite20150319",
+            "Statement": [
+              {
+                "Sid": "AWSLogDeliveryWrite1",
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "delivery.logs.amazonaws.com"
+                },
+                "Action": "s3:PutObject",
+                "Resource": "arn:aws:s3:::<BUCKET>/AWSLogs/<ACCOUNT>/*",
+                "Condition": {
+                  "StringEquals": {
+                    "aws:SourceAccount": "<ACCOUNT>",
+                    "s3:x-amz-acl": "bucket-owner-full-control"
+                  },
+                  "ArnLike": {
+                    "aws:SourceArn": "arn:aws:logs:us-east-1:<ACCOUNT>:*"
+                  }
+                }
+              },
+              {
+                "Sid": "AWSLogDeliveryAclCheck1",
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "delivery.logs.amazonaws.com"
+                },
+                "Action": "s3:GetBucketAcl",
+                "Resource": "arn:aws:s3:::<BUCKET>",
+                "Condition": {
+                  "StringEquals": {
+                    "aws:SourceAccount": "<ACCOUNT>"
+                  },
+                  "ArnLike": {
+                    "aws:SourceArn": "arn:aws:logs:us-east-1:<ACCOUNT>:*"
+                  }
+                }
+              },
+              {
+                "Sid": "AWSLogDeliveryWrite2",
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "delivery.logs.amazonaws.com"
+                },
+                "Action": "s3:PutObject",
+                "Resource": "arn:aws:s3:::<BUCKET>/custom-prefix/AWSLogs/aws-account-id=<ACCOUNT>/*",
+                "Condition": {
+                  "StringEquals": {
+                    "aws:SourceAccount": "<ACCOUNT>",
+                    "s3:x-amz-acl": "bucket-owner-full-control"
+                  },
+                  "ArnLike": {
+                    "aws:SourceArn": "arn:aws:logs:us-east-1:<ACCOUNT>:*"
+                  }
+                }
+              }
+            ]
+          },
+          "policyFinal": {
+            "Version": "2012-10-17",
+            "Id": "AWSLogDeliveryWrite20150319",
+            "Statement": [
+              {
+                "Sid": "AWSLogDeliveryWrite1",
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "delivery.logs.amazonaws.com"
+                },
+                "Action": "s3:PutObject",
+                "Resource": "arn:aws:s3:::<BUCKET>/AWSLogs/<ACCOUNT>/*",
+                "Condition": {
+                  "StringEquals": {
+                    "aws:SourceAccount": "<ACCOUNT>",
+                    "s3:x-amz-acl": "bucket-owner-full-control"
+                  },
+                  "ArnLike": {
+                    "aws:SourceArn": "arn:aws:logs:us-east-1:<ACCOUNT>:*"
+                  }
+                }
+              },
+              {
+                "Sid": "AWSLogDeliveryAclCheck1",
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "delivery.logs.amazonaws.com"
+                },
+                "Action": "s3:GetBucketAcl",
+                "Resource": "arn:aws:s3:::<BUCKET>",
+                "Condition": {
+                  "StringEquals": {
+                    "aws:SourceAccount": "<ACCOUNT>"
+                  },
+                  "ArnLike": {
+                    "aws:SourceArn": "arn:aws:logs:us-east-1:<ACCOUNT>:*"
+                  }
+                }
+              },
+              {
+                "Sid": "AWSLogDeliveryWrite2",
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "delivery.logs.amazonaws.com"
+                },
+                "Action": "s3:PutObject",
+                "Resource": "arn:aws:s3:::<BUCKET>/custom-prefix/AWSLogs/aws-account-id=<ACCOUNT>/*",
+                "Condition": {
+                  "StringEquals": {
+                    "aws:SourceAccount": "<ACCOUNT>",
+                    "s3:x-amz-acl": "bucket-owner-full-control"
+                  },
+                  "ArnLike": {
+                    "aws:SourceArn": "arn:aws:logs:us-east-1:<ACCOUNT>:*"
+                  }
+                }
+              }
+            ]
+          },
+          "describe": {
+            "FlowLogs": [
+              {
+                "CreationTime": "2026-10-15T16:39:57.492000+00:00",
+                "DeliverLogsStatus": "SUCCESS",
+                "FlowLogId": "<FLOWLOG_1>",
+                "FlowLogStatus": "ACTIVE",
+                "ResourceId": "<VPC>",
+                "TrafficType": "ALL",
+                "LogDestinationType": "s3",
+                "LogDestination": "arn:aws:s3:::<BUCKET>",
+                "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+                "Tags": [],
+                "MaxAggregationInterval": 600,
+                "DestinationOptions": {
+                  "FileFormat": "plain-text",
+                  "HiveCompatiblePartitions": false,
+                  "PerHourPartition": false
+                }
+              },
+              {
+                "CreationTime": "2026-10-15T16:40:42.288000+00:00",
+                "DeliverLogsStatus": "SUCCESS",
+                "FlowLogId": "<FLOWLOG_2>",
+                "FlowLogStatus": "ACTIVE",
+                "ResourceId": "<VPC>",
+                "TrafficType": "ALL",
+                "LogDestinationType": "s3",
+                "LogDestination": "arn:aws:s3:::<BUCKET>/custom-prefix",
+                "LogFormat": "${interface-id}",
+                "Tags": [],
+                "MaxAggregationInterval": 600,
+                "DestinationOptions": {
+                  "FileFormat": "plain-text",
+                  "HiveCompatiblePartitions": true,
+                  "PerHourPartition": true
+                }
+              }
+            ]
+          },
+          "polls": [
+            {
+              "elapsedSeconds": 3.246,
+              "listing": {
+                "IsTruncated": false,
+                "Contents": [
+                  {
+                    "Key": "AWSLogs/<ACCOUNT>/",
+                    "LastModified": "2026-10-15T16:39:58+00:00",
+                    "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+                    "ChecksumAlgorithm": [
+                      "CRC64NVME"
+                    ],
+                    "ChecksumType": "FULL_OBJECT",
+                    "Size": 0,
+                    "StorageClass": "STANDARD"
+                  }
+                ],
+                "Name": "<BUCKET>",
+                "Prefix": "",
+                "MaxKeys": 1000,
+                "EncodingType": "url",
+                "KeyCount": 1
+              }
+            },
+            {
+              "elapsedSeconds": 42.964,
+              "listing": {
+                "IsTruncated": false,
+                "Contents": [
+                  {
+                    "Key": "AWSLogs/<ACCOUNT>/",
+                    "LastModified": "2026-10-15T16:39:58+00:00",
+                    "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+                    "ChecksumAlgorithm": [
+                      "CRC64NVME"
+                    ],
+                    "ChecksumType": "FULL_OBJECT",
+                    "Size": 0,
+                    "StorageClass": "STANDARD"
+                  }
+                ],
+                "Name": "<BUCKET>",
+                "Prefix": "",
+                "MaxKeys": 1000,
+                "EncodingType": "url",
+                "KeyCount": 1
+              }
+            }
+          ],
+          "pollCount": 11
+        }
+      },
+      "cleanup": {
+        "Calls": [
+          {
+            "service": "ec2",
+            "operation": "DescribeFlowLogs",
+            "input": {
+              "Filter": [
+                {
+                  "Name": "resource-id",
+                  "Values": [
+                    "<VPC>"
+                  ]
+                }
+              ]
+            },
+            "code": "Success",
+            "output": {
+              "FlowLogs": [
+                {
+                  "CreationTime": "2026-10-15T16:39:57.492000+00:00",
+                  "DeliverLogsStatus": "SUCCESS",
+                  "FlowLogId": "<FLOWLOG_1>",
+                  "FlowLogStatus": "ACTIVE",
+                  "ResourceId": "<VPC>",
+                  "TrafficType": "ALL",
+                  "LogDestinationType": "s3",
+                  "LogDestination": "arn:aws:s3:::<BUCKET>",
+                  "LogFormat": "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}",
+                  "Tags": [],
+                  "MaxAggregationInterval": 600,
+                  "DestinationOptions": {
+                    "FileFormat": "plain-text",
+                    "HiveCompatiblePartitions": false,
+                    "PerHourPartition": false
+                  }
+                },
+                {
+                  "CreationTime": "2026-10-15T16:40:42.288000+00:00",
+                  "DeliverLogsStatus": "SUCCESS",
+                  "FlowLogId": "<FLOWLOG_2>",
+                  "FlowLogStatus": "ACTIVE",
+                  "ResourceId": "<VPC>",
+                  "TrafficType": "ALL",
+                  "LogDestinationType": "s3",
+                  "LogDestination": "arn:aws:s3:::<BUCKET>/custom-prefix",
+                  "LogFormat": "${interface-id}",
+                  "Tags": [],
+                  "MaxAggregationInterval": 600,
+                  "DestinationOptions": {
+                    "FileFormat": "plain-text",
+                    "HiveCompatiblePartitions": true,
+                    "PerHourPartition": true
+                  }
+                }
+              ]
+            },
+            "observedAt": "2026-10-15T16:41:26.584947+00:00"
+          },
+          {
+            "service": "ec2",
+            "operation": "DeleteFlowLogs",
+            "input": {
+              "FlowLogIds": [
+                "<FLOWLOG_1>",
+                "<FLOWLOG_2>"
+              ]
+            },
+            "code": "Success",
+            "output": {
+              "Unsuccessful": []
+            },
+            "observedAt": "2026-10-15T16:41:27.694645+00:00"
+          },
+          {
+            "service": "ec2",
+            "operation": "DescribeFlowLogs",
+            "input": {
+              "Filter": [
+                {
+                  "Name": "resource-id",
+                  "Values": [
+                    "<VPC>"
+                  ]
+                }
+              ]
+            },
+            "code": "Success",
+            "output": {
+              "FlowLogs": []
+            },
+            "observedAt": "2026-10-15T16:41:28.516163+00:00"
+          },
+          {
+            "service": "s3api",
+            "operation": "ListObjectsV2",
+            "input": {
+              "Bucket": "<BUCKET>",
+              "ExpectedBucketOwner": "<ACCOUNT>"
+            },
+            "code": "Success",
+            "output": {
+              "IsTruncated": false,
+              "Contents": [
+                {
+                  "Key": "AWSLogs/<ACCOUNT>/",
+                  "LastModified": "2026-10-15T16:39:58+00:00",
+                  "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+                  "ChecksumAlgorithm": [
+                    "CRC64NVME"
+                  ],
+                  "ChecksumType": "FULL_OBJECT",
+                  "Size": 0,
+                  "StorageClass": "STANDARD"
+                }
+              ],
+              "Name": "<BUCKET>",
+              "Prefix": "",
+              "MaxKeys": 1000,
+              "EncodingType": "url",
+              "KeyCount": 1
+            },
+            "observedAt": "2026-10-15T16:41:29.325679+00:00"
+          },
+          {
+            "service": "s3api",
+            "operation": "DeleteObjects",
+            "input": {
+              "Bucket": "<BUCKET>",
+              "ExpectedBucketOwner": "<ACCOUNT>",
+              "Delete": {
+                "Objects": [
+                  {
+                    "Key": "AWSLogs/<ACCOUNT>/"
+                  }
+                ]
+              }
+            },
+            "code": "Success",
+            "output": {
+              "Deleted": [
+                {
+                  "Key": "AWSLogs/<ACCOUNT>/"
+                }
+              ]
+            },
+            "observedAt": "2026-10-15T16:41:30.063781+00:00"
+          },
+          {
+            "service": "s3api",
+            "operation": "DeleteBucket",
+            "input": {
+              "Bucket": "<BUCKET>",
+              "ExpectedBucketOwner": "<ACCOUNT>"
+            },
+            "code": "Success",
+            "output": {},
+            "observedAt": "2026-10-15T16:41:31.007453+00:00"
+          },
+          {
+            "service": "s3api",
+            "operation": "HeadBucket",
+            "input": {
+              "Bucket": "<BUCKET>",
+              "ExpectedBucketOwner": "<ACCOUNT>"
+            },
+            "code": "404",
+            "message": "Not Found",
+            "observedAt": "2026-10-15T16:41:31.736983+00:00"
+          },
+          {
+            "service": "ec2",
+            "operation": "DeleteVpc",
+            "input": {
+              "VpcId": "<VPC>"
+            },
+            "code": "Success",
+            "output": {},
+            "observedAt": "2026-10-15T16:41:33.036736+00:00"
+          },
+          {
+            "service": "ec2",
+            "operation": "DescribeVpcs",
+            "input": {
+              "VpcIds": [
+                "<VPC>"
+              ]
+            },
+            "code": "InvalidVpcID.NotFound",
+            "message": "The vpc ID '<VPC>' does not exist",
+            "observedAt": "2026-10-15T16:41:33.923899+00:00"
+          }
+        ],
+        "bucketAbsence": {
+          "code": "404",
+          "message": "Not Found"
+        },
+        "vpcAbsence": {
+          "code": "InvalidVpcID.NotFound",
+          "message": "The vpc ID '<VPC>' does not exist"
+        },
+        "flowlogAbsence": {
+          "code": "Success",
+          "output": {
+            "FlowLogs": []
+          }
+        }
+      }
+    }
+  ]
+}

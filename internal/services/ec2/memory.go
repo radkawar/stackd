@@ -38,6 +38,11 @@ type memoryState struct {
 	launchTemplateVersions map[LaunchTemplateVersionKey]LaunchTemplateVersionRecord
 	launchTemplateTokens   map[LaunchTemplateTokenKey]LaunchTemplateTokenRecord
 	counters               map[ResourceKey]uint64
+	flowLogs               map[ResourceKey]FlowLogRecord
+	flowLogTokens          map[FlowLogTokenKey]FlowLogTokenRecord
+	flowLogAggregates      map[FlowLogAggregateKey]FlowLogAggregateRecord
+	flowLogDeliveries      map[ResourceKey]FlowLogDeliveryRecord
+	flowLogCapture         *FlowLogCaptureState
 }
 type MemoryRepository struct{ store *memory.Store[memoryState] }
 
@@ -58,6 +63,10 @@ func NewMemoryRepository(domain *memory.Domain) *MemoryRepository {
 	initial.natGateways = map[ResourceKey]NatGatewayRecord{}
 	initial.vpcEndpoints = map[ResourceKey]VPCEndpointRecord{}
 	initial.networkOwnerCreations = map[NetworkCreationKey]NetworkOwnerCreationRecord{}
+	initial.flowLogs = map[ResourceKey]FlowLogRecord{}
+	initial.flowLogTokens = map[FlowLogTokenKey]FlowLogTokenRecord{}
+	initial.flowLogAggregates = map[FlowLogAggregateKey]FlowLogAggregateRecord{}
+	initial.flowLogDeliveries = map[ResourceKey]FlowLogDeliveryRecord{}
 	return &MemoryRepository{memory.New(domain, initial, func(v memoryState) memoryState {
 		v.launchTemplates = maps.Clone(v.launchTemplates)
 		v.launchTemplateVersions = maps.Clone(v.launchTemplateVersions)
@@ -65,7 +74,7 @@ func NewMemoryRepository(domain *memory.Domain) *MemoryRepository {
 		natGateways := maps.Clone(v.natGateways)
 		vpcEndpoints := maps.Clone(v.vpcEndpoints)
 		networkOwnerCreations := maps.Clone(v.networkOwnerCreations)
-		return memoryState{natGateways: natGateways, vpcEndpoints: vpcEndpoints, networkOwnerCreations: networkOwnerCreations, publicAddresses: maps.Clone(v.publicAddresses), vpcs: maps.Clone(v.vpcs), subnets: maps.Clone(v.subnets), groups: maps.Clone(v.groups), rules: maps.Clone(v.rules), routes: maps.Clone(v.routes), gateways: maps.Clone(v.gateways), networkInterfaces: maps.Clone(v.networkInterfaces), interfaceCreations: maps.Clone(v.interfaceCreations), acls: maps.Clone(v.acls), dhcp: maps.Clone(v.dhcp), dhcpDefaults: maps.Clone(v.dhcpDefaults), creations: maps.Clone(v.creations), keyPairs: maps.Clone(v.keyPairs), images: maps.Clone(v.images), instances: maps.Clone(v.instances), profileAssociations: maps.Clone(v.profileAssociations), reservations: maps.Clone(v.reservations), creditDefaults: maps.Clone(v.creditDefaults), creditLaunches: maps.Clone(v.creditLaunches), creditModifications: maps.Clone(v.creditModifications), identitySigningKeys: maps.Clone(v.identitySigningKeys), counters: maps.Clone(v.counters), launchTemplates: v.launchTemplates, launchTemplateVersions: v.launchTemplateVersions, launchTemplateTokens: v.launchTemplateTokens}
+		return memoryState{flowLogs: maps.Clone(v.flowLogs), flowLogTokens: maps.Clone(v.flowLogTokens), flowLogAggregates: maps.Clone(v.flowLogAggregates), flowLogDeliveries: maps.Clone(v.flowLogDeliveries), flowLogCapture: copyPointer(v.flowLogCapture), natGateways: natGateways, vpcEndpoints: vpcEndpoints, networkOwnerCreations: networkOwnerCreations, publicAddresses: maps.Clone(v.publicAddresses), vpcs: maps.Clone(v.vpcs), subnets: maps.Clone(v.subnets), groups: maps.Clone(v.groups), rules: maps.Clone(v.rules), routes: maps.Clone(v.routes), gateways: maps.Clone(v.gateways), networkInterfaces: maps.Clone(v.networkInterfaces), interfaceCreations: maps.Clone(v.interfaceCreations), acls: maps.Clone(v.acls), dhcp: maps.Clone(v.dhcp), dhcpDefaults: maps.Clone(v.dhcpDefaults), creations: maps.Clone(v.creations), keyPairs: maps.Clone(v.keyPairs), images: maps.Clone(v.images), instances: maps.Clone(v.instances), profileAssociations: maps.Clone(v.profileAssociations), reservations: maps.Clone(v.reservations), creditDefaults: maps.Clone(v.creditDefaults), creditLaunches: maps.Clone(v.creditLaunches), creditModifications: maps.Clone(v.creditModifications), identitySigningKeys: maps.Clone(v.identitySigningKeys), counters: maps.Clone(v.counters), launchTemplates: v.launchTemplates, launchTemplateVersions: v.launchTemplateVersions, launchTemplateTokens: v.launchTemplateTokens}
 	})}
 }
 func (m *MemoryRepository) View(ctx context.Context, fn func(Reader) error) error {

@@ -23,6 +23,7 @@ import (
 	elbv2desync "stackd/compute/elbv2/desync"
 	glueruntime "stackd/compute/glue"
 	lambdaruntime "stackd/compute/lambda"
+	"stackd/compute/network"
 	athenaruntime "stackd/engine/athena"
 	docdbruntime "stackd/engine/docdb"
 	dynamoruntime "stackd/engine/dynamodb"
@@ -257,6 +258,11 @@ type Config struct {
 	EC2Executor        ec2runtime.Executor
 	EBSDisks           ebs.NativeDisks
 	EBSVolumeDirectory string
+	// FlowLogCollector reads retained native ENI observations. The caller starts
+	// and owns it; closing a Stack must not stop the shared packet receiver.
+	// FlowLogNamespace must match the collector's retained namespace.
+	FlowLogCollector network.NativeFlowCollector
+	FlowLogNamespace string
 	// DynamoDBRuntime owns native item storage and expression execution.
 	// Close detaches handles; table deletion owns engine/volume retirement.
 	DynamoDBRuntime dynamoruntime.Runtime
@@ -325,6 +331,9 @@ type Config struct {
 
 // New creates the built-in service providers and the shared AWS HTTP endpoint.
 func New(config Config) (stack *Stack, err error) {
+	if (config.FlowLogCollector == nil) != (config.FlowLogNamespace == "") {
+		return nil, fmt.Errorf("flow log collector and namespace must be configured together")
+	}
 	if config.Clock == nil {
 		config.Clock = clock.Real{}
 	}
@@ -570,7 +579,11 @@ func New(config Config) (stack *Stack, err error) {
 	diskKeys := integrations.EC2DiskKeys{KMS: kmsService, Activity: iamService, Infrastructure: iamService}
 	ebsService := ebs.New(ebs.Config{Repository: backends.EBS, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, Keys: integrations.EBSSnapshotKeys{KMS: kmsService, Activity: iamService}, EC2Keys: diskKeys, InstanceKeys: diskKeys, Policies: organizationsService, Images: &integrations.EBSImages{Repository: backends.EC2}, Attachments: integrations.EBSInstances{Repository: backends.EC2}, NativeDisks: config.EBSDisks, NativeVolumeDirectory: config.EBSVolumeDirectory, Events: integrations.EBSEvents{Publisher: servicePublisher}})
 	ec2Metrics := &integrations.EC2Metrics{Publisher: cloudwatchService}
-	ec2Service := ec2.New(ec2.Config{Repository: backends.EC2, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, Regions: accountService, Snapshots: ebsService, Volumes: ebsService, ImageSnapshots: ebsService, InstanceRuntime: config.EC2Executor, InstanceVolumes: ebsService, InstanceImages: ebsService, InstanceProfiles: &integrations.EC2InstanceProfiles{IAM: iamService, Roles: serviceRoles}, InstanceIdentities: &integrations.EC2InstanceIdentityCredentials{IAM: iamService, Credentials: credentials}, InstanceEvents: integrations.EC2Events{Publisher: servicePublisher}, InstanceMetrics: ec2Metrics})
+	var flowCapture ec2.FlowLogCapture
+	if config.FlowLogCollector != nil {
+		flowCapture = integrations.EC2FlowCapture{Collector: config.FlowLogCollector}
+	}
+	ec2Service := ec2.New(ec2.Config{Repository: backends.EC2, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, Regions: accountService, Snapshots: ebsService, Volumes: ebsService, ImageSnapshots: ebsService, InstanceRuntime: config.EC2Executor, InstanceVolumes: ebsService, InstanceImages: ebsService, InstanceProfiles: &integrations.EC2InstanceProfiles{IAM: iamService, Roles: serviceRoles}, InstanceIdentities: &integrations.EC2InstanceIdentityCredentials{IAM: iamService, Credentials: credentials}, InstanceEvents: integrations.EC2Events{Publisher: servicePublisher}, InstanceMetrics: ec2Metrics, FlowLogCapture: flowCapture, FlowCaptureNamespace: config.FlowLogNamespace, FlowLogDestination: &integrations.EC2FlowLogs{S3: s3Service, Logs: logsService, Roles: serviceRoles, Subscriptions: backends.EC2}})
 	parameterImages.EC2 = ec2Service
 	lambdaNetworks.EC2 = ec2Service
 	lambdaFunctionNetworks.EC2 = ec2Service

@@ -153,6 +153,7 @@ type NetworkInterfaceCreationRecord struct {
 }
 
 type Reader interface {
+	FlowLogReader
 	Context() context.Context
 	LaunchTemplate(ResourceKey) (LaunchTemplateRecord, error)
 	LaunchTemplates(Scope) ([]LaunchTemplateRecord, error)
@@ -224,6 +225,7 @@ type Reader interface {
 }
 type Transaction interface {
 	Reader
+	FlowLogWriter
 	NextID(Scope, string) (string, error)
 	PutLaunchTemplate(LaunchTemplateRecord) error
 	DeleteLaunchTemplate(ResourceKey) error

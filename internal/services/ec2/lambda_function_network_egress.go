@@ -39,8 +39,8 @@ func lambdaFunctionRouteTable(tx Reader, subnet SubnetRecord) (*RouteTableRecord
 	return selected, nil
 }
 
-func lambdaFunctionNetworkSpecification(ctx context.Context, tx Reader, eni NetworkInterfaceRecord) (network.Specification, error) {
-	out, err := networkSpecification(ctx, tx, eni)
+func lambdaFunctionNetworkSpecification(ctx context.Context, tx Reader, eni NetworkInterfaceRecord, captureNamespace string) (network.Specification, error) {
+	out, err := networkSpecification(ctx, tx, eni, captureNamespace)
 	if err != nil {
 		return out, err
 	}
@@ -103,7 +103,7 @@ func lambdaFunctionNetworkSpecification(ctx context.Context, tx Reader, eni Netw
 							if reservation.NetworkControlOwnerID != nat.Key.ID || str(reservation.Data.PrivateIpAddress) != str(address.PrivateIp) || !boolValue(reservation.Data.RequesterManaged) {
 								continue
 							}
-							natSpec, err := networkSpecification(ctx, tx, reservation)
+							natSpec, err := networkSpecification(ctx, tx, reservation, captureNamespace)
 							if err != nil {
 								return out, err
 							}
@@ -164,7 +164,7 @@ func lambdaFunctionNetworkSpecification(ctx context.Context, tx Reader, eni Netw
 			if reservation.NetworkControlOwnerID != endpoint.Key.ID || !boolValue(reservation.Data.RequesterManaged) {
 				return out, failure("AuthFailure", "The endpoint interface has no immutable EC2 network control owner.")
 			}
-			spec, err := networkSpecification(ctx, tx, reservation)
+			spec, err := networkSpecification(ctx, tx, reservation, captureNamespace)
 			if err != nil {
 				return out, err
 			}
@@ -175,14 +175,14 @@ func lambdaFunctionNetworkSpecification(ctx context.Context, tx Reader, eni Netw
 	return out, nil
 }
 
-func lambdaFunctionNetwork(ctx context.Context, tx Reader, record NetworkInterfaceRecord) (TaskNetwork, error) {
+func lambdaFunctionNetwork(ctx context.Context, tx Reader, record NetworkInterfaceRecord, captureNamespace string) (TaskNetwork, error) {
 	var out TaskNetwork
 	var err error
 	out.Interface, err = networkInterfaceProjection(ctx, tx, record)
 	if err != nil {
 		return out, err
 	}
-	out.Network, err = lambdaFunctionNetworkSpecification(ctx, tx, record)
+	out.Network, err = lambdaFunctionNetworkSpecification(ctx, tx, record, captureNamespace)
 	return out, err
 }
 
@@ -206,7 +206,7 @@ func (s *Service) ResolveLambdaFunctionEndpoint(ctx context.Context, function, i
 		if err != nil {
 			return err
 		}
-		spec, err := lambdaFunctionNetworkSpecification(ctx, tx, record)
+		spec, err := lambdaFunctionNetworkSpecification(ctx, tx, record, s.flowCaptureNamespace)
 		if err != nil {
 			return err
 		}
@@ -250,7 +250,7 @@ func (s *Service) ObserveLambdaFunctionServiceEndpoint(ctx context.Context, func
 			}
 			for _, candidate := range endpoints {
 				if str(candidate.Data.VpcId) == str(source.Data.VpcId) && str(candidate.Data.State) == "available" && str(candidate.Data.VpcEndpointType) == "Gateway" {
-					out, err = networkSpecification(ctx, tx, source)
+					out, err = networkSpecification(ctx, tx, source, s.flowCaptureNamespace)
 					return err
 				}
 			}
@@ -277,7 +277,7 @@ func (s *Service) ObserveLambdaFunctionServiceEndpoint(ctx context.Context, func
 			if record.NetworkControlOwnerID != endpointID || str(record.Data.PrivateIpAddress) != address {
 				continue
 			}
-			out, err = networkSpecification(ctx, tx, record)
+			out, err = networkSpecification(ctx, tx, record, s.flowCaptureNamespace)
 			return err
 		}
 		return ErrNotFound

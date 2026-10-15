@@ -215,6 +215,9 @@ func networkACLEntry(req *api.CreateNetworkAclEntryRequest) (api.NetworkAclEntry
 		return entry, failure("InvalidParameterValue", "CidrBlock must contain an IPv4 CIDR")
 	}
 	entry = api.NetworkAclEntry{CidrBlock: new(api.String(cidr)), Egress: new(*req.Egress), Protocol: new(api.String(strconv.Itoa(protocol))), RuleAction: new(*req.RuleAction), RuleNumber: new(*req.RuleNumber)}
+	// AWS ignores ports and ICMP selectors outside their applicable protocol.
+	// In particular Terraform sends 0..0 ports with protocol -1; this still
+	// admits all ports and must not become a transport-port predicate.
 	if protocol == 6 || protocol == 17 {
 		p := req.PortRange
 		if p == nil || p.From == nil || p.To == nil {
@@ -224,8 +227,6 @@ func networkACLEntry(req *api.CreateNetworkAclEntryRequest) (api.NetworkAclEntry
 			return api.NetworkAclEntry{}, failure("InvalidParameterValue", "PortRange must be ordered and within 0 through 65535")
 		}
 		entry.PortRange = &api.PortRange{From: new(*p.From), To: new(*p.To)}
-	} else if req.PortRange != nil {
-		return api.NetworkAclEntry{}, unsupported("PortRange is supported only for TCP and UDP network ACL entries")
 	}
 	if protocol == 1 {
 		icmp := req.IcmpTypeCode
@@ -236,8 +237,6 @@ func networkACLEntry(req *api.CreateNetworkAclEntryRequest) (api.NetworkAclEntry
 			return api.NetworkAclEntry{}, failure("InvalidParameterValue", "Invalid ICMP type or code")
 		}
 		entry.IcmpTypeCode = &api.IcmpTypeCode{Type: new(*icmp.Type), Code: new(*icmp.Code)}
-	} else if req.IcmpTypeCode != nil {
-		return api.NetworkAclEntry{}, unsupported("IcmpTypeCode is supported only for ICMP network ACL entries")
 	}
 	return entry, nil
 }

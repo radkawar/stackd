@@ -117,8 +117,15 @@ func (s *Service) Close() error {
 		s.compute.cancel()
 	}
 	s.compute.mu.Unlock()
+	s.flowLogEffects.mu.Lock()
+	s.flowLogEffects.closed = true
+	if s.flowLogEffects.cancel != nil {
+		s.flowLogEffects.cancel()
+	}
+	s.flowLogEffects.mu.Unlock()
 	s.jobs.Close()
 	s.compute.work.Wait()
+	s.flowLogEffects.work.Wait()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	return s.CloseInstanceControllers(ctx)

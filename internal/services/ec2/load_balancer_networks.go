@@ -269,7 +269,7 @@ func (s *Service) AllocateLoadBalancerNetwork(ctx context.Context, owner, subnet
 			}
 		}
 		out.Interface = record.Data
-		out.Network, err = networkSpecification(ctx, tx, record)
+		out.Network, err = networkSpecification(ctx, tx, record, s.flowCaptureNamespace)
 		return err
 	})
 	return out, err
@@ -321,7 +321,7 @@ func (s *Service) ObserveLoadBalancerNetwork(ctx context.Context, owner, id stri
 			return err
 		}
 		out.Interface = record.Data
-		out.Network, err = networkSpecification(ctx, tx, record)
+		out.Network, err = networkSpecification(ctx, tx, record, s.flowCaptureNamespace)
 		return err
 	})
 	return out, err
@@ -389,7 +389,7 @@ func (s *Service) SetLoadBalancerSecurityGroups(ctx context.Context, owner, id s
 			}
 		}
 		out.Interface = record.Data
-		out.Network, err = networkSpecification(ctx, tx, record)
+		out.Network, err = networkSpecification(ctx, tx, record, s.flowCaptureNamespace)
 		return err
 	})
 	return out, err

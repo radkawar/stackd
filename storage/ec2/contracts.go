@@ -13,6 +13,16 @@ type (
 	Scope                            = domain.Scope
 	ResourceKey                      = domain.ResourceKey
 	CloudFormationOwner              = domain.CloudFormationOwner
+	FlowLogRecord                    = domain.FlowLogRecord
+	FlowLogTokenKey                  = domain.FlowLogTokenKey
+	FlowLogTokenRecord               = domain.FlowLogTokenRecord
+	FlowLogAdmissionResult           = domain.FlowLogAdmissionResult
+	FlowLogCaptureState              = domain.FlowLogCaptureState
+	FlowLogInterface                 = domain.FlowLogInterface
+	FlowLogAggregateKey              = domain.FlowLogAggregateKey
+	FlowLogAggregateRecord           = domain.FlowLogAggregateRecord
+	FlowLogDeliveryRecord            = domain.FlowLogDeliveryRecord
+	FlowLogLine                      = domain.FlowLogLine
 	LaunchTemplateRecord             = domain.LaunchTemplateRecord
 	LaunchTemplateVersionKey         = domain.LaunchTemplateVersionKey
 	LaunchTemplateVersionRecord      = domain.LaunchTemplateVersionRecord

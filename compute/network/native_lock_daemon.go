@@ -25,7 +25,16 @@ os.makedirs(directory, mode=0o755, exist_ok=True)
 if not stat.S_ISDIR(os.stat(directory, follow_symlinks=False).st_mode):
     raise SystemExit("native network lock directory must be a regular daemon-host directory")
 path = directory + "/stackd-public-network.lock"
-fd = os.open(path, os.O_RDONLY | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o644)
+# Opening an existing controller-owned file with O_CREAT is denied by Linux
+# protected_regular in sticky /run/lock, even when that inode is readable.
+flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
+try:
+    fd = os.open(path, flags)
+except FileNotFoundError:
+    try:
+        fd = os.open(path, flags | os.O_CREAT | os.O_EXCL, 0o644)
+    except FileExistsError:
+        fd = os.open(path, flags)
 try:
     observed = os.fstat(fd)
     if not stat.S_ISREG(observed.st_mode):

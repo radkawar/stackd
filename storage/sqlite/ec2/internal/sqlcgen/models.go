@@ -61,6 +61,136 @@ type Ec2DhcpOptionsTag struct {
 	Value      sql.NullString
 }
 
+type Ec2FlowLog struct {
+	Partition          string
+	AccountID          string
+	Region             string
+	ResourceID         string
+	Incarnation        string
+	SelectorResourceID string
+	ResourceType       string
+	TrafficType        string
+	DestinationType    string
+	Destination        string
+	LogGroupName       string
+	PermissionArn      string
+	LogFormat          string
+	FormatVersion      int64
+	AggregationSeconds int64
+	HivePartitions     bool
+	HourPartitions     bool
+	TagsPresent        bool
+	CreatedAt          time.Time
+	Status             string
+	DeliveryStatus     string
+	DeliveryError      string
+	CaptureError       string
+	Version            sqlite.Uint64
+}
+
+type Ec2FlowLogAggregate struct {
+	Partition            string
+	AccountID            string
+	Region               string
+	FlowLogID            string
+	AggregateID          string
+	Incarnation          string
+	InterfacePartition   string
+	InterfaceAccountID   string
+	InterfaceRegion      string
+	InterfaceID          string
+	InterfaceIncarnation string
+	NetworkID            string
+	Address              string
+	VpcID                string
+	SubnetID             string
+	InstanceID           string
+	AvailabilityZoneID   string
+	SourceAddress        string
+	DestinationAddress   string
+	SourcePort           int64
+	DestinationPort      int64
+	Protocol             int64
+	Action               string
+	Direction            string
+	Packets              sqlite.Uint64
+	Bytes                sqlite.Uint64
+	Start                time.Time
+	End                  time.Time
+	Due                  time.Time
+	TcpFlags             int64
+	Lost                 bool
+}
+
+type Ec2FlowLogCapture struct {
+	Singleton int64
+	Cursor    string
+	Due       time.Time
+	Version   sqlite.Uint64
+}
+
+type Ec2FlowLogDelivery struct {
+	Partition       string
+	AccountID       string
+	Region          string
+	ResourceID      string
+	FlowLogID       string
+	Incarnation     string
+	DestinationType string
+	Destination     string
+	LogGroupName    string
+	PermissionArn   string
+	HivePartitions  bool
+	HourPartitions  bool
+	Header          string
+	LinesPresent    bool
+	WindowStart     time.Time
+	Due             time.Time
+	Version         sqlite.Uint64
+}
+
+type Ec2FlowLogDeliveryLine struct {
+	Partition   string
+	AccountID   string
+	Region      string
+	ResourceID  string
+	Position    int64
+	Start       time.Time
+	InterfaceID string
+	Message     string
+}
+
+type Ec2FlowLogTag struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	ResourceID string
+	Position   int64
+	Key        sql.NullString
+	Value      sql.NullString
+}
+
+type Ec2FlowLogToken struct {
+	Partition      string
+	AccountID      string
+	Region         string
+	Token          string
+	Fingerprint    string
+	ResultsPresent bool
+}
+
+type Ec2FlowLogTokenResult struct {
+	Partition          string
+	AccountID          string
+	Region             string
+	Token              string
+	Position           int64
+	SelectorResourceID string
+	FlowLogID          string
+	ErrorCode          string
+	ErrorMessage       string
+}
+
 type Ec2IdentitySigningKey struct {
 	Kind           string
 	PrivateKeyDer  []byte

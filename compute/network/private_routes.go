@@ -26,7 +26,7 @@ func writePrivateAdmission(b *strings.Builder, routes []PrivateRoute, direction,
 	fmt.Fprintf(b, "ip %s %s jump private_%s\n", field, pool, direction)
 }
 
-func writePrivateChains(b *strings.Builder, routes []PrivateRoute) {
+func writePrivateChains(b *strings.Builder, routes []PrivateRoute, flow *policyFlowCapture) {
 	if len(routes) == 0 {
 		return
 	}
@@ -37,12 +37,12 @@ func writePrivateChains(b *strings.Builder, routes []PrivateRoute) {
 		}
 		fmt.Fprintf(b, "chain private_%s {\n", direction)
 		for _, route := range routes {
-			verdict := "drop"
+			verdict := flow.drop(direction)
 			if route.Local {
 				verdict = "return"
 			}
 			fmt.Fprintf(b, "ip %s %s counter %s\n", field, route.Destination, verdict)
 		}
-		b.WriteString("counter drop\n}\n")
+		fmt.Fprintf(b, "counter %s\n}\n", flow.drop(direction))
 	}
 }

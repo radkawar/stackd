@@ -153,6 +153,13 @@ func (r ResourceTaggingResources) listTaggingEC2(ctx context.Context, scope tagg
 		for _, row := range templates {
 			appendResource("launch-template", row.Key.ID, row.Data.Tags)
 		}
+		flowLogs, err := tx.FlowLogs(sc)
+		if err != nil {
+			return err
+		}
+		for _, row := range flowLogs {
+			appendResource("vpc-flow-log", row.Key.ID, row.Tags)
+		}
 		return nil
 	})
 	if err != nil {

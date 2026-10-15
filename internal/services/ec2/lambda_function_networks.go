@@ -148,7 +148,7 @@ func (s *Service) AllocateLambdaFunctionNetwork(ctx context.Context, function, i
 				return err
 			}
 		}
-		out, err = lambdaFunctionNetwork(ctx, tx, record)
+		out, err = lambdaFunctionNetwork(ctx, tx, record, s.flowCaptureNamespace)
 		if err != nil {
 			return err
 		}
@@ -171,7 +171,7 @@ func (s *Service) ResolveLambdaFunctionNetwork(ctx context.Context, function, in
 		if err != nil {
 			return err
 		}
-		out, err = lambdaFunctionNetworkSpecification(ctx, tx, record)
+		out, err = lambdaFunctionNetworkSpecification(ctx, tx, record, s.flowCaptureNamespace)
 		return err
 	})
 	return out, err
@@ -237,7 +237,7 @@ func (s *Service) ListLambdaFunctionNetworks(ctx context.Context, function, inca
 			if record.LambdaFunctionOwnerARN != function || !strings.HasPrefix(record.LambdaFunctionOwnerIncarnation, incarnation+"/") {
 				continue
 			}
-			attachment, err := lambdaFunctionNetwork(ctx, tx, record)
+			attachment, err := lambdaFunctionNetwork(ctx, tx, record, s.flowCaptureNamespace)
 			if err != nil {
 				return err
 			}

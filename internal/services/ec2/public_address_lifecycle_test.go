@@ -61,7 +61,7 @@ func TestPublicAddressLifecycleAndPacketAuthority(t *testing.T) {
 		t.Helper()
 		var ip string
 		if err := s.repository.View(ctx, func(tx Reader) error {
-			spec, err := networkSpecification(ctx, tx, eni)
+			spec, err := networkSpecification(ctx, tx, eni, "")
 			if err != nil {
 				return err
 			}

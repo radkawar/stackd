@@ -111,14 +111,14 @@ func lambdaSourceInterface(ctx context.Context, tx Reader, mappingARN string) (N
 	return NetworkInterfaceRecord{}, ErrNotFound
 }
 
-func lambdaSourceNetwork(ctx context.Context, tx Reader, record NetworkInterfaceRecord) (TaskNetwork, error) {
+func lambdaSourceNetwork(ctx context.Context, tx Reader, record NetworkInterfaceRecord, captureNamespace string) (TaskNetwork, error) {
 	var out TaskNetwork
 	var err error
 	out.Interface, err = networkInterfaceProjection(ctx, tx, record)
 	if err != nil {
 		return out, err
 	}
-	out.Network, err = networkSpecification(ctx, tx, record)
+	out.Network, err = networkSpecification(ctx, tx, record, captureNamespace)
 	return out, err
 }
 
@@ -165,7 +165,7 @@ func (s *Service) AllocateLambdaSourceNetwork(ctx context.Context, mappingARN, s
 		if err := s.recordCall(ctx, "CreateNetworkInterface", request, result, nil); err != nil {
 			return err
 		}
-		out, err = lambdaSourceNetwork(ctx, tx, record)
+		out, err = lambdaSourceNetwork(ctx, tx, record, s.flowCaptureNamespace)
 		return err
 	})
 	return out, err
@@ -185,7 +185,7 @@ func (s *Service) LookupLambdaSourceNetwork(ctx context.Context, mappingARN stri
 		if err != nil {
 			return err
 		}
-		out, err = lambdaSourceNetwork(ctx, tx, record)
+		out, err = lambdaSourceNetwork(ctx, tx, record, s.flowCaptureNamespace)
 		return err
 	})
 	return out, err
@@ -216,7 +216,7 @@ func (s *Service) ResolveLambdaSourceNetwork(ctx context.Context, mappingARN, in
 		if err != nil {
 			return err
 		}
-		out, err = networkSpecification(ctx, tx, record)
+		out, err = networkSpecification(ctx, tx, record, s.flowCaptureNamespace)
 		return err
 	})
 	return out, err

@@ -194,7 +194,7 @@ func (s *Service) AllocateTaskNetwork(ctx context.Context, in TaskNetworkRequest
 		if err != nil {
 			return err
 		}
-		out.Network, err = networkSpecification(ctx, tx, record)
+		out.Network, err = networkSpecification(ctx, tx, record, s.flowCaptureNamespace)
 		return err
 	})
 	return out, err
@@ -217,7 +217,7 @@ func (s *Service) ResolveTaskNetwork(ctx context.Context, taskARN, attachmentARN
 		if err != nil {
 			return err
 		}
-		out, err = networkSpecification(ctx, tx, record)
+		out, err = networkSpecification(ctx, tx, record, s.flowCaptureNamespace)
 		return err
 	})
 	return out, err

@@ -60,9 +60,10 @@ func decryptObject(key []byte, parts [][]byte) ([]byte, error) {
 	return body, nil
 }
 
-// CheckPutObject evaluates an object destination without writing a probe object.
-func (s *Service) CheckPutObject(ctx context.Context, bucket, key string) *awswire.Error {
-	c := call(ctx, "PutObject", bucket, key)
+// CheckPutObject evaluates destination write authority, including its requested
+// canned ACL, without writing a probe object.
+func (s *Service) CheckPutObject(ctx context.Context, in *api.PutObjectInput) *awswire.Error {
+	c := call(ctx, "PutObject", value(in.Bucket), value(in.Key))
 	err := s.repository.View(ctx, func(r Reader) error {
 		b, err := s.bucket(r, c, "")
 		if err != nil {
@@ -74,7 +75,7 @@ func (s *Service) CheckPutObject(ctx context.Context, bucket, key string) *awswi
 			conditions = map[string][]string{}
 			objectLockConditions(conditions, retentionOutput(defaultObjectRetention(b.DefaultRetention, now), now), nil, now)
 		}
-		if wire := s.objectWrite(r.Context(), c, b, key, "", conditions); wire != nil {
+		if wire := s.objectWrite(r.Context(), c, b, value(in.Key), value(in.ACL), conditions); wire != nil {
 			return wire
 		}
 		return nil

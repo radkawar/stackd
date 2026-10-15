@@ -111,7 +111,7 @@ func ownedCacheNodeInterface(ctx context.Context, tx Reader, identity CacheNodeN
 	return record, nil
 }
 
-func cacheNodeNetworkSpecification(ctx context.Context, tx Reader, record NetworkInterfaceRecord) (network.Specification, error) {
+func cacheNodeNetworkSpecification(ctx context.Context, tx Reader, record NetworkInterfaceRecord, captureNamespace string) (network.Specification, error) {
 	subnet, err := interfaceSubnet(tx, record)
 	if err != nil {
 		return network.Specification{}, err
@@ -129,7 +129,7 @@ func cacheNodeNetworkSpecification(ctx context.Context, tx Reader, record Networ
 			return network.Specification{}, err
 		}
 	}
-	return networkSpecification(ctx, tx, record)
+	return networkSpecification(ctx, tx, record, captureNamespace)
 }
 
 // AllocateCacheNodeNetwork reserves real EC2 capacity atomically with private
@@ -226,7 +226,7 @@ func (s *Service) AllocateCacheNodeNetwork(ctx context.Context, in CacheNodeNetw
 		if err != nil {
 			return err
 		}
-		out.Network, err = cacheNodeNetworkSpecification(ctx, tx, record)
+		out.Network, err = cacheNodeNetworkSpecification(ctx, tx, record, s.flowCaptureNamespace)
 		return err
 	})
 	return out, err
@@ -252,7 +252,7 @@ func (s *Service) ObserveCacheNodeNetwork(ctx context.Context, identity CacheNod
 		if err != nil {
 			return err
 		}
-		out.Network, err = cacheNodeNetworkSpecification(ctx, tx, record)
+		out.Network, err = cacheNodeNetworkSpecification(ctx, tx, record, s.flowCaptureNamespace)
 		return err
 	})
 	return out, err

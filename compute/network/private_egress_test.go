@@ -10,7 +10,7 @@ func TestPrivateNATAdmissionKeepsBlackholesAndNoInboundNAT(t *testing.T) {
 	routes := []NATRoute{{Destination: netip.MustParsePrefix("192.0.2.0/24")}, {Destination: netip.MustParsePrefix("0.0.0.0/0"), GatewayID: "nat-owned", Allowed: true}}
 	for _, direction := range []string{"from", "to"} {
 		var rules strings.Builder
-		writeNATAdmission(&rules, routes, direction)
+		writeNATAdmission(&rules, routes, direction, nil)
 		text := rules.String()
 		field := "daddr"
 		if direction == "to" {
@@ -33,7 +33,7 @@ func TestPrivateNATAdmissionKeepsBlackholesAndNoInboundNAT(t *testing.T) {
 func TestPrivateRouteAuthorityPrecedesConntrackAndDirectLocalTraffic(t *testing.T) {
 	routes := []PrivateRoute{{Destination: netip.MustParsePrefix("10.91.2.0/24")}, {Destination: netip.MustParsePrefix("10.91.0.0/16"), Local: true}, {Destination: netip.MustParsePrefix("0.0.0.0/0")}}
 	var chains strings.Builder
-	writePrivateChains(&chains, routes)
+	writePrivateChains(&chains, routes, nil)
 	text := chains.String()
 	for _, field := range []string{"saddr", "daddr"} {
 		denied := strings.Index(text, "ip "+field+" 10.91.2.0/24 counter drop")

@@ -44,6 +44,9 @@ func canonicalCIDR(raw string) (string, error) {
 	return p.Masked().String(), nil
 }
 func missing(kind, id string) error {
+	if kind == "vpc-flow-log" {
+		return failure("InvalidFlowLogId.NotFound", "The flow log ID '"+id+"' does not exist")
+	}
 	if kind == "natgateway" || kind == "vpc-endpoint" {
 		return networkOwnerMissing(kind, id)
 	}
@@ -69,6 +72,8 @@ func missing(kind, id string) error {
 }
 func resourceKind(id string) string {
 	switch {
+	case strings.HasPrefix(id, "fl-"):
+		return "vpc-flow-log"
 	case strings.HasPrefix(id, "nat-"):
 		return "natgateway"
 	case strings.HasPrefix(id, "vpce-"):
@@ -107,6 +112,8 @@ func resourceKind(id string) string {
 func allowedFilters(op string) map[string]bool {
 	fields := ""
 	switch op {
+	case "DescribeFlowLogs":
+		fields = "flow-log-id resource-id traffic-type log-destination-type log-group-name deliver-log-status log-status"
 	case "DescribeNatGateways":
 		fields = "nat-gateway-id subnet-id vpc-id state connectivity-type nat-gateway-address.allocation-id nat-gateway-address.private-ip nat-gateway-address.public-ip"
 	case "DescribeVpcEndpoints":
@@ -273,6 +280,9 @@ func selectPageItems(ctx context.Context, op string, ids []string, filters api.F
 		}
 	}
 	kind := map[string]string{"DescribeVpcs": "vpc", "DescribeSubnets": "subnet", "DescribeSecurityGroups": "security-group", "DescribeSecurityGroupRules": "security-group-rule", "DescribeRouteTables": "route-table", "DescribeInternetGateways": "internet-gateway", "DescribeNetworkInterfaces": "network-interface", "DescribeNetworkAcls": "network-acl", "DescribeDhcpOptions": "dhcp-options"}[op]
+	if op == "DescribeFlowLogs" {
+		kind = "vpc-flow-log"
+	}
 	if op == "DescribeNatGateways" {
 		kind = "natgateway"
 	}
@@ -317,6 +327,14 @@ func selectPageItems(ctx context.Context, op string, ids []string, filters api.F
 		allocationIDs := slices.Clone(ids)
 		slices.Sort(allocationIDs)
 		encoded, _ = json.Marshal(slices.Compact(allocationIDs))
+	}
+	if op == "DescribeFlowLogs" {
+		flowLogIDs := slices.Clone(ids)
+		slices.Sort(flowLogIDs)
+		encoded, _ = json.Marshal(struct {
+			IDs     []string
+			Filters api.FilterList
+		}{slices.Compact(flowLogIDs), selection})
 	}
 	digest := fmt.Sprintf("%x", sha256.Sum256(encoded))
 	cursor := pageToken{Scope: scopeFor(ctx), Operation: op, Selection: digest}

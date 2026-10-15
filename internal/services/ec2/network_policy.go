@@ -12,7 +12,7 @@ import (
 	api "stackd/internal/awsapi/ec2"
 )
 
-func networkSpecification(ctx context.Context, tx Reader, eni NetworkInterfaceRecord) (network.Specification, error) {
+func networkSpecification(ctx context.Context, tx Reader, eni NetworkInterfaceRecord, captureNamespace string) (network.Specification, error) {
 	var out network.Specification
 	subnet, err := interfaceSubnet(tx, eni)
 	if err != nil {
@@ -23,6 +23,8 @@ func networkSpecification(ctx context.Context, tx Reader, eni NetworkInterfaceRe
 		return out, err
 	}
 	out.NetworkID = resourceARN(vpc.Key.Scope, "vpc", vpc.Key.ID)
+	out.FlowCaptureNamespace = captureNamespace
+	out.FlowIdentity = network.FlowIdentity{Partition: eni.Key.Scope.Partition, AccountID: eni.Key.Scope.AccountID, Region: eni.Key.Scope.Region, VPCOwnerAccountID: vpc.Key.Scope.AccountID, VPCID: vpc.Key.ID, SubnetID: subnet.Key.ID, InterfaceID: eni.Key.ID}
 	out.Pool, err = taskIPv4Prefix(str(vpc.Data.CidrBlock))
 	if err != nil {
 		return out, err

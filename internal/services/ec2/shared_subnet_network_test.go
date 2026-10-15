@@ -45,12 +45,18 @@ func TestSharedSubnetNativeNetworkOwnership(t *testing.T) {
 	check := func(ctx context.Context, port int, allow bool) {
 		t.Helper()
 		if err := repo.View(ctx, func(tx Reader) error {
-			spec, err := networkSpecification(tx.Context(), tx, eni)
+			spec, err := networkSpecification(tx.Context(), tx, eni, "flow-capture-test")
 			if err != nil {
 				return err
 			}
 			if spec.NetworkID != resourceARN(owner, "vpc", str(subnet.Data.VpcId)) || spec.Address != netip.MustParseAddr("10.42.1.4") || spec.Pool != netip.MustParsePrefix("10.42.0.0/16") || spec.Policy.Subnet != netip.MustParsePrefix("10.42.1.0/24") {
 				t.Fatalf("participant network moved away from owner: %+v", spec)
+			}
+			if spec.FlowCaptureNamespace != "flow-capture-test" || spec.FlowIdentity.AccountID != participant.AccountID || spec.FlowIdentity.VPCOwnerAccountID != owner.AccountID || spec.FlowIdentity.InterfaceID != eni.Key.ID {
+				t.Fatalf("capture identity lost participant/VPC ownership: %+v", spec.FlowIdentity)
+			}
+			if err := spec.FlowIdentity.Validate(spec.NetworkID); err != nil {
+				return err
 			}
 			if len(spec.DNS) != 1 || spec.DNS[0] != netip.MustParseAddr("10.42.0.2") {
 				t.Fatalf("owner DHCP was not used: %+v", spec.DNS)
@@ -79,7 +85,7 @@ func TestSharedSubnetNativeNetworkOwnership(t *testing.T) {
 	if err := repo.Update(ctx, func(tx Transaction) error { return tx.DeleteSubnet(subnet.Key) }); err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.View(ctx, func(tx Reader) error { _, err := networkSpecification(tx.Context(), tx, eni); return err }); !errors.Is(err, ErrNotFound) {
+	if err := repo.View(ctx, func(tx Reader) error { _, err := networkSpecification(tx.Context(), tx, eni, ""); return err }); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("retained ENI acquired a missing subnet: %v", err)
 	}
 }

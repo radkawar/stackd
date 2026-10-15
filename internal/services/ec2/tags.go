@@ -190,6 +190,9 @@ func (s *Service) changeTags(ctx context.Context, tx Transaction, action string,
 }
 func resourceTags(tx Transaction, k ResourceKey, kind string) (api.TagList, func(api.TagList) error, error) {
 	switch kind {
+	case "vpc-flow-log":
+		v, err := tx.FlowLog(k)
+		return v.Tags, func(t api.TagList) error { v.Tags = t; v.Version++; return tx.PutFlowLog(v) }, err
 	case "natgateway":
 		v, err := tx.NatGateway(k)
 		return v.Data.Tags, func(t api.TagList) error { v.Data.Tags = t; return tx.PutNatGateway(v) }, err
@@ -266,6 +269,13 @@ func (s *Service) describeTags(ctx context.Context, tx Transaction, in *api.Desc
 		}
 	}
 	scope := scopeFor(ctx)
+	flowLogs, err := tx.FlowLogs(scope)
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range flowLogs {
+		add(v.Key.ID, "vpc-flow-log", v.Tags)
+	}
 	nats, err := tx.NatGateways(scope)
 	if err != nil {
 		return nil, err

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 
 	"stackd/compute/docker"
 )
@@ -25,9 +26,11 @@ type Bridge struct {
 // Bridges serializes attachment creation against removal across compute drivers.
 // Native endpoints and bridge ports own lifetime; there is no second refcount.
 type Bridges struct {
-	client      *docker.Client
-	gate        chan struct{}
-	daemonOwned bool
+	client         *docker.Client
+	gate           chan struct{}
+	daemonOwned    bool
+	flowMu         sync.Mutex
+	flowCollectors map[string]NativeFlowCollector
 }
 
 func NewBridges(client *docker.Client) (*Bridges, error) {
@@ -49,6 +52,63 @@ func NewDaemonBridges(client *docker.Client) (*Bridges, error) {
 	}
 	bridges.daemonOwned = true
 	return bridges, nil
+}
+
+// Each Bridges instance opens the same namespace/Engine-owned retained receiver.
+// There is deliberately no process-global collector or native lifetime owner.
+func (b *Bridges) flowCollector(namespace string) (NativeFlowCollector, error) {
+	b.flowMu.Lock()
+	defer b.flowMu.Unlock()
+	if collector := b.flowCollectors[namespace]; collector != nil {
+		return collector, nil
+	}
+	collector, err := NewDockerFlowCollector(b.client, namespace)
+	if err != nil {
+		return nil, err
+	}
+	if b.flowCollectors == nil {
+		b.flowCollectors = make(map[string]NativeFlowCollector)
+	}
+	b.flowCollectors[namespace] = collector
+	return collector, nil
+}
+
+// Removal may follow a controller restart and a failed install that never wrote
+// a native token. Discover exact named retained receivers in the selected Engine
+// so their registry can reconcile that operation; admission still verifies every
+// collector's complete namespace/Engine/boot/config ownership before adoption.
+func (b *Bridges) retainedFlowNamespaces(ctx context.Context) map[string]struct{} {
+	namespaces := make(map[string]struct{})
+	b.flowMu.Lock()
+	for namespace := range b.flowCollectors {
+		namespaces[namespace] = struct{}{}
+	}
+	b.flowMu.Unlock()
+	if b.client == nil {
+		return namespaces
+	}
+	filters, _ := json.Marshal(map[string][]string{"label": {"stackd.network.flows.namespace"}})
+	var containers []struct {
+		Names  []string
+		Labels map[string]string
+	}
+	if err := b.client.JSON(ctx, http.MethodGet, "/containers/json?all=true&filters="+url.QueryEscape(string(filters)), nil, &containers); err != nil {
+		return namespaces
+	}
+	for _, container := range containers {
+		namespace := container.Labels["stackd.network.flows.namespace"]
+		candidate, err := NewDockerFlowCollector(b.client, namespace)
+		if err != nil {
+			continue
+		}
+		for _, name := range container.Names {
+			if name == "/"+candidate.name {
+				namespaces[namespace] = struct{}{}
+				break
+			}
+		}
+	}
+	return namespaces
 }
 
 // WithBridge holds shared ownership until attach has created its native port or

@@ -23,49 +23,57 @@ const Namespace = "http://ec2.amazonaws.com/doc/2016-11-15/"
 
 type AvailabilityZone struct{ Name, ID string }
 type Config struct {
-	Repository         Repository
-	Authorizer         authorization.Authorizer
-	Recorder           apievents.Recorder
-	Clock              clock.Clock
-	Regions            RegionAccess
-	Snapshots          SnapshotControl
-	Volumes            VolumeControl
-	ImageSnapshots     ImageSnapshots
-	InstanceRuntime    native.Executor
-	InstanceVolumes    InstanceVolumes
-	InstanceProfiles   InstanceProfiles
-	InstanceIdentities InstanceIdentities
-	InstanceTypes      InstanceTypes
-	InstanceEvents     InstanceEvents
-	InstanceImages     InstanceImageSnapshots
-	InstanceMetrics    InstanceMetrics
-	SharedSubnets      SharedSubnetAccess
+	Repository           Repository
+	Authorizer           authorization.Authorizer
+	Recorder             apievents.Recorder
+	Clock                clock.Clock
+	Regions              RegionAccess
+	Snapshots            SnapshotControl
+	Volumes              VolumeControl
+	ImageSnapshots       ImageSnapshots
+	InstanceRuntime      native.Executor
+	InstanceVolumes      InstanceVolumes
+	InstanceProfiles     InstanceProfiles
+	InstanceIdentities   InstanceIdentities
+	InstanceTypes        InstanceTypes
+	InstanceEvents       InstanceEvents
+	InstanceImages       InstanceImageSnapshots
+	InstanceMetrics      InstanceMetrics
+	SharedSubnets        SharedSubnetAccess
+	FlowLogCapture       FlowLogCapture
+	FlowLogDestination   FlowLogDestination
+	FlowCaptureNamespace string
 }
 type Service struct {
-	repository          Repository
-	authorizer          authorization.Authorizer
-	recorder            apievents.Recorder
-	clock               clock.Clock
-	regions             RegionAccess
-	snapshots           SnapshotControl
-	volumes             VolumeControl
-	imageSnapshots      ImageSnapshots
-	instanceRuntime     native.Executor
-	instanceVolumes     InstanceVolumes
-	instanceProfiles    InstanceProfiles
-	instanceIdentities  InstanceIdentities
-	instanceTypes       InstanceTypes
-	instanceEvents      InstanceEvents
-	instanceImages      InstanceImageSnapshots
-	instanceMetrics     InstanceMetrics
-	sharedSubnets       SharedSubnetAccess
-	instanceWorkMu      sync.Mutex
-	identitySigningMu   sync.Mutex
-	identitySigningKeys map[string]*instanceIdentitySigner
-	instanceHandles     map[ResourceKey]native.Instance
-	jobs                *scheduler.Driver
-	compute             computeEffects
-	operations          map[string]func(context.Context) (any, *awswire.Error)
+	repository           Repository
+	authorizer           authorization.Authorizer
+	recorder             apievents.Recorder
+	clock                clock.Clock
+	regions              RegionAccess
+	snapshots            SnapshotControl
+	volumes              VolumeControl
+	imageSnapshots       ImageSnapshots
+	instanceRuntime      native.Executor
+	instanceVolumes      InstanceVolumes
+	instanceProfiles     InstanceProfiles
+	instanceIdentities   InstanceIdentities
+	instanceTypes        InstanceTypes
+	instanceEvents       InstanceEvents
+	instanceImages       InstanceImageSnapshots
+	instanceMetrics      InstanceMetrics
+	sharedSubnets        SharedSubnetAccess
+	flowLogCapture       FlowLogCapture
+	flowLogDestination   FlowLogDestination
+	flowCaptureNamespace string
+	flowLogMu            sync.Mutex
+	flowLogEffects       computeEffects
+	instanceWorkMu       sync.Mutex
+	identitySigningMu    sync.Mutex
+	identitySigningKeys  map[string]*instanceIdentitySigner
+	instanceHandles      map[ResourceKey]native.Instance
+	jobs                 *scheduler.Driver
+	compute              computeEffects
+	operations           map[string]func(context.Context) (any, *awswire.Error)
 }
 type emptyResult = api.Unit
 
@@ -86,10 +94,12 @@ func New(c Config) *Service {
 	s.instanceTypes, s.instanceEvents, s.instanceImages = c.InstanceTypes, c.InstanceEvents, c.InstanceImages
 	s.instanceMetrics = c.InstanceMetrics
 	s.sharedSubnets = c.SharedSubnets
+	s.flowLogCapture, s.flowLogDestination = c.FlowLogCapture, c.FlowLogDestination
+	s.flowCaptureNamespace = c.FlowCaptureNamespace
 	if s.instanceTypes == nil {
 		s.instanceTypes = s
 	}
-	s.jobs = scheduler.New(c.Clock, computeJobs{s})
+	s.jobs = scheduler.New(c.Clock, computeJobs{s}, flowLogJobs{s})
 	register(s, "CreateVpc", s.createVPC)
 	register(s, "DescribeVpcs", s.describeVPCs)
 	register(s, "DeleteVpc", s.deleteVPC)
@@ -120,6 +130,7 @@ func New(c Config) *Service {
 	registerInstanceProfiles(s)
 	registerInstanceImages(s)
 	registerLaunchTemplates(s)
+	registerFlowLogs(s)
 	return s
 }
 func (s *Service) Operations() []string {

@@ -185,7 +185,7 @@ func (s *Service) AllocateBrokerNetwork(ctx context.Context, in BrokerNetworkReq
 		if err != nil {
 			return err
 		}
-		out.Network, err = networkSpecification(ctx, tx, record)
+		out.Network, err = networkSpecification(ctx, tx, record, s.flowCaptureNamespace)
 		return err
 	})
 	return out, err
@@ -211,7 +211,7 @@ func (s *Service) ObserveBrokerNetwork(ctx context.Context, identity BrokerNetwo
 		if err != nil {
 			return err
 		}
-		out.Network, err = networkSpecification(ctx, tx, record)
+		out.Network, err = networkSpecification(ctx, tx, record, s.flowCaptureNamespace)
 		return err
 	})
 	return out, err

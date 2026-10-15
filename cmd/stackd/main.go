@@ -85,6 +85,8 @@ func run() (result error) {
 	ssoUserPoolClientID := flag.String("sso-user-pool-client-id", "", "explicit Cognito password-auth client for local Identity Center browser sign-in")
 	oidcDiscovery := flag.Bool("oidc-discovery", false, "enable HTTPS issuer and JWKS discovery for OIDC federation; disabled by default")
 	dockerHost := flag.String("docker-host", "", "explicit Docker Engine URL; selects transport only, enable each engine with its runtime flag")
+	flowLogRuntime := flag.String("vpc-flow-logs-runtime", "", "enable native VPC packet capture: docker; requires database, docker-host and a stable capture namespace")
+	flowLogNamespace := flag.String("vpc-flow-logs-namespace", "", "unique retained packet-capture namespace for this database; requires vpc-flow-logs-runtime=docker")
 	containerRuntimes := registerContainerRuntimeFlags(flag.CommandLine)
 	computeEndpoint := flag.String("compute-endpoint", "", "AWS endpoint reachable from containers; defaults to host.docker.internal for a non-loopback listener")
 	lambdaCallbackHost := flag.String("lambda-callback-host", "", "Runtime API address reachable from containers; host.docker.internal uses Docker Desktop DNS, empty uses Linux host-gateway")
@@ -271,6 +273,15 @@ func run() (result error) {
 	if len(hotReload) != 0 && *dockerHost == "" {
 		return fmt.Errorf("lambda hot reload requires an explicit docker-host")
 	}
+	if *flowLogRuntime != "" && *flowLogRuntime != "docker" {
+		return fmt.Errorf("vpc-flow-logs-runtime must be docker or empty")
+	}
+	if *flowLogRuntime == "docker" && (*dockerHost == "" || *database == "" || *flowLogNamespace == "") {
+		return fmt.Errorf("vpc-flow-logs-runtime=docker requires docker-host, database and vpc-flow-logs-namespace")
+	}
+	if *flowLogRuntime == "" && *flowLogNamespace != "" {
+		return fmt.Errorf("vpc-flow-logs-namespace requires vpc-flow-logs-runtime=docker")
+	}
 	if (*glueEnabled || *athenaEnabled) && *dockerHost == "" {
 		return fmt.Errorf("analytics runtimes require an explicit docker-host")
 	}
@@ -403,6 +414,7 @@ func run() (result error) {
 	var valkeyRuntime valkeyruntime.Runtime
 	var elbv2Runtime elbv2runtime.Runtime
 	var elbv2Classifier *elbv2desync.Classifier
+	var flowLogCollector *network.DockerFlowCollector
 	if *elbv2DesyncExecutable != "" {
 		elbv2Classifier, err = elbv2desync.New(context.Background(), *elbv2DesyncExecutable)
 		if err != nil {
@@ -437,6 +449,17 @@ func run() (result error) {
 			return err
 		}
 		defer engine.Close()
+		if *flowLogRuntime == "docker" {
+			flowLogCollector, err = network.NewDockerFlowCollector(engine, *flowLogNamespace)
+			if err == nil {
+				err = flowLogCollector.Ensure(runtimeContext)
+			}
+			if err != nil {
+				cancel()
+				return fmt.Errorf("initialize native VPC flow capture: %w", err)
+			}
+			defer func() { result = errors.Join(result, flowLogCollector.Close()) }()
+		}
 		networks, err := network.NewBridges(engine)
 		if err != nil {
 			cancel()
@@ -656,6 +679,9 @@ func run() (result error) {
 		*sesEmailDirectory = *database + ".ses"
 	}
 	config := stackd.Config{AccountID: *account, PublicEndpoint: *publicEndpoint, OrganizationAccountQuotas: accountQuotas, EmailSender: emailSender, Storage: backends, Clock: source, LambdaExecutor: executor, ECSExecutor: taskExecutor, CodeBuildFleetImage: *codebuildFleetImage, DynamoDBRuntime: dynamoRuntime, KinesisRuntime: kinesisRuntime, InventoryORC: inventoryORC, ComputeEndpoint: *computeEndpoint, LambdaKeepAlive: *lambdaKeepAlive}
+	if flowLogCollector != nil {
+		config.FlowLogCollector, config.FlowLogNamespace = flowLogCollector, *flowLogNamespace
+	}
 	networking.configure(&config, listener.Addr().String(), tlsConfig != nil)
 	config.SESEmailDirectory = *sesEmailDirectory
 	config.SSOUserPoolClientID = *ssoUserPoolClientID

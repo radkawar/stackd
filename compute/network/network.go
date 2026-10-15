@@ -12,6 +12,8 @@ import (
 // capability errors rather than silently substituting another address.
 type Specification struct {
 	NetworkID                  string
+	FlowIdentity               FlowIdentity
+	FlowCaptureNamespace       string
 	Pool                       netip.Prefix
 	Gateway                    netip.Addr
 	Address                    netip.Addr

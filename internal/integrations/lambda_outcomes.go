@@ -35,7 +35,7 @@ type LambdaOutcomeEvents interface {
 
 type LambdaOutcomeObjects interface {
 	HeadBucket(context.Context, *s3api.HeadBucketInput) (*s3api.HeadBucketOutput, *awswire.Error)
-	CheckPutObject(context.Context, string, string) *awswire.Error
+	CheckPutObject(context.Context, *s3api.PutObjectInput) *awswire.Error
 	PutObject(context.Context, *s3api.PutObjectInput) (*s3api.PutObjectOutput, *awswire.Error)
 }
 
@@ -75,7 +75,7 @@ func (a *LambdaOutcomes) checkDestination(ctx context.Context, function lambda.F
 		if _, rejected := a.S3.HeadBucket(ctx, &s3api.HeadBucketInput{Bucket: new(s3api.BucketName(target.Resource))}); rejected != nil {
 			return rejected
 		}
-		return a.S3.CheckPutObject(ctx, target.Resource, objectPattern)
+		return a.S3.CheckPutObject(ctx, &s3api.PutObjectInput{Bucket: new(s3api.BucketName(target.Resource)), Key: new(s3api.ObjectKey(objectPattern))})
 	default:
 		return &awswire.Error{Code: "NotImplementedException", Message: "Unsupported Lambda outcome destination.", StatusCode: 501}
 	}

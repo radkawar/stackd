@@ -5,12 +5,139 @@
 
 EC2 currently provides typed VPC, subnet, security-group/rule, route-table,
 internet-gateway, IPv4 network-interface, public IPv4/Elastic IP, network-ACL,
-DHCP-options, regional-discovery, key-pair, launch-template, instance/image and EBS controls. QEMU/KVM executes
+DHCP-options, regional-discovery, key-pair, launch-template, instance/image, VPC Flow Logs and EBS controls. QEMU/KVM executes
 compatible HVM guests against real native volumes; EBS retains immutable snapshot
 blocks. These exercised workflows do not establish complete EC2 parity.
 Remaining operations are recognized through SDK Smithy-generated EC2 Query
 contracts and return explicit protocol errors.
 The generated [inventory](services.json) reports registration as partial.
+
+## VPC Flow Logs
+
+`CreateFlowLogs`, `DescribeFlowLogs` and `DeleteFlowLogs` support VPC, subnet and
+network-interface subscriptions. They use scoped typed state, current IAM,
+DryRun, tags, filters and deterministic local pagination. Create accepts up to
+300 resource IDs. The resource selector also covers interfaces created later.
+Logging configuration is immutable; tags can change. SQLite schema 424 retains
+subscriptions, admission groups, capture checkpoints, aggregates and delivery
+batches. State changes and their journal events commit together.
+
+Destinations are CloudWatch Logs and gzip plain-text S3 objects. Records support
+the default fourteen-field version-2 format and these additional fields:
+`vpc-id`, `subnet-id`, `instance-id`, `tcp-flags`, `type`, `pkt-srcaddr`,
+`pkt-dstaddr`, `region`, `az-id` and `flow-direction`. The selected fields set the
+record version. Aggregation uses 60 or 600 seconds; S3 publication has a separate
+five-minute cadence. S3 supports custom prefixes, Hive-compatible partitions and
+hour partitions. Its gzip files contain a field-name header. CloudWatch uses
+the ENI ID as the stream name and the flow start as the event timestamp.
+
+CloudWatch admission checks `iam:PassRole` and the role's current trust for
+`vpc-flow-logs.amazonaws.com`, the source account and the allocated flow-log ARN.
+Delivery assumes the current role; it does not reuse the configuring caller's
+credentials. S3 delivery uses `delivery.logs.amazonaws.com`, the source-account
+and regional Logs ARN conditions, and `bucket-owner-full-control`. Automatic
+policy setup requires the caller's bucket-policy permissions, preserves unrelated
+statements and serializes this feature's policy additions. Background delivery
+does not reinstall permissions removed by the operator.
+
+The [retained AWS calibration](../testdata/aws/ec2/flow_logs.json) records
+same-token/log-format admission groups, live resource membership after deletion,
+duplicate-configuration errors, policy preservation and real zero-byte S3
+admission markers. A marker is not a flow record. First-destination markers stop
+at `AWSLogs/<account>/`, or `AWSLogs/aws-account-id=<account>/` for Hive, after
+the optional prefix. Native marker reuse and timing observations are bounded;
+they do not establish all AWS internal caching or response-order rules.
+
+### Enable real capture
+
+Install the pinned [network toolkit](networking.md) on a rootful Linux Docker
+Engine. Keep the capture namespace unique to this SQLite database and reuse it
+on restart. Enable the actual compute runtime used by the workloads, for example:
+
+```sh
+stackd -listen 0.0.0.0:4566 \
+  -public-endpoint http://127.0.0.1:4566 \
+  -database .stackd/state.sqlite \
+  -docker-host unix:///var/run/docker.sock \
+  -ecs-runtime -compute-endpoint http://host.docker.internal:4566 \
+  -vpc-flow-logs-runtime docker -vpc-flow-logs-namespace my-sandbox
+```
+
+Use a trusted development host; the non-loopback listener lets native containers
+reach the emulator. The API remains available without native capture, but a
+subscription then reports the missing capture dependency as a delivery failure.
+`ACTIVE` describes configured subscription state. `SUCCESS` describes current
+capture/destination readiness, not proof that packets have been published.
+
+Capture uses non-terminating NFLOG statements at actual ENI policy verdicts.
+Source admission runs before destination admission. A source ACCEPT can therefore
+coexist with destination REJECT; source rejection does not invent destination
+admission. ENI/account/VPC identity comes from immutable native bindings, not
+packet-address lookup. Custom DNS traffic remains visible; provider DNS, DHCP,
+metadata, time and runtime callback traffic is excluded.
+
+The receiver keeps a bounded, payload-free journal in an owned Docker volume.
+It has host networking and `NET_ADMIN`, but no steady-state Docker socket.
+Controller shutdown leaves it running. Acknowledgement follows the atomic EC2
+checkpoint/aggregate commit. Policy generations, native counters, receiver
+restarts and journal loss determine coverage; gaps produce `SKIPDATA`, not
+invented packet counts. Destination effects run outside storage transactions.
+Delivery is not a crash-exactly-once claim.
+
+### Verification and remaining boundaries
+
+The native receiver smoke exercised real UDP capture, retained replay,
+acknowledgement and receiver-restart loss. The native policy smoke exercised
+source and destination SG rejection, ordered NACL rejection, private-route
+blackholes, ordinary gateway-address application traffic and acceptance without
+a remote listener. SDK checks cover caller bucket-policy authority, concurrent
+policy preservation, concrete role trust and absence of fictitious ENI streams.
+
+The [Terraform configuration](../examples/terraform/vpc-flow-logs/main.tf) pins
+AWS provider **6.68.0**. The [consumer](../scripts/native/vpc_flow_logs.py) runs
+real ECS UDP traffic, reads CloudWatch and S3 records, checks retained restart,
+updates tags, checks no-change plans and destroys its owned resources:
+
+```sh
+python3 scripts/native/vpc_flow_logs.py --binary bin/stackd \
+  --state-directory /tmp/stackd-flow-logs-UNIQUE --remove-owned-capture
+```
+
+Prepare Terraform, boto3, the toolkit and an installed Python application image
+first. `--image` selects that image without pulling it. `--provider-mirror`
+selects an offline AWS 6.68.0 mirror; the retained lock checks its contents.
+The run uses real aggregation/publication time. Its report retains assertions,
+native identities, CloudWatch events, gzip objects and cleanup results.
+
+The [retained local run](../testdata/integration/ec2_flow_logs_native.json)
+passed on 2026-10-15 with official Terraform 1.15.9 and AWS provider 6.68.0.
+It checked six sent UDP datagrams across a controller restart: two allowed
+echoes and four SG/NACL-denied requests. It checked packet/byte counts,
+subscription filtering, CloudWatch events, compressed S3 records and the empty
+admission marker. Task and collector processes survived the restart. Tag
+updates, no-change plans and deletion of all 14 Terraform resources passed;
+the native collector was then removed after an idle proof. The receipt retains
+`SKIPDATA` records as well as packet records; this is not gap-free capture.
+
+Remaining `TODO: Comeback` boundaries are IPv6 capture, reliable segment counts
+for TCP payloads/fragments/offloaded packets, continuously proven idle windows
+for `NODATA`, further enrichment fields, Transit Gateway/regional NAT sources,
+Firehose, Parquet and cross-account role/cross-region CloudWatch delivery.
+Ambiguous native packet counts produce gaps. Unsupported controls return errors.
+These tests do not establish complete VPC Flow Logs or EC2 conformance.
+
+Primary contracts: [CreateFlowLogs](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateFlowLogs.html),
+[record fields](https://docs.aws.amazon.com/vpc/latest/userguide/flow-log-records.html),
+[capture limits](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-limitations.html),
+[CloudWatch role](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-iam-role.html),
+[S3 permissions](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-s3-permissions.html)
+and [S3 paths](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-s3-path.html).
+
+The current-provider fixture also exposed an existing NACL compatibility gap.
+Create/ReplaceNetworkAclEntry now ignore ports and ICMP selectors outside their
+applicable protocol. Protocol `-1` with Terraform's `0..0` port fields still
+matches all ports, as specified by the
+[AWS API](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateNetworkAclEntry.html).
 
 ## Elastic IP attribute reads and Terraform
 

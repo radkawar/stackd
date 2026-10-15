@@ -962,6 +962,8 @@ func resourceTaggingEC2Identity(kind, id string) bool {
 		prefix = "acl-"
 	case "dhcp-options":
 		prefix = "dopt-"
+	case "vpc-flow-log":
+		prefix = "fl-"
 	case "snapshot":
 		prefix = "snap-"
 	case "volume":

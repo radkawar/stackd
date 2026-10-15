@@ -8,6 +8,9 @@ These are executable, assertion-bearing examples, not claims of AWS parity:
 - [Terraform EIPs with AWS provider 6.68.0](../docs/ec2.md#run-the-current-provider-lifecycle):
   allocate two EIPs, verify signed attribute pagination, refresh without drift,
   destroy, and assert resource absence in a fresh owned controller.
+- [VPC Flow Logs with AWS provider 6.68.0](../docs/ec2.md#vpc-flow-logs):
+  capture real allowed and denied UDP traffic, read CloudWatch Logs and gzip S3
+  records, restart the controller, verify Terraform refresh, and remove owned resources.
 - [CloudFormation](cloudformation/README.md): create the same application, consume
   stack outputs, exercise its data plane, update SSM in place, reject an identical
   update as a no-op, delete the stack, and verify resource absence.

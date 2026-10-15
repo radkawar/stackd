@@ -1,6 +1,8 @@
 package network
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -18,6 +20,8 @@ type Options struct {
 	// PublicOwner is the existing persistent controller identity: the guest
 	// network state directory, immutable task ARN or retained service attachment.
 	PublicOwner string
+	// flow is supplied only after authoritative native collector registration.
+	flow *policyFlowCapture
 }
 
 // Rules renders one attachment's native nftables transaction. Netdev guards run
@@ -41,30 +45,37 @@ func Rules(name string, network Specification, policy Policy, peer string, optio
 		return "", errors.New("network policy requires an Ethernet MAC")
 	}
 	address, pool := network.Address.String(), network.Pool.String()
+	flow := options.flow
 	var b strings.Builder
 	fmt.Fprintf(&b, "destroy table netdev %s\ndestroy table bridge %s\n", name, name)
 	fmt.Fprintf(&b, "table netdev %s {\n", name)
+	flow.writeChains(&b, name, network, options, false)
 	fmt.Fprintf(&b, "chain source { type filter hook ingress device %q priority -500; policy drop;\n", peer)
-	fmt.Fprintf(&b, "ether saddr != %s counter drop\n", mac)
+	fmt.Fprintf(&b, "ether saddr != %s counter %s\n", mac, flow.drop("from"))
 	fmt.Fprintf(&b, "ether type arp arp htype 1 arp ptype ip arp hlen 6 arp plen 4 arp operation { request, reply } arp saddr ether %s arp saddr ip %s arp daddr ip %s accept\n", mac, address, pool)
 	// Source routing must not rewrite the destination after policy evaluation.
-	b.WriteString("ip option lsrr exists counter drop\nip option ssrr exists counter drop\n")
+	fmt.Fprintf(&b, "ip option lsrr exists counter %s\nip option ssrr exists counter %s\n", flow.drop("from"), flow.drop("from"))
 	if options.Guest {
 		fmt.Fprintf(&b, "ether type arp arp operation request arp saddr ether %s arp saddr ip 0.0.0.0 arp daddr ip %s accept\n", mac, address)
 		fmt.Fprintf(&b, "ether type ip ip saddr { 0.0.0.0, %s } ip daddr { 255.255.255.255, %s } udp sport 68 udp dport 67 accept\n", address, network.Gateway)
 		fmt.Fprintf(&b, "ether type ip ip saddr %s ip daddr 169.254.169.254 tcp dport 80 accept\n", address)
 	}
-	fmt.Fprintf(&b, "ether type ip ip saddr %s ip daddr != 169.254.0.0/16 accept\n}\n", address)
+	fmt.Fprintf(&b, "ether type ip ip saddr %s ip daddr != 169.254.0.0/16 accept\n", address)
+	flow.writeDefaultDrop(&b, "from")
+	b.WriteString("}\n")
 	fmt.Fprintf(&b, "chain destination { type filter hook egress device %q priority -500; policy drop;\n", peer)
 	fmt.Fprintf(&b, "ether type arp arp htype 1 arp ptype ip arp hlen 6 arp plen 4 arp operation { request, reply } arp saddr ip %s arp daddr ip %s accept\n", pool, address)
-	b.WriteString("ip option lsrr exists counter drop\nip option ssrr exists counter drop\n")
+	fmt.Fprintf(&b, "ip option lsrr exists counter %s\nip option ssrr exists counter %s\n", flow.drop("to"), flow.drop("to"))
 	if options.Guest {
 		fmt.Fprintf(&b, "ether type ip ip saddr %s ip daddr { 255.255.255.255, %s } udp sport 67 udp dport 68 accept\n", network.Gateway, address)
 	}
-	fmt.Fprintf(&b, "ether daddr %s ether type ip ip daddr %s accept\n}\n}\n", mac, address)
+	fmt.Fprintf(&b, "ether daddr %s ether type ip ip daddr %s accept\n", mac, address)
+	flow.writeDefaultDrop(&b, "to")
+	b.WriteString("}\n}\n")
 	fmt.Fprintf(&b, "table bridge %s {\n", name)
-	writeNATChains(&b, policy.NATRoutes)
-	writePrivateChains(&b, policy.PrivateRoutes)
+	flow.writeChains(&b, name, network, options, true)
+	writeNATChains(&b, policy.NATRoutes, flow)
+	writePrivateChains(&b, policy.PrivateRoutes, flow)
 	for _, direction := range []string{"from", "to"} {
 		field, acl, sg, callbackMatch := "daddr", policy.ACLEgress, policy.SecurityEgress, fmt.Sprintf("ip daddr %s tcp dport %d", host, portNumber)
 		if direction == "to" {
@@ -74,7 +85,7 @@ func Rules(name string, network Specification, policy Policy, peer string, optio
 		// public-address installer moves an address to another attachment.
 		fmt.Fprintf(&b, "chain public_%s {\n", direction)
 		if !policy.PublicEgress || !policy.PublicIPv4.Is4() {
-			writeNATAdmission(&b, policy.NATRoutes, direction)
+			writeNATAdmission(&b, policy.NATRoutes, direction, flow)
 		}
 		b.WriteString("}\n")
 		// The reserved gateway is not a customer ENI. Host-local public DNAT
@@ -92,13 +103,13 @@ func Rules(name string, network Specification, policy Policy, peer string, optio
 			return 0
 		})
 		for _, rule := range ordered {
-			verdict := "drop"
+			verdict := flow.drop(direction)
 			if rule.Allow {
 				verdict = "return"
 			}
 			fmt.Fprintf(&b, "%s counter %s\n", nftIPMatch(rule.Rule, field), verdict)
 		}
-		b.WriteString("counter drop\n}\n")
+		fmt.Fprintf(&b, "counter %s\n}\n", flow.drop(direction))
 		fmt.Fprintf(&b, "chain %s {\nether type arp return\nether type != ip counter drop\n", direction)
 		if options.Callback != "" {
 			fmt.Fprintf(&b, "%s return\n", callbackMatch)
@@ -129,16 +140,114 @@ func Rules(name string, network Specification, policy Policy, peer string, optio
 		if direction == "to" {
 			fmt.Fprintf(&b, "ct status dnat ct original ip daddr != %s jump public_to\n", pool)
 		}
-		fmt.Fprintf(&b, "jump acl_%s\nct state invalid counter drop\nct state established,related return\n", direction)
+		fmt.Fprintf(&b, "jump acl_%s\nct state invalid counter %s\nct state established,related return\n", direction, flow.drop(direction))
 		for _, rule := range sg {
 			fmt.Fprintf(&b, "%s counter return\n", nftIPMatch(rule, field))
 		}
-		b.WriteString("counter drop\n}\n")
+		fmt.Fprintf(&b, "counter %s\n}\n", flow.drop(direction))
 	}
-	fmt.Fprintf(&b, "chain input { type filter hook input priority 0; policy accept; iifname %q jump from; }\n", peer)
-	fmt.Fprintf(&b, "chain output { type filter hook output priority 0; policy accept; oifname %q jump to; }\n", peer)
-	fmt.Fprintf(&b, "chain forward { type filter hook forward priority 0; policy accept; iifname %q jump from; oifname %q jump to; }\n}\n", peer, peer)
+	if flow == nil {
+		fmt.Fprintf(&b, "chain input { type filter hook input priority 0; policy accept; iifname %q jump from; }\n", peer)
+		fmt.Fprintf(&b, "chain output { type filter hook output priority 0; policy accept; oifname %q jump to; }\n", peer)
+		fmt.Fprintf(&b, "chain forward { type filter hook forward priority 0; policy accept; iifname %q jump from; oifname %q jump to; }\n}\n", peer, peer)
+	} else {
+		// An intermediate ACL/route/SG return is not admission. Observe only
+		// after the complete ENI policy has returned to its hook caller.
+		from := fmt.Sprintf("iifname %q jump from; iifname %q jump flow_from_accept;", peer, peer)
+		// The destination netdev guard runs later. Its failure must produce
+		// REJECT only, not an earlier bridge ACCEPT for the same ENI.
+		to := fmt.Sprintf("oifname %q jump to; oifname %q ether daddr %s ip daddr %s ip option lsrr missing ip option ssrr missing jump flow_to_accept;", peer, peer, mac, address)
+		fmt.Fprintf(&b, "chain input { type filter hook input priority 0; policy accept; %s }\n", from)
+		fmt.Fprintf(&b, "chain output { type filter hook output priority 0; policy accept; %s }\n", to)
+		// Independent attachment tables have no ordering at equal priority.
+		// Finish every source ENI's admission before any destination ENI's
+		// admission: a destination rejection must not erase source ACCEPT,
+		// and a source rejection must prevent destination ACCEPT. Both phases
+		// keep the existing chain/verdict order and remain after conntrack.
+		fmt.Fprintf(&b, "chain forward_from { type filter hook forward priority -1; policy accept; %s }\n", from)
+		fmt.Fprintf(&b, "chain forward_to { type filter hook forward priority 1; policy accept; %s }\n}\n", to)
+	}
 	return b.String(), nil
+}
+
+type policyFlowCapture struct {
+	namespace    string
+	registration FlowRegistration
+}
+
+func (f *policyFlowCapture) drop(direction string) string {
+	if f == nil {
+		return "drop"
+	}
+	return "jump flow_" + direction + "_drop"
+}
+
+func (f *policyFlowCapture) writeDefaultDrop(b *strings.Builder, direction string) {
+	if f != nil {
+		fmt.Fprintf(b, "counter %s\n", f.drop(direction))
+	}
+}
+
+func (f *policyFlowCapture) writeChains(b *strings.Builder, table string, spec Specification, options Options, accepts bool) {
+	if f == nil {
+		return
+	}
+	fmt.Fprintf(b, "comment %q\n", "stackd:"+table)
+	// The immutable witness survives controller restart and identifies the
+	// registration to retire only after its last native rule is gone.
+	digest := sha256.Sum256([]byte(f.namespace))
+	witness := "sf:" + hex.EncodeToString(digest[:16]) + ":" + f.registration.Token + ":" + f.registration.Generation
+	fmt.Fprintf(b, "chain flow_identity { comment %q; }\n", witness)
+	fmt.Fprintf(b, "chain flow_controller { comment \"%x\"; }\n", sha256.Sum256([]byte(options.PublicOwner)))
+	// nft comments have a small userdata bound. Keep even the maximum allowed
+	// UTF-8 namespace recoverable without an oversized identity comment.
+	for offset := 0; offset < len(f.namespace); offset += 32 {
+		end := min(offset+32, len(f.namespace))
+		fmt.Fprintf(b, "chain flow_namespace_%02d { comment %q; }\n", offset/32, hex.EncodeToString([]byte(f.namespace[offset:end])))
+	}
+	for _, direction := range []string{"from", "to"} {
+		nativeDirection := "egress"
+		if direction == "to" {
+			nativeDirection = "ingress"
+		}
+		for _, action := range []string{"reject", "accept"} {
+			if action == "accept" && !accepts {
+				continue
+			}
+			name := "flow_" + direction + "_" + action
+			fmt.Fprintf(b, "counter %s { }\nchain %s {\n", name, name)
+			writeFlowExclusions(b, spec, options)
+			// NFLOG is non-terminating: neither receiver failure nor queue
+			// pressure changes the original policy verdict.
+			fmt.Fprintf(b, "counter name %s log group %d prefix %q queue-threshold 1 snaplen 128\n}\n", name, f.registration.Group, f.registration.Prefix(nativeDirection, strings.ToUpper(action)))
+		}
+		fmt.Fprintf(b, "chain flow_%s_drop { jump flow_%s_reject; drop; }\n", direction, direction)
+	}
+}
+
+func writeFlowExclusions(b *strings.Builder, spec Specification, options Options) {
+	b.WriteString("ether type != ip return\n")
+	// These provider endpoints are excluded regardless of whether DHCP selected
+	// custom DNS. In particular, no blanket UDP/TCP port 53 exemption is used.
+	for _, field := range []string{"saddr", "daddr"} {
+		fmt.Fprintf(b, "ip %s { 169.254.169.254, 169.254.169.123 } return\n", field)
+		port := "dport"
+		if field == "saddr" {
+			port = "sport"
+		}
+		for _, protocol := range []string{"udp", "tcp"} {
+			fmt.Fprintf(b, "ip %s { %s, 169.254.169.253 } %s %s 53 return\n", field, spec.Pool.Addr().Next().Next(), protocol, port)
+		}
+	}
+	// The bridge gateway may be the ordinary application peer after supported
+	// host-local public /32 DNAT. An address-only gateway exclusion would hide
+	// both request and reply; exclude actual control tuples, not that address.
+	b.WriteString("udp sport 68 udp dport 67 return\nudp sport 67 udp dport 68 return\n")
+	b.WriteString("ip daddr { 169.254.169.250, 169.254.169.251 } tcp dport 1688 return\nip saddr { 169.254.169.250, 169.254.169.251 } tcp sport 1688 return\n")
+	if options.Callback != "" {
+		host, port, _ := net.SplitHostPort(options.Callback) // Rules validated it.
+		fmt.Fprintf(b, "ip daddr %s tcp dport %s return\nip saddr %s tcp sport %s return\n", host, port, host, port)
+	}
 }
 
 func nftIPMatch(rule IPRule, field string) string {

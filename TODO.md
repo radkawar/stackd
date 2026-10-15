@@ -334,6 +334,20 @@ keeps service-specific accounting and error semantics authoritative.
   they are no longer prerequisites waiting for initial implementation. Share
   EC2-owned networking across consumers without a generic executor framework.
   See [remaining EC2 boundaries](docs/ec2.md#next-service-priority) below.
+- [x] Add VPC/subnet/ENI Flow Logs controls, typed SQLite checkpoints and batches,
+  native NFLOG capture, current-role CloudWatch delivery and authorized S3 gzip
+  delivery. Real UDP checks cover ACCEPT, source/destination SG and NACL rejection,
+  private-route rejection, gateway application traffic and retained capture replay.
+  Six sanitized AWS calibrations cover admission, token groups, bucket policies
+  and validation markers. Official Terraform 1.15.9 with AWS provider 6.68.0 passed
+  real allowed/denied traffic, S3/CloudWatch reads, retained controller restart,
+  tag updates, no-change plans and verified teardown of all 14 fixture resources.
+  See [Flow Logs evidence and limits](docs/ec2.md#vpc-flow-logs).
+- [ ] Complete Flow Logs IPv6, TCP payload/fragment/offload segment accounting,
+  continuous idle-window evidence for `NODATA`, additional enrichment fields,
+  Transit Gateway/regional NAT sources, Firehose, Parquet and cross-account role/
+  cross-region CloudWatch destinations. Current unsupported modes are errors;
+  uncertain packet counts are `SKIPDATA`, not fabricated metrics.
 - [x] Establish the ECR/CodeBuild application path: authenticated image push/pull,
   actual build commands, logs and artifacts, current IAM and runtime readiness.
   Retained proof is `testdata/integration/ecr_codebuild_completion.json`;
@@ -408,7 +422,7 @@ Next coherent slices after the account/deployment/distribution work:
   derive them from real writer metadata. Hive CTAS/INSERT manifests now use
   successful authenticated object writes; no guessed paths or bucket diffs.
 - Use the [pinned Terraform provider API map](docs/terraform-provider-apis.json)
-  to select complete resource lifecycles. It currently identifies 2,552 missing
+  to select complete resource lifecycles. It currently identifies 2,531 missing
   selected-service requirements and 309 unresolved callsites. These are static
   source counts, not a measure of runtime frequency or semantic completeness.
 - Resolve the remaining named integration failures and native EC2 isolation
