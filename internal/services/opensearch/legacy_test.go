@@ -197,10 +197,65 @@ func TestLegacySDKSharedDomainControls(t *testing.T) {
 	}
 }
 
+func TestLegacySDKPreservesDisabledCognitoOptions(t *testing.T) {
+	legacy, modern, _ := legacyClients(t)
+	ctx := t.Context()
+	current, err := modern.DescribeDomain(ctx, &modernsdk.DescribeDomainInput{DomainName: aws.String(legacyTestName)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	described, err := legacy.DescribeElasticsearchDomain(ctx, &legacysdk.DescribeElasticsearchDomainInput{DomainName: aws.String(legacyTestName)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if aws.ToString(described.DomainStatus.ARN) != aws.ToString(current.DomainStatus.ARN) ||
+		aws.ToString(described.DomainStatus.DomainId) != aws.ToString(current.DomainStatus.DomainId) ||
+		aws.ToString(described.DomainStatus.ElasticsearchVersion) != aws.ToString(current.DomainStatus.EngineVersion) {
+		t.Fatalf("legacy projection changed shared native identity: %#v, %#v", described.DomainStatus, current.DomainStatus)
+	}
+	assertDisabled := func(options *legacytypes.CognitoOptions) {
+		t.Helper()
+		if options == nil || options.Enabled == nil || *options.Enabled || options.IdentityPoolId != nil || options.UserPoolId != nil || options.RoleArn != nil {
+			t.Fatalf("legacy projection lost disabled Cognito state or invented enabled settings: %#v", options)
+		}
+	}
+	if current.DomainStatus.CognitoOptions == nil || current.DomainStatus.CognitoOptions.Enabled == nil || *current.DomainStatus.CognitoOptions.Enabled {
+		t.Fatalf("modern source must expose disabled Cognito: %#v", current.DomainStatus.CognitoOptions)
+	}
+	assertDisabled(described.DomainStatus.CognitoOptions)
+	many, err := legacy.DescribeElasticsearchDomains(ctx, &legacysdk.DescribeElasticsearchDomainsInput{DomainNames: []string{legacyTestName}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(many.DomainStatusList) != 1 {
+		t.Fatalf("expected shared domain: %#v", many)
+	}
+	assertDisabled(many.DomainStatusList[0].CognitoOptions)
+	config, err := legacy.DescribeElasticsearchDomainConfig(ctx, &legacysdk.DescribeElasticsearchDomainConfigInput{DomainName: aws.String(legacyTestName)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.DomainConfig.CognitoOptions == nil || config.DomainConfig.CognitoOptions.Status == nil {
+		t.Fatalf("missing Cognito configuration status: %#v", config.DomainConfig)
+	}
+	assertDisabled(config.DomainConfig.CognitoOptions.Options)
+	updated, err := legacy.UpdateElasticsearchDomainConfig(ctx, &legacysdk.UpdateElasticsearchDomainConfigInput{DomainName: aws.String(legacyTestName), AdvancedOptions: map[string]string{"indices.query.bool.max_clause_count": "2048"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.DomainConfig.CognitoOptions == nil || updated.DomainConfig.CognitoOptions.Status == nil || updated.DomainConfig.CognitoOptions.Status.UpdateVersion != 2 {
+		t.Fatalf("missing updated Cognito configuration status: %#v", updated.DomainConfig)
+	}
+	assertDisabled(updated.DomainConfig.CognitoOptions.Options)
+}
+
 func TestLegacySDKRejectsUnsupportedControlsAtomically(t *testing.T) {
 	legacy, modern, events := legacyClients(t)
 	cases := map[string]func(*legacysdk.UpdateElasticsearchDomainConfigInput){
 		"dry run": func(v *legacysdk.UpdateElasticsearchDomainConfigInput) { v.DryRun = aws.Bool(false) },
+		"cognito enabled": func(v *legacysdk.UpdateElasticsearchDomainConfigInput) {
+			v.CognitoOptions = &legacytypes.CognitoOptions{Enabled: aws.Bool(true), IdentityPoolId: aws.String("pool"), UserPoolId: aws.String("users"), RoleArn: aws.String("arn:aws:iam::123456789012:role/cognito")}
+		},
 		"vpc": func(v *legacysdk.UpdateElasticsearchDomainConfigInput) {
 			v.VPCOptions = &legacytypes.VPCOptions{SubnetIds: []string{"subnet-123"}}
 		},

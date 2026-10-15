@@ -376,6 +376,11 @@ paths fence stale endpoints after same-name recreation. Domain-management APIs
 produce source-owned `es.amazonaws.com` audit events; engine data requests do
 not fabricate CloudTrail events. [Evidence and boundaries](behavior-references.md#opensearch-engines-evidence-and-boundaries)
 separate this single-node local engine from unsupported managed infrastructure.
+The legacy ES frontend preserves explicit disabled Cognito options and their
+configuration status instead of dropping the structure. This readback does not
+enable Cognito authentication. SDK regressions and the native Terraform search
+lifecycle verify the projection alongside indexing, policy denial and restart.
+
 ElastiCache and MemoryDB own users, user groups/ACLs, parameter and subnet groups,
 cluster topology, snapshots and generation-fenced retained work in service-owned
 memory/SQLC repositories. Both inject `engine/valkey` through their consumer-owned

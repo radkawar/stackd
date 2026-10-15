@@ -329,6 +329,13 @@ func legacyNodeEncryptionOptions(in *api.NodeToNodeEncryptionOptions) *es.NodeTo
 	return &es.NodeToNodeEncryptionOptions{Enabled: (*es.Boolean)(in.Enabled)}
 }
 
+func legacyCognitoOptions(in *api.CognitoOptions) *es.CognitoOptions {
+	if in == nil {
+		return nil
+	}
+	return &es.CognitoOptions{Enabled: (*es.Boolean)(in.Enabled), IdentityPoolId: (*es.IdentityPoolId)(in.IdentityPoolId), RoleArn: (*es.RoleArn)(in.RoleArn), UserPoolId: (*es.UserPoolId)(in.UserPoolId)}
+}
+
 func legacyEndpointOptions(in *api.DomainEndpointOptions) *es.DomainEndpointOptions {
 	if in == nil {
 		return nil
@@ -355,6 +362,7 @@ func legacyDomainStatus(in *api.DomainStatus) *es.ElasticsearchDomainStatus {
 		ElasticsearchClusterConfig: legacyClusterConfig(in.ClusterConfig), EBSOptions: legacyEBSOptions(in.EBSOptions),
 		AdvancedSecurityOptions: legacySecurityOptions(in.AdvancedSecurityOptions), EncryptionAtRestOptions: legacyEncryptionOptions(in.EncryptionAtRestOptions),
 		NodeToNodeEncryptionOptions: legacyNodeEncryptionOptions(in.NodeToNodeEncryptionOptions), DomainEndpointOptions: legacyEndpointOptions(in.DomainEndpointOptions),
+		CognitoOptions: legacyCognitoOptions(in.CognitoOptions),
 	}
 }
 
@@ -396,6 +404,9 @@ func legacyDomainConfig(in *api.DomainConfig) *es.ElasticsearchDomainConfig {
 	}
 	if v := in.DomainEndpointOptions; v != nil {
 		out.DomainEndpointOptions = &es.DomainEndpointOptionsStatus{Options: legacyEndpointOptions(v.Options), Status: legacyOptionStatus(v.Status)}
+	}
+	if v := in.CognitoOptions; v != nil {
+		out.CognitoOptions = &es.CognitoOptionsStatus{Options: legacyCognitoOptions(v.Options), Status: legacyOptionStatus(v.Status)}
 	}
 	return out
 }
