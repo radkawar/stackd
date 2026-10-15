@@ -111,6 +111,15 @@ func (s *Service) getHostedZone(tx Transaction, in *api.GetHostedZoneRequest) (*
 	}
 	return &api.GetHostedZoneResponse{HostedZone: zoneOutput(z), DelegationSet: delegation(z)}, nil
 }
+func (s *Service) getDNSSEC(tx Transaction, in *api.GetDNSSECRequest) (*api.GetDNSSECResponse, error) {
+	if _, e := s.zone(tx, value(in.HostedZoneId), "GetDNSSEC"); e != nil {
+		return nil, e
+	}
+	// Hosted zones have no signing keys or enabled signing state: all DNSSEC
+	// mutations remain unsupported. Read only that actual unsigned state; do
+	// not claim signing, fabricate keys, or bypass zone ownership/current IAM.
+	return &api.GetDNSSECResponse{KeySigningKeys: api.KeySigningKeys{}, Status: &api.DNSSECStatus{ServeSignature: new(api.ServeSignature("NOT_SIGNING"))}}, nil
+}
 func (s *Service) updateHostedZoneComment(tx Transaction, in *api.UpdateHostedZoneCommentRequest) (*api.UpdateHostedZoneCommentResponse, error) {
 	z, e := s.zone(tx, value(in.Id), "UpdateHostedZoneComment")
 	if e != nil {

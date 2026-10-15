@@ -65,6 +65,7 @@ func New(c Config) (*Service, error) {
 	s := &Service{repository: c.Repository, authorizer: c.Authorizer, recorder: c.Recorder, clock: c.Clock, aliases: c.Aliases, operations: map[string]func(context.Context) (any, *awswire.Error){}}
 	register(s, "CreateHostedZone", s.createHostedZone)
 	register(s, "GetHostedZone", s.getHostedZone)
+	register(s, "GetDNSSEC", s.getDNSSEC)
 	register(s, "ListHostedZones", s.listHostedZones)
 	register(s, "ListHostedZonesByName", s.listHostedZonesByName)
 	register(s, "GetHostedZoneCount", s.getHostedZoneCount)
@@ -129,7 +130,7 @@ func (s *Service) ExecuteCommand(ctx context.Context, r awsapi.DecodedRequest) (
 	ctx = awsapi.WithDecodedRequest(ctx, r)
 	fn, ok := s.operations[string(r.Operation.Name)]
 	if !ok {
-		// TODO: Comeback: health checks, DNSSEC, traffic policies, reusable delegation sets and private VPC hosted zones require their real owners.
+		// TODO: Comeback: health checks, DNSSEC signing/key mutations, traffic policies, reusable delegation sets and private VPC hosted zones require their real owners.
 		e := failure("NotImplemented", "This Route53 operation is not implemented.")
 		if err := s.RecordRequestError(ctx, r, e); err != nil {
 			return nil, wireError(err)

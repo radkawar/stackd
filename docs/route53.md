@@ -51,6 +51,11 @@ Implemented commands are:
 - `CreateHostedZone`, `GetHostedZone`, `ListHostedZones`,
   `ListHostedZonesByName`, `GetHostedZoneCount`;
 - `UpdateHostedZoneComment`, `DeleteHostedZone`;
+- `GetDNSSEC` for retained unsigned public zones: current IAM and scope checks
+  precede `NOT_SIGNING` with no key-signing keys. Missing/deleted/foreign zones
+  return `NoSuchHostedZone`. DNSSEC enabling, signing and key mutations remain
+  unimplemented, not simulated. This read lets the current Terraform provider
+  check actual unsigned zone state during `force_destroy` cleanup.
 - `ChangeResourceRecordSets`, `ListResourceRecordSets`, `GetChange`;
 - `ChangeTagsForResource`, `ListTagsForResource`, `ListTagsForResources`
   for hosted zones. Health-check tags require a health-check owner and return
@@ -233,14 +238,20 @@ and an NS referral with in-zone glue over UDP and TCP. Exclusive-owner Delete
 does not remove records in provider 6.68.0; the owned hosted zone uses
 `force_destroy` for final cleanup. This does not provide Internet delegation or
 a generic successful resolver. Its [resource-level remainder map](../examples/terraform-api-controls/coverage.json)
-also records API authorization, WebSocket and native GraphQL consumer plans.
-All new controls lifecycle evidence is **unverified** until the integration
-owner runs the complete workflow.
+also records API authorization, WebSocket and native GraphQL consumers.
+On 2026-10-15, `/tmp/stackd-terraform-api-controls-2q1wxd1l` exercised all
+declared consumers, eight imports, changed-revision effects, graceful reopen,
+current IAM, three normal strict plans (exit0), and complete provider
+`force_destroy`/API absence/DNS refusal cleanup. Official Terraform1.16.6's
+final refresh-only plan exited2 despite no resource drift or resource changes
+in its retained JSON and an identical no-op output. This remains a terminal
+strict failure, not an aggregate lifecycle pass. Exact source, logs and the
+separate earlier failure/recovery runs are in the remainder map's `verification`.
 
 Remaining explicit boundaries (`TODO: Comeback` in the owning source) are escaped
 or binary DNS label codecs; health/location-based routing; non-A/AAAA same-zone
 aliases and additional real external target owners; and the remaining generated
-operations such as health checks, DNSSEC, traffic policies, reusable delegation
+operations such as health checks, DNSSEC signing/key mutations, traffic policies, reusable delegation
 sets, health-check tags and private-VPC zones. Unsupported record types are rejected. Query
 logging, Internet recursion, DNSSEC signing, EDNS/client-subnet routing, public
 registrar delegation and multi-server propagation are not implemented. These
@@ -254,3 +265,5 @@ Primary contracts:
 - [Record value syntax](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/ResourceRecordTypes.html)
 - [Weighted routing and all-zero groups](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy-weighted.html)
 - [Hosted-zone tag changes and limits](https://docs.aws.amazon.com/Route53/latest/APIReference/API_ChangeTagsForResource.html)
+- [DNSSEC state read](https://docs.aws.amazon.com/Route53/latest/APIReference/API_GetDNSSEC.html)
+- [DNSSEC signing-status meanings](https://docs.aws.amazon.com/Route53/latest/APIReference/API_DNSSECStatus.html)
