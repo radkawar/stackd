@@ -1312,6 +1312,13 @@ creation omitted configured zero cooldown, and strict refresh-only plans still
 returned two. The separate EBS run recorded one four-second observer timeout;
 these results do not establish a uniform control-plane latency bound.
 
+Guest link observation queries only the instance's deterministic TAP device.
+It does not dump unrelated host interfaces, which exceeded the 64-KiB helper
+output bound on a busy host. The bound remains unchanged; oversized owned
+output, native errors and foreign ownership still fail rather than being
+truncated or adopted. Real guest boot, hotplug, restart and cleanup passed with
+the scoped observation.
+
 `compute/network` owns shared bridge and packet-policy mechanics. EC2 remains
 authoritative for VPC/subnet/ENI addresses, DHCP, routes, security groups and
 NACLs; ECS and guests consume this state rather than reimplementing it.

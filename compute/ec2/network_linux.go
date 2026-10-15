@@ -257,7 +257,15 @@ type guestLink struct {
 }
 
 func (m *GuestNetworkManager) links(ctx context.Context, arn string) ([]guestLink, error) {
-	output, err := m.helper(ctx, arn, []string{"ip", "-d", "-j", "link", "show"}, nil)
+	// Query only this instance's deterministic TAP. A host-wide detailed dump
+	// can exceed the bounded helper output on an otherwise healthy busy host.
+	// A missing sysfs device is normal before create and after removal; any
+	// failure observing an existing device remains a native helper error.
+	output, err := m.helper(ctx, arn, []string{"/bin/sh", "-ec", `if [ ! -d "/sys/class/net/$TAP" ]; then
+    printf '[]\n'
+    exit 0
+fi
+exec ip -d -j link show dev "$TAP"`}, []string{"TAP=" + guestTAP(arn)})
 	if err != nil {
 		return nil, err
 	}
