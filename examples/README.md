@@ -30,6 +30,10 @@ make build
 export EXAMPLE_PYTHON="$EXAMPLE_VENV/bin/python"
 ```
 
+The shared requirements pin boto3/botocore for the exercised AWS API models and
+PyMongo for native DocumentDB TLS/BSON consumers. These are example-client
+dependencies, not dependencies of the Go controller.
+
 `make build` also produces both static **Linux** Lambda telemetry helpers beside
 `bin/stackd`; building just the controller is insufficient for Lambda. Installing
 SDK packages, Go modules, Terraform providers and Docker images is explicit
