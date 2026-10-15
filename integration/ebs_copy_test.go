@@ -1,6 +1,7 @@
 package stackd_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -242,6 +243,59 @@ func ebsCopyReplayRow(t *testing.T, r *ebsSnapshotReplay, rows []ebsNativeCall, 
 		}
 	}
 	return true
+}
+
+// Service-time drains dispatch native effects without waiting for their flight.
+// Observe only the selected persisted intent; never advance logical time or infer
+// completion from an empty shared scheduler queue.
+func ebsReplayAwait(t *testing.T, cloud *stackd.Stack, repository ebsdomain.Repository, label string, settled func(ebsdomain.Reader) (bool, error)) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(5 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		var done bool
+		if err := repository.View(ctx, func(r ebsdomain.Reader) error {
+			var err error
+			done, err = settled(r)
+			return err
+		}); err != nil {
+			t.Fatalf("%s: observing native intent: %v", label, err)
+		}
+		if done {
+			return
+		}
+		if _, err := cloud.RunDueJobs(ctx, 100); err != nil {
+			t.Fatalf("%s: dispatching due native intent: %v", label, err)
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatalf("%s: native intent did not settle: %v", label, ctx.Err())
+		case <-ticker.C:
+		}
+	}
+}
+
+func (r *ebsSnapshotReplay) awaitSnapshotPayload(t *testing.T, row ebsNativeCall) {
+	t.Helper()
+	var output struct{ SnapshotID string }
+	awsDecodeJSON(t, row.Output, &output)
+	id := r.bindings[output.SnapshotID]
+	if id == "" {
+		t.Fatalf("%s: native snapshot has no admitted binding", row.Label)
+	}
+	ebsReplayAwait(t, r.clients.server.Config.Handler.(*stackd.Stack), r.repository, row.Label, func(reader ebsdomain.Reader) (bool, error) {
+		snapshot, err := reader.RegionalSnapshot("aws", r.region(row), id)
+		if err != nil {
+			return false, err
+		}
+		now := r.clock.Now()
+		return (snapshot.Copy == nil || snapshot.Copy.WorkAt.IsZero() || snapshot.Copy.WorkAt.After(now)) &&
+			(snapshot.Volume == nil ||
+				(snapshot.Volume.BlocksWorkAt.IsZero() || snapshot.Volume.BlocksWorkAt.After(now)) &&
+					(snapshot.Volume.NativeBackupPath == "" || snapshot.Volume.NativeWorkAt.After(now))), nil
+	})
 }
 
 func ebsCopyBindManagedKeys(t *testing.T, r *ebsSnapshotReplay, row ebsNativeCall) {

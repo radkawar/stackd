@@ -15,11 +15,13 @@ func snapshotCopyPending(v SnapshotRecord) bool {
 	return v.Copy != nil && !v.Copy.WorkAt.IsZero()
 }
 
-// advanceSnapshotCopy runs only from the effect scheduler, never the admitting
-// caller's transaction. Committed destination blocks are its recovery cursor;
+// advanceSnapshotCopy runs only from the service-owned native worker, never the
+// admitting transaction. Committed destination blocks are its recovery cursor;
 // source layers remain pinned until the final independent layer is published.
 func (s *Service) advanceSnapshotCopy(ctx context.Context, selected SnapshotRecord) error {
-	s.nativeWorkMu.Lock()
+	if err := s.nativeWorkMu.Lock(ctx); err != nil {
+		return err
+	}
 	defer s.nativeWorkMu.Unlock()
 	ctx = awsctx.WithMetadata(ctx, awsctx.Metadata{
 		Partition: selected.Key.Partition, AccountID: selected.Key.AccountID, Region: selected.Key.Region,

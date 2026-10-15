@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"net/http/httptest"
 	"sync/atomic"
@@ -30,8 +31,11 @@ import (
 // crash, leaving real partial encrypted contents for the next owner to recover.
 type pausedVolumeRepository struct {
 	ebsdomain.Repository
-	armed     atomic.Bool
-	committed chan struct{}
+	armed       atomic.Bool
+	committed   chan struct{}
+	interrupted chan error
+	holdExit    atomic.Bool
+	release     chan struct{}
 }
 
 type observedVolumeWriter struct {
@@ -55,6 +59,10 @@ func (r *pausedVolumeRepository) Update(ctx context.Context, fn func(ebsdomain.T
 	if err == nil && wrote && r.armed.CompareAndSwap(true, false) {
 		close(r.committed)
 		<-ctx.Done()
+		r.interrupted <- ctx.Err()
+		if r.holdExit.Load() {
+			<-r.release
+		}
 		return ctx.Err()
 	}
 	return err
@@ -70,10 +78,12 @@ func TestEBSVolumeHydrationRecovery(t *testing.T) {
 			var paused *pausedVolumeRepository
 			clients, reopen := retainedCloud(t, backend, stackd.Config{AccountID: "111111111111", Clock: manual}, func(config stackd.Config) (*stackd.Stack, *httptest.Server) {
 				stores = config.Storage
-				if paused == nil {
-					paused = &pausedVolumeRepository{Repository: stores.EBS, committed: make(chan struct{})}
-					stores.EBS = paused
+				repository := stores.EBS
+				if previous, ok := repository.(*pausedVolumeRepository); ok {
+					repository = previous.Repository
 				}
+				paused = &pausedVolumeRepository{Repository: repository, committed: make(chan struct{}), interrupted: make(chan error, 1), release: make(chan struct{})}
+				stores.EBS = paused
 				var server *httptest.Server
 				cloud, server = startPublicCloud(t, config)
 				return cloud, server
@@ -142,13 +152,25 @@ func TestEBSVolumeHydrationRecovery(t *testing.T) {
 			}
 			paused.armed.Store(true)
 			manual.Advance(ebsdomain.VolumeCreationDelay)
-			select {
-			case <-paused.committed:
-			case <-time.After(10 * time.Second):
-				t.Fatal("volume worker did not commit its first block")
-			}
+			ebsRecoveryDispatchPause(t, cloud, paused.committed)
 			responsive, cancel := context.WithTimeout(ctx, 3*time.Second)
 			defer cancel()
+			if err := stores.EBS.View(responsive, func(r ebsdomain.Reader) error {
+				blocks, err := r.VolumeBlocks(key)
+				if err != nil {
+					return err
+				}
+				if len(blocks) != 1 {
+					return fmt.Errorf("interrupted volume committed %d blocks, want 1", len(blocks))
+				}
+				block, err := r.VolumeBlock(blocks[0].Key)
+				if err == nil && (len(block.Data) == 0 || block.Checksum != sha256.Sum256(payloads[blocks[0].Key.Index])) {
+					return fmt.Errorf("partial volume lost its payload or checksum")
+				}
+				return err
+			}); err != nil {
+				t.Fatal(err)
+			}
 			state, err := ec2Client(member).DescribeVolumes(responsive, &ec2.DescribeVolumesInput{VolumeIds: []string{key.ID}})
 			if err != nil {
 				t.Fatal(err)
@@ -180,8 +202,12 @@ func TestEBSVolumeHydrationRecovery(t *testing.T) {
 			if _, err := kmsClient(owner).DisableKey(responsive, &kms.DisableKeyInput{KeyId: sourceKey.KeyMetadata.Arn}); err != nil {
 				t.Fatal(err)
 			}
+			ebsRecoveryClosePaused(t, cloud, paused.interrupted, &paused.holdExit, paused.release)
 			clients = reopen()
-			trailNativeDrain(t, cloud)
+			ebsRecoveryAwaitState(t, cloud, stores.EBS, "retained volume hydration", func(r ebsdomain.Reader) (bool, error) {
+				v, err := r.Volume(key)
+				return err == nil && v.Creation == nil && v.Status == "available", err
+			})
 			state, err = ec2Client(member).DescribeVolumes(ctx, &ec2.DescribeVolumesInput{VolumeIds: []string{key.ID}})
 			if err != nil {
 				t.Fatal(err)
@@ -193,9 +219,21 @@ func TestEBSVolumeHydrationRecovery(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			trailNativeDrain(t, cloud)
+			capturedKey := ebsdomain.SnapshotKey{Scope: key.Scope, ID: aws.ToString(captured.SnapshotId)}
+			ebsRecoveryAwaitState(t, cloud, stores.EBS, "snapshot of recovered volume payload", func(r ebsdomain.Reader) (bool, error) {
+				v, err := r.Snapshot(capturedKey)
+				return err == nil && v.Sealed && v.Volume != nil && v.Volume.BlocksWorkAt.IsZero() && v.Volume.NativeBackupPath == "", err
+			})
 			manual.Advance(ebsdomain.CompletionDelay + ebsdomain.ReadinessDelay)
-			trailNativeDrain(t, cloud)
+			sourceID := ebsdomain.SnapshotKey{Scope: ebsdomain.Scope{Partition: "aws", AccountID: owner, Region: "us-east-1"}, ID: aws.ToString(source.SnapshotId)}
+			ebsRecoveryAwaitState(t, cloud, stores.EBS, "recovered snapshot readability and deleted source cleanup", func(r ebsdomain.Reader) (bool, error) {
+				v, err := r.Snapshot(capturedKey)
+				if err != nil || !v.Readable {
+					return false, err
+				}
+				blocks, err := r.Blocks(sourceID)
+				return err == nil && len(blocks) == 0, err
+			})
 			listed, err := ebsClient(member).ListSnapshotBlocks(ctx, &ebs.ListSnapshotBlocksInput{SnapshotId: captured.SnapshotId})
 			if err != nil {
 				t.Fatal(err)

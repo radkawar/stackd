@@ -137,7 +137,9 @@ func (s *Service) captureNativeSnapshots(ctx context.Context, records []Snapshot
 }
 
 func (s *Service) advanceNativeSnapshot(ctx context.Context, admitted SnapshotRecord) error {
-	s.nativeWorkMu.Lock()
+	if err := s.nativeWorkMu.Lock(ctx); err != nil {
+		return err
+	}
 	defer s.nativeWorkMu.Unlock()
 	return s.resumeNativeSnapshot(ctx, admitted)
 }

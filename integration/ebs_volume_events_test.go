@@ -45,9 +45,13 @@ func ebsVolumeCallRows(t *testing.T, v *ebsVolumeReplay, backends **storage.Back
 	}
 	v.call(t, row)
 	if row.Operation == "CreateVolume" && row.Code == "Success" {
-		// Native KMS work is asynchronous. Observe the admitted volume's
-		// service work before comparing its complete grant/decrypt audit.
+		// This audit/notification replay samples the captured settled creation,
+		// unlike immediate pending-state tests. Keep the existing phase boundary
+		// and wait for this volume's persisted intent, not the shared drain.
 		v.clock.Advance(ebsdomain.VolumeCreationDelay)
+		var output struct{ VolumeID string }
+		awsDecodeJSON(t, row.Output, &output)
+		v.awaitVolumeWork(t, row, output.VolumeID)
 		trailNativeDrain(t, v.clients.server.Config.Handler.(*stackd.Stack))
 	}
 	observed, err := (*backends).Journal.Read(t.Context(), sequence, 1000)

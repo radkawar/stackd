@@ -25,6 +25,7 @@ import (
 var ebsVolumeIDPattern = regexp.MustCompile(`^vol-[0-9a-f]{17}$`)
 
 type ebsReplayVolume struct {
+	key                        ebsdomain.VolumeKey
 	created, modified, deleted time.Time
 	lastSnapshot               time.Time
 	modification               *ec2types.VolumeModification
@@ -375,6 +376,7 @@ func (v *ebsVolumeReplay) advancePhase(t *testing.T, row ebsNativeCall) {
 			v.clock.Advance(at.Sub(v.clock.Now()))
 		}
 	}
+	settled := map[string]bool{}
 	var input struct {
 		VolumeID   string
 		VolumeIDs  []string
@@ -410,21 +412,26 @@ func (v *ebsVolumeReplay) advancePhase(t *testing.T, row ebsNativeCall) {
 	if row.Operation == "CreateSnapshot" && row.Code == "Success" {
 		if state := v.volumes[input.VolumeID]; state != nil {
 			advance(state.created.Add(ebsdomain.VolumeCreationDelay))
+			settled[input.VolumeID] = true
 			if !state.lastSnapshot.IsZero() {
 				advance(state.lastSnapshot.Add(ebsdomain.VolumeSnapshotInterval))
 			}
 		}
 	}
 	if row.Operation == "DescribeVolumes" && row.Code == "Success" && len(input.VolumeIDs) == 0 {
-		for _, state := range v.volumes {
+		for id, state := range v.volumes {
 			if !state.deleted.IsZero() {
 				advance(state.deleted.Add(ebsdomain.VolumeDeletionDelay))
+				if state.key.AccountID == v.account(row) && state.key.Region == v.region(row) {
+					settled[id] = true
+				}
 			}
 		}
 	}
 	for _, volume := range output.Volumes {
 		if state := v.volumes[aws.ToString(volume.VolumeId)]; state != nil && string(volume.State) == "available" {
 			advance(state.created.Add(ebsdomain.VolumeCreationDelay))
+			settled[aws.ToString(volume.VolumeId)] = true
 			if modification := state.modification; modification != nil {
 				changed := aws.ToInt32(modification.OriginalSize) != aws.ToInt32(modification.TargetSize) ||
 					modification.OriginalVolumeType != modification.TargetVolumeType ||
@@ -452,6 +459,7 @@ func (v *ebsVolumeReplay) advancePhase(t *testing.T, row ebsNativeCall) {
 		for _, detail := range volume.VolumeStatus.Details {
 			if string(detail.Name) == "initialization-state" && aws.ToString(detail.Status) == "completed" {
 				advance(state.created.Add(ebsdomain.VolumeInitializationDelay))
+				settled[aws.ToString(volume.VolumeId)] = true
 			}
 		}
 	}
@@ -460,14 +468,17 @@ func (v *ebsVolumeReplay) advancePhase(t *testing.T, row ebsNativeCall) {
 			switch modification.ModificationState {
 			case "optimizing":
 				advance(state.modified.Add(ebsdomain.VolumeModificationOptimizingDelay))
+				settled[modification.VolumeID] = true
 			case "completed":
 				advance(state.modified.Add(ebsdomain.VolumeModificationCompletionDelay))
+				settled[modification.VolumeID] = true
 			}
 		}
 	}
 	if row.Operation == "ModifyVolume" && row.Code == "Success" {
 		if state := v.volumes[input.VolumeID]; state != nil {
 			advance(state.created.Add(ebsdomain.VolumeCreationDelay))
+			settled[input.VolumeID] = true
 			if !state.modified.IsZero() {
 				advance(state.modified.Add(ebsdomain.VolumeModificationCompletionDelay))
 			}
@@ -476,6 +487,7 @@ func (v *ebsVolumeReplay) advancePhase(t *testing.T, row ebsNativeCall) {
 	if row.Code == "InvalidVolume.NotFound" && row.Operation == "DescribeVolumes" {
 		for _, id := range input.VolumeIDs {
 			if state := v.volumes[id]; state != nil {
+				settled[id] = true
 				if !state.deleted.IsZero() {
 					advance(state.deleted.Add(ebsdomain.VolumeDeletionDelay))
 				} else {
@@ -484,6 +496,32 @@ func (v *ebsVolumeReplay) advancePhase(t *testing.T, row ebsNativeCall) {
 			}
 		}
 	}
+	for id := range settled {
+		v.awaitVolumeWork(t, row, id)
+	}
+}
+
+func (v *ebsVolumeReplay) awaitVolumeWork(t *testing.T, row ebsNativeCall, nativeID string) {
+	t.Helper()
+	state := v.volumes[nativeID]
+	if state == nil {
+		t.Fatalf("%s: native volume %s has no admitted state", row.Label, nativeID)
+	}
+	key := state.key
+	ebsReplayAwait(t, v.clients.server.Config.Handler.(*stackd.Stack), v.repository, row.Label, func(reader ebsdomain.Reader) (bool, error) {
+		volume, err := reader.Volume(key)
+		if err != nil {
+			return false, err
+		}
+		now := v.clock.Now()
+		if !volume.TransitionAt.IsZero() && !volume.TransitionAt.After(now) &&
+			(volume.Status == "creating" || volume.Status == "deleting") {
+			return false, nil
+		}
+		modification := volume.Modification
+		return volume.NativePath == "" || modification == nil || modification.State != "modifying" ||
+			modification.Original.Size == modification.Target.Size || modification.OptimizingAt.After(now), nil
+	})
 }
 
 func (v *ebsVolumeReplay) observe(t *testing.T, row ebsNativeCall, want, got map[string]any) {
@@ -502,7 +540,8 @@ func (v *ebsVolumeReplay) observe(t *testing.T, row ebsNativeCall, want, got map
 		}
 		v.bind(t, native, actual)
 		if v.volumes[native] == nil {
-			v.volumes[native] = &ebsReplayVolume{created: v.clock.Now()}
+			v.volumes[native] = &ebsReplayVolume{created: v.clock.Now(),
+				key: ebsdomain.VolumeKey{Scope: ebsdomain.Scope{Partition: "aws", AccountID: v.account(row), Region: v.region(row)}, ID: actual}}
 		}
 	case "ModifyVolume":
 		v.volumes[input.VolumeID].modified = v.clock.Now()
@@ -618,7 +657,23 @@ func (v *ebsVolumeReplay) normalizeVolumeDocument(t *testing.T, path string, wan
 func (v *ebsVolumeReplay) replayPageChain(t *testing.T, row ebsNativeCall, group string) {
 	t.Helper()
 	row = v.prepare(t, row)
-	v.advancePhase(t, row)
+	expected := &ec2.DescribeVolumesOutput{Volumes: []ec2types.Volume{}}
+	for _, raw := range v.pageRows[group] {
+		var volume ec2types.Volume
+		if err := awstest.DecodeSDK(raw, &volume); err != nil {
+			t.Fatal(err)
+		}
+		expected.Volumes = append(expected.Volumes, volume)
+	}
+	// The complete capture, not the incidental first-page partition, identifies
+	// which volumes were settled before this pagination observation.
+	phase := row
+	var err error
+	phase.Output, err = json.Marshal(expected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v.advancePhase(t, phase)
 	var input ec2.DescribeVolumesInput
 	if err := awstest.DecodeSDK(ec2AuditReplace(t, row.Input, v.bindings), &input); err != nil {
 		t.Fatal(err)
@@ -668,14 +723,6 @@ func (v *ebsVolumeReplay) replayPageChain(t *testing.T, row ebsNativeCall, group
 		seen["token:"+aws.ToString(page.NextToken)] = true
 		input.NextToken = page.NextToken
 		v.clients = v.reopen()
-	}
-	expected := &ec2.DescribeVolumesOutput{Volumes: []ec2types.Volume{}}
-	for _, raw := range v.pageRows[group] {
-		var volume ec2types.Volume
-		if err := awstest.DecodeSDK(raw, &volume); err != nil {
-			t.Fatal(err)
-		}
-		expected.Volumes = append(expected.Volumes, volume)
 	}
 	want, got := ec2NetworkDocument(t, expected), ec2NetworkDocument(t, all)
 	v.mapZones(want, v.zones[v.zoneScope(row)])

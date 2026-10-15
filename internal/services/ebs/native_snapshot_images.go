@@ -103,7 +103,9 @@ func (s *Service) ResumeImageSnapshots(ctx context.Context, ids []string) error 
 
 func (s *Service) captureImageSnapshots(ctx context.Context, ids []string, recovery bool) error {
 	defer s.jobs.Wake()
-	s.nativeWorkMu.Lock()
+	if err := s.nativeWorkMu.Lock(ctx); err != nil {
+		return err
+	}
 	defer s.nativeWorkMu.Unlock()
 	records := make([]SnapshotRecord, 0, len(ids))
 	if err := s.repository.View(ctx, func(r Reader) error {
@@ -149,7 +151,9 @@ func (s *Service) captureImageSnapshots(ctx context.Context, ids []string, recov
 }
 
 func (s *Service) FailImageSnapshots(ctx context.Context, ids []string, message string) error {
-	s.nativeWorkMu.Lock()
+	if err := s.nativeWorkMu.Lock(ctx); err != nil {
+		return err
+	}
 	defer s.nativeWorkMu.Unlock()
 	for _, id := range ids {
 		var v SnapshotRecord

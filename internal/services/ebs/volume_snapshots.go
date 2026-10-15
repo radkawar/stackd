@@ -31,7 +31,9 @@ func (s *Service) CreateSnapshot(ctx context.Context, in *api.CreateSnapshotRequ
 			return nil, ec2Failure("InvalidParameterValue", "Value ("+description+") for parameter description is invalid. Character sets beyond ASCII are not supported.")
 		}
 	}
-	s.nativeWorkMu.Lock()
+	if err := s.nativeWorkMu.Lock(ctx); err != nil {
+		return nil, err
+	}
 	defer s.nativeWorkMu.Unlock()
 	var snapshot SnapshotRecord
 	var out *api.Snapshot

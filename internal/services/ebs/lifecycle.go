@@ -50,37 +50,61 @@ func workTime(v SnapshotRecord) time.Time {
 
 type snapshotJobs struct{ s *Service }
 
-// nextEBSWork chooses one owner transition by its service-time deadline. Both
-// resource kinds share the driver and the transaction, not separate wall clocks.
-func nextEBSWork(r Reader) (SnapshotRecord, VolumeRecord, error) {
+func snapshotNeedsNativeWork(v SnapshotRecord) bool {
+	return snapshotCopyPending(v) || volumeSnapshotBlocksPending(v) || (v.Volume != nil && v.Volume.NativeBackupPath != "")
+}
+
+// Native effects never keep the shared drain busy. Each persisted queue retains
+// its existing head order; an active native head does not block the other queue.
+// Native heads become eligible again when the service-owned flight ends.
+func (s *Service) nextEBSWork(r Reader, allowNative bool, retryAt time.Time) (SnapshotRecord, VolumeRecord, time.Time, error) {
 	snapshot, snapshotErr := r.NextWork()
 	if snapshotErr != nil && !errors.Is(snapshotErr, ErrNotFound) {
-		return SnapshotRecord{}, VolumeRecord{}, snapshotErr
+		return SnapshotRecord{}, VolumeRecord{}, time.Time{}, snapshotErr
+	}
+	snapshotDue := workTime(snapshot)
+	if snapshotErr == nil && snapshotNeedsNativeWork(snapshot) {
+		if !allowNative {
+			snapshotErr = ErrNotFound
+		} else if snapshotDue.Before(retryAt) {
+			snapshotDue = retryAt
+		}
 	}
 	volume, volumeErr := r.NextVolumeWork()
 	if volumeErr != nil && !errors.Is(volumeErr, ErrNotFound) {
-		return SnapshotRecord{}, VolumeRecord{}, volumeErr
+		return SnapshotRecord{}, VolumeRecord{}, time.Time{}, volumeErr
+	}
+	volumeDue := VolumeWorkTime(volume)
+	if volumeErr == nil && s.volumeNeedsNativeWork(volume) {
+		if !allowNative {
+			volumeErr = ErrNotFound
+		} else if volumeDue.Before(retryAt) {
+			volumeDue = retryAt
+		}
 	}
 	if snapshotErr != nil && volumeErr != nil {
-		return SnapshotRecord{}, VolumeRecord{}, ErrNotFound
+		return SnapshotRecord{}, VolumeRecord{}, time.Time{}, ErrNotFound
 	}
-	if volumeErr == nil && (snapshotErr != nil || VolumeWorkTime(volume).Before(workTime(snapshot))) {
-		return SnapshotRecord{}, volume, nil
+	if volumeErr == nil && (snapshotErr != nil || volumeDue.Before(snapshotDue)) {
+		return SnapshotRecord{}, volume, volumeDue, nil
 	}
-	return snapshot, VolumeRecord{}, nil
+	return snapshot, VolumeRecord{}, snapshotDue, nil
 }
 
 func (j snapshotJobs) Next(ctx context.Context) (scheduler.Job, bool, error) {
 	var job scheduler.Job
+	j.s.native.mu.Lock()
+	available, retryAt := !j.s.native.active && !j.s.native.closed, j.s.native.retryAt
+	j.s.native.mu.Unlock()
 	err := j.s.repository.View(ctx, func(r Reader) error {
-		snapshot, volume, err := nextEBSWork(r)
+		snapshot, volume, due, err := j.s.nextEBSWork(r, available, retryAt)
 		if err != nil {
 			return err
 		}
 		if volume.Key.ID != "" {
-			job = scheduler.Job{Key: volumeARN(volume.Key), Due: VolumeWorkTime(volume)}
+			job = scheduler.Job{Key: volumeARN(volume.Key), Due: due}
 		} else {
-			job = scheduler.Job{Key: snapshotARN(snapshot.Key) + ":" + snapshot.Key.AccountID, Due: workTime(snapshot)}
+			job = scheduler.Job{Key: snapshotARN(snapshot.Key) + ":" + snapshot.Key.AccountID, Due: due}
 		}
 		return nil
 	})
@@ -91,13 +115,16 @@ func (j snapshotJobs) Next(ctx context.Context) (scheduler.Job, bool, error) {
 }
 
 func (j snapshotJobs) Run(ctx context.Context, _ scheduler.Job) error {
-	return j.s.advanceNativeWork(ctx)
+	if err := j.s.advance(ctx); err != nil {
+		return err
+	}
+	return j.s.dispatchNativeWork(ctx)
 }
 
 func (s *Service) advance(ctx context.Context) error {
 	return s.repository.Update(ctx, func(tx Transaction) error {
 		for {
-			snapshot, volume, err := nextEBSWork(tx)
+			snapshot, volume, due, err := s.nextEBSWork(tx, false, time.Time{})
 			if errors.Is(err, ErrNotFound) {
 				return nil
 			}
@@ -105,23 +132,14 @@ func (s *Service) advance(ctx context.Context) error {
 				return err
 			}
 			now := s.clock.Now()
+			if due.After(now) {
+				return nil
+			}
 			if volume.Key.ID != "" {
-				if VolumeWorkTime(volume).After(now) {
-					return nil
-				}
-				if s.volumeNeedsNativeWork(volume) {
-					return nil
-				}
 				if err := s.advanceVolume(tx, volume); err != nil {
 					return err
 				}
 			} else {
-				if workTime(snapshot).After(now) {
-					return nil
-				}
-				if snapshotCopyPending(snapshot) || volumeSnapshotBlocksPending(snapshot) || (snapshot.Volume != nil && snapshot.Volume.NativeBackupPath != "") {
-					return nil
-				}
 				if err := s.advanceSnapshot(tx, snapshot, now); err != nil {
 					return err
 				}

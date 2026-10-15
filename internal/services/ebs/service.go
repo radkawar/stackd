@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
-	"sync"
 	"time"
 
 	"stackd/clock"
@@ -74,7 +73,8 @@ type Service struct {
 	attachments           InstanceAttachments
 	nativeDisks           NativeDisks
 	nativeVolumeDirectory string
-	nativeWorkMu          sync.Mutex
+	nativeWorkMu          nativeWorkMutex
+	native                nativeEffects
 }
 
 func New(c Config) *Service {
@@ -108,7 +108,17 @@ func (s *Service) Operations() []string {
 	return out
 }
 func (s *Service) JobDriver() *scheduler.Driver { return s.jobs }
-func (s *Service) Close() error                 { s.jobs.Close(); return nil }
+func (s *Service) Close() error {
+	s.native.mu.Lock()
+	s.native.closed = true
+	if s.native.cancel != nil {
+		s.native.cancel()
+	}
+	s.native.mu.Unlock()
+	s.jobs.Close()
+	s.native.work.Wait()
+	return nil
+}
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	model, _ := awscatalog.LookupService("ebs")
 	request, ok := awsapi.FromContext(r.Context())

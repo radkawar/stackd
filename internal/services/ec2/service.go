@@ -64,6 +64,7 @@ type Service struct {
 	identitySigningKeys map[string]*instanceIdentitySigner
 	instanceHandles     map[ResourceKey]native.Instance
 	jobs                *scheduler.Driver
+	compute             computeEffects
 	operations          map[string]func(context.Context) (any, *awswire.Error)
 }
 type emptyResult = api.Unit

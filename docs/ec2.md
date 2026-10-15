@@ -1297,6 +1297,21 @@ QMP/process observations, not desired state, determine native outcomes.
 Reopening the controller does not reboot a surviving guest. Guest execution and
 operating-system time remain outside deterministic service time.
 
+Native image and instance work runs in a single-flight worker outside the shared
+scheduler drain. Profile deadlines remain synchronous. Service shutdown cancels
+and joins the worker; retained intent and incarnation checks fence recovery.
+EBS native hydration uses its own cancelable gate, so a waiting EC2 worker can
+stop without waiting for unrelated disk work to finish. EBS preserves queue order
+within each work kind; later work does not bypass an active head of that kind.
+
+The Terraform 1.16.6 / AWS provider 6.68.0 QEMU run exercised two actual guests,
+private HTTP bytes, scaling and rolling replacements, then removed all owned
+guest processes, disks, network devices and block payloads. Three ordinary plans
+after convergence returned zero. This is not a complete Terraform pass:
+creation omitted configured zero cooldown, and strict refresh-only plans still
+returned two. The separate EBS run recorded one four-second observer timeout;
+these results do not establish a uniform control-plane latency bound.
+
 `compute/network` owns shared bridge and packet-policy mechanics. EC2 remains
 authoritative for VPC/subnet/ENI addresses, DHCP, routes, security groups and
 NACLs; ECS and guests consume this state rather than reimplementing it.

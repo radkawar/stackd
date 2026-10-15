@@ -47,7 +47,9 @@ func (s *Service) ResolveInstanceVolumes(ctx context.Context, instance api.Insta
 }
 
 func (s *Service) PrepareInstanceVolumes(ctx context.Context, instance api.Instance) ([]native.Disk, error) {
-	s.nativeWorkMu.Lock()
+	if err := s.nativeWorkMu.Lock(ctx); err != nil {
+		return nil, err
+	}
 	defer s.nativeWorkMu.Unlock()
 	disks := make([]native.Disk, 0, len(instance.BlockDeviceMappings))
 	success := false
@@ -145,7 +147,9 @@ func (s *Service) retireInfrastructureGrant(ctx context.Context, v *VolumeRecord
 
 // Stop changes only infrastructure authority, never EC2's attachment relationship.
 func (s *Service) StopInstanceVolumes(ctx context.Context, instance api.Instance) error {
-	s.nativeWorkMu.Lock()
+	if err := s.nativeWorkMu.Lock(ctx); err != nil {
+		return err
+	}
 	defer s.nativeWorkMu.Unlock()
 	return s.repository.Update(ctx, func(tx Transaction) error {
 		for _, mapping := range instance.BlockDeviceMappings {
@@ -211,7 +215,9 @@ func (s *Service) retireVolumeGrants(ctx context.Context, v *VolumeRecord) error
 }
 
 func (s *Service) TerminateInstanceVolumes(ctx context.Context, instance api.Instance) error {
-	s.nativeWorkMu.Lock()
+	if err := s.nativeWorkMu.Lock(ctx); err != nil {
+		return err
+	}
 	defer s.nativeWorkMu.Unlock()
 	for _, mapping := range instance.BlockDeviceMappings {
 		if mapping.Ebs == nil || value(mapping.Ebs.Status) == "detached" {

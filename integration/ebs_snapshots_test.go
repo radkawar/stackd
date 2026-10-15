@@ -79,6 +79,7 @@ type ebsReplaySnapshot struct {
 type ebsSnapshotReplay struct {
 	fixture      ebsNativeFixture
 	clients      cloudClients
+	repository   ebsdomain.Repository
 	reopen       func() cloudClients
 	clock        *clock.Manual
 	bindings     map[string]string
@@ -178,10 +179,32 @@ func TestEBSSnapshotTerminalBoundaries(t *testing.T) {
 func newEBSSnapshotReplay(t *testing.T, fixture ebsNativeFixture, backend string, start ...func(stackd.Config) (*stackd.Stack, *httptest.Server)) *ebsSnapshotReplay {
 	t.Helper()
 	source := clock.NewManual(fixture.Calls[0].StartedAt)
-	clients, reopen := retainedCloud(t, backend, stackd.Config{AccountID: fixture.Account, Clock: source}, start...)
-	r := &ebsSnapshotReplay{fixture: fixture, clients: clients, reopen: reopen, clock: source,
+	var repository ebsdomain.Repository
+	open := func(config stackd.Config) (*stackd.Stack, *httptest.Server) {
+		var cloud *stackd.Stack
+		var server *httptest.Server
+		if len(start) != 0 {
+			cloud, server = start[0](config)
+		} else {
+			var err error
+			cloud, err = stackd.New(config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			server = httptest.NewServer(cloud)
+		}
+		repository = config.Storage.EBS
+		return cloud, server
+	}
+	clients, reopen := retainedCloud(t, backend, stackd.Config{AccountID: fixture.Account, Clock: source}, open)
+	r := &ebsSnapshotReplay{fixture: fixture, clients: clients, repository: repository, clock: source,
 		bindings: map[string]string{}, payloads: map[string][]byte{}, snapshots: map[string]*ebsReplaySnapshot{},
 		tokens: map[string]string{}, polls: map[string]string{}, sessions: map[string]aws.CredentialsProvider{}}
+	r.reopen = func() cloudClients {
+		clients := reopen()
+		r.repository = repository
+		return clients
+	}
 	for name, recipe := range fixture.Payloads {
 		var data []byte
 		switch recipe.Recipe {
@@ -467,9 +490,11 @@ func (r *ebsSnapshotReplay) call(t *testing.T, row ebsNativeCall) {
 		r.snapshots[nativeID].sealed = r.clock.Now()
 	}
 	if action == "CopySnapshot" || action == "CreateSnapshot" {
-		// Fixture replay has no interrupted transfer: commit payload work at
-		// this service instant, before advancing completion/readiness clocks.
+		// Preserve this replay's post-response payload barrier before advancing
+		// completion/readiness clocks. A shared drain now only dispatches the
+		// service-owned native flight; the selected persisted intent must settle.
 		trailNativeDrain(t, r.clients.server.Config.Handler.(*stackd.Stack))
+		r.awaitSnapshotPayload(t, row)
 	}
 	// Reopen before the next operation, including between token issuance and use.
 	// Sparse uploads, overwrite results, parent layers, sealing, IAM sessions and

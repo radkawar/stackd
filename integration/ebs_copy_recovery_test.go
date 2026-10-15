@@ -36,9 +36,12 @@ import (
 // progress deterministic rather than depending on a machine-speed threshold.
 type snapshotCopyPauseRepository struct {
 	ebsdomain.Repository
-	armed   atomic.Bool
-	written atomic.Int32
-	paused  chan struct{}
+	armed       atomic.Bool
+	written     atomic.Int32
+	paused      chan struct{}
+	interrupted chan error
+	holdExit    atomic.Bool
+	release     chan struct{}
 }
 
 type snapshotCopyPauseTx struct {
@@ -65,9 +68,118 @@ func (r *snapshotCopyPauseRepository) Update(ctx context.Context, fn func(ebsdom
 	if err == nil && copied && r.armed.Load() && r.written.Add(1) == 2 {
 		close(r.paused)
 		<-ctx.Done()
+		r.interrupted <- ctx.Err()
+		if r.holdExit.Load() {
+			<-r.release
+		}
 		return ctx.Err()
 	}
 	return err
+}
+
+// A drain dispatches work but does not own its lifetime. Cancel it before waiting
+// for the committed payload boundary; only closing the stack may stop that worker.
+func ebsRecoveryDispatchPause(t *testing.T, cloud *stackd.Stack, committed <-chan struct{}) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() {
+		_, err := cloud.RunDueJobs(ctx, 100)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("native dispatch drain failed: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("native payload work held the dispatch drain")
+	}
+	cancel()
+	select {
+	case <-committed:
+	case <-time.After(10 * time.Second):
+		t.Fatal("native worker did not commit a partial destination after dispatch")
+	}
+}
+
+func ebsRecoveryClosePaused(t *testing.T, cloud *stackd.Stack, interrupted <-chan error, holdExit *atomic.Bool, release chan struct{}) {
+	t.Helper()
+	select {
+	case err := <-interrupted:
+		t.Fatalf("native worker stopped before its owning stack closed: %v", err)
+	default:
+	}
+	// Keep the canceled repository call alive until Close is observed waiting.
+	// Enable this only here so an earlier assertion failure cannot strand cleanup.
+	holdExit.Store(true)
+	released := false
+	defer func() {
+		if !released {
+			close(release)
+		}
+	}()
+	deadline := time.NewTimer(10 * time.Second)
+	defer deadline.Stop()
+	done := make(chan error, 1)
+	go func() { done <- cloud.Close() }()
+	select {
+	case err := <-interrupted:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("owner shutdown interrupted native work with %v", err)
+		}
+	case err := <-done:
+		t.Fatalf("owning stack closed before its native worker observed cancellation: %v", err)
+	case <-deadline.C:
+		t.Fatal("owning stack did not cancel its paused native worker")
+	}
+	select {
+	case err := <-done:
+		t.Fatalf("owning stack did not join its canceled native worker: %v", err)
+	default:
+	}
+	close(release)
+	released = true
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("close native worker owner: %v", err)
+		}
+	case <-deadline.C:
+		t.Fatal("owning stack did not join its interrupted native worker")
+	}
+}
+
+// Observe committed state at a fixed service time. Advancing the manual clock or
+// exhausting dispatch jobs is not evidence that asynchronous payload work settled.
+func ebsRecoveryAwaitState(t *testing.T, cloud *stackd.Stack, repository ebsdomain.Repository, description string, ready func(ebsdomain.Reader) (bool, error)) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	tick := time.NewTicker(10 * time.Millisecond)
+	defer tick.Stop()
+	for {
+		if _, err := cloud.RunDueJobs(ctx, 100); err != nil {
+			t.Fatalf("dispatch while awaiting %s: %v", description, err)
+		}
+		var settled bool
+		if err := repository.View(ctx, func(r ebsdomain.Reader) error {
+			var err error
+			settled, err = ready(r)
+			return err
+		}); err != nil {
+			t.Fatalf("observe %s: %v", description, err)
+		}
+		if settled {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatalf("native state did not settle (%s): %v", description, ctx.Err())
+		case <-tick.C:
+		}
+	}
 }
 
 // Native copy_data establishes independent bytes and source-sharing authority;
@@ -91,7 +203,7 @@ func TestEBSCopySnapshotInterruptedPayload(t *testing.T) {
 					if previous, ok := repository.(*snapshotCopyPauseRepository); ok {
 						repository = previous.Repository
 					}
-					paused = &snapshotCopyPauseRepository{Repository: repository, paused: make(chan struct{})}
+					paused = &snapshotCopyPauseRepository{Repository: repository, paused: make(chan struct{}), interrupted: make(chan error, 1), release: make(chan struct{})}
 					config.Storage.EBS = paused
 					return startPublicCloud(t, config)
 				})
@@ -151,25 +263,37 @@ func TestEBSCopySnapshotInterruptedPayload(t *testing.T) {
 						t.Fatal(err)
 					}
 				}
+				paused.armed.Store(true)
 				copied, err := ec2Client(destinationAccount, destinationRegion).CopySnapshot(t.Context(), &ec2.CopySnapshotInput{SourceSnapshotId: source.SnapshotId, SourceRegion: aws.String(sourceRegion), KmsKeyId: copyKey})
 				if err != nil {
 					t.Fatal(err)
 				}
-				paused.armed.Store(true)
-				runContext, cancel := context.WithCancel(t.Context())
-				defer cancel()
-				done := make(chan error, 1)
+				destinationKey := ebsdomain.SnapshotKey{Scope: ebsdomain.Scope{Partition: "aws", AccountID: destinationAccount, Region: destinationRegion}, ID: aws.ToString(copied.SnapshotId)}
 				cloud := clients.server.Config.Handler.(*stackd.Stack)
-				go func() { _, err := cloud.RunDueJobs(runContext, 100); done <- err }()
-				select {
-				case <-paused.paused:
-				case err := <-done:
-					t.Fatalf("copy did not reach committed partial payload: %v", err)
-				case <-time.After(10 * time.Second):
-					t.Fatal("copy did not yield a bounded payload transaction")
-				}
+				ebsRecoveryDispatchPause(t, cloud, paused.paused)
 				requestContext, requestCancel := context.WithTimeout(t.Context(), 5*time.Second)
 				defer requestCancel()
+				if err := paused.Repository.View(requestContext, func(r ebsdomain.Reader) error {
+					blocks, err := r.Blocks(destinationKey)
+					if err != nil {
+						return err
+					}
+					if len(blocks) != 2 {
+						return fmt.Errorf("interrupted copy committed %d blocks, want 2", len(blocks))
+					}
+					for _, info := range blocks {
+						block, err := r.Block(info.Key)
+						if err != nil {
+							return err
+						}
+						if len(block.Data) == 0 || block.Checksum != sha256.Sum256(payload(info.Key.Index)) {
+							return fmt.Errorf("partial copy block %d lost its payload or checksum", info.Key.Index)
+						}
+					}
+					return nil
+				}); err != nil {
+					t.Fatal(err)
+				}
 				if _, err := clients.sqs(owner, "test", "").CreateQueue(requestContext, &sqs.CreateQueueInput{QueueName: aws.String("during-snapshot-copy")}); err != nil {
 					t.Fatalf("unrelated signed request blocked behind copy: %v", err)
 				}
@@ -186,18 +310,24 @@ func TestEBSCopySnapshotInterruptedPayload(t *testing.T) {
 				if err != nil || len(pending.Snapshots) != 1 || pending.Snapshots[0].State != ec2types.SnapshotStatePending {
 					t.Fatalf("partial copy became public completion: %+v %v", pending, err)
 				}
-				cancel()
-				if err := <-done; !errors.Is(err, context.Canceled) {
-					t.Fatalf("interrupted worker = %v", err)
-				}
+				_, err = ebsClient(destinationAccount, destinationRegion).ListSnapshotBlocks(requestContext, &ebs.ListSnapshotBlocksInput{SnapshotId: copied.SnapshotId})
+				assertAPIError(t, err, "ResourceNotFoundException")
+				ebsRecoveryClosePaused(t, cloud, paused.interrupted, &paused.holdExit, paused.release)
 				clients = reopen()
 				pending, err = ec2Client(destinationAccount, destinationRegion).DescribeSnapshots(t.Context(), &ec2.DescribeSnapshotsInput{SnapshotIds: []string{aws.ToString(copied.SnapshotId)}})
 				if err != nil || len(pending.Snapshots) != 1 || pending.Snapshots[0].State != ec2types.SnapshotStatePending {
 					t.Fatalf("reopen fabricated completion: %+v %v", pending, err)
 				}
-				trailNativeDrain(t, clients.server.Config.Handler.(*stackd.Stack))
+				cloud = clients.server.Config.Handler.(*stackd.Stack)
+				ebsRecoveryAwaitState(t, cloud, paused.Repository, "recovered independent copy payload", func(r ebsdomain.Reader) (bool, error) {
+					v, err := r.Snapshot(destinationKey)
+					return err == nil && v.Copy != nil && v.Copy.WorkAt.IsZero(), err
+				})
 				now.Advance(ebsdomain.CompletionDelay + ebsdomain.ReadinessDelay)
-				trailNativeDrain(t, clients.server.Config.Handler.(*stackd.Stack))
+				ebsRecoveryAwaitState(t, cloud, paused.Repository, "recovered copy readability", func(r ebsdomain.Reader) (bool, error) {
+					v, err := r.Snapshot(destinationKey)
+					return err == nil && v.Readable, err
+				})
 				blocks, err := ebsClient(destinationAccount, destinationRegion).ListSnapshotBlocks(t.Context(), &ebs.ListSnapshotBlocksInput{SnapshotId: copied.SnapshotId})
 				if err != nil {
 					t.Fatal(err)
@@ -244,10 +374,10 @@ func TestEBSCopyFinalizationRecovery(t *testing.T) {
 						repository = previous.Repository
 					}
 					if isVolume {
-						volumePause = &pausedVolumeRepository{Repository: repository, committed: make(chan struct{})}
+						volumePause = &pausedVolumeRepository{Repository: repository, committed: make(chan struct{}), interrupted: make(chan error, 1), release: make(chan struct{})}
 						config.Storage.EBS = volumePause
 					} else {
-						copyPause = &snapshotCopyPauseRepository{Repository: repository, paused: make(chan struct{})}
+						copyPause = &snapshotCopyPauseRepository{Repository: repository, paused: make(chan struct{}), interrupted: make(chan error, 1), release: make(chan struct{})}
 						config.Storage.EBS = copyPause
 					}
 					return startPublicCloud(t, config)
@@ -299,6 +429,9 @@ func TestEBSCopyFinalizationRecovery(t *testing.T) {
 				created := now.Now()
 				var destination *string
 				var paused <-chan struct{}
+				var interrupted <-chan error
+				var holdExit *atomic.Bool
+				var release chan struct{}
 				if isVolume {
 					volume, err := ec2Client().CreateVolume(t.Context(), &ec2.CreateVolumeInput{SnapshotId: source.SnapshotId, AvailabilityZone: zones.AvailabilityZones[0].ZoneName, Encrypted: aws.Bool(true), KmsKeyId: targetKey.KeyMetadata.Arn})
 					if err != nil {
@@ -307,27 +440,72 @@ func TestEBSCopyFinalizationRecovery(t *testing.T) {
 					destination = volume.VolumeId
 					volumePause.armed.Store(true)
 					paused = volumePause.committed
+					interrupted = volumePause.interrupted
+					holdExit, release = &volumePause.holdExit, volumePause.release
 					now.Advance(ebsdomain.VolumeCreationDelay)
 				} else {
+					copyPause.armed.Store(true)
 					copied, err := ec2Client().CopySnapshot(t.Context(), &ec2.CopySnapshotInput{SourceSnapshotId: source.SnapshotId, SourceRegion: aws.String(region), KmsKeyId: targetKey.KeyMetadata.Arn, CompletionDurationMinutes: aws.Int32(15)})
 					if err != nil {
 						t.Fatal(err)
 					}
 					destination = copied.SnapshotId
-					copyPause.armed.Store(true)
 					paused = copyPause.paused
+					interrupted = copyPause.interrupted
+					holdExit, release = &copyPause.holdExit, copyPause.release
 				}
-				runContext, cancel := context.WithCancel(t.Context())
-				defer cancel()
-				done := make(chan error, 1)
+				scope := ebsdomain.Scope{Partition: "aws", AccountID: owner, Region: region}
+				destinationSnapshot := ebsdomain.SnapshotKey{Scope: scope, ID: aws.ToString(destination)}
+				destinationVolume := ebsdomain.VolumeKey{Scope: scope, ID: aws.ToString(destination)}
 				cloud := clients.server.Config.Handler.(*stackd.Stack)
-				go func() { _, err := cloud.RunDueJobs(runContext, 100); done <- err }()
-				select {
-				case <-paused:
-				case err := <-done:
-					t.Fatalf("payload worker did not reach the interruption boundary: %v", err)
-				case <-time.After(10 * time.Second):
-					t.Fatal("payload worker did not commit a partial destination")
+				ebsRecoveryDispatchPause(t, cloud, paused)
+				if err := repository.View(t.Context(), func(r ebsdomain.Reader) error {
+					if isVolume {
+						blocks, err := r.VolumeBlocks(destinationVolume)
+						if err != nil {
+							return err
+						}
+						if len(blocks) != 1 {
+							return fmt.Errorf("interrupted volume committed %d blocks, want 1", len(blocks))
+						}
+						block, err := r.VolumeBlock(blocks[0].Key)
+						if err == nil && (len(block.Data) == 0 || block.Checksum != digest) {
+							return fmt.Errorf("partial volume lost its payload or checksum")
+						}
+						return err
+					}
+					blocks, err := r.Blocks(destinationSnapshot)
+					if err != nil {
+						return err
+					}
+					if len(blocks) != 2 {
+						return fmt.Errorf("interrupted copy committed %d blocks, want 2", len(blocks))
+					}
+					for _, info := range blocks {
+						block, err := r.Block(info.Key)
+						if err != nil {
+							return err
+						}
+						if len(block.Data) == 0 || block.Checksum != digest {
+							return fmt.Errorf("partial copy block %d lost its payload or checksum", info.Key.Index)
+						}
+					}
+					return nil
+				}); err != nil {
+					t.Fatal(err)
+				}
+				if isVolume {
+					state, err := ec2Client().DescribeVolumes(t.Context(), &ec2.DescribeVolumesInput{VolumeIds: []string{aws.ToString(destination)}})
+					if err != nil || len(state.Volumes) != 1 || state.Volumes[0].State != ec2types.VolumeStateCreating {
+						t.Fatalf("partial volume became available: %+v %v", state, err)
+					}
+				} else {
+					state, err := ec2Client().DescribeSnapshots(t.Context(), &ec2.DescribeSnapshotsInput{SnapshotIds: []string{aws.ToString(destination)}})
+					if err != nil || len(state.Snapshots) != 1 || state.Snapshots[0].State != ec2types.SnapshotStatePending {
+						t.Fatalf("partial copy became complete: %+v %v", state, err)
+					}
+					_, err = direct().ListSnapshotBlocks(t.Context(), &ebs.ListSnapshotBlocksInput{SnapshotId: destination})
+					assertAPIError(t, err, "ResourceNotFoundException")
 				}
 				if scenario != "copy-late" {
 					for _, arn := range []*string{sourceKey.KeyMetadata.Arn, targetKey.KeyMetadata.Arn} {
@@ -382,12 +560,67 @@ func TestEBSCopyFinalizationRecovery(t *testing.T) {
 				if messages := receive(); len(messages) != 0 {
 					t.Fatalf("copy notified before payload finalization: %+v", messages)
 				}
-				cancel()
+				ebsRecoveryClosePaused(t, cloud, interrupted, holdExit, release)
 				clients = reopen()
-				<-done
 				recovered := now.Now()
-				trailNativeDrain(t, clients.server.Config.Handler.(*stackd.Stack))
+				cloud = clients.server.Config.Handler.(*stackd.Stack)
+				ebsRecoveryAwaitState(t, cloud, repository, "retained payload finalization, source cleanup and subsequent volume", func(r ebsdomain.Reader) (bool, error) {
+					if isVolume {
+						v, err := r.Volume(destinationVolume)
+						if err != nil || v.Creation != nil || v.Status != "deleted" {
+							return false, err
+						}
+					} else {
+						v, err := r.Snapshot(destinationSnapshot)
+						if err != nil || v.Copy == nil || !v.Copy.WorkAt.IsZero() {
+							return false, err
+						}
+					}
+					blocks, err := r.Blocks(sourceID)
+					if err != nil || len(blocks) != 0 {
+						return false, err
+					}
+					v, err := r.Volume(ebsdomain.VolumeKey{Scope: scope, ID: aws.ToString(following.VolumeId)})
+					return err == nil && v.Status == "available", err
+				})
 				assertSourceBlocks(0)
+				for _, arn := range []*string{sourceKey.KeyMetadata.Arn, targetKey.KeyMetadata.Arn} {
+					grants, err := clients.kms(owner, "test", "").ListGrants(t.Context(), &kms.ListGrantsInput{KeyId: arn})
+					if err != nil || len(grants.Grants) != 0 {
+						t.Fatalf("finalization retained KMS grants: %+v %v", grants, err)
+					}
+				}
+				if err := repository.View(t.Context(), func(r ebsdomain.Reader) error {
+					if isVolume {
+						v, err := r.Volume(destinationVolume)
+						if err != nil {
+							return err
+						}
+						blocks, err := r.VolumeBlocks(destinationVolume)
+						if err == nil && (len(blocks) != 0 || v.ServiceGrantID != "" || v.InfrastructureGrantID != "") {
+							return fmt.Errorf("terminal volume retained payload or grants: %+v, %d blocks", v, len(blocks))
+						}
+						return err
+					}
+					v, err := r.Snapshot(destinationSnapshot)
+					if err != nil {
+						return err
+					}
+					if v.Copy.SourceGrantToken != "" || v.Copy.DestinationGrantToken != "" || v.Copy.DestinationEncryptGrantToken != "" || v.Copy.KeySource.ID != "" {
+						return fmt.Errorf("terminal copy retained key authority: %+v", v.Copy)
+					}
+					blocks, err := r.Blocks(destinationSnapshot)
+					want := 0
+					if scenario == "copy-late" {
+						want = 3
+					}
+					if err == nil && len(blocks) != want {
+						return fmt.Errorf("finalized copy retained %d destination blocks, want %d", len(blocks), want)
+					}
+					return err
+				}); err != nil {
+					t.Fatal(err)
+				}
 				later, err := ec2Client().DescribeVolumes(t.Context(), &ec2.DescribeVolumesInput{VolumeIds: []string{aws.ToString(following.VolumeId)}})
 				if err != nil || len(later.Volumes) != 1 || later.Volumes[0].State != ec2types.VolumeStateAvailable {
 					t.Fatalf("earlier retained grant blocked subsequent EBS work: %+v %v", later, err)

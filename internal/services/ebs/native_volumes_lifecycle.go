@@ -3,6 +3,7 @@ package ebs
 import (
 	"context"
 	"errors"
+	"time"
 
 	api "stackd/internal/awsapi/ec2"
 	"stackd/internal/awsctx"
@@ -19,23 +20,31 @@ func (s *Service) volumeNeedsNativeWork(v VolumeRecord) bool {
 	return v.NativePath != "" && m != nil && m.State == api.VolumeModificationStateModifying && m.Original.Size != m.Target.Size
 }
 
-// advanceNativeWork is only called by the scheduler outside repository callbacks.
-// Ordinary API eager advancement remains metadata-only.
+// advanceNativeWork runs in the service-owned worker, outside repository
+// callbacks and the shared scheduler drain. API advancement is metadata-only.
 func (s *Service) advanceNativeWork(ctx context.Context) error {
 	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		var snapshot SnapshotRecord
 		var volume VolumeRecord
-		err := s.repository.View(ctx, func(r Reader) error { var err error; snapshot, volume, err = nextEBSWork(r); return err })
+		var due time.Time
+		err := s.repository.View(ctx, func(r Reader) error {
+			var err error
+			snapshot, volume, due, err = s.nextEBSWork(r, true, time.Time{})
+			return err
+		})
 		if errors.Is(err, ErrNotFound) {
 			return nil
 		}
 		if err != nil {
 			return err
 		}
+		if due.After(s.clock.Now()) {
+			return nil
+		}
 		if volume.Key.ID != "" {
-			if VolumeWorkTime(volume).After(s.clock.Now()) {
-				return nil
-			}
 			if s.volumeNeedsNativeWork(volume) {
 				if err := s.advanceNativeVolume(ctx, volume); err != nil {
 					return err
@@ -43,27 +52,40 @@ func (s *Service) advanceNativeWork(ctx context.Context) error {
 			} else if err := s.advance(ctx); err != nil {
 				return err
 			}
-		} else {
-			if workTime(snapshot).After(s.clock.Now()) {
-				return nil
-			}
-			if snapshotCopyPending(snapshot) {
-				if err := s.advanceSnapshotCopy(ctx, snapshot); err != nil {
-					return err
-				}
-			} else if volumeSnapshotBlocksPending(snapshot) {
-				if err := s.advanceVolumeSnapshotBlocks(ctx, snapshot); err != nil {
-					return err
-				}
-			} else if snapshot.Volume != nil && snapshot.Volume.NativeBackupPath != "" {
-				if err := s.advanceNativeSnapshot(ctx, snapshot); err != nil {
-					return err
-				}
-			} else if err := s.advance(ctx); err != nil {
+		} else if snapshotCopyPending(snapshot) {
+			if err := s.advanceSnapshotCopy(ctx, snapshot); err != nil {
 				return err
 			}
+		} else if volumeSnapshotBlocksPending(snapshot) {
+			if err := s.advanceVolumeSnapshotBlocks(ctx, snapshot); err != nil {
+				return err
+			}
+		} else if snapshot.Volume != nil && snapshot.Volume.NativeBackupPath != "" {
+			if err := s.advanceNativeSnapshot(ctx, snapshot); err != nil {
+				return err
+			}
+		} else if err := s.advance(ctx); err != nil {
+			return err
 		}
 	}
+}
+
+func sameVolumeWork(current, selected VolumeRecord) bool {
+	return current.Key == selected.Key && current.Created.Equal(selected.Created) &&
+		current.RequestID == selected.RequestID && current.LineageID == selected.LineageID
+}
+
+func sameVolumeCreation(current, selected VolumeRecord) bool {
+	return sameVolumeWork(current, selected) && current.Status == api.VolumeStateCreating &&
+		current.Creation != nil && selected.Creation != nil && current.Creation.Source == selected.Creation.Source
+}
+
+func sameVolumeModification(current, selected VolumeRecord) bool {
+	return sameVolumeWork(current, selected) && current.NativePath == selected.NativePath &&
+		current.Modification != nil && selected.Modification != nil &&
+		current.Modification.Started.Equal(selected.Modification.Started) &&
+		current.Modification.RequestID == selected.Modification.RequestID &&
+		current.Modification.State == api.VolumeModificationStateModifying
 }
 
 func (s *Service) advanceNativeVolume(ctx context.Context, selected VolumeRecord) error {
@@ -76,8 +98,27 @@ func (s *Service) advanceNativeVolume(ctx context.Context, selected VolumeRecord
 	// and release it before removing the source's grants or native disk.
 	if selected.Status == api.VolumeStateDeleting {
 		var snapshots []SnapshotRecord
-		if err := s.repository.View(ctx, func(r Reader) error { var err error; snapshots, err = r.Snapshots(selected.Key.Scope); return err }); err != nil {
+		active := false
+		err := s.repository.View(ctx, func(r Reader) error {
+			current, err := r.Volume(selected.Key)
+			if err != nil {
+				return err
+			}
+			active = sameVolumeWork(current, selected) && current.Status == api.VolumeStateDeleting && current.NativePath == selected.NativePath
+			if !active {
+				return nil
+			}
+			snapshots, err = r.Snapshots(selected.Key.Scope)
 			return err
+		})
+		if errors.Is(err, ErrNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if !active {
+			return nil
 		}
 		for _, snapshot := range snapshots {
 			if snapshot.Volume != nil && snapshot.Volume.Source == selected.Key && snapshot.Volume.NativeBackupPath != "" {
@@ -87,18 +128,27 @@ func (s *Service) advanceNativeVolume(ctx context.Context, selected VolumeRecord
 			}
 		}
 	}
-	s.nativeWorkMu.Lock()
+	if err := s.nativeWorkMu.Lock(ctx); err != nil {
+		return err
+	}
 	defer s.nativeWorkMu.Unlock()
 	var v VolumeRecord
 	err := s.repository.View(ctx, func(r Reader) error { var err error; v, err = r.Volume(selected.Key); return err })
+	if errors.Is(err, ErrNotFound) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
-	if !s.volumeNeedsNativeWork(v) || VolumeWorkTime(v).After(s.clock.Now()) {
+	if !sameVolumeWork(v, selected) || v.Status != selected.Status || v.NativePath != selected.NativePath ||
+		!s.volumeNeedsNativeWork(v) || VolumeWorkTime(v).After(s.clock.Now()) {
 		return nil
 	}
 	if v.Status == api.VolumeStateCreating {
 		return s.hydrateVolumeCreation(ctx, v)
+	}
+	if v.Status != api.VolumeStateDeleting && !sameVolumeModification(v, selected) {
+		return nil
 	}
 	if v.Status == api.VolumeStateDeleting {
 		if err := s.deleteNativeVolume(ctx, v); err != nil {
@@ -106,11 +156,14 @@ func (s *Service) advanceNativeVolume(ctx context.Context, selected VolumeRecord
 		}
 		return s.repository.Update(ctx, func(tx Transaction) error {
 			current, err := tx.Volume(v.Key)
+			if errors.Is(err, ErrNotFound) {
+				return nil
+			}
 			if err != nil {
 				return err
 			}
-			if current.Status != api.VolumeStateDeleting {
-				return errors.New("volume deletion changed during native cleanup")
+			if !sameVolumeWork(current, v) || current.Status != api.VolumeStateDeleting || current.NativePath != v.NativePath {
+				return nil
 			}
 			current.NativePath = ""
 			return s.advanceVolume(tx, current)
@@ -121,7 +174,19 @@ func (s *Service) advanceNativeVolume(ctx context.Context, selected VolumeRecord
 	}
 	disk := nativeVolumeDisk(v)
 	var effectErr error
+	active := false
 	err = s.repository.Update(ctx, func(tx Transaction) error {
+		current, err := tx.Volume(v.Key)
+		if errors.Is(err, ErrNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		active = sameVolumeModification(current, v)
+		if !active {
+			return nil
+		}
 		if !v.Encrypted {
 			return nil
 		}
@@ -141,16 +206,22 @@ func (s *Service) advanceNativeVolume(ctx context.Context, selected VolumeRecord
 	if err != nil {
 		return err
 	}
+	if !active {
+		return nil
+	}
 	if effectErr == nil {
 		effectErr = s.nativeDisks.ResizeDisk(ctx, disk, int64(v.Modification.Target.Size)<<30)
 	}
 	return s.repository.Update(ctx, func(tx Transaction) error {
 		current, err := tx.Volume(v.Key)
+		if errors.Is(err, ErrNotFound) {
+			return nil
+		}
 		if err != nil {
 			return err
 		}
-		if current.Modification == nil || !current.Modification.Started.Equal(v.Modification.Started) || current.Modification.State != api.VolumeModificationStateModifying {
-			return errors.New("volume modification changed during native resize")
+		if !sameVolumeModification(current, v) {
+			return nil
 		}
 		if effectErr != nil {
 			current.Modification.State = api.VolumeModificationStateFailed

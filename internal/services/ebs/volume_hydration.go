@@ -21,8 +21,19 @@ func (s *Service) hydrateVolumeCreation(ctx context.Context, volume VolumeRecord
 	var source SnapshotRecord
 	var blocks map[int32]BlockInfo
 	var written []VolumeBlockInfo
+	active := false
 	err := s.repository.View(ctx, func(r Reader) error {
-		var err error
+		current, err := r.Volume(volume.Key)
+		if errors.Is(err, ErrNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		active = sameVolumeCreation(current, volume)
+		if !active {
+			return nil
+		}
 		source, err = r.Snapshot(volume.Creation.Source)
 		if err != nil {
 			return err
@@ -34,7 +45,7 @@ func (s *Service) hydrateVolumeCreation(ctx context.Context, volume VolumeRecord
 		written, err = r.VolumeBlocks(volume.Key)
 		return err
 	})
-	if err != nil {
+	if err != nil || !active {
 		return err
 	}
 	for _, block := range written {
@@ -48,6 +59,18 @@ func (s *Service) hydrateVolumeCreation(ctx context.Context, volume VolumeRecord
 		}
 		var rejected error
 		err = s.repository.Update(ctx, func(tx Transaction) error {
+			current, err := tx.Volume(volume.Key)
+			if errors.Is(err, ErrNotFound) {
+				active = false
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			active = sameVolumeCreation(current, volume)
+			if !active {
+				return nil
+			}
 			keys, rejection := s.ec2Keys.ResumeVolume(tx.Context(), volume)
 			material = keys
 			if rejection != nil {
@@ -59,6 +82,9 @@ func (s *Service) hydrateVolumeCreation(ctx context.Context, volume VolumeRecord
 		defer clear(material.DestinationPlaintext)
 		if err != nil {
 			return err
+		}
+		if !active {
+			return nil
 		}
 		if rejected != nil {
 			return s.finishVolumeCreation(ctx, volume, rejected)
@@ -76,10 +102,13 @@ func (s *Service) hydrateVolumeCreation(ctx context.Context, volume VolumeRecord
 		var active bool
 		err = s.repository.View(ctx, func(r Reader) error {
 			current, err := r.Volume(volume.Key)
+			if errors.Is(err, ErrNotFound) {
+				return nil
+			}
 			if err != nil {
 				return err
 			}
-			active = current.Status == api.VolumeStateCreating && current.Creation != nil
+			active = sameVolumeCreation(current, volume)
 			if !active {
 				return nil
 			}
@@ -104,10 +133,14 @@ func (s *Service) hydrateVolumeCreation(ctx context.Context, volume VolumeRecord
 		}
 		err = s.repository.Update(ctx, func(tx Transaction) error {
 			current, err := tx.Volume(volume.Key)
+			if errors.Is(err, ErrNotFound) {
+				active = false
+				return nil
+			}
 			if err != nil {
 				return err
 			}
-			active = current.Status == api.VolumeStateCreating && current.Creation != nil
+			active = sameVolumeCreation(current, volume)
 			if !active {
 				return nil
 			}
@@ -128,10 +161,13 @@ func (s *Service) hydrateVolumeCreation(ctx context.Context, volume VolumeRecord
 func (s *Service) finishVolumeCreation(ctx context.Context, volume VolumeRecord, failure error) error {
 	return s.repository.Update(ctx, func(tx Transaction) error {
 		current, err := tx.Volume(volume.Key)
+		if errors.Is(err, ErrNotFound) {
+			return nil
+		}
 		if err != nil {
 			return err
 		}
-		if current.Status != api.VolumeStateCreating || current.Creation == nil {
+		if !sameVolumeCreation(current, volume) {
 			return nil
 		}
 		source := current.Creation.Source

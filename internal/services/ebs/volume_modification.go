@@ -80,7 +80,9 @@ func (s *Service) ModifyVolume(ctx context.Context, in *api.ModifyVolumeRequest)
 	if err := s.advance(ctx); err != nil {
 		return nil, err
 	}
-	s.nativeWorkMu.Lock()
+	if err := s.nativeWorkMu.Lock(ctx); err != nil {
+		return nil, err
+	}
 	defer s.nativeWorkMu.Unlock()
 	var checked VolumeRecord
 	if err := s.repository.View(ctx, func(r Reader) error {
