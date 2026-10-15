@@ -142,6 +142,38 @@ func TestSCRAMQueuedExecutionReloadsReplacementCredentialsAndRechecksAuthority(t
 	}
 }
 
+func TestSCRAMObservationRevokesPublishedEndpointAfterSecretAuthorityLoss(t *testing.T) {
+	now := time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC)
+	v := retainedCluster(now)
+	v.State = "ACTIVE"
+	v.Operation = ""
+	v.SecurityMode = "SASL_SCRAM"
+	v.Secrets = []SCRAMAssociation{{SecretARN: "secret-current", KMSKeyARN: "key", GrantID: "grant", Incarnation: v.Incarnation}}
+	v.Endpoint = Endpoint{SecurityMode: "SASL_SCRAM", CAPEM: []byte("native-test-ca"), Brokers: []Broker{{ID: 1, Address: "127.0.0.1:19092"}}}
+	secrets := &synchronizationSecrets{user: SCRAMUser{Username: "consumer", Password: "current-password"}}
+	runtime := &synchronizationRuntime{controlledRuntime: controlledRuntime{status: func(context.Context, Specification) (Endpoint, error) {
+		return v.Endpoint, nil
+	}}}
+	s := New(Config{Clock: clock.NewManual(now), Runtime: runtime, Secrets: secrets, Authorizer: &revocableAuthorizer{}})
+	s.JobDriver().Close()
+	t.Cleanup(func() { _ = s.Close() })
+	seedCluster(t, s, v)
+	ctx := awsctx.WithMetadata(t.Context(), awsctx.Metadata{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region})
+	connection, err := s.ResolveCluster(ctx, v.ARN, RequireDescribeClusterV2)
+	if err != nil || len(connection.Brokers) != 1 {
+		t.Fatalf("authorized cluster was not ready before revocation: %v", err)
+	}
+	secrets.denied = errors.New("current secret/KMS authority revoked")
+	connection, err = s.ResolveCluster(ctx, v.ARN, RequireDescribeClusterV2)
+	if err == nil || len(connection.Brokers) != 0 {
+		t.Fatal("observation exposed a published endpoint after secret authority was revoked")
+	}
+	failed := readCluster(t, s, v.ARN)
+	if failed.State != "FAILED" || len(failed.Endpoint.Brokers) != 0 {
+		t.Fatalf("observation did not withdraw the cluster after secret authority loss: state=%s failure=%q", failed.State, failed.Failure)
+	}
+}
+
 func TestSCRAMQueuedIntentSurvivesRestartAndRequiresFreshNativeCompletion(t *testing.T) {
 	now := time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC)
 	v := retainedCluster(now)

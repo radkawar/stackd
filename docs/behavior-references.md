@@ -3841,11 +3841,14 @@ SCRAM secrets must use an `AmazonMSK_` name and a customer-managed KMS key, with
 `{"username":"…","password":"…"}` values. The control caller needs current secret/
 key-read and resource-policy permissions. Scoped Kafka read-policy statements
 join the cluster intent transaction without replacing unrelated statements.
-Native application reads the current secret/KMS authority outside transactions;
-only references, never passwords, live in the MSK repository. Credential/security
-changes restart the owned brokers, revoking existing native sessions. Controller
-health reconciliation refreshes current credentials; this is not an instantaneous
-cross-service transaction with the native engine.
+Current secret versions, association grants and canonical KMS-key authority are
+read in one repository transaction. Native credential installation runs outside
+transactions; only references, never passwords, live in the MSK repository.
+Readiness observation loads the current credentials too. Loss of secret/key
+authority withdraws the published endpoint and quarantines managed brokers.
+Credential/security changes restart the owned brokers, revoking existing native
+sessions. Controller health reconciliation refreshes current credentials; this
+is not an instantaneous cross-service transaction with the native engine.
 
 Configuration revisions retain their original property bytes. Unknown properties
 are rejected; known but invalid values can be stored, matching the native free

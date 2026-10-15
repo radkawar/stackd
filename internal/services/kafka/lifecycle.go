@@ -269,7 +269,7 @@ func (s *Service) observe(ctx context.Context, arn, action string) error {
 		nativeErr = errors.New("native Kafka runtime is unavailable")
 	} else {
 		var spec Specification
-		spec, nativeErr = s.networkSpecification(runtimeContext(ctx, v), v, baseSpecification(v))
+		spec, nativeErr = s.specification(runtimeContext(ctx, v), v)
 		if nativeErr != nil {
 			nativeErr = s.quarantineManaged(ctx, v, nativeErr)
 		}

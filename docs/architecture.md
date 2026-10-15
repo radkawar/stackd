@@ -610,10 +610,13 @@ Accepted public security modes are loopback plaintext, TLS, and TLS/SCRAM-SHA-51
 The private administrative listener uses SCRAM/TLS; broker/controller traffic uses
 mutual TLS. Native ACLs protect cluster security administration while public clients
 retain topic/group operations. MSK's IAM control/resource authority is distinct
-from data-engine credentials. SCRAM associations read current Secrets Manager/KMS
-credentials outside the transaction; scoped secret policy changes join the cluster
-intent transaction, and native credential installation is a retained external
-effect. No public IAM-data-authentication, VPC, managed encrypted volume, mTLS-client
+from data-engine credentials. SCRAM association metadata, current secret versions
+and canonical KMS-key authority are read in one repository transaction. Scoped
+secret policies and caller-authorized KMS grants join the association intent
+transaction. Native credential installation remains an external effect.
+Readiness observation reloads that same current credential specification; an
+administrative listener alone does not prove customer credentials are applied.
+No public IAM-data-authentication, VPC, managed encrypted volume, mTLS-client
 or monitoring setting is returned as effective without its implementation.
 
 Lambda's MSK adapter reuses that Kafka connector under the current function
