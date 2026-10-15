@@ -118,6 +118,10 @@ admission marker. Task and collector processes survived the restart. Tag
 updates, no-change plans and deletion of all 14 Terraform resources passed;
 the native collector was then removed after an idle proof. The receipt retains
 `SKIPDATA` records as well as packet records; this is not gap-free capture.
+The [focused CI workflow](../.github/workflows/checks.yml) runs the flow contract
+and race checks, real receiver/policy tests and this Terraform consumer on a
+Linux Docker runner. It retains the consumer report, controller logs and gzip
+objects as the `native-flow-logs` artifact.
 
 Remaining `TODO: Comeback` boundaries are IPv6 capture, reliable segment counts
 for TCP payloads/fragments/offloaded packets, continuously proven idle windows

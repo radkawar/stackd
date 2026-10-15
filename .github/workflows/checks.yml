@@ -52,6 +52,8 @@ jobs:
           go test -race ./internal/services/ec2 -timeout 5m -run '^TestEIPAttributesSDK'
           go test -race ./internal/integrations -timeout 5m -run '^TestAthenaManifestRecordsOnlySuccessfulCommittedObjects$'
           go test ./internal/services/glue -timeout 5m -run '^TestTableStatisticsDeletionNativeIdempotence$'
+      - name: Check VPC Flow Logs controls, persistence and delivery authority
+        run: go test -race -timeout 10m ./compute/network ./internal/services/ec2 ./storage/sqlite/ec2 ./internal/integrations ./integration -run 'FlowLog|FlowCapture|FlowReceiver'
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: '1.15.9'
@@ -113,3 +115,47 @@ jobs:
             generate-lambda-runtime-check generate-sql-check generate-mq-schema-check \
             generate-cloudformation-check generate-guardduty-findings-check \
             generate-terraform-apis-check
+
+  native-flow-logs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.26.5'
+          cache: true
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: '1.15.9'
+          terraform_wrapper: false
+      - name: Prepare pinned native receiver and consumer
+        run: |
+          docker pull nicolaka/netshoot@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed283572f47c970c780c03b61
+          go build -o bin/stackd ./cmd/stackd
+          python3 -m venv "$RUNNER_TEMP/flow-venv"
+          "$RUNNER_TEMP/flow-venv/bin/pip" install -r examples/requirements.txt
+      - name: Exercise real receiver replay and policy verdicts
+        env:
+          STACKD_NETWORK_DOCKER: '1'
+        run: go test ./compute/network -count=1 -timeout 5m -run '^(TestFlowCollectorDockerNativeReplay|TestDaemonFlowPolicyActualAdmissionAndTerminalRejection)$'
+      - name: Exercise current-provider flow logs and real UDP traffic
+        run: |
+          "$RUNNER_TEMP/flow-venv/bin/python" scripts/native/vpc_flow_logs.py \
+            --binary bin/stackd \
+            --state-directory "$RUNNER_TEMP/flow-evidence" \
+            --image nicolaka/netshoot@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed283572f47c970c780c03b61 \
+            --remove-owned-capture
+      - name: Retain native flow evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-flow-logs
+          path: |
+            ${{ runner.temp }}/flow-evidence/report.json
+            ${{ runner.temp }}/flow-evidence/**/*.log
+            ${{ runner.temp }}/flow-evidence/s3/*.log.gz
+          if-no-files-found: ignore
+          retention-days: 7
