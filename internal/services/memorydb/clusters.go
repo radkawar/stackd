@@ -78,7 +78,7 @@ func (s *Service) createCluster(ctx context.Context, tx Transaction, in *api.Cre
 	if !v.TLSEnabled && v.ACLName != "open-access" {
 		return nil, invalid("Non-TLS clusters require the open-access ACL.")
 	}
-	v.ParameterGroup = "default." + engineFamily(eng)
+	v.ParameterGroup = defaultParameterGroupName(engineFamily(eng))
 	if in.ParameterGroupName != nil {
 		p, e := s.loadParameterGroup(ctx, tx, "CreateCluster", value(in.ParameterGroupName))
 		if e != nil {
@@ -194,7 +194,7 @@ func (s *Service) deleteCluster(ctx context.Context, tx Transaction, in *api.Del
 	if in.MultiRegionClusterName != nil {
 		return nil, unsupported("Multi-region clusters are not implemented.")
 	}
-	if v.Status == "deleting" || v.Status == "creating" || v.Status == "modifying" {
+	if v.Status == "deleting" || v.Status == "creating" || v.Status == "updating" {
 		return nil, stateError("cluster")
 	}
 	snapshots, e := tx.Snapshots(v.Key.Scope)
@@ -218,9 +218,12 @@ func (s *Service) deleteCluster(ctx context.Context, tx Transaction, in *api.Del
 	}
 	return &api.DeleteClusterResponse{Cluster: clusterDTO(v, true)}, nil
 }
+
+// AWS clusters use "updating"; ACLs and users independently use "modifying".
+// https://docs.aws.amazon.com/memorydb/latest/APIReference/API_Cluster.html
 func (s *Service) scheduleCluster(v *Cluster, operation string) {
 	v.Operation = operation
-	v.Status = "modifying"
+	v.Status = "updating"
 	v.Version++
 	v.Due = s.clock.Now()
 }

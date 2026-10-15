@@ -117,14 +117,22 @@ type heldEnsure struct {
 	Runtime
 	entered chan struct{}
 	release chan struct{}
+	spec    chan engine.Specification
+	err     error
 }
 
-func (r heldEnsure) Ensure(ctx context.Context, _ engine.Specification) (engine.Deployment, error) {
+func (r heldEnsure) Ensure(ctx context.Context, spec engine.Specification) (engine.Deployment, error) {
+	if r.spec != nil {
+		r.spec <- spec
+	}
 	close(r.entered)
 	select {
 	case <-ctx.Done():
 		return engine.Deployment{}, ctx.Err()
 	case <-r.release:
+		if r.err != nil {
+			return engine.Deployment{}, r.err
+		}
 		return engine.Deployment{Endpoint: engine.Endpoint{Address: "127.0.0.1", Port: 6379}}, nil
 	}
 }
@@ -134,7 +142,7 @@ func TestOldNativeCompletionCannotReadyNewIncarnation(t *testing.T) {
 	s := New(Config{Runtime: native, Clock: clock.NewManual(now)})
 	t.Cleanup(func() { _ = s.Close() })
 	k := Key{Scope: Scope{"aws", "111111111111", "us-east-1"}, Kind: "cluster", Name: "owned"}
-	v := Cluster{Key: k, RuntimeID: "old-incarnation", Status: "creating", Operation: "create", Shards: 1, ACLName: "open-access", ParameterGroup: "default.memorydb_valkey7", Version: 1, Due: now}
+	v := Cluster{Key: k, RuntimeID: "old-incarnation", Status: "creating", Operation: "create", Shards: 1, ACLName: "open-access", ParameterGroup: "default.memorydb-valkey7", Version: 1, Due: now}
 	if e := s.repository.Update(t.Context(), func(tx Transaction) error { return tx.PutCluster(v) }); e != nil {
 		t.Fatal(e)
 	}
@@ -209,7 +217,7 @@ func TestUserDeletionWaitsForAppliedACLRemoval(t *testing.T) {
 		if e != nil {
 			return e
 		}
-		if cluster.Status != "modifying" || cluster.Version != 2 {
+		if cluster.Status != "updating" || cluster.Version != 2 {
 			t.Fatal("ACL removal did not fence the live cluster")
 		}
 		cluster.Status = "available"
@@ -225,5 +233,224 @@ func TestUserDeletionWaitsForAppliedACLRemoval(t *testing.T) {
 		return nil
 	}); e != nil {
 		t.Fatal(e)
+	}
+}
+
+// Cluster status follows the native application boundary, not the successful
+// control-plane write. User "modifying" is captured in
+// testdata/aws/valkey/memorydb_controls.json, memorydb-user-update; ACL
+// "modifying" is documented at
+// https://docs.aws.amazon.com/memorydb/latest/APIReference/API_ACL.html.
+func TestClusterUpdatesWaitForNativeApplication(t *testing.T) {
+	for _, mutation := range []struct {
+		action, operation, timeout, access, userStatus, aclStatus string
+		input                                                     any
+		users                                                     int
+	}{
+		{
+			action: "UpdateCluster", operation: "update", timeout: "73", access: "on ~app:* +get", users: 1, userStatus: "active", aclStatus: "active",
+			input: &api.UpdateClusterRequest{ClusterName: new(api.String("database")), ParameterGroupName: new(api.String("replacement-parameters"))},
+		},
+		{
+			action: "UpdateParameterGroup", operation: "parameters", timeout: "73", access: "on ~app:* +get", users: 1, userStatus: "active", aclStatus: "active",
+			input: &api.UpdateParameterGroupRequest{ParameterGroupName: new(api.String("native-parameters")), ParameterNameValues: api.ParameterNameValueList{{ParameterName: new(api.String("timeout")), ParameterValue: new(api.String("73"))}}},
+		},
+		{
+			action: "ResetParameterGroup", operation: "parameters", access: "on ~app:* +get", users: 1, userStatus: "active", aclStatus: "active",
+			input: &api.ResetParameterGroupRequest{ParameterGroupName: new(api.String("native-parameters")), AllParameters: new(api.Boolean(true))},
+		},
+		{
+			action: "UpdateACL", operation: "access", timeout: "37", userStatus: "active", aclStatus: "modifying",
+			input: &api.UpdateACLRequest{ACLName: new(api.String("application")), UserNamesToRemove: api.UserNameListInput{api.UserName("owned")}},
+		},
+		{
+			action: "UpdateUser", operation: "access", timeout: "37", access: "on ~app:* +get +set", users: 1, userStatus: "modifying", aclStatus: "modifying",
+			input: &api.UpdateUserRequest{UserName: new(api.UserName("owned")), AccessString: new(api.AccessString("on ~app:* +get +set"))},
+		},
+		{
+			action: "DeleteUser", operation: "access", timeout: "37", userStatus: "deleting", aclStatus: "modifying",
+			input: &api.DeleteUserRequest{UserName: new(api.UserName("owned"))},
+		},
+	} {
+		for _, outcome := range []struct {
+			name        string
+			err         error
+			unavailable bool
+		}{
+			{name: "applied"},
+			{name: "native-error", err: errors.New("native application failed")},
+			{name: "runtime-unavailable", unavailable: true},
+		} {
+			t.Run(mutation.action+"/"+outcome.name, func(t *testing.T) {
+				now := time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC)
+				native := heldEnsure{entered: make(chan struct{}), release: make(chan struct{}), spec: make(chan engine.Specification, 1), err: outcome.err}
+				s := New(Config{Authorizer: &mutableAuthority{}, Runtime: native, Clock: clock.NewManual(now)})
+				t.Cleanup(func() { _ = s.Close() })
+				// This regression explicitly drives one native job below. Prevent
+				// after-commit Wake from concurrently running the same retained job.
+				s.JobDriver().Close()
+				ctx, cancel := context.WithCancel(awsctx.WithMetadata(t.Context(), awsctx.Metadata{Partition: "aws", AccountID: "111111111111", Region: "us-east-1"}))
+				t.Cleanup(cancel)
+				sc := scopeFor(ctx)
+				user := User{Key: Key{Scope: sc, Kind: "user", Name: "owned"}, Status: "active", AccessString: "on ~app:* +get", Authentication: "password", PasswordHashes: []string{strings.Repeat("a", 64)}}
+				acl := ACL{Key: Key{Scope: sc, Kind: "acl", Name: "application"}, Status: "active", Users: []string{user.Key.Name}}
+				oldEndpoint := engine.Endpoint{Address: "127.0.0.1", Port: 6378}
+				cluster := Cluster{Key: Key{Scope: sc, Kind: "cluster", Name: "database"}, RuntimeID: "native-incarnation", Status: "available", Engine: "valkey", EngineVersion: engine.Version, NodeType: "db.t4g.small", Shards: 1, TLSEnabled: true, ACLName: acl.Key.Name, ParameterGroup: "native-parameters", Version: 1, Deployment: engine.Deployment{Endpoint: oldEndpoint, Nodes: []engine.Node{{ID: "native-primary", Endpoint: oldEndpoint}}}}
+				if err := s.repository.Update(ctx, func(tx Transaction) error {
+					if err := tx.PutUser(user); err != nil {
+						return err
+					}
+					if err := tx.PutACL(acl); err != nil {
+						return err
+					}
+					for name, timeout := range map[string]string{"native-parameters": "37", "replacement-parameters": "73"} {
+						if err := tx.PutParameterGroup(ParameterGroup{Key: Key{Scope: sc, Kind: "parametergroup", Name: name}, Family: "memorydb_valkey7", Parameters: map[string]string{"timeout": timeout}}); err != nil {
+							return err
+						}
+					}
+					return tx.PutCluster(cluster)
+				}); err != nil {
+					t.Fatal(err)
+				}
+				model, _ := awscatalog.LookupService("memorydb")
+				operation, _ := model.Operation(mutation.action)
+				output, rejected := s.ExecuteCommand(ctx, awsapi.DecodedRequest{Operation: operation, Protocol: model.Protocol, Input: mutation.input})
+				if rejected != nil {
+					t.Fatal(rejected)
+				}
+				if updated, ok := output.(*api.UpdateClusterResponse); ok && value(updated.Cluster.Status) != "updating" {
+					t.Fatalf("UpdateCluster projected %q before native application", value(updated.Cluster.Status))
+				}
+				checkState := func(status, operation string, version int64, endpoint engine.Endpoint) {
+					t.Helper()
+					if err := s.repository.View(ctx, func(r Reader) error {
+						current, err := r.Cluster(cluster.Key)
+						if err != nil {
+							return err
+						}
+						due := now
+						if status != "updating" {
+							due = now.Add(healthInterval)
+						}
+						if current.Status != status || current.Operation != operation || current.Version != version || current.RuntimeID != cluster.RuntimeID || !current.Due.Equal(due) {
+							t.Fatalf("native lifecycle lost pending intent or fencing: %#v", current)
+						}
+						wantUser, wantACL := mutation.userStatus, mutation.aclStatus
+						if status == "available" {
+							wantUser, wantACL = "active", "active"
+						}
+						currentUser, err := r.User(user.Key)
+						if status == "available" && mutation.action == "DeleteUser" {
+							if !errors.Is(err, ErrNotFound) {
+								t.Fatalf("applied removal retained user: %#v (%v)", currentUser, err)
+							}
+						} else if err != nil {
+							return err
+						} else if currentUser.Status != wantUser {
+							t.Fatalf("user settled before native completion: got %q, want %q", currentUser.Status, wantUser)
+						}
+						currentACL, err := r.ACL(acl.Key)
+						if err != nil {
+							return err
+						}
+						if currentACL.Status != wantACL {
+							t.Fatalf("ACL settled before native completion: got %q, want %q", currentACL.Status, wantACL)
+						}
+						return nil
+					}); err != nil {
+						t.Fatal(err)
+					}
+					describe, _ := model.Operation("DescribeClusters")
+					output, rejected := s.ExecuteCommand(ctx, awsapi.DecodedRequest{Operation: describe, Protocol: model.Protocol, Input: &api.DescribeClustersRequest{ClusterName: new(api.String(cluster.Key.Name)), ShowShardDetails: new(api.BooleanOptional(true))}})
+					if rejected != nil {
+						t.Fatal(rejected)
+					}
+					rows := output.(*api.DescribeClustersResponse).Clusters
+					if len(rows) != 1 || value(rows[0].Status) != status {
+						t.Fatalf("DescribeClusters did not project %q: %#v", status, rows)
+					}
+					wantParameters := "applying"
+					if status == "available" {
+						wantParameters = "in-sync"
+					}
+					if value(rows[0].ParameterGroupStatus) != wantParameters {
+						t.Fatalf("parameters settled before native completion: %#v", rows[0])
+					}
+					if endpoint.Address == "" {
+						if rows[0].ClusterEndpoint != nil {
+							t.Fatalf("failed application retained a ready endpoint: %#v", rows[0].ClusterEndpoint)
+						}
+					} else if rows[0].ClusterEndpoint == nil || value(rows[0].ClusterEndpoint.Address) != endpoint.Address || int32(*rows[0].ClusterEndpoint.Port) != endpoint.Port {
+						t.Fatalf("cluster did not retain the actual native endpoint: %#v", rows[0].ClusterEndpoint)
+					}
+					if len(rows[0].Shards) != 1 {
+						t.Fatalf("missing native shard: %#v", rows[0].Shards)
+					}
+					for _, shard := range rows[0].Shards {
+						if value(shard.Status) != status {
+							t.Fatalf("shard did not project %q: %#v", status, shard)
+						}
+						for _, node := range shard.Nodes {
+							if value(node.Status) != status {
+								t.Fatalf("node did not project %q: %#v", status, node)
+							}
+						}
+						if status == "failed" && len(shard.Nodes) != 0 {
+							t.Fatal("failed application retained native nodes")
+						}
+					}
+				}
+				checkState("updating", mutation.operation, 2, oldEndpoint)
+				for _, guard := range []struct {
+					action string
+					input  any
+				}{
+					{"UpdateCluster", &api.UpdateClusterRequest{ClusterName: new(api.String(cluster.Key.Name)), Description: new(api.String("must not supersede pending work"))}},
+					{"DeleteCluster", &api.DeleteClusterRequest{ClusterName: new(api.String(cluster.Key.Name))}},
+					{"CreateSnapshot", &api.CreateSnapshotRequest{ClusterName: new(api.String(cluster.Key.Name)), SnapshotName: new(api.String("pending-snapshot"))}},
+				} {
+					operation, _ := model.Operation(guard.action)
+					if _, rejected := s.ExecuteCommand(ctx, awsapi.DecodedRequest{Operation: operation, Protocol: model.Protocol, Input: guard.input}); rejected == nil || rejected.Code != "InvalidClusterStateFault" {
+						t.Fatalf("%s admitted an updating cluster: %v", guard.action, rejected)
+					}
+				}
+				jobs := clusterJobs{s}
+				job, found, err := jobs.Next(ctx)
+				if err != nil || !found || job.Key != cluster.Key.ARN() || job.Version != 2 || !job.Due.Equal(now) {
+					t.Fatalf("updating cluster lost its native job: %#v, %t, %v", job, found, err)
+				}
+				if outcome.unavailable {
+					s.runtime = nil
+					if err := jobs.Run(ctx, job); err != nil {
+						t.Fatal(err)
+					}
+				} else {
+					done := make(chan error, 1)
+					go func() { done <- jobs.Run(ctx, job) }()
+					select {
+					case <-native.entered:
+					case err := <-done:
+						t.Fatalf("cluster job returned before native application: %v", err)
+					}
+					spec := <-native.spec
+					if spec.ID != cluster.RuntimeID || spec.Parameters["timeout"] != mutation.timeout || len(spec.Users) != mutation.users || !spec.TLSEnabled || !spec.ClusterMode || spec.Shards != 1 {
+						t.Fatalf("job did not apply desired native configuration: %#v", spec)
+					}
+					if len(spec.Users) == 1 && (spec.Users[0].Name != user.Key.Name || spec.Users[0].AccessString != mutation.access || spec.Users[0].NoPassword || len(spec.Users[0].PasswordHashes) != 1 || spec.Users[0].PasswordHashes[0] != user.PasswordHashes[0]) {
+						t.Fatalf("job did not apply desired native ACL: %#v", spec.Users)
+					}
+					checkState("updating", mutation.operation, 2, oldEndpoint)
+					close(native.release)
+					if err := <-done; err != nil {
+						t.Fatal(err)
+					}
+				}
+				if outcome.err != nil || outcome.unavailable {
+					checkState("failed", mutation.operation, 3, engine.Endpoint{})
+				} else {
+					checkState("available", "", 3, engine.Endpoint{Address: "127.0.0.1", Port: 6379})
+				}
+			})
+		}
 	}
 }

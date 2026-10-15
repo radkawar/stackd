@@ -134,7 +134,7 @@ func (h cfnMemoryCluster) Delete(ctx context.Context, r cloudformation.ResourceR
 	if status == "deleting" {
 		return nil
 	}
-	if status == "creating" || status == "modifying" || status == "starting" {
+	if status == "creating" || status == "updating" || status == "starting" {
 		return nil
 	}
 	input := map[string]any{"ClusterName": name}

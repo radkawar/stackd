@@ -391,6 +391,12 @@ VPC attachment. Native TLS/ACL authentication is distinct from control-plane IAM
 separate real local replication/durability from AWS-managed physical storage,
 distributed MemoryDB logging, automatic failover and managed networking.
 
+MemoryDB cluster mutations expose `updating`; its user and ACL mutations retain
+their separate `modifying` state. Default parameter-group names use hyphenated
+families such as `default.memorydb-valkey7`, while parameter-family identifiers
+remain underscored. The Terraform lifecycle verified these controls with native
+TLS/ACL data, parameter changes, snapshot restore, restart and exact cleanup.
+
 ECR owns typed repositories, image manifests, content-addressed layer bytes,
 tokens, lifecycle work, scan results and replication work in the shared
 memory/SQLite domain. Registry requests use current IAM and resource policies;

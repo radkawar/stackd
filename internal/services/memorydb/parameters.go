@@ -10,11 +10,17 @@ import (
 	"strings"
 )
 
+// Defaults describe the supported native settings, including the local 1 GiB
+// node capacity, rather than AWS's full managed parameter catalog.
 var parameterDefaults = map[string]string{"maxmemory": "1073741824", "maxmemory-policy": "noeviction", "timeout": "0", "tcp-keepalive": "300", "notify-keyspace-events": ""}
+
+func defaultParameterGroupName(family string) string {
+	return "default." + strings.ReplaceAll(family, "_", "-")
+}
 
 func defaultParameterGroup(sc Scope, name string) (ParameterGroup, bool) {
 	for _, family := range []string{"memorydb_valkey7", "memorydb_redis7"} {
-		if name == "default."+family {
+		if name == defaultParameterGroupName(family) {
 			return ParameterGroup{Key: Key{Scope: sc, Kind: "parametergroup", Name: name}, Family: family, Description: "Default native parameter group", Parameters: map[string]string{}}, true
 		}
 	}
@@ -24,6 +30,9 @@ func (s *Service) loadParameterGroup(ctx context.Context, r Reader, action, name
 	name = strings.ToLower(name)
 	v, ok := defaultParameterGroup(scopeFor(ctx), name)
 	if !ok {
+		if strings.HasPrefix(name, "default.") && validName(strings.TrimPrefix(name, "default.")) {
+			return v, notFound("parametergroup")
+		}
 		k, e := keyFor(ctx, "parametergroup", name)
 		if e != nil {
 			return v, e
@@ -197,8 +206,8 @@ func (s *Service) describeParameterGroups(ctx context.Context, tx Transaction, i
 		if e != nil {
 			return nil, e
 		}
-		for _, name := range []string{"default.memorydb_redis7", "default.memorydb_valkey7"} {
-			v, _ := defaultParameterGroup(scopeFor(ctx), name)
+		for _, family := range []string{"memorydb_redis7", "memorydb_valkey7"} {
+			v, _ := defaultParameterGroup(scopeFor(ctx), defaultParameterGroupName(family))
 			rows = append(rows, v)
 		}
 		slices.SortFunc(rows, func(a, b ParameterGroup) int { return strings.Compare(a.Key.Name, b.Key.Name) })
