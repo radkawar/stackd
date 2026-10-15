@@ -370,6 +370,13 @@ SQLite/controller reopen retained trust and bytes; normal deletion removed the
 owned database container and volume. The earlier `pg_stat_ssl=false` report
 remains valid historical evidence, not evidence of the new TLS implementation.
 
+The TLS-enabled API-controls Terraform run also exercised actual PostgreSQL
+GraphQL consumers through create, eight imports, update and SQLite/controller
+reopen. Ordinary no-change plans returned zero. Its final strict refresh-only
+plan hit the same Terraform Core exit-2 boundary despite a no-change report;
+the runner then completed Terraform destroy and SDK prerequisite cleanup.
+This run is not reported as a full fixture pass.
+
 Managed CA selection, certificate rotation and AWS database-role equivalence
 remain outside this local TLS contract. The Docker daemon and host remain
 trusted. See the official [RDS PostgreSQL TLS rules](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/PostgreSQL.Concepts.General.SSL.html)
