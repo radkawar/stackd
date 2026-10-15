@@ -3903,6 +3903,31 @@ owned containers/volumes/networks and local secrets/configurations were removed.
 The disposable local KMS key entered its required seven-day PendingDeletion
 window; no AWS KMS key was created.
 
+The Terraform AWS 6.68.0 Kafka fixture now also passes against retained and fresh
+SQLite sandboxes with the grant-backed association lifecycle. Both runs proved
+real SCRAM/TLS records, same-key secret-version rotation, old-password rejection,
+original-version recovery, broker configuration updates, independent imports,
+three strict ordinary no-op plans, controller reopen and exact-owned cleanup.
+The retained run preserved its original partition-zero/offset-zero record.
+The fresh run additionally proved denied automatic service-role creation with
+transactional audit evidence, successful automatic creation, and native
+EC2/DHCP-observation quarantine and recovery. The retained continuation did not
+repeat that DHCP check.
+
+The private ADMIN listener rejected clients without certificates with the actual
+TLS `BAD_CERTIFICATE` alert. The fixture also requires successful public TLS
+with the same client context; transport failures and unknown alerts are not
+accepted as authentication proof. Cleanup verified cluster, configuration,
+secret, ENI, scoped-grant and exact native-resource absence. Customer keys
+remain PendingDeletion for seven days; service roles retire only after their
+active sessions expire.
+
+The SCRAM grant's operation/context restriction is an explicit local
+least-privilege contract, not a captured AWS SCRAM `CreateGrant` response.
+[Retained source boundaries](../testdata/aws/kafka/scram_authority_sources.json)
+distinguish current documentation, indexed excerpts and historical storage-only
+service grants. None establishes complete MSK parity.
+
 Primary contracts:
 [configuration APIs](https://docs.aws.amazon.com/msk/1.0/apireference/configurations.html),
 [SCRAM and Secrets Manager](https://docs.aws.amazon.com/msk/latest/developerguide/msk-password-tutorial.html),
@@ -3911,9 +3936,9 @@ Primary contracts:
 [KRaft authorization](https://kafka.apache.org/37/security/authorization-and-acls/),
 and [Pipes source/group semantics](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-pipes-msk.html).
 
-Remaining MSK boundaries are serverless, managed VPC/networking, IAM/client-mTLS
-data authentication, managed encrypted volumes, native monitoring/log sinks,
-replication, multi-VPC connectivity and mutable fleet topology. Pipes additionally
+Remaining MSK boundaries include serverless, additional VPC/connectivity modes,
+IAM/client-mTLS data authentication, managed encrypted volumes, log delivery,
+replication and mutable fleet topology. Pipes additionally
 rejects self-managed VPC settings and encrypted PKCS#8 client keys. These are
 located `TODO: Comeback` items, not successful inert resource settings.
 

@@ -26,10 +26,13 @@ keeps service-specific accounting and error semantics authoritative.
   resolves `alias/aws/dynamodb` unconditionally. Keep that provider dependency
   distinct from the native-storage design gap; ordinary regional replication
   evidence does not complete this item.
-- [ ] Complete Kafka SCRAM association grants, current-key/credential rotation,
+- [x] Complete Kafka SCRAM association grants, current-key/credential rotation,
   retained reassociation and exact grant retirement, with real protocol checks.
-  Keep native storage-grant principal evidence distinct from uncaptured AWS
-  SCRAM grant shape. Do not add fictitious service-role permissions or bypass KMS.
+  Retained and fresh Terraform lifecycles passed imports, updates, three strict
+  ordinary no-op plans, SQLite reopen and exact-owned cleanup. The fresh run
+  also proved DHCP-observation quarantine and recovery. The exact SCRAM grant
+  shape remains a local least-privilege contract, not captured AWS output;
+  historical native storage grants establish only service-principal admission.
 - [x] Generate the operation inventory from explicit service selection, pinned
   SDK Smithy models and actual built-in registrations. `make generate-coverage`
   refreshes `docs/services.json`; `make generate-coverage-check` and the explicit

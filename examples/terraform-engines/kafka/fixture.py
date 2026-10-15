@@ -594,6 +594,7 @@ def admin_denial(outputs, root, public_check=True):
         with socket.create_connection((host, int(port)), timeout=3) as connection:
             with context.wrap_socket(connection, server_hostname=host):
                 pass
+    refusals = []
     for broker in owned_brokers(outputs, root):
         bindings = broker["HostConfig"]["PortBindings"]["9095/tcp"]
         require(len(bindings) == 1 and bindings[0]["HostIp"] == "127.0.0.1", "ADMIN is not private daemon loopback")
@@ -602,8 +603,16 @@ def admin_denial(outputs, root, public_check=True):
                 with context.wrap_socket(connection, server_hostname="127.0.0.1"):
                     raise RuntimeError("Customer without the runtime private TLS identity can reach ADMIN authentication")
         except ssl.SSLError as error:
-            require("CERTIFICATE_REQUIRED" in error.reason or error.reason == "SSLV3_ALERT_HANDSHAKE_FAILURE",
+            # A peer BAD_CERTIFICATE alert also refuses this certificate-less client.
+            require("CERTIFICATE_REQUIRED" in error.reason or error.reason in {
+                    "SSLV3_ALERT_HANDSHAKE_FAILURE", "SSLV3_ALERT_BAD_CERTIFICATE"},
                     f"ADMIN failed for a reason other than its required native client certificate: {error}")
+            refusals.append({"broker_id": broker["Id"], "alert": error.reason})
+    suffix = "" if public_check else "-without-public-precheck"
+    (root / f"kafka-admin-mutual-tls-denial{suffix}.json").write_text(json.dumps({
+        "tls_version": "TLSv1.2", "client_certificate_provided": False,
+        "public_tls_same_context_succeeded": public_check, "admin_bindings_private_loopback": True,
+        "observed_alerts": refusals}, indent=2))
 
 
 def observation_quarantine(endpoint, outputs, root):
