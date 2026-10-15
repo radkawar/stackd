@@ -38,7 +38,7 @@ keeps service-specific accounting and error semantics authoritative.
   service/execution owners; record the sampled boundaries and remaining work in
   [the consistency audit](docs/service-consistency.md). Correct inventory identity
   mismatches and include complete Signer/SSO/SSO OIDC prerequisite models.
-  The current inventory has 127 services, 8,207 modeled operations, 2,314
+  The current inventory has 127 services, 8,207 modeled operations, 2,337
   registered/partial operations and no registrations outside the selection.
 - [x] Use realistic 12-digit sandbox/member account identities without rewriting
   retained identities. Fresh stores generate a random ID unless the CLI supplies
