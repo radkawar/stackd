@@ -1,0 +1,247 @@
+diff --git a/internal/states/state_equal.go b/internal/states/state_equal.go
+index 6ed37ff..474092c 100644
+--- a/internal/states/state_equal.go
++++ b/internal/states/state_equal.go
+@@ -3,6 +3,8 @@
+ 
+ package states
+ 
++import "github.com/hashicorp/terraform/internal/addrs"
++
+ // Equal returns true if the receiver is functionally equivalent to other,
+ // including any ephemeral portions of the state that would not be included
+ // if the state were saved to files.
+@@ -54,39 +56,36 @@ func (s *State) ManagedResourcesEqual(other *State) bool {
+ 		return !s.HasManagedResourceInstanceObjects()
+ 	}
+ 
+-	// If we get here then both states are non-nil.
+-
+-	if len(s.Modules) != len(other.Modules) {
+-		return false
+-	}
+-
+-	for key, sMod := range s.Modules {
+-		otherMod, ok := other.Modules[key]
+-		if !ok {
+-			return false
+-		}
+-		// Something else is wrong if the addresses don't match, but they are
+-		// definitely not equal
+-		if !sMod.Addr.Equal(otherMod.Addr) {
+-			return false
+-		}
+-
+-		if len(sMod.Resources) != len(otherMod.Resources) {
+-			return false
+-		}
+-
+-		for key, sRes := range sMod.Resources {
+-			otherRes, ok := otherMod.Resources[key]
+-			if !ok {
++	// Data resources, including modules containing only data resources, do not
++	// affect managed-resource equality. Count only managed resources so that
++	// additional managed resources in other are still detected.
++	managedCount := 0
++	for moduleKey, sMod := range s.Modules {
++		for resourceKey, sRes := range sMod.Resources {
++			if sRes.Addr.Resource.Mode != addrs.ManagedResourceMode {
++				continue
++			}
++			managedCount++
++			otherMod, ok := other.Modules[moduleKey]
++			if !ok || !sMod.Addr.Equal(otherMod.Addr) {
+ 				return false
+ 			}
+-			if !sRes.Equal(otherRes) {
++			otherRes, ok := otherMod.Resources[resourceKey]
++			if !ok || !sRes.Equal(otherRes) {
+ 				return false
+ 			}
+ 		}
+ 	}
+ 
+-	return true
++	otherManagedCount := 0
++	for _, otherMod := range other.Modules {
++		for _, otherRes := range otherMod.Resources {
++			if otherRes.Addr.Resource.Mode == addrs.ManagedResourceMode {
++				otherManagedCount++
++			}
++		}
++	}
++	return managedCount == otherManagedCount
+ }
+ 
+ // RootOutputValuesEqual returns true if the root output values tracked in the
+diff --git a/internal/states/state_equal_test.go b/internal/states/state_equal_test.go
+new file mode 100644
+index 0000000..0a1b923
+--- /dev/null
++++ b/internal/states/state_equal_test.go
+@@ -0,0 +1,165 @@
++// Copyright IBM Corp. 2014, 2026
++// SPDX-License-Identifier: BUSL-1.1
++
++package states
++
++import (
++	"testing"
++
++	"github.com/hashicorp/terraform/internal/addrs"
++)
++
++func TestStateManagedResourcesEqual(t *testing.T) {
++	root := addrs.RootModuleInstance
++	child := root.Child("data_only", addrs.NoKey)
++	managed := addrs.Resource{Mode: addrs.ManagedResourceMode, Type: "test_thing", Name: "managed"}
++	data := addrs.Resource{Mode: addrs.DataResourceMode, Type: "test_thing", Name: "data"}
++	compactJSON := []byte(`{"id":"unchanged","nested":{"value":"same"}}`)
++	// Statefile persistence indents object attributes, while refresh can return
++	// their compact encoding. Data resources must not contribute to drift even
++	// though ResourceInstanceObjectSrc.Equal compares these bytes directly.
++	indentedJSON := []byte("{\n  \"id\": \"unchanged\",\n  \"nested\": {\n    \"value\": \"same\"\n  }\n}")
++	setResource := func(s *State, module addrs.ModuleInstance, resource addrs.Resource, attrs []byte) {
++		s.EnsureModule(module).SetResourceInstanceCurrent(
++			resource.Instance(addrs.NoKey),
++			&ResourceInstanceObjectSrc{
++				Status:    ObjectReady,
++				AttrsJSON: attrs,
++			},
++			addrs.AbsProviderConfig{
++				Provider: addrs.NewDefaultProvider("test"),
++				Module:   addrs.RootModule,
++			},
++		)
++	}
++	newState := func() *State {
++		s := NewState()
++		setResource(s, root, managed, compactJSON)
++		setResource(s, root, data, compactJSON)
++		setResource(s, child, data, compactJSON)
++		return s
++	}
++
++	tests := map[string]struct {
++		a, b *State
++		want bool
++	}{}
++	addCase := func(name string, change func(*State), want bool) {
++		a := newState()
++		b := a.DeepCopy()
++		change(b)
++		tests[name] = struct {
++			a, b *State
++			want bool
++		}{a, b, want}
++	}
++
++	addCase("identical managed and data resources", func(*State) {}, true)
++	for name, module := range map[string]addrs.ModuleInstance{"root": root, "data-only child": child} {
++		addCase(name+" data JSON formatting", func(s *State) {
++			setResource(s, module, data, indentedJSON)
++		}, true)
++		addCase(name+" changed data", func(s *State) {
++			setResource(s, module, data, []byte(`{"id":"changed"}`))
++		}, true)
++		addCase(name+" added data", func(s *State) {
++			extra := data
++			extra.Name = "extra"
++			setResource(s, module, extra, compactJSON)
++		}, true)
++		addCase(name+" removed data", func(s *State) {
++			s.Module(module).RemoveResource(data)
++		}, true)
++	}
++	addCase("added data-only module", func(s *State) {
++		setResource(s, root.Child("extra", addrs.NoKey), data, compactJSON)
++	}, true)
++	addCase("removed data-only module", func(s *State) {
++		delete(s.Modules, child.String())
++	}, true)
++	addCase("different data-only modules with equal raw counts", func(s *State) {
++		delete(s.Modules, child.String())
++		setResource(s, root.Child("other", addrs.NoKey), data, compactJSON)
++	}, true)
++	addCase("removed managed resource", func(s *State) {
++		s.RootModule().RemoveResource(managed)
++	}, false)
++	addCase("managed replaced by data with equal raw resource counts", func(s *State) {
++		s.RootModule().RemoveResource(managed)
++		extra := data
++		extra.Name = "replacement"
++		setResource(s, root, extra, compactJSON)
++	}, false)
++	addCase("different managed names with equal raw resource counts", func(s *State) {
++		s.RootModule().RemoveResource(managed)
++		replacement := managed
++		replacement.Name = "replacement"
++		setResource(s, root, replacement, compactJSON)
++	}, false)
++	addCase("managed moved to data-only child with equal raw counts", func(s *State) {
++		// Swap data and managed membership without changing either module's
++		// raw resource count or the state's total managed resource count.
++		s.RootModule().RemoveResource(managed)
++		s.Module(child).RemoveResource(data)
++		extra := data
++		extra.Name = "extra"
++		setResource(s, root, extra, compactJSON)
++		setResource(s, child, managed, compactJSON)
++	}, false)
++	addCase("added managed-only module", func(s *State) {
++		setResource(s, root.Child("managed", addrs.NoKey), managed, compactJSON)
++	}, false)
++
++	for name, change := range map[string]func(*ResourceInstanceObjectSrc){
++		"attributes": func(obj *ResourceInstanceObjectSrc) {
++			obj.AttrsJSON = []byte(`{"id":"changed"}`)
++		},
++		"identity": func(obj *ResourceInstanceObjectSrc) {
++			obj.IdentityJSON = []byte(`{"id":"changed"}`)
++		},
++		"private": func(obj *ResourceInstanceObjectSrc) {
++			obj.Private = []byte("changed")
++		},
++		"status": func(obj *ResourceInstanceObjectSrc) {
++			obj.Status = ObjectTainted
++		},
++		"create-before-destroy": func(obj *ResourceInstanceObjectSrc) {
++			obj.CreateBeforeDestroy = true
++		},
++	} {
++		addCase("managed "+name, func(s *State) {
++			change(s.RootModule().Resource(managed).Instances[addrs.NoKey].Current)
++		}, false)
++	}
++
++	dataOnly := NewState()
++	setResource(dataOnly, root, data, indentedJSON)
++	setResource(dataOnly, child, data, compactJSON)
++	tests["nil states"] = struct {
++		a, b *State
++		want bool
++	}{nil, nil, true}
++	tests["nil and empty"] = struct {
++		a, b *State
++		want bool
++	}{nil, NewState(), true}
++	tests["nil and data-only"] = struct {
++		a, b *State
++		want bool
++	}{nil, dataOnly, true}
++	tests["nil and managed"] = struct {
++		a, b *State
++		want bool
++	}{nil, newState(), false}
++
++	for name, test := range tests {
++		t.Run(name, func(t *testing.T) {
++			if got := test.a.ManagedResourcesEqual(test.b); got != test.want {
++				t.Errorf("a.ManagedResourcesEqual(b) = %t; want %t", got, test.want)
++			}
++			if got := test.b.ManagedResourcesEqual(test.a); got != test.want {
++				t.Errorf("b.ManagedResourcesEqual(a) = %t; want %t", got, test.want)
++			}
++		})
++	}
++}

@@ -43,6 +43,60 @@ native-consumer assertions; some workflows still fail on documented service or
 Terraform gaps. Retained lifecycle reports and service guides define the tested
 boundaries. Do not disable protection defaults or ignore drift to obtain a pass.
 
+### Terraform Core refresh-only correction (opt-in)
+
+Official Terraform 1.15.9 and 1.16.6 can report `No changes` but return exit 2
+for a refresh-only plan with unchanged data resources. The isolated reproduction
+also fails with built-in local remote state: no AWS provider or stackd is needed.
+Core's `ManagedResourcesEqual` compares data resources and data-only modules,
+including compact versus indented attribute JSON.
+
+The [retained correction](../third_party/terraform-core/refresh-only-managed-resources.patch)
+targets upstream Terraform commit
+`7b8f1669b95119ac6021e05c9d10eae7cf75f60b` (v1.16.6). It compares only managed
+resource membership and values, without changing managed-object equality or
+output drift detection. Regression tests cover both comparison directions,
+data-only modules, managed membership, attributes, identity, private state,
+status and create-before-destroy. The state package tests and vet pass.
+With the local correction, both unchanged-data reproductions return zero;
+changing the remote-state source output still returns exit 2.
+
+This is a **local patched consumer**, not an official Terraform release or an
+upstream-merged fix. No runner assertion, provider version or saved state is
+changed. The patch retains Terraform's
+[BUSL-1.1 license](../third_party/terraform-core/LICENSE); it is not part of
+stackd's Apache-2.0 runtime and no Terraform binary is bundled.
+
+To build it separately, leaving the installed Terraform binary unchanged:
+
+```sh
+STACKD_ROOT="$PWD"
+TF_WORK="$(mktemp -d)"
+git clone --depth 1 --branch v1.16.6 https://github.com/hashicorp/terraform.git "$TF_WORK/src"
+test "$(git -C "$TF_WORK/src" rev-parse HEAD)" = 7b8f1669b95119ac6021e05c9d10eae7cf75f60b
+git -C "$TF_WORK/src" apply "$STACKD_ROOT/third_party/terraform-core/refresh-only-managed-resources.patch"
+go -C "$TF_WORK/src" test ./internal/states
+mkdir "$TF_WORK/bin"
+go -C "$TF_WORK/src" build \
+  -ldflags='-X github.com/hashicorp/terraform/version.dev=no' \
+  -o "$TF_WORK/bin/terraform" .
+# After preparing the API-controls prerequisites:
+PATH="$TF_WORK/bin:$PATH" "$EXAMPLE_PYTHON" examples/terraform-api-controls/run.py \
+  --stackd "$STACKD_ROOT/bin/stackd"
+```
+
+The release-version linker flag keeps the fixture's exact 1.16.6 version gate;
+it does not make this an official binary. Keep its source revision, patch and
+binary checksum with any run report. Do not combine patched-consumer evidence
+with official-binary acceptance.
+
+The API-controls lifecycle passed with this explicit patched build: create,
+eight imports, update, native consumers across controller reopen, strict
+refresh-only exit 0, destroy of all 55 Terraform resources, and SDK prerequisite
+cleanup. The [build receipt](../testdata/terraform-core/refresh-only.json) retains
+its exact source, patch and binary checksums. Other service groups are not
+covered by that run.
+
 ## Prepare once
 
 Run from the repository root. Install Python 3.10+ and Go as required by `go.mod`.

@@ -68,6 +68,12 @@ keeps service-specific accounting and error semantics authoritative.
   pass. An old-CLI database upgrade and second SQLite reopen preserve native
   system identity, endpoint and binary SQL bytes. Managed CA rotation, MySQL TLS
   and AWS database-role equivalence remain open.
+- [x] Correct the isolated Terraform Core refresh-only comparison defect in an
+  opt-in, pinned upstream patch. Native CLI reproductions now distinguish
+  unchanged data state (exit 0) from changed source outputs (exit 2), while
+  managed-state regression tests retain real drift checks. Keep patched-consumer
+  evidence separate from official releases; see the
+  [build and evidence boundary](examples/README.md#terraform-core-refresh-only-correction-opt-in).
 - [x] Publish Hive Athena CTAS/INSERT manifests from actual native S3 writes.
   The existing Python probe and consumer matched retained AWS response,
   metadata, byte-token and current-IAM contracts. Real Trino outputs and tokens

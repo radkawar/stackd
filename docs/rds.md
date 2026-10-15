@@ -377,6 +377,15 @@ plan hit the same Terraform Core exit-2 boundary despite a no-change report;
 the runner then completed Terraform destroy and SDK prerequisite cleanup.
 This run is not reported as a full fixture pass.
 
+A separate run with the
+[explicit local Terraform Core correction](../examples/README.md#terraform-core-refresh-only-correction-opt-in)
+completed the full API-controls lifecycle, including strict refresh-only exit 0,
+retained PostgreSQL GraphQL consumers, deletion of all 55 Terraform resources
+and SDK prerequisite cleanup. The [build receipt](../testdata/terraform-core/refresh-only.json)
+records the patched binary and source checksums. This establishes patched-client
+acceptance only; it does not change the official-binary failure above or establish
+the storage runner's still-unreached RDS lifecycle stages.
+
 Managed CA selection, certificate rotation and AWS database-role equivalence
 remain outside this local TLS contract. The Docker daemon and host remain
 trusted. See the official [RDS PostgreSQL TLS rules](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/PostgreSQL.Concepts.General.SSL.html)
