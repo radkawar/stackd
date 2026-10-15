@@ -66,6 +66,7 @@ func New(c Config) *Service {
 	register(s, "CreateLogGroup", s.createLogGroup)
 	register(s, "DeleteLogGroup", s.deleteLogGroup)
 	register(s, "DescribeLogGroups", s.describeLogGroups)
+	register(s, "PutLogGroupDeletionProtection", s.putLogGroupDeletionProtection)
 	register(s, "ListLogGroups", s.listLogGroups)
 	register(s, "CreateLogStream", s.createLogStream)
 	register(s, "DeleteLogStream", s.deleteLogStream)

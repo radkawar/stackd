@@ -3,6 +3,9 @@ SELECT f.*, g.name AS group_name FROM logs_metric_filters f
 JOIN logs_groups g ON g.id = f.group_id
 WHERE f.group_id = ? AND f.name = ?;
 
+-- name: CountMetricFilters :one
+SELECT count(*) FROM logs_metric_filters WHERE group_id = ?;
+
 -- name: ListMetricFilters :many
 SELECT f.*, g.name AS group_name FROM logs_metric_filters f
 JOIN logs_groups g ON g.id = f.group_id

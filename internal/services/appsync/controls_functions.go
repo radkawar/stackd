@@ -120,9 +120,12 @@ func validateFunction(r Reader, p APIRecord, f *api.FunctionConfiguration) error
 	if f.SyncConfig != nil || f.MaxBatchSize != nil && *f.MaxBatchSize != 0 {
 		return unsupported("Function sync and automatic batching are not implemented.")
 	}
-	if f.FunctionVersion != nil {
+	if value(f.FunctionVersion) != "" {
 		return unsupported("VTL functionVersion is not implemented; use APPSYNC_JS runtime.")
 	}
+	// The version belongs to VTL templates, not the JavaScript runtime.
+	// SDK clients can send an empty optional string; do not retain it as VTL intent.
+	f.FunctionVersion = nil
 	if e := validateMapping(f.Runtime, f.Code, f.RequestMappingTemplate, f.ResponseMappingTemplate, false); e != nil {
 		return e
 	}

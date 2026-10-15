@@ -15,11 +15,16 @@ import (
 // separate authorization context, not a multivalued scalar condition that could
 // let one allowed association conceal another denied association.
 func (s *Service) authorize(r Reader, op, arn string, tags map[string]string) error {
+	return s.authorizeAccountGrant(r, op, arn, tags, false)
+}
+
+// The explicit accountGrant argument is true only after a service-owned recipient
+// withdrawal check. It supplies the resource side, never an identity ceiling.
+func (s *Service) authorizeAccountGrant(r Reader, op, arn string, tags map[string]string, accountGrant bool) error {
 	if arn == "" {
 		arn = "*"
 	}
 	base := map[string][]string{}
-	accountGrant := false
 	if strings.Contains(arn, ":resource-share/") {
 		sh, e := r.Share(arn)
 		if e == nil {

@@ -15,7 +15,7 @@ import (
 type cfnRDSInstance struct{ commands StepFunctionsCommands }
 
 func (h cfnRDSInstance) Validate(p cloudformation.Properties) error {
-	if err := cfnComputeProperties(p, "DBInstanceIdentifier", "DBInstanceClass", "DBClusterIdentifier", "Engine", "EngineVersion", "DBName", "MasterUsername", "MasterUserPassword", "DBParameterGroupName", "Port", "DeletionProtection", "CopyTagsToSnapshot", "DBSnapshotIdentifier", "DeleteAutomatedBackups", "AutoMinorVersionUpgrade", "MultiAZ", "PubliclyAccessible", "StorageEncrypted", "EnableIAMDatabaseAuthentication", "EnablePerformanceInsights", "ManageMasterUserPassword", "Tags"); err != nil {
+	if err := cfnComputeProperties(p, "DBInstanceIdentifier", "DBInstanceClass", "AllocatedStorage", "DBClusterIdentifier", "Engine", "EngineVersion", "DBName", "MasterUsername", "MasterUserPassword", "DBParameterGroupName", "Port", "DeletionProtection", "CopyTagsToSnapshot", "DBSnapshotIdentifier", "DeleteAutomatedBackups", "AutoMinorVersionUpgrade", "MultiAZ", "PubliclyAccessible", "StorageEncrypted", "EnableIAMDatabaseAuthentication", "EnablePerformanceInsights", "ManageMasterUserPassword", "Tags"); err != nil {
 		return err
 	}
 	if err := cfnComputeStrings(p, "DBInstanceIdentifier", "DBInstanceClass", "DBClusterIdentifier", "Engine", "EngineVersion", "DBName", "MasterUsername", "MasterUserPassword", "DBParameterGroupName", "DBSnapshotIdentifier"); err != nil {
@@ -34,6 +34,11 @@ func (h cfnRDSInstance) Validate(p cloudformation.Properties) error {
 	}
 	if err := cfnRDSPort(p, map[string]any{}); err != nil {
 		return err
+	}
+	if value, found := p["AllocatedStorage"]; found {
+		if _, err := cfnRDSInteger(value, "AllocatedStorage"); err != nil {
+			return err
+		}
 	}
 	_, err := cfnComputeTags(p)
 	return err
@@ -114,6 +119,13 @@ func (h cfnRDSInstance) Create(ctx context.Context, r cloudformation.ResourceReq
 	if err := cfnRDSPort(r.Properties, input); err != nil {
 		return cloudformation.ResourceResult{}, err
 	}
+	if value, found := r.Properties["AllocatedStorage"]; found {
+		size, err := cfnRDSInteger(value, "AllocatedStorage")
+		if err != nil {
+			return cloudformation.ResourceResult{}, err
+		}
+		input["AllocatedStorage"] = size
+	}
 	if snapshot := r.Properties["DBSnapshotIdentifier"]; snapshot != nil {
 		input["DBSnapshotIdentifier"] = snapshot
 		out, err := cfnComputeCall[api.RestoreDBInstanceFromDBSnapshotResult](ctx, h.commands, "rds", "RestoreDBInstanceFromDBSnapshot", input)
@@ -172,6 +184,15 @@ func (h cfnRDSInstance) Update(ctx context.Context, r cloudformation.ResourceReq
 		return result, err
 	}
 	input := map[string]any{"DBInstanceIdentifier": r.PhysicalID, "ApplyImmediately": true}
+	if value, found := r.Properties["AllocatedStorage"]; found {
+		size, err := cfnRDSInteger(value, "AllocatedStorage")
+		if err != nil {
+			return result, err
+		}
+		if v.AllocatedStorage == nil || int64(*v.AllocatedStorage) != size {
+			input["AllocatedStorage"] = size
+		}
+	}
 	if cfnComputeChanged(r.Previous, r.Properties, "MasterUserPassword") && r.Properties["MasterUserPassword"] != nil {
 		input["MasterUserPassword"] = r.Properties["MasterUserPassword"]
 	}
@@ -275,6 +296,9 @@ func (h cfnRDSInstance) Read(ctx context.Context, r cloudformation.ResourceReque
 	}
 	if v.DBClusterIdentifier != nil {
 		p["DBClusterIdentifier"] = cfnComputeValue(v.DBClusterIdentifier)
+	}
+	if v.AllocatedStorage != nil && *v.AllocatedStorage > 0 && cfnComputeValue(v.DBClusterIdentifier) == "" {
+		p["AllocatedStorage"] = strconv.FormatInt(int64(*v.AllocatedStorage), 10)
 	}
 	if v.DeletionProtection != nil {
 		p["DeletionProtection"] = bool(*v.DeletionProtection)

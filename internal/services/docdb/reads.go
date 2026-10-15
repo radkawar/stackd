@@ -100,8 +100,8 @@ func (s *Service) describeInstances(ctx context.Context, tx Transaction, in *api
 	return out, nil
 }
 func (s *Service) describeSnapshots(ctx context.Context, tx Transaction, in *api.DescribeDBClusterSnapshotsInput) (*api.DescribeDBClusterSnapshotsOutput, error) {
-	if len(in.Filters) > 0 || yes(in.IncludePublic) || yes(in.IncludeShared) || in.SnapshotType != nil && value(in.SnapshotType) != "manual" {
-		return nil, unsupported("Only owned manual DocumentDB snapshots are implemented.")
+	if len(in.Filters) > 0 || yes(in.IncludePublic) || yes(in.IncludeShared) || in.SnapshotType != nil && value(in.SnapshotType) != "manual" && value(in.SnapshotType) != "automated" {
+		return nil, unsupported("Only owned manual and automated DocumentDB snapshots are implemented.")
 	}
 	out := &api.DescribeDBClusterSnapshotsOutput{}
 	if in.DBClusterSnapshotIdentifier != nil {
@@ -134,7 +134,7 @@ func (s *Service) describeSnapshots(ctx context.Context, tx Transaction, in *api
 	}
 	var previous Key
 	for _, v := range all {
-		if v.Key.Scope != sc || v.Key.Name <= after || source != "" && v.Source != source {
+		if v.Key.Scope != sc || v.Key.Name <= after || source != "" && v.Source != source || in.SnapshotType != nil && (value(in.SnapshotType) == "automated") != v.Automated {
 			continue
 		}
 		if len(out.DBClusterSnapshots) == limit {

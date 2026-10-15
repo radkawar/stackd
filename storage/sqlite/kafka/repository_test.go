@@ -24,7 +24,7 @@ func TestNativeIntentAndPolicyRollbackTogetherAcrossRestart(t *testing.T) {
 	events := journaldb.New(db)
 	sc := domain.Scope{Partition: "aws", AccountID: "111111111111", Region: "us-east-1"}
 	now := time.Date(2031, 2, 3, 4, 5, 6, 123456789, time.UTC)
-	original := domain.ClusterRecord{Scope: sc, ARN: "arn:aws:kafka:us-east-1:111111111111:cluster/owned/id", Name: "owned", Incarnation: "id", Brokers: 1, KafkaVersion: "3.7.1", SecurityMode: "SASL_SCRAM", State: "UPDATING", Operation: "UPDATE_CLUSTER_CONFIGURATION", Version: 7, Created: now, Due: time.Unix(0, 0).UTC(), ConfigurationARN: "configuration", ConfigurationRevision: 1, ServerProperties: "num.partitions=1\n", PendingConfigurationARN: "configuration", PendingConfigurationRevision: 2, PendingServerProperties: "num.partitions=2\n", Secrets: []string{"secret-one"}, Policy: authorization.BoundPolicy{Document: `{"Version":"2012-10-17","Statement":[]}`, PrincipalIDs: map[string]string{"principal": "immutable-id"}}, PolicyVersion: 3, Tags: map[string]string{"owner": "team"}}
+	original := domain.ClusterRecord{Scope: sc, ARN: "arn:aws:kafka:us-east-1:111111111111:cluster/owned/id", Name: "owned", Incarnation: "id", Brokers: 1, KafkaVersion: "3.7.1", SecurityMode: "SASL_SCRAM", State: "UPDATING", Operation: "UPDATE_CLUSTER_CONFIGURATION", Version: 7, Created: now, Due: time.Unix(0, 0).UTC(), ConfigurationARN: "configuration", ConfigurationRevision: 1, ServerProperties: "num.partitions=1\n", PendingConfigurationARN: "configuration", PendingConfigurationRevision: 2, PendingServerProperties: "num.partitions=2\n", Secrets: []domain.SCRAMAssociation{{SecretARN: "secret-one", KMSKeyARN: "key-one", GrantID: "grant-one", Incarnation: "id"}}, Policy: authorization.BoundPolicy{Document: `{"Version":"2012-10-17","Statement":[]}`, PrincipalIDs: map[string]string{"principal": "immutable-id"}}, PolicyVersion: 3, Tags: map[string]string{"owner": "team"}}
 	appendEvent := func(ctx context.Context) error {
 		return events.AppendAPICallCompleted(ctx, journal.Envelope{At: now, Partition: sc.Partition, AccountID: sc.AccountID, Region: sc.Region}, journal.APICallCompleted{EventID: "accepted-msk-command", EventSource: "kafka.amazonaws.com", EventName: "UpdateClusterConfiguration", Category: journal.CategoryManagement})
 	}
@@ -41,7 +41,7 @@ func TestNativeIntentAndPolicyRollbackTogetherAcrossRestart(t *testing.T) {
 	changed.PendingConfigurationRevision = 0
 	changed.ServerProperties = changed.PendingServerProperties
 	changed.PendingServerProperties = ""
-	changed.Secrets = []string{"secret-two"}
+	changed.Secrets = []domain.SCRAMAssociation{{SecretARN: "secret-two", KMSKeyARN: "key-two", GrantID: "grant-two", Incarnation: "replacement"}}
 	changed.Policy = authorization.BoundPolicy{}
 	changed.State = "ACTIVE"
 	changed.Version++
@@ -66,7 +66,7 @@ func TestNativeIntentAndPolicyRollbackTogetherAcrossRestart(t *testing.T) {
 		if e != nil {
 			return e
 		}
-		if got.Incarnation != original.Incarnation || got.Version != 7 || got.State != "UPDATING" || got.ConfigurationRevision != 1 || got.PendingConfigurationRevision != 2 || got.ServerProperties != original.ServerProperties || got.PendingServerProperties != original.PendingServerProperties || len(got.Secrets) != 1 || got.Secrets[0] != "secret-one" || got.Policy.PrincipalIDs["principal"] != "immutable-id" || got.PolicyVersion != 3 {
+		if got.Incarnation != original.Incarnation || got.Version != 7 || got.State != "UPDATING" || got.ConfigurationRevision != 1 || got.PendingConfigurationRevision != 2 || got.ServerProperties != original.ServerProperties || got.PendingServerProperties != original.PendingServerProperties || len(got.Secrets) != 1 || got.Secrets[0] != original.Secrets[0] || got.Policy.PrincipalIDs["principal"] != "immutable-id" || got.PolicyVersion != 3 {
 			t.Fatalf("failed state transition escaped rollback/restart: %#v", got)
 		}
 		if !got.Created.Equal(now) || !got.Due.Equal(time.Unix(0, 0)) || got.Due.IsZero() {

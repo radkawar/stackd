@@ -115,6 +115,39 @@ func TestRESTUnknownRouteUsesLiveGatewayConfiguration(t *testing.T) {
 	}
 }
 
+func TestRESTSpecificGatewayResponsePrecedesFallbackOverHTTP(t *testing.T) {
+	route := &Route{APIID: "api", ProtocolType: "REST", GatewayResponses: map[string]GatewayResponse{
+		"DEFAULT_4XX":                  {StatusCode: 418, Headers: map[string]string{"X-Fallback": "yes"}, Templates: map[string]string{"application/json": `{"type":"$context.error.responseType"}`}},
+		"MISSING_AUTHENTICATION_TOKEN": {StatusCode: 404, Headers: map[string]string{"X-Specific": "yes"}, Templates: map[string]string{"application/json": `{"type":"$context.error.responseType","message":$context.error.messageString}`}},
+	}}
+	server := httptest.NewServer(New(Config{REST: restTestResolver{route: route, err: &awswire.Error{Code: "MissingAuthenticationTokenException", StatusCode: 403, Message: "Missing Authentication Token"}}}))
+	defer server.Close()
+	response, err := server.Client().Get(server.URL + Prefix + "api/test/missing")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	var body map[string]string
+	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != 404 || response.Header.Get("X-Specific") != "yes" || response.Header.Get("X-Fallback") != "" || body["type"] != "MISSING_AUTHENTICATION_TOKEN" || body["message"] != "Missing Authentication Token" {
+		t.Fatalf("specific response: %d %v %v", response.StatusCode, response.Header, body)
+	}
+}
+
+func TestRESTGatewayFallbackKeepsSpecificErrorIdentity(t *testing.T) {
+	out := httptest.NewRecorder()
+	out.Header().Set("X-Amzn-ErrorType", "QuotaExceededException")
+	request := httptest.NewRequest("GET", "/", nil)
+	route := &Route{GatewayResponses: map[string]GatewayResponse{"DEFAULT_4XX": {StatusCode: 429, Templates: map[string]string{"application/json": `{"type":"$context.error.responseType"}`}}}}
+	w := &gatewayResponseWriter{ResponseWriter: out, route: route, request: request}
+	writeRejection(w, &rejection{http.StatusTooManyRequests, "Limit exceeded"})
+	if out.Body.String() != `{"type":"QUOTA_EXCEEDED"}` {
+		t.Fatalf("fallback lost trigger identity: %s", out.Body.String())
+	}
+}
+
 func TestRESTBinaryRequestUsesConfiguredContentType(t *testing.T) {
 	for _, configured := range [][]string{nil, {"application/octet-stream"}} {
 		request := httptest.NewRequest("POST", "/test/upload", nil)

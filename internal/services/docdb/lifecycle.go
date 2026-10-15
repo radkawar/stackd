@@ -21,18 +21,31 @@ func (s *Service) Start() error {
 			return e
 		}
 		for _, v := range all {
-			if v.Status == "available" {
+			members, e := membersOf(tx, v)
+			if e != nil {
+				return e
+			}
+			if v.BackupWindow == "" {
+				v.BackupWindow = defaultBackupWindow
+			}
+			if v.BackupRetention > 0 && v.NextBackup.IsZero() {
+				v.NextBackup = nextBackup(s.clock.Now(), v.BackupWindow)
+			}
+			if len(members) == 0 && v.Operation == "" && v.Status == "creating" {
+				v.Status = "available"
+			}
+			if v.Status == "available" && len(members) > 0 {
 				v.Status = "starting"
 				v.Endpoint = engine.Endpoint{}
 				v.Operation = "reconcile"
 				v.Due = s.clock.Now()
-				v.Version++
-				if e = tx.PutCluster(v); e != nil {
-					return e
-				}
 				if e = s.mirrorMembers(tx, v); e != nil {
 					return e
 				}
+			}
+			v.Version++
+			if e = tx.PutCluster(v); e != nil {
+				return e
 			}
 		}
 		return nil
@@ -180,7 +193,7 @@ func (j clusterJobs) Run(ctx context.Context, job scheduler.Job) error {
 					}
 				}
 			}
-			current.Status = "creating"
+			current.Status = "available"
 			current.Endpoint = engine.Endpoint{}
 			current.Due = zeroTime
 		} else if current.Operation == "stop" {
@@ -247,6 +260,9 @@ func (j snapshotJobs) Run(ctx context.Context, job scheduler.Job) error {
 		if e != nil {
 			return e
 		}
+		if snap.Automated && snap.Operation == "" {
+			return nil
+		}
 		if snap.Operation != "delete" {
 			source, e = r.Cluster(Key{Scope: k.Scope, Kind: "cluster", Name: snap.Source})
 		}
@@ -260,6 +276,9 @@ func (j snapshotJobs) Run(ctx context.Context, job scheduler.Job) error {
 	}
 	if uint64(snap.Version) != job.Version || !snap.Due.Equal(job.Due) || snap.Due.After(s.clock.Now()) {
 		return nil
+	}
+	if snap.Automated && snap.Operation == "" {
+		return s.expireSnapshot(ctx, snap)
 	}
 	var nativeErr error
 	if s.runtime == nil {
@@ -303,6 +322,9 @@ func (j snapshotJobs) Run(ctx context.Context, job scheduler.Job) error {
 		current.Status = "available"
 		current.Operation = ""
 		current.Due = zeroTime
+		if current.Automated {
+			current.Due = current.Expires
+		}
 		current.Version++
 		if e = tx.PutSnapshot(current); e != nil {
 			return e
@@ -322,7 +344,7 @@ func (j snapshotJobs) Run(ctx context.Context, job scheduler.Job) error {
 			if len(members) == 0 {
 				// The cold-backup owner has verified actual retained data.
 				// A detached shell has no native writer to reconcile.
-				v.Status = "creating"
+				v.Status = "available"
 				v.Operation = ""
 				v.Due = zeroTime
 				v.Version++

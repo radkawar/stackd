@@ -3,10 +3,10 @@ package kafka
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"net"
 	"net/http"
 	"net/url"
@@ -21,6 +21,9 @@ func (d *Docker) Ensure(ctx context.Context, spec msk.Specification) (endpoint m
 	var empty msk.Endpoint
 	if err := msk.ValidateSpecification(spec); err != nil {
 		return empty, err
+	}
+	if len(spec.Networks) > 0 && !d.client.SupportsAPIVersion(1, 48) {
+		return empty, errors.New("managed native Kafka requires Docker Engine API1.48 or newer for private administration gateway priority")
 	}
 	properties, err := msk.ParseProperties(spec.ServerProperties)
 	if err != nil {
@@ -61,7 +64,9 @@ func (d *Docker) Ensure(ctx context.Context, spec msk.Specification) (endpoint m
 	var held []net.Listener
 	defer func() {
 		for _, listener := range held {
-			listener.Close()
+			if listener != nil {
+				listener.Close()
+			}
 		}
 	}()
 	if fresh {
@@ -79,6 +84,9 @@ func (d *Docker) Ensure(ctx context.Context, spec msk.Specification) (endpoint m
 	}
 	if len(m.Nodes) != int(spec.Brokers) || m.ClusterID == "" || m.AdminPassword == "" {
 		return empty, errors.New("MSK retained native material conflicts with broker count or identity")
+	}
+	if m.Networked != (len(spec.Networks) > 0) {
+		return empty, errors.New("MSK retained native network mode conflicts with cluster ownership")
 	}
 	if err := m.validatePorts(); err != nil {
 		return empty, err
@@ -121,13 +129,18 @@ func (d *Docker) Ensure(ctx context.Context, spec msk.Specification) (endpoint m
 		if fresh {
 			// Keep every other broker's sockets held until its own handoff.
 			for _, listener := range held[node*2 : node*2+2] {
-				if err := listener.Close(); err != nil {
-					return empty, err
+				if listener != nil {
+					if err := listener.Close(); err != nil {
+						return empty, err
+					}
 				}
 			}
 		}
 		if e = d.start(ctx, state); e != nil {
 			return empty, d.failure(ctx, state.ID, e)
+		}
+		if e = d.configureBrokerNetwork(ctx, spec, node, state); e != nil {
+			return empty, e
 		}
 	}
 	if err = d.ready(ctx, spec, m, properties); err != nil {
@@ -137,39 +150,71 @@ func (d *Docker) Ensure(ctx context.Context, spec msk.Specification) (endpoint m
 		return empty, err
 	}
 	hashes := userHashes(spec)
-	usersChanged := !maps.Equal(m.UserHashes, hashes)
+	usersChanged := !usersApplied(m, hashes)
+	persist := func() error { return d.writeConfiguration(ctx, helper.ID, spec, m, properties) }
 	if usersChanged {
-		if err = d.reconcileUsers(ctx, spec, m); err != nil {
-			return empty, err
-		}
-		// Native SCRAM updates do not revoke already authenticated sockets. Retained
-		// restart closes them before an association change is reported successful.
-		if err = d.stopBrokers(ctx, spec, m); err != nil {
-			return empty, err
-		}
-		for node := range m.Nodes {
-			state, e := d.inspect(ctx, resourceName(spec, "broker-"+strconv.Itoa(node+1)))
-			if e != nil {
-				return empty, e
-			}
-			if e = d.start(ctx, state); e != nil {
-				return empty, e
-			}
-		}
-		if err = d.ready(ctx, spec, m, properties); err != nil {
+		err = confirmUserIntent(m, hashes, persist,
+			func() error { return d.reconcileUsers(ctx, spec, m) },
+			func() error {
+				// Native SCRAM updates do not revoke authenticated sockets.
+				// A retained restart closes them before confirmation is committed.
+				if e := d.stopBrokers(ctx, spec, m); e != nil {
+					return e
+				}
+				for node := range m.Nodes {
+					state, e := d.inspect(ctx, resourceName(spec, "broker-"+strconv.Itoa(node+1)))
+					if e != nil {
+						return e
+					}
+					if e = d.start(ctx, state); e != nil {
+						return e
+					}
+					if e = d.configureBrokerNetwork(ctx, spec, node, state); e != nil {
+						return e
+					}
+				}
+				if e := d.ready(ctx, spec, m, properties); e != nil {
+					return e
+				}
+				m.Configuration = configID
+				return nil
+			})
+		if err != nil {
 			return empty, err
 		}
 	}
-	// Commit the applied marker only after native readiness. Interrupted writes
-	// retain the prior marker, so reattachment repeats the intended restart.
-	if fresh || configChanged || usersChanged {
+	// Configuration and credential confirmation are separate durable effects.
+	// Credential confirmation has already committed its native proof above.
+	if !usersChanged && (fresh || configChanged) {
 		m.Configuration = configID
-		m.UserHashes = hashes
 		if err = d.writeConfiguration(ctx, helper.ID, spec, m, properties); err != nil {
 			return empty, err
 		}
 	}
 	return d.endpoint(spec, m), nil
+}
+
+// persist and the two native phases are explicit to keep the interruption
+// boundaries testable. Neither phase can run before durable uncertainty, and
+// only native effect plus retained restart/readiness may confirm these hashes.
+func confirmUserIntent(m *material, hashes map[string]string, persist, alter, restartAndProve func() error) (result error) {
+	m.UsersConfirmed = false
+	defer func() {
+		if result != nil {
+			m.UsersConfirmed = false
+		}
+	}()
+	if err := persist(); err != nil {
+		return err
+	}
+	if err := alter(); err != nil {
+		return err
+	}
+	if err := restartAndProve(); err != nil {
+		return err
+	}
+	m.UserHashes, m.UsersConfirmed = hashes, true
+	return persist()
 }
 
 func (d *Docker) stopBrokers(ctx context.Context, spec msk.Specification, m *material) error {
@@ -195,7 +240,7 @@ func (d *Docker) stopBrokers(ctx context.Context, spec msk.Specification, m *mat
 	return nil
 }
 
-func (d *Docker) Status(ctx context.Context, spec msk.Specification) (endpoint msk.Endpoint, result error) {
+func (d *Docker) statusOnce(ctx context.Context, spec msk.Specification) (endpoint msk.Endpoint, result error) {
 	var empty msk.Endpoint
 	if err := msk.ValidateSpecification(spec); err != nil {
 		return empty, err
@@ -204,38 +249,65 @@ func (d *Docker) Status(ctx context.Context, spec msk.Specification) (endpoint m
 	if err != nil {
 		return empty, err
 	}
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
-	defer cancel()
+	gateStarted := time.Now()
 	if err = d.lock(ctx); err != nil {
-		return empty, err
+		return empty, fmt.Errorf("native Kafka status gate_wait=%s: %w", time.Since(gateStarted), err)
 	}
 	defer d.unlock()
+	gateElapsed, physicalStarted := time.Since(gateStarted), time.Now()
+	quarantineNeeded := len(spec.Networks) > 0
+	defer func() {
+		if result != nil && quarantineNeeded {
+			cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+			defer cancel()
+			result = errors.Join(result, d.quarantineLocked(cleanup, spec))
+		}
+	}()
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	defer func() {
+		if result != nil {
+			result = fmt.Errorf("native Kafka status gate_wait=%s physical_elapsed=%s: %w", gateElapsed, time.Since(physicalStarted), result)
+		}
+	}()
 	if err = d.ensureVolume(ctx, spec, "config", false); err != nil {
 		return empty, err
 	}
-	helper, err := d.createContainer(ctx, spec, "configuration", nil)
+	first, err := d.inspect(ctx, resourceName(spec, "broker-1"))
 	if err != nil {
 		return empty, err
 	}
-	defer func() { result = errors.Join(result, d.detachHelper(helper.ID)) }()
-	m, err := d.readMaterial(ctx, helper.ID)
+	if err = d.checkContainer(first, spec, "broker-1", nil); err != nil {
+		return empty, err
+	}
+	// The exact broker mounts this retained config volume read-only. A status
+	// read needs no transient configuration container or cleanup mutation.
+	m, err := d.readMaterial(ctx, first.ID)
 	if err != nil {
 		return empty, err
 	}
-	if m == nil || len(m.Nodes) != int(spec.Brokers) || m.Configuration != configurationID(spec, properties) {
-		return empty, errors.New("MSK native configuration is not applied")
+	if m == nil || len(m.Nodes) != int(spec.Brokers) || m.Configuration != configurationID(spec, properties) || !usersApplied(m, userHashes(spec)) {
+		return empty, errors.New("MSK native configuration or SCRAM credentials are not applied")
 	}
 	for node := range m.Nodes {
 		role := "broker-" + strconv.Itoa(node+1)
-		state, e := d.inspect(ctx, resourceName(spec, role))
-		if e != nil {
-			return empty, e
+		state := first
+		if node != 0 {
+			state, err = d.inspect(ctx, resourceName(spec, role))
+			if err != nil {
+				return empty, err
+			}
 		}
-		if e = d.checkContainer(state, spec, role, m); e != nil {
-			return empty, e
+		if err = d.checkContainer(state, spec, role, m); err != nil {
+			return empty, err
 		}
 		if !state.State.Running {
 			return empty, errors.New("MSK broker is stopped")
+		}
+		if err = d.configureBrokerNetwork(ctx, spec, node, state); err != nil {
+			// configureBrokerNetwork has already quarantined its failed proof.
+			quarantineNeeded = false
+			return empty, err
 		}
 	}
 	client, transport, err := d.adminClient(m)
@@ -272,7 +344,10 @@ func (d *Docker) Delete(ctx context.Context, spec msk.Specification) error {
 		roles = append(roles, "broker-"+text, "init-"+text)
 		volumeRoles = append(volumeRoles, "data-"+text)
 	}
-	var containers []containerState
+	containers, err := d.retainedNetworkHelpers(ctx, spec)
+	if err != nil {
+		return err
+	}
 	for _, role := range roles {
 		s, err := d.inspect(ctx, resourceName(spec, role))
 		if dockerStatus(err, http.StatusNotFound) {
@@ -328,7 +403,62 @@ func (d *Docker) Delete(ctx context.Context, spec msk.Specification) error {
 			return fmt.Errorf("MSK network removal was not observed: %w", err)
 		}
 	}
+	if err = d.removeBrokerNetworks(ctx, spec); err != nil {
+		return err
+	}
 	return nil
+}
+
+// Randomly named helpers can survive an interrupted Docker create or removal.
+// Discover only this immutable owner, then preflight all results before Delete
+// removes any resources. A mismatched response is never treated as ownership.
+func (d *Docker) retainedNetworkHelpers(ctx context.Context, spec msk.Specification) ([]containerState, error) {
+	labels := d.labels(spec, "network-helper")
+	filter := make([]string, 0, len(labels))
+	for key, value := range labels {
+		filter = append(filter, key+"="+value)
+	}
+	encoded, err := json.Marshal(map[string][]string{"label": filter})
+	if err != nil {
+		return nil, err
+	}
+	var listed []struct {
+		ID string `json:"Id"`
+	}
+	if err = d.client.JSON(ctx, http.MethodGet, "/containers/json?all=true&filters="+url.QueryEscape(string(encoded)), nil, &listed); err != nil {
+		return nil, fmt.Errorf("discover retained native Kafka network helpers: %w", err)
+	}
+	if len(listed) == 0 {
+		return nil, nil
+	}
+	var image struct {
+		ID string `json:"Id"`
+	}
+	if err = d.client.JSON(ctx, http.MethodGet, "/images/"+url.PathEscape(docker.ToolkitImage)+"/json", nil, &image); err != nil {
+		return nil, err
+	}
+	if image.ID == "" {
+		return nil, errors.New("native Kafka helper image has no immutable identity")
+	}
+	helpers := make([]containerState, 0, len(listed))
+	for _, candidate := range listed {
+		if candidate.ID == "" {
+			return nil, errors.New("native Kafka helper has no container identity")
+		}
+		state, err := d.inspect(ctx, candidate.ID)
+		if err != nil {
+			return nil, err
+		}
+		if err = d.checkLabels(state.Config.Labels, spec, "network-helper"); err != nil {
+			return nil, err
+		}
+		if state.ID != candidate.ID || state.Image != image.ID || state.Config.Image != docker.ToolkitImage ||
+			state.HostConfig.Privileged || len(state.HostConfig.Binds) != 0 || len(state.HostConfig.Mounts) != 0 {
+			return nil, errors.New("native Kafka helper has conflicting purpose or native image")
+		}
+		helpers = append(helpers, state)
+	}
+	return helpers, nil
 }
 
 func (d *Docker) failure(ctx context.Context, id string, cause error) error {

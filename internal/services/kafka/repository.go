@@ -24,12 +24,29 @@ type ClusterRecord struct {
 	Created, Due                                        time.Time
 	Endpoint                                            Endpoint
 	Tags                                                map[string]string
-	Secrets                                             []string
+	Secrets                                             []SCRAMAssociation
+	ClientSubnets, SecurityGroups                       []string
+	BrokerNetworks                                      []BrokerNetworkRecord
+	DefaultMetrics                                      bool
 	Policy                                              authorization.BoundPolicy
 	PolicyVersion                                       int64
 	// Private immutable CloudFormation incarnation claim set at CreateCluster;
 	// unlike Tags it is never accepted from or rendered by an MSK API.
 	OwnerStackID, OwnerLogicalID, OwnerToken string
+}
+
+// SCRAMAssociation retains only the caller-created grant identity, never secret
+// values or key material. Legacy policy-only rows have empty grant fields and
+// require explicit reassociation before the native service may read them.
+type SCRAMAssociation struct {
+	SecretARN, KMSKeyARN, GrantID, Incarnation string
+}
+
+// BrokerNetworkRecord retains only EC2-owned attachment identity. Packet policy
+// is read from EC2 before every native reconcile, never persisted here.
+type BrokerNetworkRecord struct {
+	BrokerID                                           int
+	InterfaceID, SubnetID, AvailabilityZone, NetworkID string
 }
 type ConfigurationRecord struct {
 	Scope

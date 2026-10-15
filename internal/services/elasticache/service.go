@@ -27,6 +27,7 @@ type Config struct {
 	Clock      clock.Clock
 	Runtime    Runtime
 	Networks   NetworkControl
+	Roles      ServiceLinkedRoles
 	Events     EventPublisher
 	Metrics    MetricPublisher
 }
@@ -37,6 +38,7 @@ type Service struct {
 	clock      clock.Clock
 	runtime    Runtime
 	networks   NetworkControl
+	roles      ServiceLinkedRoles
 	events     EventPublisher
 	metrics    MetricPublisher
 	jobs       *scheduler.Driver
@@ -53,7 +55,7 @@ func New(c Config) *Service {
 	if c.Authorizer == nil {
 		c.Authorizer = authorization.NewWithClock(nil, nil, c.Clock)
 	}
-	s := &Service{repository: c.Repository, authorizer: c.Authorizer, recorder: c.Recorder, clock: c.Clock, runtime: c.Runtime, networks: c.Networks, events: c.Events, metrics: c.Metrics, operations: map[string]func(context.Context) (any, *awswire.Error){}}
+	s := &Service{repository: c.Repository, authorizer: c.Authorizer, recorder: c.Recorder, clock: c.Clock, runtime: c.Runtime, networks: c.Networks, roles: c.Roles, events: c.Events, metrics: c.Metrics, operations: map[string]func(context.Context) (any, *awswire.Error){}}
 	s.jobs = scheduler.New(c.Clock, clusterJobs{s}, snapshotJobs{s})
 	register(s, "CreateCacheCluster", s.createCluster)
 	register(s, "DescribeCacheClusters", s.describeClusters)
@@ -123,8 +125,8 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // TODO: Comeback add serverless, online resharding, global replication, managed
-// maintenance, automated backups, IAM engine auth, KMS and VPC enforcement with
-// their actual owners. Unsupported effects are rejected, never metadata claims.
+// maintenance, automated backups, IAM engine auth and KMS with their actual
+// owners. Unsupported effects are rejected, never metadata claims.
 func (s *Service) ExecuteCommand(ctx context.Context, req awsapi.DecodedRequest) (any, *awswire.Error) {
 	ctx = awsapi.WithDecodedRequest(ctx, req)
 	if fn := s.operations[string(req.Operation.Name)]; fn != nil {
@@ -159,6 +161,12 @@ func register[I, O any](s *Service, action string, fn func(context.Context, Tran
 			rejected := wireError(err)
 			completion, cancel := apievents.CompletionContext(ctx)
 			defer cancel()
+			var dependency interface{ RecordRejection(context.Context) error }
+			if errors.As(err, &dependency) {
+				if e := dependency.RecordRejection(completion); e != nil {
+					return nil, wireError(e)
+				}
+			}
 			if e := s.recordCall(completion, action, in, nil, rejected); e != nil {
 				return nil, wireError(e)
 			}

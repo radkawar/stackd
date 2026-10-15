@@ -68,9 +68,11 @@ initialization and database files necessarily contain engine credential material
 Clusters modeled as `aurora-postgresql` or `aurora-mysql` require an explicit
 writer `CreateDBInstance`, matching the
 [AWS cluster creation contract](https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_CreateDBCluster.html).
-An empty cluster is not a usable SQL server. Only an eligible writer-backed,
-HTTP-enabled cluster can resolve for the Data API. Additional readers, failover,
-Multi-AZ and distributed Aurora topology are not fabricated.
+The empty control resource reports `available` but has no SQL endpoint. Its native
+writer first reports `creating`, then publishes an authenticated real endpoint.
+Controller startup does not create a native process for a memberless cluster.
+Only an eligible writer-backed, HTTP-enabled cluster can resolve for the Data API.
+Additional readers, failover, Multi-AZ and distributed Aurora topology are not fabricated.
 
 Instance classes are modeled control identifiers, not a claim of AWS physical
 hardware. Native engine versions are pinned, not silently selected from a
@@ -299,6 +301,28 @@ controller logs and observations are retained under
 `run.py`/`--resume` runner. No native AWS calls were used. PostgreSQL reported
 `pg_stat_ssl=false`; this remains local SQL/capacity-metadata evidence, not TLS,
 storage quota enforcement or production RDS security evidence.
+
+The permanent provider6.68.0 workflow is
+[`examples/terraform-storage`](../examples/terraform-storage/rds.py).
+It starts from fresh Terraform cluster/primary-writer resources, not SDK bootstrap.
+It also declares standalone instances, parameter groups, real manual snapshots,
+restores and Secrets Manager credentials. Native PostgreSQL/MySQL clients verify
+immediate settings, password rotation, retained transactions and snapshot cuts.
+The same native Aurora-compatible engines serve real bound RDS Data API
+transactions, with native CLI reads as independent consumers.
+
+```sh
+python3 examples/terraform-storage/run.py --services rds \
+  --provider-mirror /absolute/path/to/provider/mirror
+```
+
+The new fixture is **unverified until run**. It retains the original proof above
+as separate evidence, checks import/update/no-change refresh and controller
+reopen, and destroys only its owned resources.
+[`rds-limits.json`](../examples/terraform-storage/rds-limits.json) lists exact
+prerequisites and resource/settings gaps. Neither this fixture nor registered
+API counts establish support for all provider resources.
+
 
 ### Production security controls are still blocked
 

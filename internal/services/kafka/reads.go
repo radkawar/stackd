@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"net"
 	api "stackd/internal/awsapi/kafka"
 	"strconv"
 	"strings"
@@ -59,7 +60,14 @@ func clusterInfo(v ClusterRecord) *api.ClusterInfo {
 	text(&out.CurrentVersion, strconv.FormatInt(v.Version, 10))
 	number(&out.NumberOfBrokerNodes, int64(v.Brokers))
 	text(&out.BrokerNodeGroupInfo.InstanceType, "kafka.local")
-	stringList(&out.BrokerNodeGroupInfo.ClientSubnets, nil)
+	stringList(&out.BrokerNodeGroupInfo.ClientSubnets, v.ClientSubnets)
+	stringList(&out.BrokerNodeGroupInfo.SecurityGroups, v.SecurityGroups)
+	if len(v.ClientSubnets) > 0 {
+		text(&out.BrokerNodeGroupInfo.BrokerAZDistribution, "DEFAULT")
+	}
+	if v.DefaultMetrics {
+		text(&out.EnhancedMonitoring, "DEFAULT")
+	}
 	tagMap(&out.Tags, v.Tags)
 	mode := "TLS"
 	if v.SecurityMode == "PLAINTEXT" {
@@ -88,7 +96,7 @@ func clusterInfo(v ClusterRecord) *api.ClusterInfo {
 }
 func clusterV2(v ClusterRecord) *api.Cluster {
 	c := clusterInfo(v)
-	p := &api.Provisioned{BrokerNodeGroupInfo: c.BrokerNodeGroupInfo, ClientAuthentication: c.ClientAuthentication, CurrentBrokerSoftwareInfo: c.CurrentBrokerSoftwareInfo, EncryptionInfo: c.EncryptionInfo}
+	p := &api.Provisioned{BrokerNodeGroupInfo: c.BrokerNodeGroupInfo, ClientAuthentication: c.ClientAuthentication, CurrentBrokerSoftwareInfo: c.CurrentBrokerSoftwareInfo, EncryptionInfo: c.EncryptionInfo, EnhancedMonitoring: c.EnhancedMonitoring}
 	number(&p.NumberOfBrokerNodes, int64(v.Brokers))
 	return &api.Cluster{ActiveOperationArn: c.ActiveOperationArn, ClusterArn: c.ClusterArn, ClusterName: c.ClusterName, ClusterType: new(api.ClusterType("PROVISIONED")), CreationTime: c.CreationTime, CurrentVersion: c.CurrentVersion, Provisioned: p, State: c.State, StateInfo: c.StateInfo, Tags: c.Tags}
 }
@@ -202,6 +210,18 @@ func (s *Service) listNodes(ctx context.Context, t Transaction, in *api.ListNode
 		n := api.NodeInfo{NodeType: new(api.NodeTypeBROKER), BrokerNodeInfo: &api.BrokerNodeInfo{CurrentBrokerSoftwareInfo: software(v)}}
 		number(&n.BrokerNodeInfo.BrokerId, int64(b.ID))
 		stringList(&n.BrokerNodeInfo.Endpoints, []string{b.Address})
+		for _, attachment := range v.BrokerNetworks {
+			if attachment.BrokerID == int(b.ID) {
+				text(&n.BrokerNodeInfo.ClientSubnet, attachment.SubnetID)
+				text(&n.BrokerNodeInfo.AttachedENIId, attachment.InterfaceID)
+				address, _, err := net.SplitHostPort(b.Address)
+				if err != nil {
+					return nil, err
+				}
+				text(&n.BrokerNodeInfo.ClientVpcIpAddress, address)
+				break
+			}
+		}
 		text(&n.InstanceType, "kafka.local")
 		text(&n.NodeARN, v.ARN+"/broker/"+strconv.Itoa(int(b.ID)))
 		out.NodeInfoList = append(out.NodeInfoList, n)

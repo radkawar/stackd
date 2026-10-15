@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	api "stackd/internal/awsapi/kafka"
@@ -104,6 +105,10 @@ func (s *Service) updateConfiguration(ctx context.Context, t Transaction, in *ap
 }
 func (s *Service) describeConfiguration(ctx context.Context, t Transaction, in *api.DescribeConfigurationInput) (*api.DescribeConfigurationOutput, error) {
 	v, e := s.configuration(ctx, t, value(in.Arn), "DescribeConfiguration")
+	if errors.Is(e, ErrNotFound) {
+		// Captured AWS DescribeConfiguration absence is a bad request, not 404.
+		return nil, invalid("Configuration ARN does not exist.")
+	}
 	if e != nil {
 		return nil, e
 	}
@@ -122,6 +127,9 @@ func (s *Service) describeConfiguration(ctx context.Context, t Transaction, in *
 }
 func (s *Service) describeRevision(ctx context.Context, t Transaction, in *api.DescribeConfigurationRevisionInput) (*api.DescribeConfigurationRevisionOutput, error) {
 	v, e := s.configuration(ctx, t, value(in.Arn), "DescribeConfigurationRevision")
+	if errors.Is(e, ErrNotFound) {
+		return nil, invalid("Configuration ARN does not exist.")
+	}
 	if e != nil {
 		return nil, e
 	}
@@ -129,8 +137,11 @@ func (s *Service) describeRevision(ctx context.Context, t Transaction, in *api.D
 		return nil, invalid("Revision is required")
 	}
 	r, e := t.Revision(v.ARN, int64(*in.Revision))
+	if errors.Is(e, ErrNotFound) {
+		return nil, invalid("Configuration ARN does not exist.")
+	}
 	if e != nil {
-		return nil, invalid("Configuration revision does not exist")
+		return nil, e
 	}
 	out := &api.DescribeConfigurationRevisionOutput{CreationTime: new(r.Created), ServerProperties: []byte(r.ServerProperties)}
 	text(&out.Arn, r.ARN)

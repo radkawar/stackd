@@ -7,14 +7,27 @@ import (
 )
 
 func (s *Service) createCluster(ctx context.Context, tx Transaction, in *api.CreateDBClusterInput) (*api.CreateDBClusterOutput, error) {
+	if in.GlobalClusterIdentifier != nil {
+		return nil, unsupported("GlobalClusterIdentifier requires a real global replication engine; initially empty global clusters cannot accept regional members.")
+	}
 	if e := s.ensureRuntime(); e != nil {
 		return nil, e
 	}
 	if value(in.Engine) != "docdb" || in.EngineVersion != nil && value(in.EngineVersion) != "5.0" {
 		return nil, unsupported("Only the DocumentDB 5.0 compatibility contract is supported by this native backend.")
 	}
-	if len(in.AvailabilityZones) > 0 || in.BackupRetentionPeriod != nil || in.DBClusterParameterGroupName != nil || in.DBSubnetGroupName != nil || len(in.EnableCloudwatchLogsExports) > 0 || in.GlobalClusterIdentifier != nil || in.KmsKeyId != nil || yes(in.ManageMasterUserPassword) || in.MasterUserSecretKmsKeyId != nil || in.NetworkType != nil || in.PreSignedUrl != nil || in.PreferredBackupWindow != nil || in.PreferredMaintenanceWindow != nil || in.ServerlessV2ScalingConfiguration != nil || yes(in.StorageEncrypted) || in.StorageType != nil || len(in.VpcSecurityGroupIds) > 0 {
-		return nil, unsupported("Managed networking, parameters, storage, backups, maintenance and managed credentials are not implemented.")
+	if len(in.AvailabilityZones) > 0 || in.DBClusterParameterGroupName != nil || in.DBSubnetGroupName != nil || len(in.EnableCloudwatchLogsExports) > 0 || in.KmsKeyId != nil || yes(in.ManageMasterUserPassword) || in.MasterUserSecretKmsKeyId != nil || in.NetworkType != nil || in.PreSignedUrl != nil || in.PreferredMaintenanceWindow != nil || in.ServerlessV2ScalingConfiguration != nil || yes(in.StorageEncrypted) || in.StorageType != nil || len(in.VpcSecurityGroupIds) > 0 {
+		return nil, unsupported("Managed networking, parameters, storage, maintenance and managed credentials are not implemented.")
+	}
+	retention, window := int32(1), defaultBackupWindow
+	if in.BackupRetentionPeriod != nil {
+		retention = int32(*in.BackupRetentionPeriod)
+	}
+	if in.PreferredBackupWindow != nil {
+		window = value(in.PreferredBackupWindow)
+	}
+	if e := validateBackups(retention, window); e != nil {
+		return nil, e
 	}
 	user, password := value(in.MasterUsername), value(in.MasterUserPassword)
 	if e := validateCredentials(user, password); e != nil {
@@ -54,7 +67,10 @@ func (s *Service) createCluster(ctx context.Context, tx Transaction, in *api.Cre
 	if e != nil {
 		return nil, e
 	}
-	v := Cluster{Key: k, RuntimeID: id, Username: user, EngineVersion: "5.0", Status: "creating", Ciphertext: cipher, RequestedPort: port, Version: 1, Created: s.clock.Now(), DeletionProtection: yes(in.DeletionProtection), Tags: tags}
+	// AWS publishes the empty control-plane cluster before its primary instance.
+	// Native readiness remains false until a writer returns an authenticated endpoint.
+	// https://docs.aws.amazon.com/documentdb/latest/devguide/db-cluster-create.html
+	v := Cluster{Key: k, RuntimeID: id, Username: user, EngineVersion: "5.0", Status: "available", Ciphertext: cipher, RequestedPort: port, Version: 1, Created: s.clock.Now(), DeletionProtection: yes(in.DeletionProtection), Tags: tags, BackupRetention: retention, BackupWindow: window, NextBackup: nextBackup(s.clock.Now(), window)}
 	v.Owner = cloudFormationClaim(ctx, k)
 	if e = tx.PutCluster(v); e != nil {
 		return nil, e
@@ -70,8 +86,8 @@ func (s *Service) modifyCluster(ctx context.Context, tx Transaction, in *api.Mod
 	if v.Status != "available" && v.Status != "stopped" && !(v.Status == "creating" && v.Operation == "") && !(v.Status == "modifying" && v.Operation == "password") {
 		return nil, stateError("cluster")
 	}
-	if yes(in.AllowMajorVersionUpgrade) || in.BackupRetentionPeriod != nil || in.CloudwatchLogsExportConfiguration != nil || in.DBClusterParameterGroupName != nil || in.EngineVersion != nil || yes(in.ManageMasterUserPassword) || in.MasterUserSecretKmsKeyId != nil || in.NetworkType != nil || in.NewDBClusterIdentifier != nil || in.Port != nil || in.PreferredBackupWindow != nil || in.PreferredMaintenanceWindow != nil || yes(in.RotateMasterUserPassword) || in.ServerlessV2ScalingConfiguration != nil || in.StorageType != nil || len(in.VpcSecurityGroupIds) > 0 {
-		return nil, unsupported("Only deletion protection and immediate native password changes are supported.")
+	if yes(in.AllowMajorVersionUpgrade) || in.CloudwatchLogsExportConfiguration != nil || in.DBClusterParameterGroupName != nil || in.EngineVersion != nil || yes(in.ManageMasterUserPassword) || in.MasterUserSecretKmsKeyId != nil || in.NetworkType != nil || in.NewDBClusterIdentifier != nil || in.Port != nil || in.PreferredMaintenanceWindow != nil || yes(in.RotateMasterUserPassword) || in.ServerlessV2ScalingConfiguration != nil || in.StorageType != nil || len(in.VpcSecurityGroupIds) > 0 {
+		return nil, unsupported("Only backup retention/window, deletion protection and immediate native password changes are supported.")
 	}
 	if v.Status == "modifying" {
 		if in.MasterUserPassword == nil || !yes(in.ApplyImmediately) {
@@ -81,11 +97,26 @@ func (s *Service) modifyCluster(ctx context.Context, tx Transaction, in *api.Mod
 		if err != nil {
 			return nil, err
 		}
-		if user != v.Username || pending != value(in.MasterUserPassword) || in.DeletionProtection != nil && bool(*in.DeletionProtection) != v.DeletionProtection {
+		if user != v.Username || pending != value(in.MasterUserPassword) || in.DeletionProtection != nil && bool(*in.DeletionProtection) != v.DeletionProtection || in.BackupRetentionPeriod != nil && int32(*in.BackupRetentionPeriod) != v.BackupRetention || in.PreferredBackupWindow != nil && value(in.PreferredBackupWindow) != v.BackupWindow {
 			return nil, stateError("cluster")
 		}
 		out, err := clusterOutput(tx, v)
 		return &api.ModifyDBClusterOutput{DBCluster: out}, err
+	}
+	retention, window := v.BackupRetention, v.BackupWindow
+	if in.BackupRetentionPeriod != nil {
+		retention = int32(*in.BackupRetentionPeriod)
+	}
+	if in.PreferredBackupWindow != nil {
+		window = value(in.PreferredBackupWindow)
+	}
+	if in.BackupRetentionPeriod != nil || in.PreferredBackupWindow != nil {
+		if e = validateBackups(retention, window); e != nil {
+			return nil, e
+		}
+		if e = s.changeBackups(tx, &v, retention, window); e != nil {
+			return nil, e
+		}
 	}
 	if in.DeletionProtection != nil {
 		v.DeletionProtection = bool(*in.DeletionProtection)
@@ -144,8 +175,18 @@ func (s *Service) deleteCluster(ctx context.Context, tx Transaction, in *api.Del
 		return nil, e
 	}
 	for _, snap := range snapshots {
+		if snap.Key.Scope != v.Key.Scope {
+			continue
+		}
 		if snap.SourceRuntimeID == v.RuntimeID && snap.Status != "available" && snap.Status != "deleting" {
 			return nil, stateError("cluster")
+		}
+		if snap.SourceRuntimeID == v.RuntimeID && snap.Automated && snap.Operation == "" {
+			snap.Expires, snap.Due = s.clock.Now(), s.clock.Now()
+			snap.Version++
+			if e = tx.PutSnapshot(snap); e != nil {
+				return nil, e
+			}
 		}
 	}
 	v.Status = "deleting"
@@ -226,6 +267,11 @@ func clusterOutput(r Reader, v Cluster) (*api.DBCluster, error) {
 		return nil, e
 	}
 	out := &api.DBCluster{DBClusterArn: new(api.String(v.Key.ARN())), DBClusterIdentifier: new(api.String(v.Key.Name)), DbClusterResourceId: new(api.String("cluster-" + v.RuntimeID)), Engine: new(api.String("docdb")), EngineVersion: new(api.String(v.EngineVersion)), MasterUsername: new(api.String(v.Username)), Status: new(api.String(v.Status)), ClusterCreateTime: new(api.TStamp(v.Created)), DeletionProtection: new(api.Boolean(v.DeletionProtection)), StorageEncrypted: new(api.Boolean(false)), MultiAZ: new(api.Boolean(false))}
+	out.BackupRetentionPeriod = new(api.IntegerOptional(v.BackupRetention))
+	out.PreferredBackupWindow = new(api.String(v.BackupWindow))
+	if v.RequestedPort != 0 {
+		out.Port = new(api.IntegerOptional(v.RequestedPort))
+	}
 	if v.Endpoint.Address != "" {
 		out.Endpoint = new(api.String(v.Endpoint.Address))
 		out.Port = new(api.IntegerOptional(v.Endpoint.Port))

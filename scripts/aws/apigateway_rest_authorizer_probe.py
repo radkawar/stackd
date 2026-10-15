@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture owned native REST authorizers, optionally --credentials-roles or --service-context; cleanup is resumable."""
+"""Capture owned native REST authorizers; --cognito-ttl needs only one API/pool. Cleanup is resumable."""
 import argparse
 import base64
 import io
@@ -10,6 +10,7 @@ import time
 import urllib.error
 import urllib.request
 import zipfile
+from urllib.parse import urlsplit
 
 import apigateway_probe as base
 from apigateway_probe import Probe, REGION, now
@@ -897,6 +898,128 @@ def run_service_context(p, *, principal_types=False):
     p.save()
 
 
+class CognitoTTLProbe(Probe):
+    """Use the common credential, capture and cleanup ledger for a bounded case."""
+
+    def native_endpoints(self):
+        for service, hosts in {
+            "apigateway": {f"apigateway.{REGION}.amazonaws.com", f"apigateway.{REGION}.api.aws"},
+            "cognito-idp": {f"cognito-idp.{REGION}.amazonaws.com", f"cognito-idp.{REGION}.api.aws"},
+        }.items():
+            endpoint = urlsplit(self.client(service).meta.endpoint_url)
+            if endpoint.scheme != "https" or endpoint.hostname not in hosts or endpoint.port not in (None, 443):
+                raise RuntimeError("Cognito TTL capture requires the native regional " + service + " endpoint")
+
+    def recover_creation(self, key):
+        # The intent is saved before Create. Recover only its exact random name
+        # after an interrupted response, never an account-wide deletion prefix.
+        if key in self.data["owned"] or key not in self.data.get("creation_intents", []):
+            return
+        name = self.data["prefix"] + "-cognito-ttl"
+        matches = []
+        token = None
+        for page in range(20):
+            if key == "rest_api":
+                parameters = {"limit": 500}
+                if token:
+                    parameters["position"] = token
+                output = self.required(f"recover-api-{page}", "apigateway", "get_rest_apis", parameters)
+                matches.extend(row["id"] for row in output.get("items", []) if row["name"] == name)
+                token = output.get("position")
+            else:
+                parameters = {"MaxResults": 60}
+                if token:
+                    parameters["NextToken"] = token
+                output = self.required(f"recover-pool-{page}", "cognito-idp", "list_user_pools", parameters)
+                matches.extend(row["Id"] for row in output.get("UserPools", []) if row["Name"] == name)
+                token = output.get("NextToken")
+            if not token:
+                break
+        if token or len(matches) > 1:
+            raise RuntimeError("Exact-name creation recovery was not conclusive for " + key)
+        if matches:
+            self.data["owned"][key] = matches[0]
+            self.save()
+
+    def cleanup(self):
+        self.native_endpoints()
+        if self.data.get("mode") != "cognito-ttl":
+            raise RuntimeError("Refusing Cognito TTL cleanup of another capture mode")
+        owned = self.data["owned"]
+        if any(key not in ("rest_api", "pool") and not key.startswith("authorizer_") for key in owned):
+            raise RuntimeError("Cognito TTL cleanup ledger contains resources outside its bound")
+        for key, service, method, parameter, field in (
+                ("rest_api", "apigateway", "get_rest_api", "restApiId", "name"),
+                ("pool", "cognito-idp", "describe_user_pool", "UserPoolId", "UserPool.Name")):
+            self.recover_creation(key)
+            if key not in owned:
+                continue
+            result = self.call("check-cleanup-owner-" + key, service, method, {parameter: owned[key]}, required=False)
+            if result["code"] in ("NotFoundException", "ResourceNotFoundException"):
+                continue
+            if result["code"] != "Success":
+                raise RuntimeError("Cannot establish owned cleanup resource: " + key)
+            row = result["output"]
+            for part in field.split("."):
+                row = row[part]
+            if row != self.data["prefix"] + "-cognito-ttl":
+                raise RuntimeError("Owned cleanup name does not match the durable ledger: " + key)
+        # Deleting the exact owned API also deletes its authorizers. The common
+        # helper verifies both API and pool absence and fails incomplete cleanup.
+        super().cleanup()
+
+
+def run_cognito_ttl(p):
+    p.data.update(mode="cognito-ttl",
+        scope="Cognito authorizer TTL control semantics in one owned regional REST API; no token cache claim",
+        bounds={"apis": 1, "pools": 1, "authorizers": 3, "functions": 0, "roles": 0,
+                "stages": 0, "deployments": 0, "users": 0, "recovery_pages": 20},
+        probe_source=Path(__file__).read_text(), handler_source=None)
+    p.save()
+    p.native_endpoints()
+    name = p.data["prefix"] + "-cognito-ttl"
+    p.data["creation_intents"] = ["rest_api"]
+    p.save()
+    api = p.required("cognito-ttl-api", "apigateway", "create_rest_api",
+        {"name": name, "endpointConfiguration": {"types": ["REGIONAL"]}}, own=("rest_api", "id"))
+    p.data["creation_intents"].append("pool")
+    p.save()
+    pool = p.required("cognito-ttl-pool", "cognito-idp", "create_user_pool",
+        {"PoolName": name, "UserPoolTier": "LITE"}, own=("pool", "UserPool.Id"))["UserPool"]
+    successful = []
+    for label, ttl in (("omitted", None), ("zero", 0), ("default", 300)):
+        parameters = {"restApiId": api["id"], "name": "ttl-" + label, "type": "COGNITO_USER_POOLS",
+                      "identitySource": "method.request.header.Authorization", "providerARNs": [pool["Arn"]]}
+        if ttl is not None:
+            parameters["authorizerResultTtlInSeconds"] = ttl
+        result = p.call("cognito-ttl-create-" + label, "apigateway", "create_authorizer", parameters,
+                        own=("authorizer_" + label, "id"), required=False)
+        if result["code"] == "Success":
+            identifier = result["output"]["id"]
+            successful.append(identifier)
+            p.call("cognito-ttl-get-" + label, "apigateway", "get_authorizer",
+                   {"restApiId": api["id"], "authorizerId": identifier}, required=False)
+    if successful:
+        # Change one retained authorizer, including reset. Capture rejection as
+        # evidence and still read actual state; do not presume accepted patches.
+        for label, operation in (
+                ("zero", {"op": "replace", "path": "/authorizerResultTtlInSeconds", "value": "0"}),
+                ("default", {"op": "replace", "path": "/authorizerResultTtlInSeconds", "value": "300"}),
+                ("remove", {"op": "remove", "path": "/authorizerResultTtlInSeconds"})):
+            p.call("cognito-ttl-update-" + label, "apigateway", "update_authorizer",
+                   {"restApiId": api["id"], "authorizerId": successful[0], "patchOperations": [operation]}, required=False)
+            p.call("cognito-ttl-after-" + label, "apigateway", "get_authorizer",
+                   {"restApiId": api["id"], "authorizerId": successful[0]}, required=False)
+    p.data["semantic_summary"] = {
+        row["label"]: {"code": row["result"]["code"],
+                       "ttl_present": "authorizerResultTtlInSeconds" in row["result"].get("output", {}),
+                       "ttl": row["result"].get("output", {}).get("authorizerResultTtlInSeconds")}
+        for row in p.data["observations"] if row["label"].startswith(
+            ("cognito-ttl-create-", "cognito-ttl-get-", "cognito-ttl-update-", "cognito-ttl-after-"))}
+    p.data["completed_at"] = now()
+    p.save()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--account", required=True)
@@ -908,15 +1031,19 @@ def main():
         help="Capture fresh immutable service PrincipalType and source-organization trust conditions")
     parser.add_argument("--principal-types", action="store_true",
         help="Capture fresh immutable PrincipalType Null/Account/AssumedRole/Anonymous conditions")
+    parser.add_argument("--cognito-ttl", action="store_true",
+        help="Bounded Cognito TTL control capture: one API/pool, no runtime resources or users")
     parser.add_argument("--cleanup-only", action="store_true")
     args = parser.parse_args()
-    if sum((args.service_context, args.principal_types, args.credentials_roles or args.fresh_null_trust)) > 1:
-        parser.error("--service-context, --principal-types and --credentials-roles are separate capture modes")
+    if sum((args.service_context, args.principal_types, args.credentials_roles or args.fresh_null_trust, args.cognito_ttl)) > 1:
+        parser.error("--service-context, --principal-types, --credentials-roles and --cognito-ttl are separate capture modes")
     path = args.output or Path(".stackd/probes/apigateway/" + (
+        "rest_cognito_authorizer_ttl.json" if args.cognito_ttl else
         "rest_authorizer_principal_type.json" if args.principal_types else
         "rest_authorizer_service_context.json" if args.service_context else
         "rest_authorizer_roles.json" if args.credentials_roles else "rest_lambda_authorizers.json"))
     envelope = json.loads(path.read_text()) if args.fresh_null_trust or args.cleanup_only else None
+    cognito_ttl = args.cognito_ttl or bool(args.cleanup_only and envelope.get("mode") == "cognito-ttl")
     principal_types = args.principal_types or bool(args.cleanup_only and envelope.get("mode") == "principal-types")
     service_context = principal_types or args.service_context or bool(
         args.cleanup_only and envelope.get("mode") == "service-context")
@@ -939,10 +1066,12 @@ def main():
             probe.path, probe.envelope = path, envelope
             probe.save()
     else:
-        probe = (CredentialsProbe if credentials_mode else Probe)(path, args.account, args.cleanup_only)
+        probe = (CognitoTTLProbe if cognito_ttl else CredentialsProbe if credentials_mode else Probe)(path, args.account, args.cleanup_only)
     try:
         if not args.cleanup_only:
-            if service_context:
+            if cognito_ttl:
+                run_cognito_ttl(probe)
+            elif service_context:
                 run_service_context(probe, principal_types=principal_types)
             else:
                 (run_fresh_null if fresh_null else run_credentials if credentials_mode else run)(probe)

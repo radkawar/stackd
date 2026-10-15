@@ -98,12 +98,15 @@ func (s *Service) updateAccessKey(ctx context.Context, a *account, m awsctx.Meta
 	if err != nil {
 		return nil, err
 	}
+	status := identity.Status(inputString(in.Status))
+	if status != identity.Active && status != identity.Inactive {
+		return nil, invalidInput("Status must be Active or Inactive.")
+	}
 	principal, err := credentialPrincipal(a, m, inputString(in.UserName))
 	if err != nil {
 		return nil, err
 	}
 	id := inputString(in.AccessKeyId)
-	status := identity.Status(inputString(in.Status))
 	if err := s.credentialStore(ctx).UpdateAccessKey(principal.AccountID, principal.ID, id, status); err != nil {
 		return nil, credentialError(err)
 	}

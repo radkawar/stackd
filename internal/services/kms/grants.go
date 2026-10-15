@@ -190,7 +190,7 @@ func (s *Service) createGrant(ctx context.Context, in *kmsapi.CreateGrantInput) 
 
 func grantPrincipalMatches(ctx context.Context, principal, id string) policy.PrincipalBinding {
 	m := awsctx.FromContext(ctx)
-	if regionalEC2GrantPrincipal(principal, m.Partition) || regionalECRGrantPrincipal(principal, m.Partition) {
+	if regionalEC2GrantPrincipal(principal, m.Partition) || regionalECRGrantPrincipal(principal, m.Partition) || kafkaGrantPrincipal(principal, m.Partition) {
 		return policy.PrincipalBinding{Direct: id == "" && principal == m.ServicePrincipal.Name}
 	}
 	if m.ServicePrincipal.Name != "" {

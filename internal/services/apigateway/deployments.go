@@ -82,13 +82,14 @@ func (s *Service) createDeployment(tx Transaction, in *api.CreateDeploymentReque
 			return nil, err
 		}
 		arn := ""
-		if integration.Mock == nil {
+		if integration.Mock == nil && integration.HTTPProxy == nil {
 			arn, err = functionARN(integration.URI, owner.Key.Scope)
 			if err != nil {
 				return nil, err
 			}
 		}
 		route := DeploymentRoute{ResourceID: resource.Key.ResourceID, Path: resource.Path, HTTPMethod: m.Key.HTTPMethod, AuthorizationType: m.AuthorizationType, Scopes: m.Scopes, FunctionARN: arn, TimeoutMillis: integration.TimeoutMillis}
+		route.HTTPProxy = cloneHTTPProxy(integration.HTTPProxy)
 		if integration.Mock != nil {
 			mock := *integration.Mock
 			response, exists := m.Responses[strconv.Itoa(mock.StatusCode)]
@@ -363,6 +364,8 @@ func (s *Service) updateStage(tx Transaction, in *api.UpdateStageRequest) (*api.
 			err = patchMethodSetting(p, "/throttling/burstLimit", &row)
 		case strings.HasSuffix(path, "/throttling/rateLimit"):
 			err = patchMethodSetting(p, "/throttling/rateLimit", &row)
+		case strings.HasSuffix(path, "/caching/ttlInSeconds"):
+			err = patchMethodSetting(p, "/caching/ttlInSeconds", &row)
 		case value(p.Op) == "remove" && methodSetting:
 			err = removeMethodSetting(p, &row)
 		default:

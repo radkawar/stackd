@@ -36,6 +36,15 @@ func patchMethodSetting(p api.PatchOperation, suffix string, row *StageRecord) e
 	if err := replace(p, &text); err != nil {
 		return err
 	}
+	if suffix == "/caching/ttlInSeconds" {
+		// No stage can allocate a cache, and the retained disabled-cache
+		// projection is always 300. A provider replay of that unchanged value
+		// is valid; any real cache configuration still requires a cache owner.
+		if text != "300" {
+			return unsupported("stage response-cache TTL configuration")
+		}
+		return nil
+	}
 	if row.MethodSettings == nil {
 		row.MethodSettings = map[string]MethodSettings{}
 	}

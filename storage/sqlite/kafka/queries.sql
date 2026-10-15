@@ -42,7 +42,7 @@ SELECT * FROM msk_cluster_secrets WHERE arn = ? ORDER BY secret_arn;
 -- name: DeleteClusterSecrets :exec
 DELETE FROM msk_cluster_secrets WHERE arn = ?;
 -- name: PutClusterSecret :exec
-INSERT INTO msk_cluster_secrets (arn,secret_arn) VALUES (?,?);
+INSERT INTO msk_cluster_secrets (arn,secret_arn,kms_key_arn,grant_id,incarnation) VALUES (?,?,?,?,?);
 -- name: ListClusterBrokers :many
 SELECT * FROM msk_cluster_brokers WHERE arn = ? ORDER BY broker_id;
 -- name: DeleteClusterBrokers :exec
@@ -61,3 +61,25 @@ SELECT * FROM msk_configuration_versions WHERE arn = ? ORDER BY kafka_version;
 DELETE FROM msk_configuration_versions WHERE arn = ?;
 -- name: PutConfigurationVersion :exec
 INSERT INTO msk_configuration_versions (arn,kafka_version) VALUES (?,?);
+-- name: GetClusterNetworkOptions :one
+SELECT default_metrics FROM msk_cluster_network_options WHERE arn = ?;
+-- name: PutClusterNetworkOptions :exec
+INSERT INTO msk_cluster_network_options (arn,default_metrics) VALUES (?,?) ON CONFLICT (arn) DO UPDATE SET default_metrics=excluded.default_metrics;
+-- name: ListClusterSubnets :many
+SELECT subnet_id FROM msk_cluster_subnets WHERE arn = ? ORDER BY ordinal;
+-- name: DeleteClusterSubnets :exec
+DELETE FROM msk_cluster_subnets WHERE arn = ?;
+-- name: PutClusterSubnet :exec
+INSERT INTO msk_cluster_subnets (arn,ordinal,subnet_id) VALUES (?,?,?);
+-- name: ListClusterSecurityGroups :many
+SELECT security_group_id FROM msk_cluster_security_groups WHERE arn = ? ORDER BY security_group_id;
+-- name: DeleteClusterSecurityGroups :exec
+DELETE FROM msk_cluster_security_groups WHERE arn = ?;
+-- name: PutClusterSecurityGroup :exec
+INSERT INTO msk_cluster_security_groups (arn,security_group_id) VALUES (?,?);
+-- name: ListBrokerNetworks :many
+SELECT broker_id,interface_id,subnet_id,availability_zone,network_id FROM msk_broker_networks WHERE arn = ? ORDER BY broker_id;
+-- name: DeleteBrokerNetworks :exec
+DELETE FROM msk_broker_networks WHERE arn = ?;
+-- name: PutBrokerNetwork :exec
+INSERT INTO msk_broker_networks (arn,broker_id,interface_id,subnet_id,availability_zone,network_id) VALUES (?,?,?,?,?,?);

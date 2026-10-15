@@ -258,3 +258,48 @@ func TestNativeBuildAuditSensitiveFields(t *testing.T) {
 		})
 	}
 }
+
+func TestTerraformProjectConcurrentLimitRemoval(t *testing.T) {
+	ctx := controlContext()
+	s := New(Config{})
+	t.Cleanup(func() { s.Close() })
+	key := ProjectKey{Scope: scopeFor(ctx), Name: "terraform-project"}
+	err := s.repository.Update(ctx, func(tx Transaction) error {
+		return tx.PutProject(ProjectRecord{Key: key, Data: api.Project{
+			Name: new(api.ProjectName(key.Name)), ServiceRole: new(api.NonEmptyString("arn:aws:iam::111122223333:role/build")),
+			Source:               &api.ProjectSource{Type: new(api.SourceType("NO_SOURCE")), Buildspec: new(api.String("version: 0.2\nphases:\n  build:\n    commands: [true]\n"))},
+			Artifacts:            &api.ProjectArtifacts{Type: new(api.ArtifactsType("NO_ARTIFACTS"))},
+			Environment:          &api.ProjectEnvironment{Type: new(api.EnvironmentType("LINUX_CONTAINER")), ComputeType: new(api.ComputeType("BUILD_GENERAL1_SMALL")), Image: new(api.NonEmptyString("prepared-image"))},
+			ConcurrentBuildLimit: new(api.WrapperInt(2)),
+		}})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, limit := range []api.WrapperInt{-1, 3} {
+		err := s.repository.Update(ctx, func(tx Transaction) error {
+			_, err := s.updateProject(tx.Context(), tx, &api.UpdateProjectInput{Name: new(api.NonEmptyString(key.Name)), ConcurrentBuildLimit: &limit})
+			return err
+		})
+		if err != nil {
+			t.Fatalf("updating limit to %d: %v", limit, err)
+		}
+		err = s.repository.Update(ctx, func(tx Transaction) error {
+			out, err := s.batchGetProjects(tx.Context(), tx, &api.BatchGetProjectsInput{Names: api.ProjectNames{api.NonEmptyString(key.ARN())}})
+			if err != nil {
+				return err
+			}
+			if len(out.Projects) != 1 {
+				t.Fatalf("project lost after limit update: %+v", out)
+			}
+			got := out.Projects[0].ConcurrentBuildLimit
+			if limit == -1 && got != nil || limit != -1 && (got == nil || *got != limit) {
+				t.Fatalf("limit %d read back as %v", limit, got)
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}

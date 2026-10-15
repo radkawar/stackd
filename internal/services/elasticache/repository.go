@@ -29,6 +29,10 @@ type Cluster struct {
 	MemoryBytes, Version                                                    int64
 	Created, Due                                                            time.Time
 	Nodes                                                                   []engine.Node
+	SubnetGroup                                                             string
+	ClientSubnets, SecurityGroups                                           []string
+	ClientPort                                                              int32
+	NodePlacements                                                          []CacheNodePlacement
 	AuthHashes                                                              []string
 	Parameters, Tags                                                        map[string]string
 	// CloudFormationOwner is the private incarnation claim, never a public tag.
@@ -126,6 +130,9 @@ type Runtime interface {
 }
 type NetworkControl interface {
 	ResolveSubnets(context.Context, string, []string) ([]Subnet, error)
+	AllocateCacheNodeNetwork(context.Context, CacheNodeNetworkRequest) (CacheNodeNetwork, error)
+	ObserveCacheNodeNetwork(context.Context, CacheNodeNetworkIdentity, string) (CacheNodeNetwork, error)
+	ReleaseCacheNodeNetwork(context.Context, CacheNodeNetworkIdentity, string) error
 }
 type Event struct {
 	ARN, Identifier, Kind, Status, Operation string

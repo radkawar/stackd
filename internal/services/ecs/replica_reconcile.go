@@ -125,6 +125,7 @@ func (s *Service) reconcileService(ctx context.Context, tx Transaction, r *Servi
 			r.Data.Status = new(api.String("INACTIVE"))
 			r.Deployments = nil
 			r.Data.Deployments = api.Deployments{}
+			r.DeploymentHistory = nil
 		}
 		return s.persistReplica(ctx, tx, r, before, changedTasks)
 	}
@@ -134,6 +135,7 @@ func (s *Service) reconcileService(ctx context.Context, tx Transaction, r *Servi
 		d.Data.RolloutState = new(api.DeploymentRolloutState("FAILED"))
 		d.Data.RolloutStateReason = new(api.String("ECS deployment circuit breaker: tasks failed to start or remain healthy."))
 		d.Data.UpdatedAt = new(now)
+		d.FinishedAt = now
 		if err := s.publishServiceEvent(ctx, r, "SERVICE_DEPLOYMENT_FAILED", value(d.Data.Id), value(d.Data.RolloutStateReason)); err != nil {
 			return false, err
 		}
@@ -150,6 +152,7 @@ func (s *Service) reconcileService(ctx context.Context, tx Transaction, r *Servi
 				primary = rollback
 				d = &r.Deployments[primary]
 				d.Completed = false
+				d.FinishedAt = time.Time{}
 				d.Failures = 0
 				d.RetryAfter = time.Time{}
 				d.Data.Status = new(api.String("PRIMARY"))
@@ -340,6 +343,7 @@ func (s *Service) reconcileService(ctx context.Context, tx Transaction, r *Servi
 		d.Data.RolloutState = new(api.DeploymentRolloutState("COMPLETED"))
 		d.Data.RolloutStateReason = new(api.String("ECS deployment completed."))
 		d.Data.UpdatedAt = new(now)
+		d.FinishedAt = now
 		if err := s.publishServiceEvent(ctx, r, "SERVICE_DEPLOYMENT_COMPLETED", value(d.Data.Id), ""); err != nil {
 			return false, err
 		}
@@ -363,6 +367,7 @@ func (s *Service) reconcileService(ctx context.Context, tx Transaction, r *Servi
 			if err := tx.PutServiceRevision(serviceRevision(*r, dep)); err != nil {
 				return false, err
 			}
+			r.DeploymentHistory = append(r.DeploymentHistory, terraformServiceDeployment(*r, dep))
 			continue
 		}
 		if i != primary && !owns {

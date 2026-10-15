@@ -50,6 +50,9 @@ func tagsMatch(tags map[string]string, filters api.TagFilters) bool {
 	return true
 }
 func (s *Service) getResourceShares(tx Transaction, in *api.GetResourceSharesRequest) (*api.GetResourceSharesResponse, error) {
+	// The RAM SAR defines this collection action without resource-level
+	// authorization. IAM evaluates "*"; live visibility below, not an
+	// invented foreign-ARN permission, limits the shares returned.
 	if e := s.authorize(tx, "GetResourceShares", "", nil); e != nil {
 		return nil, e
 	}
@@ -81,9 +84,6 @@ func (s *Service) getResourceShares(tx Transaction, in *api.GetResourceSharesReq
 			if !match {
 				continue
 			}
-		}
-		if e = s.authorize(tx, "GetResourceShares", sh.ARN, sh.Tags); e != nil {
-			return nil, e
 		}
 		v := apiShare(sh)
 		if value(in.ResourceOwner) != "SELF" {

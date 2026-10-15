@@ -36,9 +36,18 @@ func responseStatus(text string) (int, error) {
 	}
 	return status, nil
 }
+func gatewayResponseImplemented(kind string) bool {
+	switch kind {
+	case "DEFAULT_4XX", "DEFAULT_5XX", "MISSING_AUTHENTICATION_TOKEN", "INVALID_API_KEY",
+		"QUOTA_EXCEEDED", "THROTTLED", "UNAUTHORIZED", "ACCESS_DENIED", "REQUEST_TOO_LARGE",
+		"INTEGRATION_TIMEOUT", "INTEGRATION_FAILURE", "API_CONFIGURATION_ERROR", "AUTHORIZER_FAILURE", "WAF_FILTERED":
+		return true
+	}
+	return false
+}
 func parseGatewayResponse(kind, status string, parameters, templates map[string]string) (apigatewayexec.GatewayResponse, error) {
 	out := apigatewayexec.GatewayResponse{}
-	if kind != "DEFAULT_4XX" && kind != "DEFAULT_5XX" {
+	if !gatewayResponseImplemented(kind) {
 		return out, unsupported("gateway response type " + kind)
 	}
 	var err error
@@ -46,6 +55,21 @@ func parseGatewayResponse(kind, status string, parameters, templates map[string]
 		out.StatusCode, err = responseStatus(status)
 		if err != nil {
 			return out, err
+		}
+	} else {
+		switch kind {
+		case "MISSING_AUTHENTICATION_TOKEN", "INVALID_API_KEY", "ACCESS_DENIED", "WAF_FILTERED":
+			out.StatusCode = 403
+		case "UNAUTHORIZED":
+			out.StatusCode = 401
+		case "QUOTA_EXCEEDED", "THROTTLED":
+			out.StatusCode = 429
+		case "REQUEST_TOO_LARGE":
+			out.StatusCode = 413
+		case "INTEGRATION_TIMEOUT", "INTEGRATION_FAILURE":
+			out.StatusCode = 504
+		case "API_CONFIGURATION_ERROR", "AUTHORIZER_FAILURE":
+			out.StatusCode = 500
 		}
 	}
 	out.Headers, err = literalHeaders(parameters, "gatewayresponse.header.")
@@ -132,7 +156,7 @@ func (s *Service) deleteGatewayResponse(tx Transaction, in *api.DeleteGatewayRes
 	if err != nil {
 		return nil, err
 	}
-	if kind != "DEFAULT_4XX" && kind != "DEFAULT_5XX" {
+	if !gatewayResponseImplemented(kind) {
 		return nil, unsupported("gateway response type " + kind)
 	}
 	delete(owner.GatewayResponses, kind)

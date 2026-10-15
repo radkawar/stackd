@@ -57,7 +57,8 @@ func (r reader) service(row sqlcgen.EcsService) (domain.ServiceRecord, error) {
 		return out, err
 	}
 	if !row.DeploymentsPresent {
-		return out, nil
+		err := r.readTerraformDeployments(&out)
+		return out, err
 	}
 	k := out.Key
 	deployments, err := r.q.ListServiceDeployments(r.ctx, sqlcgen.ListServiceDeploymentsParams{
@@ -100,7 +101,8 @@ func (r reader) service(row sqlcgen.EcsService) (domain.ServiceRecord, error) {
 		out.Deployments[i] = deployment
 		out.Data.Deployments[i] = api.CloneDeployment(deployment.Data)
 	}
-	return out, nil
+	err = r.readTerraformDeployments(&out)
+	return out, err
 }
 
 func (w writer) PutService(v domain.ServiceRecord) error {
@@ -144,5 +146,5 @@ func (w writer) PutService(v domain.ServiceRecord) error {
 			}
 		}
 	}
-	return nil
+	return w.writeTerraformDeployments(v)
 }

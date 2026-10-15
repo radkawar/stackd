@@ -31,6 +31,7 @@ type Route struct {
 	WebSocketResponseEnabled            bool
 	IntegrationTimeoutMillis            int32
 	Mock                                *MockIntegration
+	HTTPProxy                           *HTTPProxyIntegration
 	BinaryMediaTypes                    []string
 	GatewayResponses                    map[string]GatewayResponse
 }

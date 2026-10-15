@@ -101,6 +101,9 @@ func (s *Service) prepareCluster(ctx context.Context, tx Transaction, v Cluster,
 		v.RestoreSnapshot = snap.RuntimeID
 	}
 	v.RuntimeID = newRuntimeID()
+	if e = s.preparePlacement(ctx, tx, &v); e != nil {
+		return v, e
+	}
 	v.Status = "creating"
 	v.Operation = "create"
 	v.Created = s.clock.Now()
@@ -119,7 +122,7 @@ func (s *Service) createCluster(ctx context.Context, tx Transaction, in *api.Cre
 	if e != nil {
 		return nil, e
 	}
-	v, e := s.prepareCluster(ctx, tx, Cluster{Key: k, Engine: value(in.Engine), EngineVersion: value(in.EngineVersion), NodeType: value(in.CacheNodeType), ParameterGroup: value(in.CacheParameterGroupName), Shards: 1, TLSEnabled: boolean(in.TransitEncryptionEnabled)}, in.Tags, value(in.SnapshotName), value(in.AuthToken))
+	v, e := s.prepareCluster(ctx, tx, Cluster{Key: k, Engine: value(in.Engine), EngineVersion: value(in.EngineVersion), NodeType: value(in.CacheNodeType), ParameterGroup: value(in.CacheParameterGroupName), Shards: 1, TLSEnabled: boolean(in.TransitEncryptionEnabled), SubnetGroup: value(in.CacheSubnetGroupName), SecurityGroups: securityGroupIDs(in.SecurityGroupIds), ClientPort: integer(in.Port, 0)}, in.Tags, value(in.SnapshotName), value(in.AuthToken))
 	if e != nil {
 		return nil, e
 	}
@@ -179,7 +182,7 @@ func (s *Service) createReplicationGroup(ctx context.Context, tx Transaction, in
 	if in.TransitEncryptionMode != nil && !boolean(in.TransitEncryptionEnabled) {
 		return nil, unsupported("TransitEncryptionMode requires transit encryption.")
 	}
-	v, e := s.prepareCluster(ctx, tx, Cluster{Key: k, Engine: value(in.Engine), EngineVersion: value(in.EngineVersion), NodeType: value(in.CacheNodeType), Description: value(in.ReplicationGroupDescription), ParameterGroup: value(in.CacheParameterGroupName), UserGroup: group, Shards: shards, Replicas: replicas, ClusterMode: clustered, TLSEnabled: boolean(in.TransitEncryptionEnabled)}, in.Tags, value(in.SnapshotName), value(in.AuthToken))
+	v, e := s.prepareCluster(ctx, tx, Cluster{Key: k, Engine: value(in.Engine), EngineVersion: value(in.EngineVersion), NodeType: value(in.CacheNodeType), Description: value(in.ReplicationGroupDescription), ParameterGroup: value(in.CacheParameterGroupName), UserGroup: group, Shards: shards, Replicas: replicas, ClusterMode: clustered, TLSEnabled: boolean(in.TransitEncryptionEnabled), SubnetGroup: value(in.CacheSubnetGroupName), SecurityGroups: securityGroupIDs(in.SecurityGroupIds), ClientPort: integer(in.Port, 0)}, in.Tags, value(in.SnapshotName), value(in.AuthToken))
 	if e != nil {
 		return nil, e
 	}

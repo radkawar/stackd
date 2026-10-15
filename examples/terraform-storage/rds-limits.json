@@ -1,0 +1,101 @@
+{
+  "terraform_version": "1.15.9",
+  "provider": {
+    "source": "hashicorp/aws",
+    "version": "6.68.0",
+    "source_revision": "c9b83d813022cdd05fc955480b07e269c6e18023",
+    "official_source": "https://github.com/hashicorp/terraform-provider-aws/tree/c9b83d813022cdd05fc955480b07e269c6e18023/internal/service/rds"
+  },
+  "terraform_lifecycle_evidence": "unverified",
+  "complete_inventory": "inventory.json contains every owned provider type and the exact lifecycle remainder; docs/terraform-provider-apis.json is authoritative. The illustrative list below is not the full remaining list.",
+  "retained_original_evidence": {
+    "configuration": ".stackd/rds-provider-proof/main.tf",
+    "report": ".stackd/rds-provider-proof/report.json",
+    "scope": "Original standalone PostgreSQL 17.11 / MySQL 8.4.11, lindm_admin underscore username, 20 to 30 requested GiB, native commit/rollback, wrong password, retained SQL and controller restart. Original evidence is not modified. Expanded fixture coverage is not a claim of an exercised run."
+  },
+  "prerequisites": {
+    "platform": "Linux, loopback native SQL, unprivileged controller port (shared runner default 14704)",
+    "controller": "Existing built bin/stackd; -rds-runtime=true; same owned SQLite installation across restart; local Docker unix:///var/run/docker.sock",
+    "services": ["sts", "rds", "rdsdata", "secretsmanager"],
+    "python": "examples/requirements.txt",
+    "postgres_client": "Host psql supporting -XqAt -w and ON_ERROR_STOP",
+    "mysql_client": "Optional Oracle MySQL CLI supporting --no-defaults --protocol=TCP --ssl-mode=DISABLED --get-server-public-key; otherwise pinned image's mysql CLI using --pull=never --network=host. The explicit loopback plaintext adapter uses RSA password exchange for uncached caching_sha2_password authentication, including wrong-password checks; it does not claim trusted remote TLS.",
+    "preinstalled_images": [
+      "postgres@sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652",
+      "mysql@sha256:0744ee5ef89ce6ccfa13de3e579fe6b9e27f93dd70da9c06d2c908b1b193fb8d"
+    ],
+    "provider_installation": "Required runner --provider-mirror prepared filesystem directory; exact source version and generated workspace lock",
+    "private_artifacts": "Run and RDS/import subdirectories mode 0700; generated password tfvars 0600; state and plans remain under private directory; reports contain no credentials or state contents"
+  },
+  "declared_resources": [
+    "aws_db_instance.native[postgres]",
+    "aws_db_instance.native[mysql]",
+    "aws_db_parameter_group.native[postgres]",
+    "aws_db_parameter_group.native[mysql]",
+    "aws_db_snapshot.native[postgres]",
+    "aws_db_snapshot.native[mysql]",
+    "aws_db_instance.restored[postgres]",
+    "aws_db_instance.restored[mysql]",
+    "aws_rds_cluster.data[postgres]",
+    "aws_rds_cluster.data[mysql]",
+    "aws_rds_cluster_instance.writer[postgres]",
+    "aws_rds_cluster_instance.writer[mysql]",
+    "aws_secretsmanager_secret.data[postgres]",
+    "aws_secretsmanager_secret.data[mysql]",
+    "aws_secretsmanager_secret_version.data[postgres]",
+    "aws_secretsmanager_secret_version.data[mysql]"
+  ],
+  "declared_data_sources": ["aws_db_instance.current", "aws_db_snapshot.current", "aws_rds_cluster.current"],
+  "native_assertions": [
+    "Exact PostgreSQL 17.11 and MySQL 8.4.11 native versions; underscore master username",
+    "Real CLI commit, rollback, retained rows, wrong password and old-password rejection after Terraform rotation",
+    "Immediate PostgreSQL statement_timeout SHOW 7s to 9s; native MySQL session wait_timeout SELECT 7000 to 9000",
+    "Terraform tagging and requested AllocatedStorage 20 to 30 GiB control intent",
+    "Repeated normal and refresh-only plans have detailed exit code zero",
+    "Independent resource import, refresh-only output reconciliation and repeated no-change refresh; secondary state relinquishes all imports without destroying resources",
+    "Manual native physical snapshots, private restore ACL read, Terraform snapshot restores retain committed SQL and exclude source writes performed after capture",
+    "Real Aurora-compatible cluster/writer owners, Data API named binding, real transactions with commit and rollback, result metadata, and cross-check through native CLI",
+    "Shared controller restart verification; Terraform destroy followed by signed API absence and empty primary state"
+  ],
+  "important_limits": {
+    "capacity": "AllocatedStorage is retained requested GiB intent, not physical allocation, reservation, filesystem resizing, quota enforcement, IOPS or throughput",
+    "aurora": "Single local native PostgreSQL/MySQL writer, not managed Aurora replication or distributed storage. Terraform creates cluster controls before their native primary writers. Empty controls have no SQL endpoint and cannot execute Data API statements. A normal refresh-only apply records the completed writer topology before separate strict no-change plans. Omitted or explicit default PromotionTier0 is supported; nonzero tiers and native writer failover remain unsupported.",
+    "password_import": "Passwords cannot be read back from RDS imports. Independent import proof is refresh-only; primary lifecycle state supplies no-change normal plans.",
+    "snapshots": "Manual local physical capture/restore only, private ACL. Cross-account/public sharing remains unsupported; DescribeDBSnapshotAttributes reads actual scoped ownership, including not-found and authorization. Attached writer deletion does not require SkipFinalSnapshot: the cluster owns snapshots. Standalone instance and cluster deletion still require SkipFinalSnapshot=true; final snapshot creation remains unsupported.",
+    "network_security": "No managed VPC/security-group isolation, TLS or IAM database authentication. Native password authentication uses loopback CLI with TLS disabled.",
+    "managed_flags": "Explicit false storage_encrypted/publicly_accessible/auto_minor_version_upgrade and zero backup_retention_period are disabled intent, not managed capabilities. Nonzero automated backup retention, true managed encryption or security-group IDs must not be accepted as implemented features."
+  },
+  "not_exercised_resources": [
+    "aws_db_subnet_group",
+    "aws_rds_cluster_parameter_group",
+    "aws_db_cluster_snapshot",
+    "aws_db_snapshot_copy",
+    "aws_rds_cluster_snapshot_copy",
+    "aws_db_proxy",
+    "aws_db_proxy_target",
+    "aws_rds_global_cluster",
+    "aws_rds_cluster_endpoint"
+  ],
+  "not_exercised_settings": [
+    "Static pending-reboot parameters",
+    "Stop/start/reboot",
+    "Deletion protection and final snapshots",
+    "Subnet groups and security groups",
+    "Engine upgrades and instance-class changes",
+    "Automated backups, PITR, backup/maintenance windows",
+    "Storage encryption, KMS, physical capacity, autoscaling, IOPS/throughput",
+    "Read replicas, failover, multi-AZ/global topology",
+    "IAM database authentication, managed master-password rotation",
+    "Serverless scaling, performance insights, monitoring and log export",
+    "Shared/public snapshot attributes"
+  ],
+  "official_references": {
+    "instance": "https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/db_instance",
+    "parameter_group": "https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/db_parameter_group",
+    "snapshot": "https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/db_snapshot",
+    "cluster": "https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/rds_cluster",
+    "writer": "https://registry.terraform.io/providers/hashicorp/aws/6.68.0/docs/resources/rds_cluster_instance",
+    "snapshot_attributes": "https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DescribeDBSnapshotAttributes.html",
+    "data_api": "https://docs.aws.amazon.com/rdsdataservice/latest/APIReference/API_ExecuteStatement.html"
+  }
+}

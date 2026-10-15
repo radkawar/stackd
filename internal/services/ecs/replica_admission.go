@@ -60,13 +60,16 @@ func serviceTaskInput(record ServiceRecord) api.RunTaskInput {
 	})
 }
 
-func (s *Service) validateServiceExecution(ctx context.Context, cluster ClusterRecord, record ServiceRecord, definition TaskDefinitionRecord) error {
+func (s *Service) validateServiceExecution(ctx context.Context, cluster ClusterRecord, record ServiceRecord, definition TaskDefinitionRecord, passRoles bool) error {
 	input := serviceTaskInput(record)
 	plan, err := s.prepareTask(ctx, &input, cluster, definition)
 	if err != nil {
 		return err
 	}
-	return s.validateTaskRoles(ctx, plan, record.Key.ARN())
+	if passRoles {
+		return s.validateTaskRoles(ctx, plan, record.Key.ARN())
+	}
+	return nil
 }
 
 func (s *Service) ensureReplicaRole(ctx context.Context) error {

@@ -1,0 +1,434 @@
+{
+  "schema_version": 1,
+  "terraform_version": "1.16.6",
+  "aws_provider_version": "6.68.0",
+  "evidence": "Partial actual native and Terraform evidence. See the variant reports. A failed strict plan is not lifecycle success.",
+  "safety": [
+    "Use an official Terraform release and the checked-in AWS 6.68.0 checksum lock with the prepared provider mirror. Do not downgrade the provider.",
+    "Install examples/requirements.txt in a caller-owned Python environment before execution.",
+    "All runs use examples/local.py local credentials, signed loopback clients and owned workspace/controller helpers. No native AWS mutation is required.",
+    "Controller account must match the explicit fixture account. The default is 738492615083. A caller-owned ASG runtime can use --account-id. Its endpoint remains running until its owner stops it.",
+    "Prepare actual images, Lambda static helpers, ECS systemd/cgroup-v2, QEMU/KVM firmware/guests, k3d and ALB relay before the applicable run. Runners never fabricate readiness or pull missing images.",
+    "Terraform creates owned IAM role/policy prerequisites with official service trust, reads them through data aws_iam_role, and destroys them after dependent compute resources. No seed database or cross-cohort role names are required.",
+    "Terraform state, token kubeconfigs and sensitive variables stay in private owned run subdirectories. Do not commit retained state or credentials. No ignore_changes masks unsupported settings.",
+    "Use a fixture-owned controller for Lambda/ECR, ECS and EKS. These fixtures stop and reopen the same controller database. Do not pass --endpoint to them.",
+    "Short-lived ECR credentials and EKS tokens use separate read-only Terraform state. Their timestamps must not change the infrastructure plan.",
+    "A failed no-change assertion remains a failure. The runner records it and continues the independent import, update, reopen and teardown stages. It raises all recorded failures before it can report lifecycle success.",
+    "ECS deployment reads use native task health and the retained rollout state. SQLite retains actual finish times and retired deployment history. A running but unhealthy task cannot produce SUCCESSFUL.",
+    "Cluster capacity updates admit only the configured FARGATE backend. SPOT and custom providers remain unsupported. A live provider-backed task or service prevents removal of its capacity association.",
+    "EKS admits the provider's disabled Auto Mode defaults. Enabled compute, load balancing and block storage remain unsupported.",
+    "ALB validates downstream HTTP header syntax after native classification, forwards actual request trailers, and half-closes a rejected client before a bounded drain. It has no classifier fallback.",
+    "ECS count updates reuse the admitted task roles. CreateService and explicit task-definition updates still check iam:PassRole. Application Auto Scaling does not need permission to pass an unchanged customer task role."
+  ],
+  "fixtures": [
+    {
+      "name": "Lambda and ECR",
+      "command": "$EXAMPLE_PYTHON examples/terraform-compute/lambda-ecr/run.py --port 14707 --provider-mirror $AWS_PROVIDER_MIRROR",
+      "owned_controller_command": "$EXAMPLE_PYTHON examples/terraform-compute/lambda-ecr/run.py --port 14707 --provider-mirror $AWS_PROVIDER_MIRROR",
+      "inventory": "lambda-ecr/support.json",
+      "consumer": "Actual Lambda ZIP/layer handler and URL bytes; published version isolation; independent authenticated OCI manifest/blob digest and extracted byte reads.",
+      "boundary": "ECR image bytes do not establish Docker pull/run or ECR-to-Lambda image deployment. Full resource/settings remainder is in support.json."
+    },
+    {
+      "name": "ECS and Application Auto Scaling",
+      "command": "$EXAMPLE_PYTHON examples/terraform-compute/ecs/run.py --port 14707 --image busybox:1.38.0 --provider-mirror $AWS_PROVIDER_MIRROR",
+      "owned_controller_command": "$EXAMPLE_PYTHON examples/terraform-compute/ecs/run.py --image busybox:1.38.0 --port 14707 --provider-mirror $AWS_PROVIDER_MIRROR",
+      "inventory": "resources.json",
+      "consumer": "Independent standalone and service containers, native PID/output, private-IP HTTP bytes, bounds reconciliation that starts a second real service container, task-definition update, import/refresh/no-change/destroy.",
+      "boundary": "No dynamic alarm execution or scheduled calendar parity claim; Linux Fargate/ROLLING only. Existing native SG/NACL packet-policy limits remain explicit."
+    },
+    {
+      "name": "EKS",
+      "command": "$EXAMPLE_PYTHON examples/terraform-compute/eks/run.py --port 14707 --pod-image busybox:1.38.0 --k3d $K3D_583 --provider-mirror $AWS_PROVIDER_MIRROR",
+      "owned_controller_command": "$EXAMPLE_PYTHON examples/terraform-compute/eks/run.py --pod-image busybox:1.38.0 --k3d $K3D_583 --port 14707 --provider-mirror $AWS_PROVIDER_MIRROR",
+      "inventory": "resources.json",
+      "consumer": "Current-provider canonical token through live IAM/RBAC and TLS proxy, malformed and wrong-host token rejection, actual CoreDNS add-on, offline image import into the exact native worker, real customer pod logs and independent pod DNS-routed service bytes, import/update/refresh/no-change/destroy.",
+      "boundary": "The native baseline uses k3s and Flannel, not AWS VPC CNI. EC2 subnet and security-group records do not enforce Kubernetes packet policy. Managed EC2 and Fargate workers, Pod Identity, EKSAuth and version upgrades are not covered. The separate authentication state disables account discovery and other remote probes. The current provider signs the canonical STS token locally. It sends no HTTP and creates no resources. The infrastructure provider discovers the account through loopback STS."
+    },
+    {
+      "name": "EC2 Auto Scaling",
+      "command": "$EXAMPLE_PYTHON examples/terraform-compute/autoscaling/run.py --endpoint http://127.0.0.1:$ASG_PORT --image-id $IMPORTED_GUEST_AMI --account-id $ASG_ACCOUNT --subnet-cidr $ASG_SUBNET --provider-mirror $AWS_PROVIDER_MIRROR",
+      "inventory": "resources.json",
+      "consumer": "Actual imported HVM/cloud-init guest with installed Python, console marker plus independently read native guest HTTP bytes, SimpleScaling starts another real guest, launch-template rolling refresh, import/refresh/no-change/destroy.",
+      "boundary": "Use a real caller-owned EC2/QEMU runtime and imported image. Select a unique account, port and subnet. The fixture does not stop that runtime."
+    },
+    {
+      "name": "EC2 network controls",
+      "command": "$EXAMPLE_PYTHON examples/terraform-compute/network-alb/run.py --port 14707 --provider-mirror $AWS_PROVIDER_MIRROR --network-only",
+      "inventory": "network-alb/inventory.json",
+      "consumer": "Independent signed SDK network read/update/delete checks plus provider import/refresh/no-change lifecycle.",
+      "boundary": "Network control records alone do not establish packet isolation or guest execution. Storage-owned EC2 resource types retain their owner pointers."
+    },
+    {
+      "name": "Application Load Balancer",
+      "command": "$EXAMPLE_PYTHON examples/terraform-compute/network-alb/run.py --port 14707 --provider-mirror $AWS_PROVIDER_MIRROR --elbv2-node-executable $ALB_RELAY --desync-executable $DESYNC_ADAPTER --image busybox:1.38.0",
+      "inventory": "network-alb/inventory.json",
+      "consumer": "Actual owned ECS target PID/log/private-IP bytes, native ALB DNS/fixed-response/healthy-target forwarding. Focused installed-library tests exercise malformed raw HTTP plus genuine client and keepalive target socket closure.",
+      "boundary": "Install the pinned official guardian through network-alb/procedure.json and use the parent CLI wiring. Defensive mode rejects an absent or failed classifier. The installed classifier passed the affected native ALB package race tests. This is not a Terraform ALB run. Mutable headers, nondefault target controls, other desync modes and advanced ALB features remain unsupported."
+    }
+  ],
+  "main_agent_checks": [
+    "go test ./internal/services/lambda ./internal/services/ecr -run '^TestTerraform' -count=1",
+    "go test ./internal/services/eks -run TestTerraformBootstrapSelfManagedAddons -count=1",
+    "go test ./internal/services/ec2 -run TestBrokerNetworkOwnershipPolicyAndReopen -count=1",
+    "go test ./internal/services/elbv2 -run 'TestTerraformLoadBalancerReadBoundaries|TestNativeClientKeepAliveFinalRequest' -count=1",
+    "go test ./internal/services/elbv2 -run TestTerraformListenerNativeAttributeBaseline -count=1",
+    "go test ./internal/services/eks -run TestTokenEndpointScopeAndClusterBinding -count=1",
+    "go test ./internal/services/elbv2 -run 'TestTargetGroupProviderDefaultAttributeAdmission|TestTargetRoundRobinScopeAndConcurrency|TestTargetDefaultsForwardAcrossZonesWithoutAffinity|TestTargetDefaultDNSHealthFailoverAndRecovery' -count=1",
+    "STACKD_HTTP_DESYNC_GUARDIAN=\"$DESYNC_ADAPTER\" go test ./compute/elbv2/desync -run '^TestNative' -count=1",
+    "STACKD_HTTP_DESYNC_GUARDIAN=\"$DESYNC_ADAPTER\" go test ./internal/services/elbv2 -run 'TestNativeDesync|TestNativePreParser' -count=1",
+    "go test ./compute/network -run TestBrokerPolicyIdentityAdmission -count=1",
+    "go test -race ./internal/services/ecs ./storage/sqlite/ecs ./internal/services/eks -count=1",
+    "Run the prepared runtime fixtures above sequentially, then record only completed stages and exercised evidence."
+  ],
+  "resource_inventories": [
+    "resources.json",
+    "lambda-ecr/support.json",
+    "network-alb/inventory.json"
+  ],
+  "claim": "Actual Lambda/ECR, ECS/Application Auto Scaling, EKS and network-only variants ran in isolated owned controllers. Runtime evidence covers only declared settings and completed stages. Strict refresh-only failures remain failures. The operation inventory is not all-service parity proof.",
+  "minimum_terraform_version": "1.15.9",
+  "completed_checks": {
+    "snapshot": "HEAD plus the completed compute files and the canonical migration prefix through 419",
+    "provider": "6.68.0 with the checked-in checksum lock",
+    "packages": [
+      "internal/services/lambda",
+      "internal/services/ecr",
+      "internal/services/eks",
+      "internal/services/ec2",
+      "internal/services/elbv2",
+      "internal/services/ecs",
+      "storage/sqlite/ecs",
+      "compute/network"
+    ],
+    "mode": "race",
+    "native_classifier": "Pinned official installed guardian used by the ELB package tests",
+    "sql": "Private sqlitegen and sqlc generation passed. Root generated files belong to the parent.",
+    "eks_final": "After the addon timestamp fix: go test -race ./internal/services/eks -count=1 passed in 61.045s. The isolated CGO_ENABLED=0 controller build passed."
+  },
+  "verification": "Affected race checks and private SQL generation passed. Actual native consumers, imports, updates, controller reopen and ordinary teardown ran. Official Terraform 1.15.9 and 1.16.6 retain an external data-state whitespace defect. The complete variant reports below distinguish strict failures, completed native stages and retained resources.",
+  "external_core_failure": {
+    "tested_official_versions": [
+      "1.15.9",
+      "1.16.6"
+    ],
+    "report": ".stackd/terraform-refresh-isolation-20261014/REPORT.txt",
+    "source_commit": "7b8f1669b95119ac6021e05c9d10eae7cf75f60b",
+    "cause": "ManagedResourcesEqual includes data resources. AttrsJSON comparison treats compact and indented JSON as unequal bytes.",
+    "parent_controls": "The built-in local terraform_remote_state case fails without AWS, stackd or an external provider. The managed terraform_data control passes.",
+    "policy": "Do not change real state, remove data sources or relax assertions. The fixture retains exit 2 and raises after cleanup."
+  },
+  "actual_variant_reports": [
+    {
+      "variant": "Lambda/ECR",
+      "core": "1.16.6",
+      "provider": "6.68.0",
+      "artifacts": ".stackd/verify-compute-final-20261014/stackd-terraform-lambda-ecr-2lrgo8ud",
+      "output": "artifact://34366",
+      "completed": [
+        "Actual ZIP, layer and URL bytes",
+        "Authenticated OCI manifest, blob and diffID bytes",
+        "Seven native imports",
+        "Configuration, code, alias and OCI update",
+        "Prior immutable version and digest isolation",
+        "Same-database controller reopen and repeated consumers",
+        "Four ordinary no-change plans returned 0",
+        "Ordinary destroy removed 17 resources",
+        "Signed Lambda, layer, ECR, IAM and log-group absence",
+        "Empty managed Terraform state"
+      ],
+      "strict_failure": "Three refresh-only plans returned 2. The parent proved the external Core defect.",
+      "retained_owned_resources": []
+    },
+    {
+      "variant": "ECS/Application Auto Scaling",
+      "core": "1.16.6",
+      "provider": "6.68.0",
+      "artifacts": ".stackd/verify-compute-final-20261014/stackd-terraform-compute-ecs-3yrpn3hu",
+      "output": "artifact://34364",
+      "completed": [
+        "Real FARGATE service and standalone task PID, logs and private-IP HTTP bytes",
+        "Native cluster import",
+        "Bounds reconciliation created a second real service task",
+        "Original scaling intent restored",
+        "Updated task definition and two service tasks executed new bytes",
+        "Same-database reopen preserved exact task PIDs and bytes",
+        "Four ordinary no-change plans returned 0",
+        "Ordinary destroy removed 13 resources",
+        "Signed API, owned-container and ENI absence",
+        "Empty managed Terraform state"
+      ],
+      "strict_failure": "Four refresh-only plans returned 2. Initial default readback also changed tags and IAM inline-policy projection. The external Core defect remains.",
+      "retained_owned_resources": [
+        "Automatic AWSServiceRoleForECS record in the private database",
+        "Automatic AWSServiceRoleForApplicationAutoScaling_ECSService record in the private database"
+      ],
+      "not_exercised": [
+        "Dynamic alarm delivery",
+        "Scheduled cron execution"
+      ]
+    },
+    {
+      "variant": "EKS",
+      "core": "1.16.6",
+      "provider": "6.68.0",
+      "artifacts": ".stackd/verify-compute-final-20261014/stackd-terraform-compute-eks-ca_9xtnu",
+      "output": "artifact://34530",
+      "completed": [
+        "Actual k3d Kubernetes cluster and ownership-verified worker",
+        "Offline Docker linux/amd64 image bytes imported through native containerd",
+        "Current Terraform provider token accepted through real TLS and IAM authentication",
+        "Malformed and wrong-host tokens rejected with TLS HTTP 401",
+        "Native create pod logs and independent pod DNS/HTTP bytes",
+        "Native cluster import",
+        "Updated deployment revision pod logs and independent DNS/HTTP bytes",
+        "Same-database controller reopen and repeated authentication, pods, DNS and HTTP consumers",
+        "Four ordinary no-change plans returned 0",
+        "Ordinary Terraform destroy left empty managed state",
+        "Additional signed EKS cluster and both owned IAM-role absence checks passed",
+        "No newly owned native Kubernetes containers remain"
+      ],
+      "strict_failure": "Four refresh-only plans returned 2. The initial plan also changed empty defaults, tags and the companion IAM inline-policy projection. Later refresh plans printed No changes. The external Core defect remains.",
+      "output_limit": "The asynchronous output ends during destroy. Final state and independent signed absence checks supply the cleanup evidence. The tool issue was reported.",
+      "retained_owned_resources": [],
+      "not_exercised": [
+        "Native VPC and security-group packet enforcement",
+        "Access-role scoped RBAC authorization",
+        "Managed EC2 node groups"
+      ]
+    },
+    {
+      "variant": "Network-only",
+      "core": "1.16.6",
+      "provider": "6.68.0",
+      "artifacts": ".stackd/verify-compute-final-20261014/stackd-terraform-network-alb-pmxzsrmi",
+      "output": "artifact://34371",
+      "completed": [
+        "Signed EC2 network consumer",
+        "Native resource imports",
+        "Update with stable resource identities",
+        "Same-database controller reopen",
+        "All refresh-only and ordinary no-change plans returned 0",
+        "Ordinary destroy removed five resources",
+        "Signed absence and empty managed Terraform state"
+      ],
+      "strict_failure": null,
+      "retained_owned_resources": [],
+      "not_exercised": [
+        "ALB Terraform",
+        "QEMU guest boot",
+        "Native packet isolation"
+      ]
+    },
+    {
+      "variant": "EC2 Auto Scaling initial genuine-guest run",
+      "core": "1.16.6",
+      "provider": "6.68.0",
+      "artifacts": ".stackd/verify-compute-final-20261014/stackd-asg-native-zz3lcy11",
+      "account": "638492615084",
+      "port": 15787,
+      "subnet": "10.195.37.0/24",
+      "completed": [
+        "Signed EBS direct-API import of 3758096384 real disk bytes in 3642 nonzero blocks",
+        "UEFI image registration from the unchanged shared base",
+        "Real first Ubuntu guest console marker and independent private-IP HTTP bytes",
+        "Native Auto Scaling group import",
+        "Post-import ordinary no-change plan returned 0",
+        "Ordinary destroy removed eight declared resources",
+        "Both EC2 member records ended terminated",
+        "Signed group, volume, interface, image and snapshot absence",
+        "Direct-plane snapshot blocks absent",
+        "SQLite snapshot and volume block and payload counts are all zero",
+        "No VM or disk files remain in the owned short state directory"
+      ],
+      "failures": [
+        "Initial refresh-only plan returned 2. Empty defaults also changed.",
+        "Initial ordinary plan returned 2. AWS provider 6.68.0 omitted configured zero cooldown during Create.",
+        "After ExecutePolicy, DescribeAutoScalingGroups exceeded the unchanged 60-second SDK deadline. No second-guest consumer pass."
+      ],
+      "diagnosis": "EC2 and EBS native work held the shared scheduler drain. Preserve this failed report. The later report uses the completed separate async-native fixes.",
+      "cleanup_correction": "DescribeImages omits the deregistered image and returns Images=[]. The existing backend contract is correct.",
+      "retained_owned_resources": []
+    },
+    {
+      "variant": "EC2 Auto Scaling coherent native replay",
+      "core": "1.16.6",
+      "provider": "6.68.0",
+      "artifacts": ".stackd/verify-compute-final-20261014/stackd-asg-native-64ki6ax5",
+      "account": "638492615085",
+      "port": 15788,
+      "subnet": "10.195.38.0/24",
+      "controller": {
+        "binary": "/home/r/dev/minor/stackd/.stackd/storage420-native-cli-20261014",
+        "source": "/home/r/dev/minor/stackd/.stackd/storage420-source-20261014",
+        "migration_prefix": 420
+      },
+      "completed": [
+        "Real sparse EBS direct-API import and UEFI image registration",
+        "Real first UEFI guest console and independent private HTTP bytes",
+        "Exact cooldown300-to-0 ordinary convergence; initial strict failure retained",
+        "Native group import",
+        "SimpleScaling started two actual guests; console/HTTP bytes passed; original desired1 restored",
+        "Launch-template update and Rolling refresh produced two actual update-byte guests",
+        "Retained refresh status Successful, percentage_complete100, instances_to_update0",
+        "Three subsequent ordinary no-change plans returned0",
+        "Ordinary Terraform destroy removed8 resources; empty managed state and signed API absence passed",
+        "Four guest scopes/TAPs and all EC2/IMDS tables, VPC DNS table and VPC bridge are absent"
+      ],
+      "strict_failures": [
+        "create refresh-only2 with empty-default readback",
+        "create ordinary2 with actual cooldown300-to-0 drift",
+        "converged refresh-only2 although it prints No changes",
+        "import refresh-only2 with empty triggers/checkpoint readback",
+        "update refresh-only2 although it prints No changes"
+      ],
+      "cooldown_evidence": {
+        "source": "Retained api_call_events.request_parameters from the actual controller, not a provider wire log.",
+        "events": [
+          {
+            "sequence": 3694,
+            "event_name": "CreateAutoScalingGroup",
+            "cooldown_type": null,
+            "cooldown": null,
+            "desired_capacity": 1
+          },
+          {
+            "sequence": 4067,
+            "event_name": "UpdateAutoScalingGroup",
+            "cooldown_type": "integer",
+            "cooldown": 0,
+            "desired_capacity": null
+          },
+          {
+            "sequence": 4145,
+            "event_name": "UpdateAutoScalingGroup",
+            "cooldown_type": null,
+            "cooldown": null,
+            "desired_capacity": null
+          },
+          {
+            "sequence": 4680,
+            "event_name": "UpdateAutoScalingGroup",
+            "cooldown_type": null,
+            "cooldown": null,
+            "desired_capacity": 2
+          },
+          {
+            "sequence": 5410,
+            "event_name": "UpdateAutoScalingGroup",
+            "cooldown_type": null,
+            "cooldown": null,
+            "desired_capacity": 0
+          }
+        ],
+        "interpretation": "Create omits defaultCooldown. The first update explicitly sends integer0. Nil still defaults to AWS300; the backend default was not changed."
+      },
+      "cleanup": {
+        "groups_absent": true,
+        "instances_terminated": true,
+        "volumes_absent": true,
+        "interfaces_absent": true,
+        "image_absent": true,
+        "snapshot_absent": true,
+        "snapshot_blocks_absent": true,
+        "physical_payload_rows_absent": true,
+        "native_vm_and_disk_files_absent": true
+      },
+      "cleanup_fixture_correction": "The initial physical counter used nonexistent generic table names after all guest work and signed deletion. This cleanup-only continuation uses the actual ebs_* tables; no guest/scaling stage was rerun.",
+      "physical_host_absence": ".stackd/verify-compute-final-20261014/stackd-asg-native-64ki6ax5/post-destroy-host-absence.json",
+      "retained_owned_resources": [],
+      "retained_metadata": "Terminated instance/reservation, image/snapshot/volume tombstones, ASG activity/refresh history, default DHCP data and historical metrics remain in the private evidence database. These are not running resources.",
+      "not_exercised": [
+        "Retained-running-guest controller reopen",
+        "ALB attachment and native traffic",
+        "Spot/mixed capacity, cron delivery and lifecycle notification parity"
+      ]
+    }
+  ],
+  "native_parent_prerequisites": {
+    "alb": [
+      "Use the parent-integrated controller with -elbv2-desync-executable wiring. The private baseline does not include that root wiring.",
+      "Use the real relay at .stackd/verify-compute-final-20261014/bin/stackd-elbv2-node.",
+      "Use .stackd/native/bin/stackd-http-desync-guardian from official pinned revision f0b15a772926ca47cf6216c73df8cfeaae02cd75.",
+      "Supply rootful Docker, cgroup v2, systemd and the native bridge/toolkit privileges. Install dig and the actual BusyBox HTTP target image.",
+      "Use --elbv2-node-executable and --desync-executable in network-alb/run.py. The runner passes -elbv2-node-executable and -elbv2-desync-executable to the parent-integrated controller. Use --image busybox:1.38.0."
+    ],
+    "qemu": [
+      "The unchanged read-only guest was imported through signed EBS direct APIs. Matching UEFI boot, SimpleScaling, Rolling replacement, console and private HTTP consumers passed.",
+      "The guest needs NVMe or virtio support, DHCP, cloud-init EC2 metadata support and Python 3.",
+      "Match the AMI boot mode to actual BIOS or UEFI firmware. Use -ec2-bios or both -ec2-uefi-code and -ec2-uefi-vars.",
+      "Supply real KVM, TUN/TAP, bridge/filter, systemd scope and native toolkit prerequisites.",
+      "Use a short persistent -ec2-state-directory. Each QMP socket path must fit the 107-byte limit.",
+      "Supply capacity for two instances and rolling-update surge. Use the expected account and explicit local credentials.",
+      "Keep /usr/sbin and /sbin in the controller PATH. Installed dnsmasq and dhcp_release are system utilities."
+    ],
+    "observed_host": [
+      "QEMU tools, dnsmasq and dhcp_release are installed.",
+      "The assigned user has kvm and docker group membership. /dev/kvm and /dev/net/tun permissions passed.",
+      "SeaBIOS is readable at /usr/share/seabios/bios-256k.bin. These observations do not prove a KVM ioctl or guest boot."
+    ],
+    "not_run": [
+      "ALB Terraform requires the parent root integration. No ALB Terraform run is claimed by this cohort."
+    ],
+    "prepared_guest_handoff": {
+      "source": "VerifyNativeStorage",
+      "path": "/home/r/dev/minor/stackd/.stackd/stackd-qemu-guest-3x9xuzht/noble-server-cloudimg-amd64.raw",
+      "release": "Official Ubuntu 24.04 immutable 20260926",
+      "sha256": "98c92ade9c5240bcc93e29e7b89f1b8219b93f7c27d2ccab06b52475d08fc1e6",
+      "firmware": [
+        "/usr/share/OVMF/OVMF_CODE_4M.fd",
+        "/usr/share/OVMF/OVMF_VARS_4M.fd"
+      ],
+      "peer_evidence": "The peer verified the official checksum and KVM_CREATE_VM. This worker later passed first-guest UEFI boot, console and HTTP consumers.",
+      "listener": "EC2 preflight requires a reachable listener. Use controller(containers=True), not a loopback-only listener.",
+      "reserved_by_peer": [
+        "port24827 from the prepared-image handoff",
+        "port24828 for the fresh EBS replay",
+        "10.194.29.0/24"
+      ]
+    },
+    "alb_command": "$EXAMPLE_PYTHON examples/terraform-compute/network-alb/run.py --stackd $PARENT_STACKD --port 15790 --elbv2-node-executable .stackd/verify-compute-final-20261014/bin/stackd-elbv2-node --desync-executable .stackd/native/bin/stackd-http-desync-guardian --image busybox:1.38.0 --provider-mirror $AWS_PROVIDER_MIRROR"
+  },
+  "source_fixes": [
+    "Persist actual ECS deployment finish times and retired history in migration 419. Register scoped deployment reads and real FARGATE capacity-provider admission.",
+    "Do not repeat iam:PassRole for an unchanged task definition during a count-only service update. Keep ordinary UpdateService authorization.",
+    "Accept only disabled EKS Auto Mode defaults. Empty log selection has no enabled streams.",
+    "Preserve EKS addon ModifiedAt during health observation. Actual operations still set the timestamp.",
+    "Import actual selected-platform image bytes directly into the ownership-verified Kubernetes worker. Official k3d import returned false success.",
+    "Select the Ready pod for the current revision before reading logs. A retiring pod is not the deployed revision.",
+    "Reject invalid downstream HTTP header names. Forward streamed trailers without copying the trailer map. Drain bounded rejected requests after write-half-close.",
+    "The ASG fixture consumes the SDK-decoded console text. It must not decode the same base64 data twice.",
+    "ASG accepts an explicit account and subnet. Shared fixture authentication checks that account.",
+    "ASG signed cleanup runs in finally, including failed native stages."
+  ],
+  "retained_artifacts": "Private databases, Terraform plans, authentication state, image archives and genuine native binaries remain under .stackd. They are evidence, not running workloads.",
+  "retained_account_defaults": [
+    "Automatic ECS and Application Auto Scaling service-linked role records remain in the ECS private database.",
+    "Default EC2 DHCP metadata remains in private databases. It is not a fixture-owned VPC or native workload.",
+    "Older unrelated stopped k3d containers were not removed."
+  ],
+  "external_provider_cooldown_failure": {
+    "source": "clones/terraform-provider-aws/internal/service/autoscaling/group.go:1182,1521",
+    "cause": "Create uses GetOk and omits configured zero. Update uses HasChange and sends zero. Nil correctly defaults to 300.",
+    "fixture_policy": "Retain the initial strict failure. Apply only the exact declared cooldown difference. Require independent strict no-change afterward.",
+    "aws_default": "The backend nil-to-300 default is unchanged."
+  },
+  "native_compute_scheduler_fix": {
+    "source": [
+      "internal/services/ec2/jobs.go",
+      "internal/services/ec2/service.go",
+      "internal/services/ec2/jobs_test.go"
+    ],
+    "behavior": "Native instance and image work runs outside the shared deadline drain. One worker runs at a time. Profile metadata deadlines remain synchronous. Shutdown cancels and joins native work. Persisted intent and generation fences remain in force.",
+    "check": "An isolated go test -race ./internal/services/ec2 -count=1 passed in 111.265 seconds. The controlled blocked-executor regression checks API and unrelated deadline progress, single-flight, shutdown and retained-launch recovery.",
+    "actual_evidence": "The canonical420 combined native replay completed real two-guest SimpleScaling, desired-capacity restoration and two updated guests. The original timed-out scaling report remains. All owned API, disk, payload and host network resources are absent.",
+    "shared_integration": {
+      "owner": "VerifyNativeStorage",
+      "manifest": ".stackd/storage-native-handoff-20261014.json",
+      "binary": ".stackd/storage420-native-cli-20261014",
+      "source": ".stackd/storage420-source-20261014",
+      "peer_reported_checks": "EC2 race107.828s, compute/ec2 race20.729s, full EBS race3.22s and coherent controller build passed.",
+      "prefix_safety": "Use only a fresh canonical420 database or its unchanged420 prefix. Do not open an older419 or omitted-migration database with this binary."
+    }
+  }
+}

@@ -112,6 +112,7 @@ func cloneAPI(v APIRecord) APIRecord {
 func cloneResource(v ResourceRecord) ResourceRecord { return v }
 func cloneMethod(v MethodRecord) MethodRecord {
 	v.Scopes = slices.Clone(v.Scopes)
+	v.RequestParameters = maps.Clone(v.RequestParameters)
 	v.Responses = maps.Clone(v.Responses)
 	for key, response := range v.Responses {
 		response.Headers = maps.Clone(response.Headers)
@@ -121,11 +122,15 @@ func cloneMethod(v MethodRecord) MethodRecord {
 }
 func cloneIntegration(v IntegrationRecord) IntegrationRecord {
 	v.Mock = cloneMock(v.Mock)
+	v.HTTPProxy = cloneHTTPProxy(v.HTTPProxy)
 	return v
 }
 func cloneAuthorizer(v AuthorizerRecord) AuthorizerRecord {
 	v.ProviderARNs = slices.Clone(v.ProviderARNs)
 	v.LambdaAuthorizer = cloneLambdaAuthorizer(v.LambdaAuthorizer)
+	if v.CognitoTTLSeconds != nil {
+		v.CognitoTTLSeconds = new(*v.CognitoTTLSeconds)
+	}
 	return v
 }
 func cloneDeployment(v DeploymentRecord) DeploymentRecord {
@@ -136,6 +141,7 @@ func cloneDeployment(v DeploymentRecord) DeploymentRecord {
 		v.Routes[i].UserPoolARNs = slices.Clone(v.Routes[i].UserPoolARNs)
 		v.Routes[i].LambdaAuthorizer = cloneLambdaAuthorizer(v.Routes[i].LambdaAuthorizer)
 		v.Routes[i].Mock = cloneMock(v.Routes[i].Mock)
+		v.Routes[i].HTTPProxy = cloneHTTPProxy(v.Routes[i].HTTPProxy)
 	}
 	return v
 }
@@ -160,6 +166,14 @@ func cloneMock(v *apigatewayexec.MockIntegration) *apigatewayexec.MockIntegratio
 	}
 	out := *v
 	out.Headers = maps.Clone(v.Headers)
+	return &out
+}
+func cloneHTTPProxy(v *apigatewayexec.HTTPProxyIntegration) *apigatewayexec.HTTPProxyIntegration {
+	if v == nil {
+		return nil
+	}
+	out := *v
+	out.PathParameters = maps.Clone(v.PathParameters)
 	return &out
 }
 func cloneLambdaAuthorizer(v *apigatewayexec.LambdaAuthorizer) *apigatewayexec.LambdaAuthorizer {

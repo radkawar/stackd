@@ -606,6 +606,19 @@ were unsupported. A startup banner and open port did not establish readiness:
 incorrect volume ownership prevented database access until corrected. Engine
 reopen observations alone do not establish crash durability or AWS conformance.
 
+Managed-key server-side encryption remains an internal native-storage gap.
+A separate probe of this pinned image accepted both managed-key selection and
+a nonexistent customer-key ARN, omitted `SSEDescription`, and persisted exact
+item payloads in a SQLite file readable without a key. Passing those settings
+through would not encrypt data. The shared native database also prevents a
+per-table envelope workaround from preserving keys, indexes and transactions.
+AWS-owned encryption and the account's AWS-managed `alias/aws/dynamodb` are
+different contracts; a decorative alias is not a substitute. Provider 6.68.0's
+separate replica read unconditionally resolves that alias, so that resource
+remains blocked even when ordinary regional replica data flows work.
+See AWS's [encryption usage notes](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/encryption.usagenotes.html)
+for key ownership, backup retention and replication requirements.
+
 The Go control owner now maps case-distinct table names to opaque native names,
 retains table/index intent in memory or SQLite, and activates resources only
 after native readiness. Selected controls, item/transaction behavior, IAM
@@ -2316,6 +2329,64 @@ remain the primary specifications. These original deployed routes do not
 establish binary payloads, custom scopes, access logging or WebSocket semantics.
 Lambda authorizer evidence and its separate boundaries are recorded below.
 
+### REST public HTTP proxy execution
+
+Native REST `PutIntegration`/`GetIntegration`/`UpdateIntegration` support a bounded
+`HTTP_PROXY` contract alongside the existing Lambda `AWS_PROXY` and literal
+`MOCK` integrations. This follows the AWS
+[HTTP proxy integration contract](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-set-up-simple-proxy.html),
+[PutIntegration fields](https://docs.aws.amazon.com/apigateway/latest/api/API_PutIntegration.html)
+and [REST header limitations](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-known-issues.html).
+Terraform AWS 6.68.0's `aws_api_gateway_integration` supplies this REST contract;
+it is not an API Gateway V2 integration.
+
+- `INTERNET` integrations accept encoded HTTP(S) URLs, standard ports 80/443 or
+  custom ports above 1024, fixed HTTP methods or `ANY`, and buffered deadlines
+  from 50 through 29,000 milliseconds. URI userinfo, fragments and dynamic
+  authority substitutions are rejected. Routing uses the instance's real
+  outbound HTTP transport and native network namespace: DNS names, IP addresses
+  and loopback receivers are reachable according to that transport. This does
+  not simulate AWS public DNS/TLD validation or provide private AWS networking.
+- The configured URI supplies the backend path, not the execute-api prefix or
+  stage. Complete `{name}` path segments require explicit
+  `integration.request.path.name = method.request.path.source` mappings and
+  declared resource path parameters. Greedy path parameters retain their slash
+  hierarchy; each component is escaped before substitution. Duplicate query
+  values and their encoding are retained and appended to fixed endpoint queries.
+  Arbitrary header/query/static-value mappings are rejected.
+- Request and response bytes, backend status, multi-valued end-to-end headers
+  and cookies pass through. Host targets the backend; Content-Length is generated
+  from buffered bytes. HEAD carries representation length without a body.
+  Missing Content-Type defaults to `application/json`. The native transport
+  preserves Content-Encoding and does not automatically negotiate/decompress
+  gzip. Redirects are returned to the consumer, never followed server-side.
+- Both directions remove hop-by-hop headers, including all Connection-nominated
+  fields; upgrades and trailers are not transported. Backend authentication
+  challenge/identity headers use `X-Amzn-Remapped-*`; gateway request IDs cannot
+  be spoofed by the backend. AWS SigV4 Authorization, gateway IAM Authorization,
+  session-token headers and inbound presigned authentication query fields are
+  not forwarded. Non-AWS backend Authorization passes through.
+- Deployment snapshots retain URI, method, path mappings and timeout independently
+  of live method/integration edits or deletion. Existing authorization, explicit
+  IAM denies, resource/account/region selection, WAF inspection and usage-plan
+  admission run before any outbound effect. WAF-inserted request headers reach
+  admitted backends. Backend errors are not rewritten as gateway responses.
+  Gateway transport failures use 502, integration deadlines use 504, and gateway
+  response customization still applies to those gateway failures.
+- Request and response bodies are bounded at 10 MiB. Cancellation closes the
+  outbound request; the integration deadline also covers response buffering.
+  `VPC_LINK`, integration credentials, TLS overrides, streaming, caching,
+  templates/VTL, content conversion, stage substitutions, extended deadlines and
+  integration-response mappings remain explicitly unsupported. Swagger import
+  remains limited to its documented Lambda/MOCK subset.
+
+Migration 418 stores typed HTTP proxy integration/deployment URI and method
+columns, bounded path-mapping child rows and declared method-path parameters.
+The owner regression cases use actual HTTP receivers for binary transport,
+duplicate headers/query values, redirects, gzip fidelity, timeout cancellation,
+WAF/authorization ordering and a retained SQLite deployment after restart.
+These cases are executable checks, not a claim of native AWS probe evidence.
+
 ### Swagger deployment and REST execution
 
 CloudFormation `AWS::ApiGateway::RestApi.Body` imports Swagger 2.0 into the
@@ -3902,8 +3973,15 @@ Trust that certificate/CA in the native client. MemoryDB defaults to TLS;
 explicit plaintext is accepted only for the open-access ACL. Authenticated
 ElastiCache resources require TLS. `-valkey-image` accepts an explicitly installed
 immutable alternative, but the runtime still verifies the native version.
-This local adapter requires Linux and a local Unix Docker daemon; endpoints bind
-loopback rather than pretending to attach a container to an AWS VPC.
+This local adapter requires Linux and a local Unix Docker daemon. Standalone
+MemoryDB endpoints bind loopback. Explicit ElastiCache placement uses real
+EC2-owned ENIs, subnet addresses and availability zones, with distinct primary
+and replica listeners on port 6379. Managed placement also requires the installed
+network toolkit and a signing CA certificate/key with valid CA constraints and
+certificate-signing usage; the runtime signs leaves for the actual private IPs.
+Current security-group, NACL, route and DHCP state governs the native policy.
+Failed policy observation quarantines the exact-owned processes rather than
+continuing with stale network authority.
 
 Embedded callers inject `Config.ValkeyRuntime` and own its close. SQLite-backed
 CLI shutdown detaches, preserving native bytes and endpoints at the same database
@@ -3969,15 +4047,27 @@ cleanup. [Earlier failed attempts](../testdata/integration/valkey_failed_attempt
 retain the actual observations and corrections rather than being counted as
 successful proof.
 
+The Terraform provider 6.68.0 managed-cache lifecycle exercised actual TLS binary
+data, read-only replication, current ACL/password/IAM denial, member tag
+propagation, ten imports, update and SQLite restart. Security-group and DHCP
+failure checks observed both native processes stopped within the strict
+90-second bound; restoring authority recovered the same node identities and
+retained bytes. Ordinary no-change plans and exact resource/native cleanup
+passed. Service-role deletion retained its active-session guard; the fixture
+advanced owned service time only after consumers, ENIs and native resources
+were absent. This does not establish AWS fleet timing or general failover.
+
 ### Remaining boundaries
 
 Local replication/AOF is not MemoryDB's distributed durable log or AWS
 multi-AZ failover. Automatic failover, live resharding, changing replication
 membership, per-member ElastiCache reboot, managed maintenance, automatic backups
 and multi-region/global/serverless controls remain explicit unsupported effects.
-Subnet membership is validated, not network isolation; security groups, VPC
-attachment, AWS-managed physical storage and customer-KMS encryption are not
-claimed. Native IAM authentication, SNS operational notifications and AWS event
+MemoryDB subnet membership remains validation, not managed VPC attachment.
+ElastiCache placement is limited to explicitly supplied subnet groups and
+security groups; default/preferred-zone placement remains unsupported.
+AWS-managed physical storage and customer-KMS encryption are not claimed.
+Native IAM authentication, SNS operational notifications and AWS event
 history require their real integration rather than metadata-only success.
 ElastiCache has documented direct serverless events; this self-designed-cluster
 implementation does not manufacture those payloads. Native filtered ACL

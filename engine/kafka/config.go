@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"maps"
 	"math/big"
 	"net"
 	"sort"
@@ -29,6 +30,14 @@ type material struct {
 	Nodes                  []nodePorts
 	Configuration          string
 	UserHashes             map[string]string
+	UsersConfirmed         bool
+	Networked              bool
+}
+
+// Hash equality alone does not prove the native credential effect: a process
+// may have died after AlterUserScramCredentials and before its marker commit.
+func usersApplied(m *material, hashes map[string]string) bool {
+	return m.UsersConfirmed && maps.Equal(m.UserHashes, hashes)
 }
 
 func newMaterial(spec msk.Specification, host string) (*material, error) {
@@ -65,6 +74,10 @@ func newMaterial(spec msk.Specification, host string) (*material, error) {
 	cert := &x509.Certificate{SerialNumber: serial, Subject: pkix.Name{CommonName: resourceName(spec, "broker")}, NotBefore: ca.NotBefore, NotAfter: ca.NotAfter, KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}, IPAddresses: []net.IP{net.ParseIP(host)}}
 	for n := int32(1); n <= spec.Brokers; n++ {
 		cert.DNSNames = append(cert.DNSNames, resourceName(spec, "broker-"+strconv.Itoa(int(n))))
+		cert.DNSNames = append(cert.DNSNames, resourceName(spec, "internal-"+strconv.Itoa(int(n))))
+		if len(spec.Networks) > 0 {
+			cert.IPAddresses = append(cert.IPAddresses, net.ParseIP(spec.Networks[n-1].Network.Address.String()))
+		}
 	}
 	der, err := x509.CreateCertificate(rand.Reader, cert, ca, &leafKey.PublicKey, key)
 	if err != nil {
@@ -75,6 +88,7 @@ func newMaterial(spec msk.Specification, host string) (*material, error) {
 		return nil, err
 	}
 	m := &material{ClusterID: base64.RawURLEncoding.EncodeToString(id), CAPEM: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caDER}), CertPEM: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), KeyPEM: pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pk}), AdminPassword: base64.RawURLEncoding.EncodeToString(password), UserHashes: map[string]string{}}
+	m.Networked = len(spec.Networks) > 0
 	return m, nil
 }
 
@@ -93,6 +107,12 @@ func configurationID(spec msk.Specification, properties map[string]string) strin
 		Renderer, Version, Security string
 		Properties                  map[string]string
 	}{"public-kraft-1", spec.KafkaVersion, spec.SecurityMode, properties})
+	if len(spec.Networks) > 0 || spec.DefaultMetrics {
+		data = append(data, []byte("/ec2-network-and-metrics-v1")...)
+	}
+	data = append(data, []byte("/runtime-admin-mtls-v1")...)
+	data = append(data, []byte("/private-quorum-dns-v1")...)
+	data = append(data, []byte("/private-admin-gateway-v1")...)
 	return fmt.Sprintf("%x", sha256.Sum256(data))
 }
 
@@ -124,20 +144,27 @@ func (d *Docker) brokerProperties(spec msk.Specification, m *material, node int,
 	}
 	voters := make([]string, len(m.Nodes))
 	for n := range m.Nodes {
-		voters[n] = fmt.Sprintf("%d@%s:9093", n+1, resourceName(spec, "broker-"+strconv.Itoa(n+1)))
+		voters[n] = fmt.Sprintf("%d@%s:9093", n+1, resourceName(spec, "internal-"+strconv.Itoa(n+1)))
 	}
 	replication := strconv.Itoa(len(m.Nodes))
 	p := map[string]string{
 		"node.id": id, "process.roles": "broker,controller", "controller.quorum.voters": strings.Join(voters, ","), "controller.listener.names": "CONTROLLER", "inter.broker.listener.name": "INTERNAL",
 		"listeners":                      "CLIENT://:9092,CONTROLLER://:9093,INTERNAL://:9094,ADMIN://:9095",
-		"advertised.listeners":           fmt.Sprintf("CLIENT://%s,INTERNAL://%s:9094,ADMIN://%s", net.JoinHostPort(d.endpointHost, strconv.Itoa(ports.Client)), resourceName(spec, "broker-"+id), net.JoinHostPort(d.endpointHost, strconv.Itoa(ports.Admin))),
+		"advertised.listeners":           fmt.Sprintf("CLIENT://%s,INTERNAL://%s:9094,ADMIN://%s", net.JoinHostPort(d.endpointHost, strconv.Itoa(ports.Client)), resourceName(spec, "internal-"+id), net.JoinHostPort(d.endpointHost, strconv.Itoa(ports.Admin))),
 		"listener.security.protocol.map": "CLIENT:" + protocol + ",CONTROLLER:SSL,INTERNAL:SSL,ADMIN:SASL_SSL",
 		"log.dirs":                       dataPath, "num.partitions": "1", "default.replication.factor": replication, "offsets.topic.replication.factor": replication, "transaction.state.log.replication.factor": replication, "transaction.state.log.min.isr": "1", "min.insync.replicas": "1", "group.initial.rebalance.delay.ms": "0",
 		"ssl.keystore.type": "PEM", "ssl.keystore.certificate.chain": string(m.CertPEM), "ssl.keystore.key": string(m.KeyPEM), "ssl.truststore.type": "PEM", "ssl.truststore.certificates": string(m.CAPEM), "ssl.client.auth": "none",
 		"listener.name.internal.ssl.client.auth": "required", "listener.name.controller.ssl.client.auth": "required",
-		"sasl.enabled.mechanisms": "SCRAM-SHA-512", "listener.name.admin.sasl.enabled.mechanisms": "SCRAM-SHA-512", "listener.name.admin.scram-sha-512.sasl.jaas.config": "org.apache.kafka.common.security.scram.ScramLoginModule required;",
+		// Kafka SASL_SSL honors client authentication only when listener-prefixed.
+		"listener.name.admin.ssl.client.auth": "required",
+		"sasl.enabled.mechanisms":             "SCRAM-SHA-512", "listener.name.admin.sasl.enabled.mechanisms": "SCRAM-SHA-512", "listener.name.admin.scram-sha-512.sasl.jaas.config": "org.apache.kafka.common.security.scram.ScramLoginModule required;",
 		"authorizer.class.name": "org.apache.kafka.metadata.authorizer.StandardAuthorizer", "allow.everyone.if.no.acl.found": "true",
 		"super.users": "User:" + adminUser + ";User:CN=" + resourceName(spec, "broker"),
+	}
+	if len(spec.Networks) > 0 {
+		address := spec.Networks[node].Network.Address.String()
+		p["listeners"] = "CLIENT://" + net.JoinHostPort(address, "9092") + ",CONTROLLER://:9093,INTERNAL://:9094,ADMIN://:9095"
+		p["advertised.listeners"] = fmt.Sprintf("CLIENT://%s,INTERNAL://%s:9094,ADMIN://%s", net.JoinHostPort(address, "9092"), resourceName(spec, "internal-"+id), net.JoinHostPort(d.endpointHost, strconv.Itoa(ports.Admin)))
 	}
 	if protocol == "SASL_SSL" {
 		p["listener.name.client.sasl.enabled.mechanisms"] = "SCRAM-SHA-512"

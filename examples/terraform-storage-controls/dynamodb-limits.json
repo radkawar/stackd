@@ -1,0 +1,526 @@
+{
+  "schema_version": 1,
+  "module": "dynamodb",
+  "terraform_version": "1.15.9",
+  "provider": {
+    "version": "6.68.0",
+    "revision": "c9b83d813022cdd05fc955480b07e269c6e18023",
+    "repository": "https://github.com/hashicorp/terraform-provider-aws"
+  },
+  "authority": "docs/terraform-provider-apis.json schema_version=2; exact managed/data-source types copied from lifecycle_inventory.provider_types. Registration is never native or Terraform lifecycle proof.",
+  "default_status": "unverified",
+  "verification_exercised": [],
+  "prerequisites": [
+    "Runner-provided owned private directory, Terraform callback/provider mirror and same SQLite on reopen; no runner/controller/engine startup in this module",
+    "Installed Terraform 1.15.9, AWS provider 6.68.0, boto3 and botocore models including DynamoDB WarmThroughput",
+    "Existing real DynamoDB Docker runtime enabled only when selected; administrator-installed amazon/dynamodb-local@sha256:ff89bd48ff32cd8d9be5fee8873b65b8854dc408f1afe881be6eb00247bc0dab; no image pulls or engine probes by fixture author",
+    "Real Kinesis Docker runtime enabled with -kinesis-runtime; installed apache/kafka@sha256:ed74d7d115968d5e8b00ba6822ac6a384cbaaf54ca38991828647000d7089b68; signed Kinesis reads must return native mutation bytes, not metadata-only success",
+    "Explicit loopback endpoint routing for DynamoDB, STS account discovery, IAM, KMS and Kinesis in both us-east-1 and us-west-2; no skip_requesting_account_id",
+    "Existing real stream owner plus DynamoDB Kinesis/replication service-linked IAM roles; target current IAM is not bypassed",
+    "Manual controller clock and POST /_stackd/clock {advance: duration}; normal Terraform API commands get an explicit1s admission advance and an owned command-lifetime ticker. Every advance records its command, phase and resulting time in private clock-events.jsonl. Direct capacity/throttling and historical snapshot assertions remain controlled without this ticker; replica-source deletion still advances24 service hours",
+    "Optional aws_dynamodb_table_replica Read needs real AWS-managed us-west-2 alias/aws/dynamodb. The owner lacks the DynamoDB managed-key/encryption lifecycle; this is an unsupported product feature, not an external environment blocker. Public CreateAlias cannot manufacture reserved aliases, and AWS-owned encryption is not AWS-managed-key support. The optional scenario remains explicitly unverified without this real feature."
+  ],
+  "type_inventory": [
+    {
+      "terraform_type": "aws_dynamodb_backups",
+      "kind": "data_source",
+      "framework": "framework",
+      "source_files": [
+        "internal/service/dynamodb/backups_data_source.go"
+      ],
+      "static_api_gaps": [],
+      "lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "owner_contract": "ListBackups; signed immutable backup ARN discovery",
+      "owner_sources": [
+        "internal/services/dynamodb/backups.go",
+        "internal/services/dynamodb/engine_backups.go"
+      ],
+      "fixture_settings": [
+        "table_name",
+        "backup_type"
+      ],
+      "remaining_settings": [
+        "time_range_lower_bound",
+        "time_range_upper_bound",
+        "pagination beyond one owned backup"
+      ]
+    },
+    {
+      "terraform_type": "aws_dynamodb_table",
+      "kind": "data_source",
+      "framework": "sdk",
+      "source_files": [
+        "internal/service/dynamodb/table_data_source.go"
+      ],
+      "static_api_gaps": [],
+      "lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "owner_contract": "Typed table admission/native create-update-delete; immutable backup/PITR copy; native regional replicas; capacity admission; real TTL and Streams",
+      "owner_sources": [
+        "internal/services/dynamodb/tables.go",
+        "internal/services/dynamodb/tables_validation.go",
+        "internal/services/dynamodb/tables_update.go",
+        "internal/services/dynamodb/engine_tables.go",
+        "internal/services/dynamodb/backups_restore.go",
+        "internal/services/dynamodb/recovery_restore.go",
+        "internal/services/dynamodb/engine_recovery.go",
+        "internal/services/dynamodb/replication_bootstrap.go",
+        "internal/services/dynamodb/replication_delivery.go",
+        "internal/services/dynamodb/admission.go",
+        "internal/services/dynamodb/ttl_worker.go",
+        "internal/services/dynamodb/streams_engine.go"
+      ],
+      "fixture_settings": ["name"],
+      "remaining_settings": []
+    },
+    {
+      "terraform_type": "aws_dynamodb_table_item",
+      "kind": "data_source",
+      "framework": "sdk",
+      "source_files": [
+        "internal/service/dynamodb/table_item_data_source.go"
+      ],
+      "static_api_gaps": [],
+      "lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "owner_contract": "Real native item read/update/delete; Terraform data source independently reads current revision",
+      "owner_sources": [
+        "internal/services/dynamodb/data.go",
+        "internal/services/dynamodb/data_partiql.go",
+        "internal/services/dynamodb/engine_calls.go"
+      ],
+      "fixture_settings": ["table_name", "key"],
+      "remaining_settings": ["numeric/binary/composite key JSON", "nested collection item decoding"]
+    },
+    {
+      "terraform_type": "aws_dynamodb_tables",
+      "kind": "data_source",
+      "framework": "framework",
+      "source_files": [
+        "internal/service/dynamodb/tables_data_source.go"
+      ],
+      "static_api_gaps": [],
+      "lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "owner_contract": "Typed ListTables inventory",
+      "owner_sources": [
+        "internal/services/dynamodb/tables.go"
+      ],
+      "fixture_settings": [],
+      "remaining_settings": [
+        "multi-page inventories"
+      ]
+    },
+    {
+      "terraform_type": "aws_dynamodb_contributor_insights",
+      "kind": "resource",
+      "framework": "sdk",
+      "source_files": [
+        "internal/service/dynamodb/contributor_insights.go"
+      ],
+      "static_api_gaps": [
+        "dynamodb/DescribeContributorInsights:unimplemented",
+        "dynamodb/UpdateContributorInsights:unimplemented"
+      ],
+      "lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "owner_contract": "Absent owner/API family",
+      "owner_sources": [],
+      "fixture_settings": [],
+      "remaining_settings": [
+        "mode",
+        "index_name",
+        "table_name"
+      ]
+    },
+    {
+      "terraform_type": "aws_dynamodb_global_secondary_index",
+      "kind": "resource",
+      "framework": "framework",
+      "source_files": [
+        "internal/service/dynamodb/global_secondary_index.go"
+      ],
+      "static_api_gaps": [],
+      "lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "owner_contract": "UpdateTable admission, native GSI backfill/query and current throughput",
+      "owner_sources": [
+        "internal/services/dynamodb/tables_update.go",
+        "internal/services/dynamodb/engine_update.go",
+        "internal/services/dynamodb/engine_tables.go",
+        "internal/services/dynamodb/admission.go"
+      ],
+      "fixture_settings": [
+        "table_name",
+        "index_name",
+        "key_schema.attribute_name",
+        "key_schema.attribute_type",
+        "key_schema.key_type",
+        "projection.projection_type",
+        "provisioned_throughput.read_capacity_units",
+        "provisioned_throughput.write_capacity_units"
+      ],
+      "remaining_settings": [
+        "on_demand_throughput.max_read_request_units",
+        "on_demand_throughput.max_write_request_units",
+        "projection.non_key_attributes",
+        "projection.projection_type=INCLUDE|KEYS_ONLY",
+        "multiple HASH/RANGE keys",
+        "structural index replacement"
+      ]
+    },
+    {
+      "terraform_type": "aws_dynamodb_global_table",
+      "kind": "resource",
+      "framework": "sdk",
+      "source_files": [
+        "internal/service/dynamodb/global_table.go"
+      ],
+      "static_api_gaps": [],
+      "lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "owner_contract": "Retired 2017.11.29 API explicitly rejects creation, never aliases modern UpdateTable groups",
+      "owner_sources": [
+        "internal/services/dynamodb/global_tables.go"
+      ],
+      "fixture_settings": [],
+      "remaining_settings": [
+        "No successful lifecycle: name and replica.region_name use legacy CreateGlobalTable/UpdateGlobalTable APIs"
+      ]
+    },
+    {
+      "terraform_type": "aws_dynamodb_kinesis_streaming_destination",
+      "kind": "resource",
+      "framework": "sdk",
+      "source_files": [
+        "internal/service/dynamodb/kinesis_streaming_destination.go"
+      ],
+      "static_api_gaps": [],
+      "lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "owner_contract": "Native mutation captures feed real Kinesis PutRecords as current service-linked identity; signed stream consumer reads double-base64 binary image",
+      "owner_sources": [
+        "internal/services/dynamodb/kinesis_controls.go",
+        "internal/services/dynamodb/kinesis_mutation.go",
+        "internal/services/dynamodb/kinesis_jobs.go"
+      ],
+      "fixture_settings": [
+        "table_name",
+        "stream_arn",
+        "approximate_creation_date_time_precision=MICROSECOND"
+      ],
+      "remaining_settings": [
+        "approximate_creation_date_time_precision=MILLISECOND",
+        "replacement precision change and finite overlap/drain delivery windows",
+        "current target IAM/KMS revocation during delivery"
+      ]
+    },
+    {
+      "terraform_type": "aws_dynamodb_resource_policy",
+      "kind": "resource",
+      "framework": "framework",
+      "source_files": [
+        "internal/service/dynamodb/resource_policy.go"
+      ],
+      "static_api_gaps": [],
+      "lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "owner_contract": "Typed policy revision and current IAM/resource authorization",
+      "owner_sources": [
+        "internal/services/dynamodb/policies.go",
+        "internal/services/dynamodb/authorization.go"
+      ],
+      "fixture_settings": [
+        "resource_arn",
+        "policy"
+      ],
+      "remaining_settings": [
+        "confirm_remove_self_resource_access=true",
+        "stream policies",
+        "cross-account grants",
+        "expected-revision concurrency"
+      ]
+    },
+    {
+      "terraform_type": "aws_dynamodb_table",
+      "kind": "resource",
+      "framework": "sdk",
+      "source_files": [
+        "internal/service/dynamodb/table.go"
+      ],
+      "static_api_gaps": [
+        "dynamodb/ImportTable:unimplemented"
+      ],
+      "lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "owner_contract": "Typed table admission/native create-update-delete; immutable backup/PITR copy; native regional replicas; capacity admission; real TTL and Streams",
+      "owner_sources": [
+        "internal/services/dynamodb/tables.go",
+        "internal/services/dynamodb/tables_validation.go",
+        "internal/services/dynamodb/tables_update.go",
+        "internal/services/dynamodb/engine_tables.go",
+        "internal/services/dynamodb/backups_restore.go",
+        "internal/services/dynamodb/recovery_restore.go",
+        "internal/services/dynamodb/engine_recovery.go",
+        "internal/services/dynamodb/replication_bootstrap.go",
+        "internal/services/dynamodb/replication_delivery.go",
+        "internal/services/dynamodb/admission.go",
+        "internal/services/dynamodb/ttl_worker.go",
+        "internal/services/dynamodb/streams_engine.go"
+      ],
+      "fixture_settings": [
+        "name",
+        "hash_key",
+        "attribute.name",
+        "attribute.type",
+        "billing_mode",
+        "read_capacity",
+        "write_capacity",
+        "on_demand_throughput.max_read_request_units",
+        "on_demand_throughput.max_write_request_units",
+        "deletion_protection_enabled",
+        "global_secondary_index.name",
+        "global_secondary_index.key_schema.attribute_name",
+        "global_secondary_index.key_schema.key_type",
+        "global_secondary_index.projection_type",
+        "stream_enabled",
+        "stream_view_type",
+        "point_in_time_recovery.enabled",
+        "point_in_time_recovery.recovery_period_in_days",
+        "ttl.attribute_name",
+        "ttl.enabled",
+        "restore_backup_arn",
+        "restore_source_table_arn",
+        "restore_date_time",
+        "replica.region_name",
+        "replica.consistency_mode=EVENTUAL",
+        "replica.point_in_time_recovery",
+        "replica.propagate_tags",
+        "tags"
+      ],
+      "remaining_settings": [
+        "range_key",
+        "local_secondary_index.*",
+        "global_secondary_index.non_key_attributes",
+        "global_secondary_index.projection_type=INCLUDE|KEYS_ONLY",
+        "global_secondary_index.on_demand_throughput.*",
+        "restore_source_name",
+        "restore_to_latest_time",
+        "replica.deletion_protection_enabled",
+        "billing_mode transitions",
+        "S|N|B composite key variants",
+        "retention compaction and pagination under large history",
+        "multi-replica conflict resolution and Application Auto Scaling effects"
+      ]
+    },
+    {
+      "terraform_type": "aws_dynamodb_table_export",
+      "kind": "resource",
+      "framework": "sdk",
+      "source_files": [
+        "internal/service/dynamodb/table_export.go"
+      ],
+      "static_api_gaps": [
+        "dynamodb/DescribeExport:unimplemented",
+        "dynamodb/ExportTableToPointInTime:unimplemented"
+      ],
+      "lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "owner_contract": "Absent owner/API family",
+      "owner_sources": [],
+      "fixture_settings": [],
+      "remaining_settings": [
+        "table_arn",
+        "export_format",
+        "export_time",
+        "export_type",
+        "incremental_export_specification.export_from_time",
+        "incremental_export_specification.export_to_time",
+        "incremental_export_specification.export_view_type",
+        "s3_bucket",
+        "s3_bucket_owner",
+        "s3_prefix",
+        "s3_sse_algorithm",
+        "s3_sse_kms_key_id"
+      ]
+    },
+    {
+      "terraform_type": "aws_dynamodb_table_item",
+      "kind": "resource",
+      "framework": "sdk",
+      "source_files": [
+        "internal/service/dynamodb/table_item.go"
+      ],
+      "static_api_gaps": [],
+      "lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "owner_contract": "Real native item read/update/delete; Terraform data source independently reads current revision",
+      "owner_sources": [
+        "internal/services/dynamodb/data.go",
+        "internal/services/dynamodb/data_partiql.go",
+        "internal/services/dynamodb/engine_calls.go"
+      ],
+      "fixture_settings": [
+        "table_name",
+        "hash_key",
+        "item"
+      ],
+      "remaining_settings": [
+        "range_key",
+        "hash_key_value numeric/binary import",
+        "range_key_value",
+        "nested collection and transactional item variants"
+      ]
+    },
+    {
+      "terraform_type": "aws_dynamodb_table_replica",
+      "kind": "resource",
+      "framework": "sdk",
+      "source_files": [
+        "internal/service/dynamodb/table_replica.go"
+      ],
+      "static_api_gaps": [],
+      "lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "owner_contract": "Real regional UpdateTable owner, gated by provider Read mandatory KMS default-key dependency",
+      "owner_sources": [
+        "internal/services/dynamodb/replication_controls.go",
+        "internal/services/dynamodb/replication_bootstrap.go",
+        "internal/services/dynamodb/replication_description.go",
+        "internal/services/dynamodb/replication_delivery.go"
+      ],
+      "fixture_settings": [
+        "global_table_arn",
+        "point_in_time_recovery",
+        "tags (only if the genuine DynamoDB AWS-managed-key lifecycle is available)"
+      ],
+      "remaining_settings": [
+        "Unsupported DynamoDB AWS-managed-key lifecycle leaves the required regional alias/aws/dynamodb unavailable; separate replica provider Read remains explicitly unverified",
+        "deletion_protection_enabled",
+        "kms_key_arn",
+        "table_class_override"
+      ]
+    },
+    {
+      "terraform_type": "aws_dynamodb_tag",
+      "kind": "resource",
+      "framework": "sdk",
+      "source_files": [
+        "internal/service/dynamodb/tag_gen.go"
+      ],
+      "static_api_gaps": [],
+      "lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "owner_contract": "Typed independent tag writer, excluded from parent tag management using provider ignore_tags keys (not Terraform ignore_changes)",
+      "owner_sources": [
+        "internal/services/dynamodb/tags.go"
+      ],
+      "fixture_settings": [
+        "resource_arn",
+        "key",
+        "value"
+      ],
+      "remaining_settings": [
+        "invalid/reserved tag key rejection and quota boundaries"
+      ]
+    }
+  ],
+  "native_effect_boundaries": {
+    "implemented_controls": [
+      "Native DynamoDB Local item/table/GSI data and provisioned throughput settings; Go-owner five-minute deterministic burst admission charges real engine capacity for provisioned/on-demand maximums",
+      "Immutable native backup copy pins physical source incarnation; PITR accepted target pins interval plus maximum retained sequence before later mutations",
+      "Regional replica bootstrap pins source database/physical table/schema and snapshot versions; delivery incarnation guards and typed cursor transitions survive SQLite reopen",
+      "TTL actual native deletion and regional replication, binary DynamoDB Streams and Kinesis destination consumers, resource policy/current IAM authorization and independent tag transitions"
+    ],
+    "rejected_settings": [
+      "aws_dynamodb_table.server_side_encryption.enabled and kms_key_arn (all explicit SSE including disabled specification)",
+      "aws_dynamodb_table.replica.kms_key_arn and aws_dynamodb_table_replica.kms_key_arn",
+      "aws_dynamodb_table.warm_throughput.* and inline/standalone global_secondary_index warm_throughput.*",
+      "aws_dynamodb_table.table_class=STANDARD_INFREQUENT_ACCESS and aws_dynamodb_table_replica.table_class_override=STANDARD_INFREQUENT_ACCESS: native adapter strips class, no storage-tier/pricing owner; default STANDARD remains accepted",
+      "aws_dynamodb_table.replica.consistency_mode=STRONG, global_table_witness.region_name; MRSC/witnesses and multi-account settings mode",
+      "Cross-region backup/PITR restore; vector indexes; source global-table settings replication mode"
+    ],
+    "not_claimed": [
+      "Cloud physical partition allocation, AWS quota default on-demand admission, pricing or a paid AWS native oracle",
+      "Replica provisioned autoscaling is an existing distinct Application Auto Scaling owner; fixture uses PAY_PER_REQUEST replicas and does not claim that contract verified",
+      "Computed warm-throughput baseline is descriptive; explicit provisioned warm settings remain rejected"
+    ]
+  },
+  "gaps": [
+    {
+      "type": "aws_dynamodb_contributor_insights",
+      "operations": [
+        "DescribeContributorInsights",
+        "UpdateContributorInsights"
+      ],
+      "status": "unimplemented"
+    },
+    {
+      "type": "aws_dynamodb_table_export",
+      "operations": [
+        "DescribeExport",
+        "ExportTableToPointInTime"
+      ],
+      "status": "unimplemented"
+    },
+    {
+      "type": "aws_dynamodb_table.import_table",
+      "operations": [
+        "ImportTable",
+        "DescribeImport"
+      ],
+      "status": "unimplemented"
+    },
+    {
+      "type": "aws_dynamodb_table_replica",
+      "status": "unsupported-default-managed-key-read",
+      "reason": "Provider6.68 Read requires the real regional AWS-managed alias/aws/dynamodb. Complete lazy service-key provisioning, current KMS policy/GenerateDataKey/Decrypt authorization and native table/replica/backup/restore/reopen/retirement ownership are missing; a customer alias or AWS-owned encryption is not a substitute."
+    },
+    {
+      "type": "aws_dynamodb_global_table",
+      "status": "unsupported-retired-legacy-api",
+      "reason": "Do not label legacy registered errors as positive global table lifecycle support; modern inline/separate replicas use UpdateTable"
+    }
+  ],
+  "exact_unimplemented_import_settings": [
+    "aws_dynamodb_table.import_table.input_compression_type",
+    "aws_dynamodb_table.import_table.input_format",
+    "aws_dynamodb_table.import_table.input_format_options.csv.delimiter",
+    "aws_dynamodb_table.import_table.input_format_options.csv.header_list",
+    "aws_dynamodb_table.import_table.s3_bucket_source.bucket",
+    "aws_dynamodb_table.import_table.s3_bucket_source.bucket_owner",
+    "aws_dynamodb_table.import_table.s3_bucket_source.key_prefix"
+  ],
+  "fixture_procedure": [
+    "init; initial native create and real item/GSI; enable PITR after manual-time initialization; insert binary source item; create/read immutable backup",
+    "Select current explicit PITR point; advance clock before source mutation; Terraform backup/PITR restore and regional inline replica bootstrap; independent binary reads and target mutation isolation",
+    "AWS restore does not copy source tags. After both restore waiters finish, a normal refresh-only apply settles read-only data-source outputs. This is distinct from the later strict no-change checks. The pinned provider leaves declared target tags for a later update. Save and inspect that exact plan, accept only empty-to-declared tags/tags_all updates on the two owned restore resources, reject unrelated or unknown resource/output changes, then apply the saved plan.",
+    "Update base/GSI provisioned throughput and on-demand maxima, retention, policy, tags, item and enforced deletion protection; consume signed Streams/Kinesis images and TTL removals",
+    "Private owned state-byte backup before each state rm/import; failed import restores exact prior state before normal owned destroy. Import table, item, GSI, policy, tag, stream destination, real stream/IAM owner IDs and optional replica",
+    "Each apply, destroy, plan, import or refresh can reread data sources and consume the real ListBackups5TPS budget. Advance1s before that command and tick only for its lifetime, rather than relaxing limits or assuming an admission advance covers all requests. Keep strict no-change assertions unchanged.",
+    "Native GSI readiness comes from its actual ACTIVE index state, not ACTIVE table state or elapsed time. Pending native changes survive controller reopen without repeated mutations; retained unfinished index projections are reconciled from the existing native engine.",
+    "Refresh-only apply and no-change detailed plan; remove/re-add inline replica after service-time 24h and prove new native TableId; retain retired incarnation evidence",
+    "Runner reopen invokes verify(endpoint=None) against same persisted SQLite/native databases; outputs, native binary copies, isolation, current IAM, throughput and no-change refresh asserted again",
+    "Disable actual deletion protection then normal destroy; delete exact-owned USER backups in both signed regions. SYSTEM backups reject user deletion, so advance owned service time past their reported BackupExpiryDateTime and assert signed absence. Retained Streams also reach their24h expiry before exact native DynamoDB/Kinesis identity cleanup checks."
+  ],
+  "import_limits": [
+    "Restore target create-only restore_date_time cannot be reconstructed by provider Read after import; restored tables intentionally keep owned state while all other named IDs undergo safe import",
+    "No state file rewrites to suppress differences, no ignore_changes, downgrade or provider lifecycle shims"
+  ],
+  "evidence_files": [
+    "dynamodb/native-evidence.json (0600): observed table incarnation IDs, retired replica ID, snapshot/live SHA256, backup ARN and accepted historical point",
+    "dynamodb/before-import-N.tfstate (0600): owned pre-removal state bytes; secrets never command argv or reported outputs",
+    "dynamodb/clock-events.jsonl (0600): every normal Terraform1s advance, preceding/in-flight command and resulting persisted service time"
+  ],
+  "implementation_changes": [
+    "internal/services/dynamodb/tables_validation.go rejects non-default infrequent-access class before native admission; shared validation covers create/update/replica and restore input paths",
+    "internal/services/dynamodb/engine_unavailable_test.go adds default-class acceptance/non-default class rejection coverage; not executed"
+  ],
+  "checks_for_main": [
+    "gofmt affected Go tests; targeted DynamoDB owner unit tests and build",
+    "Python syntax and Terraform validate with pinned CLI/provider",
+    "Runner dynamodb selection apply/update/safe-import/no-change/reopen/destroy with installed native prerequisites; evaluate every status only from real run",
+    "Exact-owned native database/container/volume retirement after SYSTEM backup cleanup; unrelated Docker resources must remain unchanged"
+  ]
+}

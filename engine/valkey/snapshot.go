@@ -39,6 +39,9 @@ func (d *Docker) Snapshot(ctx context.Context, spec Specification, id string) er
 		return err
 	}
 	defer d.unlock()
+	if spec.ClusterARN != "" {
+		return d.snapshotManaged(ctx, spec, id)
+	}
 	s, err := d.inspect(ctx, spec.ID)
 	if err != nil {
 		return err
@@ -50,6 +53,13 @@ func (d *Docker) Snapshot(ctx context.Context, spec Specification, id string) er
 	if err != nil {
 		return err
 	}
+	return d.snapshotNative(ctx, m, func(script string) error {
+		_, err := d.copyHelper(ctx, spec.ID, "data", id, "snapshot", script)
+		return err
+	})
+}
+
+func (d *Docker) snapshotNative(ctx context.Context, m manifest, copyData func(string) error) error {
 	deployment, err := d.currentDeployment(ctx, m)
 	if err != nil {
 		return err
@@ -93,8 +103,7 @@ func (d *Docker) Snapshot(ctx context.Context, spec Specification, id string) er
 		fmt.Fprintf(&script, "cp /source/node-%d/dump.rdb /target/shard-%d.rdb\n", i, shard)
 	}
 	fmt.Fprintf(&script, "printf '%%s' '%d' > /target/shards\nchmod 600 /target/*\nsync\ntouch /target/complete\nsync\n", m.Shards)
-	_, err = d.copyHelper(ctx, spec.ID, "data", id, "snapshot", script.String())
-	return err
+	return copyData(script.String())
 }
 func (d *Docker) CopySnapshot(ctx context.Context, sourceID, targetID string) error {
 	if sourceID == "" || targetID == "" || sourceID == targetID {
@@ -115,6 +124,9 @@ func (d *Docker) Restore(ctx context.Context, spec Specification, snapshotID str
 		return Deployment{}, err
 	}
 	defer d.unlock()
+	if spec.ClusterARN != "" {
+		return d.restoreManaged(ctx, spec, snapshotID)
+	}
 	existing, err := d.inspect(ctx, spec.ID)
 	if err == nil {
 		if err = d.checkContainer(existing, spec.ID); err != nil {
@@ -125,19 +137,23 @@ func (d *Docker) Restore(ctx context.Context, spec Specification, snapshotID str
 	if !dockerStatus(err, 404) {
 		return Deployment{}, err
 	}
-	var script strings.Builder
-	fmt.Fprintf(&script, "test -f /source/complete\ntest \"$(cat /source/shards)\" = '%d'\n", spec.Shards)
-	for shard := int32(0); shard < spec.Shards; shard++ {
-		node := shard * (spec.Replicas + 1)
-		// With AOF enabled, a bare dump.rdb is not authoritative at startup.
-		// Seed Valkey's documented multipart-AOF RDB base and manifest instead.
-		fmt.Fprintf(&script, "mkdir -p /target/node-%d/appendonlydir\ncp /source/shard-%d.rdb /target/node-%d/appendonlydir/appendonly.aof.1.base.rdb\nprintf 'file appendonly.aof.1.base.rdb seq 1 type b\\n' > /target/node-%d/appendonlydir/appendonly.aof.manifest\nchown -R 999:1000 /target/node-%d\n", node, shard, node, node, node)
-	}
-	script.WriteString("sync\n")
-	if _, err = d.copyHelper(ctx, snapshotID, "snapshot", spec.ID, "data", script.String()); err != nil {
+	script := restoreScript(spec)
+	if _, err = d.copyHelper(ctx, snapshotID, "snapshot", spec.ID, "data", script); err != nil {
 		return Deployment{}, fmt.Errorf("restore native snapshot with %s shards: %w", strconv.Itoa(int(spec.Shards)), err)
 	}
 	return d.ensure(ctx, spec)
+}
+
+func restoreScript(spec Specification) string {
+	var script strings.Builder
+	fmt.Fprintf(&script, "test -f /source/complete\ntest \"$(cat /source/shards)\" = '%d'\n", spec.Shards)
+	for shard := range spec.Shards {
+		node := shard * (spec.Replicas + 1)
+		// Seed the multipart-AOF RDB base, not an ignored bare dump.rdb.
+		fmt.Fprintf(&script, "mkdir -p /target/node-%d/appendonlydir\ncp /source/shard-%d.rdb /target/node-%d/appendonlydir/appendonly.aof.1.base.rdb\nprintf 'file appendonly.aof.1.base.rdb seq 1 type b\\n' > /target/node-%d/appendonlydir/appendonly.aof.manifest\nchown -R 999:1000 /target/node-%d\n", node, shard, node, node, node)
+	}
+	script.WriteString("sync\n")
+	return script.String()
 }
 func (d *Docker) DeleteSnapshot(ctx context.Context, id string) error {
 	if err := d.lock(ctx); err != nil {

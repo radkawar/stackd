@@ -14,6 +14,7 @@ func (c *ClassicService) registerIdentities() {
 	registerClassic(c, "DeleteIdentity", c.deleteIdentity)
 	registerClassic(c, "DeleteVerifiedEmailAddress", c.deleteVerifiedEmailAddress)
 	registerClassic(c, "GetIdentityVerificationAttributes", c.getIdentityVerificationAttributes)
+	registerClassic(c, "GetIdentityNotificationAttributes", c.getIdentityNotificationAttributes)
 	registerClassic(c, "PutIdentityPolicy", c.putIdentityPolicy)
 	registerClassic(c, "GetIdentityPolicies", c.getIdentityPolicies)
 	registerClassic(c, "ListIdentityPolicies", c.listIdentityPolicies)
@@ -129,6 +130,39 @@ func (c *ClassicService) getIdentityVerificationAttributes(tx Transaction, in *c
 			status = classic.VerificationStatusFailed
 		}
 		out.VerificationAttributes[name] = classic.IdentityVerificationAttributes{VerificationStatus: new(status)}
+	}
+	return out, nil
+}
+
+// Read the shared email identity's default feedback configuration without
+// claiming SNS topic delivery. Mutating feedback controls remains unsupported.
+func (c *ClassicService) getIdentityNotificationAttributes(tx Transaction, in *classic.GetIdentityNotificationAttributesInput) (*classic.GetIdentityNotificationAttributesOutput, error) {
+	out := &classic.GetIdentityNotificationAttributesOutput{NotificationAttributes: classic.NotificationAttributes{}}
+	if len(in.Identities) == 0 {
+		if e := c.owner.authorize(tx, "GetIdentityNotificationAttributes", "*", nil, nil); e != nil {
+			return nil, e
+		}
+	}
+	for _, name := range in.Identities {
+		key := ResourceKey{scopeFor(tx.Context()), string(name)}
+		id, e := tx.Identity(key)
+		if e != nil && !errors.Is(e, ErrNotFound) {
+			return nil, e
+		}
+		if authErr := c.owner.authorize(tx, "GetIdentityNotificationAttributes", key.ARN("identity"), id.Tags, nil); authErr != nil {
+			return nil, authErr
+		}
+		if errors.Is(e, ErrNotFound) {
+			continue
+		}
+		if e = observeCloudFormationResource(tx.Context(), key.ARN("identity"), id.Owner); e != nil {
+			return nil, e
+		}
+		out.NotificationAttributes[name] = classic.IdentityNotificationAttributes{
+			BounceTopic: new(classic.NotificationTopic("")), ComplaintTopic: new(classic.NotificationTopic("")), DeliveryTopic: new(classic.NotificationTopic("")),
+			ForwardingEnabled:                   new(classic.Enabled(true)),
+			HeadersInBounceNotificationsEnabled: new(classic.Enabled(false)), HeadersInComplaintNotificationsEnabled: new(classic.Enabled(false)), HeadersInDeliveryNotificationsEnabled: new(classic.Enabled(false)),
+		}
 	}
 	return out, nil
 }

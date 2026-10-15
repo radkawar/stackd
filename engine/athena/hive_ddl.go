@@ -30,6 +30,8 @@ type HiveDDL struct {
 	Kind                             string   `json:"kind"`
 	Identifier                       []string `json:"identifier"`
 	IfNotExists                      bool     `json:"ifNotExists"`
+	IfExists                         bool     `json:"ifExists"`
+	Cascade                          bool     `json:"cascade"`
 	External                         bool     `json:"external"`
 	Location, Comment                string
 	Columns                          []DDLColumn       `json:"columns"`

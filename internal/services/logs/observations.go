@@ -65,6 +65,8 @@ func recorded(name string) bool {
 	switch name {
 	case "CreateLogGroup", "DeleteLogGroup", "DescribeLogGroups", "ListLogGroups", "CreateLogStream", "DeleteLogStream", "DescribeLogStreams", "GetLogEvents", "FilterLogEvents", "TagResource", "UntagResource", "ListTagsForResource", "ListTagsLogGroup", "PutRetentionPolicy", "DeleteRetentionPolicy":
 		return true
+	case "PutLogGroupDeletionProtection":
+		return true
 	case "PutResourcePolicy", "DescribeResourcePolicies", "DeleteResourcePolicy":
 		return true
 	case "PutSubscriptionFilter", "DescribeSubscriptionFilters", "DeleteSubscriptionFilter":

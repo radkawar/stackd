@@ -23,6 +23,28 @@ func resourceTags(tx Transaction, k Key) (map[string]string, func(map[string]str
 	switch k.Kind {
 	case "cluster", "replicationgroup":
 		v, e := tx.Cluster(k)
+		if k.Kind == "cluster" && errors.Is(e, ErrNotFound) {
+			groups, err := tx.Clusters(k.Scope)
+			if err != nil {
+				return nil, nil, err
+			}
+			for _, group := range groups {
+				if group.Key.Kind != "replicationgroup" {
+					continue
+				}
+				for _, node := range group.Nodes {
+					if memberName(group, node) != k.Name {
+						continue
+					}
+					// AWS group add/remove propagates to every actual member.
+					// Keep authorization on the requested child ARN; no
+					// standalone row or arbitrary prefix invents membership.
+					return group.Tags, func(map[string]string) error {
+						return unsupported("Independent replication-group member tag mutations are not supported.")
+					}, nil
+				}
+			}
+		}
 		return v.Tags, func(tags map[string]string) error { v.Tags = tags; return tx.PutCluster(v) }, e
 	case "snapshot":
 		v, e := tx.Snapshot(k)

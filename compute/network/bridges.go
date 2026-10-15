@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 
 	"stackd/compute/docker"
 )
@@ -27,7 +26,7 @@ type Bridge struct {
 // Native endpoints and bridge ports own lifetime; there is no second refcount.
 type Bridges struct {
 	client      *docker.Client
-	mu          sync.Mutex
+	gate        chan struct{}
 	daemonOwned bool
 }
 
@@ -35,7 +34,7 @@ func NewBridges(client *docker.Client) (*Bridges, error) {
 	if client == nil {
 		return nil, errors.New("native bridge management requires a Docker client")
 	}
-	return &Bridges{client: client}, nil
+	return &Bridges{client: client, gate: make(chan struct{}, 1)}, nil
 }
 
 // NewDaemonBridges explicitly selects native operations inside the selected
@@ -55,8 +54,10 @@ func NewDaemonBridges(client *docker.Client) (*Bridges, error) {
 // WithBridge holds shared ownership until attach has created its native port or
 // endpoint. Attach may install policy, but must not reenter WithBridge or Release.
 func (b *Bridges) WithBridge(ctx context.Context, spec Specification, attach func(Bridge) error) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+	if err := b.lock(ctx); err != nil {
+		return err
+	}
+	defer b.unlock()
 	if spec.NetworkID == "" || !spec.Pool.IsValid() || !spec.Pool.Addr().Is4() || !spec.Pool.Contains(spec.Gateway) || !spec.Pool.Contains(spec.Address) || spec.Address == spec.Gateway {
 		return errors.New("compute networking requires a VPC identity, IPv4 pool and distinct in-pool gateway/address")
 	}
@@ -66,6 +67,57 @@ func (b *Bridges) WithBridge(ctx context.Context, spec Specification, attach fun
 	}
 	// The host lock is already released: attach may install packet policy.
 	return attach(bridge)
+}
+
+func (b *Bridges) lock(ctx context.Context) error {
+	select {
+	case b.gate <- struct{}{}:
+		if err := ctx.Err(); err != nil {
+			b.unlock()
+			return err
+		}
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (b *Bridges) unlock() { <-b.gate }
+
+// WithExistingBridge observes an already attached endpoint's exact VPC bridge.
+// It never admits, creates or adopts a missing bridge. The lifetime lock excludes
+// controller removal throughout observe; a second native read also rejects
+// external deletion/recreation while the callback runs.
+func (b *Bridges) WithExistingBridge(ctx context.Context, spec Specification, observe func(Bridge) error) error {
+	if spec.NetworkID == "" || !spec.Pool.IsValid() || !spec.Pool.Addr().Is4() || !spec.Pool.Contains(spec.Gateway) || !spec.Pool.Contains(spec.Address) || spec.Address == spec.Gateway {
+		return errors.New("compute networking requires a VPC identity, IPv4 pool and distinct in-pool gateway/address")
+	}
+	if err := b.lock(ctx); err != nil {
+		return err
+	}
+	defer b.unlock()
+	info, err := b.inspectExisting(ctx, spec)
+	if err != nil {
+		return err
+	}
+	err = observe(Bridge{Name: info.Name, Device: info.device()})
+	current, inspection := b.inspectExisting(ctx, spec)
+	if inspection == nil && (current.ID != info.ID || current.device() != info.device()) {
+		inspection = errors.New("existing native VPC bridge identity changed during observation")
+	}
+	return errors.Join(err, inspection)
+}
+
+func (b *Bridges) inspectExisting(ctx context.Context, spec Specification) (bridgeInfo, error) {
+	info, err := b.inspect(ctx, bridgeName(spec.NetworkID), spec.NetworkID)
+	if err != nil {
+		return info, err
+	}
+	if info.Name != bridgeName(spec.NetworkID) || info.IPAM.Driver != "default" || len(info.IPAM.Config) != 1 ||
+		info.IPAM.Config[0].Subnet != spec.Pool.String() || info.IPAM.Config[0].Gateway != spec.Gateway.String() {
+		return info, errors.New("existing native VPC bridge IPAM differs from its owned reservation")
+	}
+	return info, nil
 }
 
 func (b *Bridges) prepareBridge(ctx context.Context, spec Specification) (Bridge, error) {
@@ -188,8 +240,10 @@ PY
 // Release removes an unused native bridge. Docker does not count guest TAPs as
 // endpoints, so Linux bridge membership must also be empty before deletion.
 func (b *Bridges) Release(ctx context.Context, networkID string) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+	if err := b.lock(ctx); err != nil {
+		return err
+	}
+	defer b.unlock()
 	info, err := b.inspect(ctx, bridgeName(networkID), networkID)
 	if notFound(err) {
 		return nil
@@ -230,8 +284,15 @@ func (b *Bridges) Release(ctx context.Context, networkID string) error {
 }
 
 type bridgeInfo struct {
-	ID              string `json:"Id"`
-	Driver          string
+	ID     string `json:"Id"`
+	Driver string
+	Name   string
+	IPAM   struct {
+		Driver string
+		Config []struct {
+			Subnet, Gateway string
+		}
+	}
 	Labels, Options map[string]string
 }
 

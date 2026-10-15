@@ -29,9 +29,10 @@ type Config struct {
 // Client is a caller-owned Engine transport shared by concrete runtime adapters.
 // Construct it with New. Close all consumers and their resources before Close.
 type Client struct {
-	client  *http.Client
-	base    string
-	version string
+	client   *http.Client
+	base     string
+	version  string
+	apiMinor int
 }
 
 // Error is a non-successful native Engine response.
@@ -45,7 +46,7 @@ func (e *Error) Error() string {
 }
 
 // New validates Linux and memory, swap and CPU CFS limit support. It selects the
-// highest common API in the supported 1.41–1.44 range using the Engine's advertised
+// highest common API in the supported 1.41–1.48 range using the Engine's advertised
 // minimum and maximum. Validation is bounded by ctx and a 30-second timeout;
 // the returned client does not retain the constructor's context.
 func New(ctx context.Context, config Config) (*Client, error) {
@@ -105,6 +106,7 @@ func New(ctx context.Context, config Config) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	_, engine.apiMinor, _ = parseAPIVersion(strings.TrimPrefix(engine.version, "/v"))
 	if version.OS != "linux" {
 		return nil, fmt.Errorf("requires a Linux Docker engine, got %q", version.OS)
 	}
@@ -124,7 +126,7 @@ func compatibleAPIVersion(maximum, minimum string) (string, error) {
 	if !ok || major < 1 || (major == 1 && minor < 41) {
 		return "", fmt.Errorf("requires Docker API >=1.41; engine reports %q", maximum)
 	}
-	selected := 44
+	selected := 48
 	if major == 1 {
 		selected = min(selected, minor)
 	}
@@ -133,11 +135,17 @@ func compatibleAPIVersion(maximum, minimum string) (string, error) {
 		if !valid || minMajor < 1 || minMajor > major || (minMajor == major && minMinor > minor) {
 			return "", fmt.Errorf("invalid Docker API range %q–%q", minimum, maximum)
 		}
-		if minMajor > 1 || minMinor > 44 {
-			return "", fmt.Errorf("docker engine requires API %s; client supports 1.41–1.44", minimum)
+		if minMajor > 1 || minMinor > 48 {
+			return "", fmt.Errorf("docker engine requires API %s; client supports 1.41–1.48", minimum)
 		}
 	}
 	return "/v1." + strconv.Itoa(selected), nil
+}
+
+// SupportsAPIVersion reports the negotiated capability, not the daemon's maximum.
+// Consumers must require newer features only for the workflows that use them.
+func (d *Client) SupportsAPIVersion(major, minor int) bool {
+	return major == 1 && minor >= 0 && d.apiMinor >= minor
 }
 
 func parseAPIVersion(value string) (int, int, bool) {

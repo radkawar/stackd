@@ -19,6 +19,7 @@ func registerLoadBalancers(s *Service) {
 	register(s, "SetIpAddressType", s.setIPAddressType)
 	register(s, "DescribeLoadBalancerAttributes", s.describeLoadBalancerAttributes)
 	register(s, "ModifyLoadBalancerAttributes", s.modifyLoadBalancerAttributes)
+	register(s, "DescribeCapacityReservation", s.describeCapacityReservation)
 }
 func subnetIDs(subnets api.Subnets, mappings api.SubnetMappings) ([]string, error) {
 	if len(subnets) > 0 && len(mappings) > 0 {
@@ -317,7 +318,32 @@ func loadBalancerAttributes(v LoadBalancerRecord) api.LoadBalancerAttributes {
 		text(&a.Value, kv[1])
 		out = append(out, a)
 	}
+	// No log delivery pipeline is installed. Disabled logging is an actual
+	// invariant, not a stored claim that an S3 destination received records.
+	for _, key := range []string{"access_logs.s3.enabled", "connection_logs.s3.enabled", "health_check_logs.s3.enabled"} {
+		var a api.LoadBalancerAttribute
+		text(&a.Key, key)
+		text(&a.Value, "false")
+		out = append(out, a)
+	}
+	for _, attribute := range nativeLoadBalancerAttributes {
+		var a api.LoadBalancerAttribute
+		text(&a.Key, attribute.key)
+		text(&a.Value, attribute.value)
+		out = append(out, a)
+	}
 	return out
+}
+func (s *Service) loadBalancerAttributes(ctx context.Context, v LoadBalancerRecord) (api.LoadBalancerAttributes, error) {
+	attributes := loadBalancerAttributes(v)
+	native, implemented, err := s.nativeDesyncAttribute(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if implemented {
+		attributes = append(attributes, native)
+	}
+	return attributes, nil
 }
 func (s *Service) describeLoadBalancerAttributes(ctx context.Context, tx Transaction, in *api.DescribeLoadBalancerAttributesInput) (*api.DescribeLoadBalancerAttributesOutput, error) {
 	if e := s.authorize(ctx, "DescribeLoadBalancerAttributes", "*", nil, nil); e != nil {
@@ -327,7 +353,11 @@ func (s *Service) describeLoadBalancerAttributes(ctx context.Context, tx Transac
 	if e != nil {
 		return nil, e
 	}
-	return &api.DescribeLoadBalancerAttributesOutput{Attributes: loadBalancerAttributes(v)}, nil
+	attributes, e := s.loadBalancerAttributes(ctx, v)
+	if e != nil {
+		return nil, e
+	}
+	return &api.DescribeLoadBalancerAttributesOutput{Attributes: attributes}, nil
 }
 func (s *Service) modifyLoadBalancerAttributes(ctx context.Context, tx Transaction, in *api.ModifyLoadBalancerAttributesInput) (*api.ModifyLoadBalancerAttributesOutput, error) {
 	v, e := loadBalancer(tx, scopeFor(ctx), value(in.LoadBalancerArn))
@@ -356,16 +386,41 @@ func (s *Service) modifyLoadBalancerAttributes(ctx context.Context, tx Transacti
 				return nil, invalid("Idle timeout must be between 1 and 4000 seconds")
 			}
 			v.IdleTimeout = time.Duration(n) * time.Second
+		case "access_logs.s3.enabled", "connection_logs.s3.enabled", "health_check_logs.s3.enabled":
+			if value(a.Value) != "false" {
+				return nil, unsupported("Load balancer log delivery is not implemented")
+			}
 		default:
-			return nil, unsupported("Unsupported load balancer attribute: " + k)
+			expected, implemented, e := s.nativeLoadBalancerAttribute(ctx, k)
+			if e != nil {
+				return nil, e
+			}
+			if !implemented || value(a.Value) != expected {
+				return nil, unsupported("Unsupported load balancer attribute: " + k)
+			}
 		}
+	}
+	attributes, e := s.loadBalancerAttributes(ctx, v)
+	if e != nil {
+		return nil, e
 	}
 	v.Version++
 	v.NextReconcile = s.clock.Now()
 	if e = tx.PutLoadBalancer(v); e != nil {
 		return nil, e
 	}
-	return &api.ModifyLoadBalancerAttributesOutput{Attributes: loadBalancerAttributes(v)}, nil
+	return &api.ModifyLoadBalancerAttributesOutput{Attributes: attributes}, nil
+}
+func (s *Service) describeCapacityReservation(ctx context.Context, tx Transaction, in *api.DescribeCapacityReservationInput) (*api.DescribeCapacityReservationOutput, error) {
+	if e := s.authorize(ctx, "DescribeCapacityReservation", "*", nil, nil); e != nil {
+		return nil, e
+	}
+	if _, e := loadBalancer(tx, scopeFor(ctx), value(in.LoadBalancerArn)); e != nil {
+		return nil, e
+	}
+	// This owner cannot create reservations. In particular, do not fabricate
+	// capacity units, zonal provisioning success or an AWS decrease allowance.
+	return &api.DescribeCapacityReservationOutput{}, nil
 }
 func (s *Service) touchLoadBalancer(tx Transaction, sc Scope, a string) error {
 	v, e := loadBalancer(tx, sc, a)

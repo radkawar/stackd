@@ -45,21 +45,18 @@ func (s *Service) createLogGroup(tx Transaction, in *api.CreateLogGroupRequest) 
 	if w != nil {
 		return nil, w
 	}
-	// TODO: Comeback implement KMS-backed encryption, non-STANDARD storage classes and deletion protection.
+	// TODO: Comeback implement KMS-backed encryption and non-STANDARD storage classes.
 	if value(in.KmsKeyId) != "" {
 		return nil, unsupported("KMS log encryption is not configured.")
 	}
 	if value(in.LogGroupClass) != "" && value(in.LogGroupClass) != "STANDARD" {
 		return nil, unsupported("Only STANDARD log group storage is implemented.")
 	}
-	if enabled(in.DeletionProtectionEnabled) {
-		return nil, unsupported("Log group deletion protection is not implemented.")
-	}
 	tags, w := tagValues(in.Tags)
 	if w != nil {
 		return nil, w
 	}
-	g := GroupRecord{Key: k, ID: uuid.NewString(), Created: s.clock.Now().UnixMilli(), Tags: tags}
+	g := GroupRecord{Key: k, ID: uuid.NewString(), Created: s.clock.Now().UnixMilli(), Tags: tags, DeletionProtected: enabled(in.DeletionProtectionEnabled)}
 	var claimWire *awswire.Error
 	g.CFNOwner, claimWire = cloudFormationGroupClaim(tx.Context(), "", false)
 	if claimWire != nil {
@@ -100,7 +97,24 @@ func (s *Service) deleteLogGroup(tx Transaction, in *api.DeleteLogGroupRequest) 
 	if w != nil {
 		return nil, w
 	}
+	if g.DeletionProtected {
+		return nil, failure("ValidationException", "Cannot delete log group with deletion protection enabled. Disable deletion protection first.")
+	}
 	if err := tx.DeleteGroup(g.Key); err != nil {
+		return nil, wireError(err)
+	}
+	return &api.Unit{}, nil
+}
+func (s *Service) putLogGroupDeletionProtection(tx Transaction, in *api.PutLogGroupDeletionProtectionRequest) (*api.Unit, *awswire.Error) {
+	if in == nil || in.LogGroupIdentifier == nil || in.DeletionProtectionEnabled == nil {
+		return nil, invalid("logGroupIdentifier and deletionProtectionEnabled are required.")
+	}
+	g, w := s.loadGroup(tx, value(in.LogGroupIdentifier), "PutLogGroupDeletionProtection", "")
+	if w != nil {
+		return nil, w
+	}
+	g.DeletionProtected = enabled(in.DeletionProtectionEnabled)
+	if err := tx.PutGroup(g); err != nil {
 		return nil, wireError(err)
 	}
 	return &api.Unit{}, nil
@@ -112,9 +126,7 @@ func groupOutput(g GroupRecord, pattern bool) api.LogGroup {
 	}
 	out.LogGroupArn = new(api.Arn(g.Key.ARN()))
 	out.LogGroupClass = new(api.LogGroupClass("STANDARD"))
-	out.MetricFilterCount = new(api.FilterCount(0))
-	out.StoredBytes = new(api.StoredBytes(0))
-	out.DeletionProtectionEnabled = new(api.DeletionProtectionEnabled(false))
+	out.DeletionProtectionEnabled = new(api.DeletionProtectionEnabled(g.DeletionProtected))
 	out.BearerTokenAuthenticationEnabled = new(api.BearerTokenAuthenticationEnabled(false))
 	if g.RetentionDays > 0 {
 		out.RetentionInDays = new(api.Days(g.RetentionDays))
@@ -179,6 +191,11 @@ func (s *Service) describeLogGroups(tx Transaction, in *api.DescribeLogGroupsReq
 					return nil, wireError(err)
 				}
 				item.StoredBytes = new(api.StoredBytes(bytes))
+				count, err := tx.MetricFilterCount(g.ID)
+				if err != nil {
+					return nil, wireError(err)
+				}
+				item.MetricFilterCount = new(api.FilterCount(count))
 			}
 			out.LogGroups = append(out.LogGroups, item)
 			token.Name = g.Key.Name

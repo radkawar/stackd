@@ -140,6 +140,7 @@ type EcsService struct {
 	DeploymentsPresent                   bool
 	NextMetricCollection                 time.Time
 	Ownership                            string
+	DeploymentHistoryPresent             bool
 }
 
 type EcsServiceDeployment struct {
@@ -225,6 +226,27 @@ type EcsServiceDeployment struct {
 	ResolvedImagesPresent                 bool
 	Monitoring                            []byte
 	LoadBalancers                         []byte
+	FinishedAt                            sql.NullTime
+}
+
+type EcsServiceDeploymentHistory struct {
+	Partition             string
+	AccountID             string
+	Region                string
+	ClusterName           string
+	ServiceName           string
+	Position              int64
+	ServiceDeploymentArn  sql.NullString
+	ServiceArn            sql.NullString
+	ClusterArn            sql.NullString
+	CreatedAt             sql.NullTime
+	StartedAt             sql.NullTime
+	UpdatedAt             sql.NullTime
+	FinishedAt            sql.NullTime
+	StoppedAt             sql.NullTime
+	Status                sql.NullString
+	StatusReason          sql.NullString
+	TargetServiceRevision []byte
 }
 
 type EcsServiceMetricSample struct {

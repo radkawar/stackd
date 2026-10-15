@@ -213,6 +213,10 @@ func (r memoryReader) PendingTables() ([]TableRecord, error) {
 		switch *v.Data.TableStatus {
 		case api.TableStatusCREATING, api.TableStatusUPDATING, api.TableStatusDELETING:
 			out = append(out, v)
+		case api.TableStatusACTIVE:
+			if !engineTableReady(&v.Data) {
+				out = append(out, v)
+			}
 		}
 	}
 	slices.SortFunc(out, compareTables)

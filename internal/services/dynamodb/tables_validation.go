@@ -166,6 +166,9 @@ func validateCreate(in *api.CreateTableInput) error {
 	if in.TableClass != nil && value(in.TableClass) != "STANDARD" && value(in.TableClass) != "STANDARD_INFREQUENT_ACCESS" {
 		return invalidTable("Invalid TableClass")
 	}
+	if value(in.TableClass) == "STANDARD_INFREQUENT_ACCESS" {
+		return unsupported("DynamoDB infrequent-access storage and pricing are not implemented.")
+	}
 	mode := value(in.BillingMode)
 	if mode == "" {
 		mode = "PROVISIONED"

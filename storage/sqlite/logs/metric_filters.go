@@ -37,6 +37,9 @@ func (r reader) MetricFilter(k domain.MetricFilterKey) (domain.MetricFilterRecor
 	}
 	return r.metricFilter(v)
 }
+func (r reader) MetricFilterCount(groupID string) (int64, error) {
+	return r.q.CountMetricFilters(r.ctx, groupID)
+}
 
 func (r reader) MetricFilters(q domain.MetricFilterQuery) ([]domain.MetricFilterRecord, error) {
 	rows, err := r.q.ListMetricFilters(r.ctx, sqlcgen.ListMetricFiltersParams{

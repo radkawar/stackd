@@ -29,6 +29,9 @@ type Cluster struct {
 	Ciphertext, PendingCiphertext                                          []byte
 	Endpoint                                                               engine.Endpoint
 	RequestedPort                                                          int32
+	BackupRetention                                                        int32
+	BackupWindow                                                           string
+	NextBackup                                                             time.Time
 	Version                                                                int64
 	Created, Due                                                           time.Time
 	DeletionProtection                                                     bool
@@ -48,6 +51,8 @@ type Snapshot struct {
 	Ciphertext                                                                     []byte
 	Version                                                                        int64
 	Created, Due                                                                   time.Time
+	Automated                                                                      bool
+	Expires                                                                        time.Time
 	Tags                                                                           map[string]string
 }
 type Repository interface {

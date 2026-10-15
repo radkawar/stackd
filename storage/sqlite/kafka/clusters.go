@@ -41,6 +41,24 @@ func (r reader) clusters(rows []sqlcgen.MskCluster) ([]domain.ClusterRecord, err
 func (r reader) cluster(row sqlcgen.MskCluster) (domain.ClusterRecord, error) {
 	v := domain.ClusterRecord{Scope: domain.Scope{Partition: row.Partition, AccountID: row.AccountID, Region: row.Region}, ARN: row.Arn, Name: row.Name, Incarnation: row.Incarnation, KafkaVersion: row.KafkaVersion, SecurityMode: row.SecurityMode, State: row.State, Failure: row.Failure, Operation: row.Operation, OperationARN: row.OperationArn, ConfigurationARN: row.ConfigurationArn, PendingConfigurationARN: row.PendingConfigurationArn, ConfigurationRevision: row.ConfigurationRevision, PendingConfigurationRevision: row.PendingConfigurationRevision, ServerProperties: row.ServerProperties, PendingServerProperties: row.PendingServerProperties, Brokers: int32(row.Brokers), RebootBrokerID: int32(row.RebootBrokerID), Version: row.Version, Created: readTime(row.Created), Due: readTime(row.Due), Endpoint: domain.Endpoint{CAPEM: row.Capem, SecurityMode: row.SecurityMode}, Tags: map[string]string{}, Policy: authorization.BoundPolicy{Document: row.PolicyDocument, PrincipalIDs: map[string]string{}}, PolicyVersion: row.PolicyVersion}
 	v.OwnerStackID, v.OwnerLogicalID, v.OwnerToken = row.OwnerStackID, row.OwnerLogicalID, row.OwnerToken
+	var err error
+	v.DefaultMetrics, err = r.clusterNetworkOptions(v.ARN)
+	if err != nil {
+		return v, err
+	}
+	if v.ClientSubnets, err = r.q.ListClusterSubnets(r.ctx, v.ARN); err != nil {
+		return v, err
+	}
+	if v.SecurityGroups, err = r.q.ListClusterSecurityGroups(r.ctx, v.ARN); err != nil {
+		return v, err
+	}
+	attachments, err := r.q.ListBrokerNetworks(r.ctx, v.ARN)
+	if err != nil {
+		return v, err
+	}
+	for _, attachment := range attachments {
+		v.BrokerNetworks = append(v.BrokerNetworks, domain.BrokerNetworkRecord{BrokerID: int(attachment.BrokerID), InterfaceID: attachment.InterfaceID, SubnetID: attachment.SubnetID, AvailabilityZone: attachment.AvailabilityZone, NetworkID: attachment.NetworkID})
+	}
 	tags, e := r.q.ListClusterTags(r.ctx, v.ARN)
 	if e != nil {
 		return v, e
@@ -60,7 +78,7 @@ func (r reader) cluster(row sqlcgen.MskCluster) (domain.ClusterRecord, error) {
 		return v, e
 	}
 	for _, x := range secrets {
-		v.Secrets = append(v.Secrets, x.SecretArn)
+		v.Secrets = append(v.Secrets, domain.SCRAMAssociation{SecretARN: x.SecretArn, KMSKeyARN: x.KmsKeyArn, GrantID: x.GrantID, Incarnation: x.Incarnation})
 	}
 	principals, e := r.q.ListPolicyPrincipals(r.ctx, v.ARN)
 	if e != nil {
@@ -74,6 +92,9 @@ func (r reader) cluster(row sqlcgen.MskCluster) (domain.ClusterRecord, error) {
 func (w writer) PutCluster(v domain.ClusterRecord) error {
 	e := w.q.PutCluster(w.ctx, sqlcgen.PutClusterParams{Arn: v.ARN, Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, Name: v.Name, Incarnation: v.Incarnation, KafkaVersion: v.KafkaVersion, SecurityMode: v.SecurityMode, State: v.State, Failure: v.Failure, Operation: v.Operation, OperationArn: v.OperationARN, ConfigurationArn: v.ConfigurationARN, PendingConfigurationArn: v.PendingConfigurationARN, ConfigurationRevision: v.ConfigurationRevision, PendingConfigurationRevision: v.PendingConfigurationRevision, ServerProperties: v.ServerProperties, PendingServerProperties: v.PendingServerProperties, Brokers: int64(v.Brokers), RebootBrokerID: int64(v.RebootBrokerID), Version: v.Version, Created: timeValue(v.Created), Due: timeValue(v.Due), Capem: blob(v.Endpoint.CAPEM), PolicyDocument: v.Policy.Document, PolicyVersion: v.PolicyVersion, OwnerStackID: v.OwnerStackID, OwnerLogicalID: v.OwnerLogicalID, OwnerToken: v.OwnerToken})
 	if e != nil {
+		return e
+	}
+	if e = w.putClusterNetworks(v); e != nil {
 		return e
 	}
 	if e = w.q.DeleteClusterTags(w.ctx, v.ARN); e != nil {
@@ -96,7 +117,7 @@ func (w writer) PutCluster(v domain.ClusterRecord) error {
 		return e
 	}
 	for _, x := range v.Secrets {
-		if e = w.q.PutClusterSecret(w.ctx, sqlcgen.PutClusterSecretParams{Arn: v.ARN, SecretArn: x}); e != nil {
+		if e = w.q.PutClusterSecret(w.ctx, sqlcgen.PutClusterSecretParams{Arn: v.ARN, SecretArn: x.SecretARN, KmsKeyArn: x.KMSKeyARN, GrantID: x.GrantID, Incarnation: x.Incarnation}); e != nil {
 			return e
 		}
 	}

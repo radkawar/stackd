@@ -21,6 +21,7 @@ type idleConnection struct {
 	policy                         *connectionIdlePolicy
 	timer                          *time.Timer
 	last                           time.Time
+	accepted                       time.Time
 	closed                         bool
 	expired                        bool
 	client                         bool
@@ -29,8 +30,12 @@ type idleConnection struct {
 	input                          bool
 	response                       net.Conn
 	tlsState                       *tls.ConnectionState
+	tlsTransport                   *tls.Conn
+	desync                         *desyncConnection
 	reading, writing, bodyTimedOut bool
 	readAt, writeAt                time.Time
+	closeUpgrade                   bool
+	upgradeTail                    uint32
 }
 
 func newConnectionIdlePolicy(timeout time.Duration) *connectionIdlePolicy {
@@ -156,9 +161,26 @@ func (c *idleConnection) Write(b []byte) (int, error) {
 		_ = c.Conn.SetWriteDeadline(time.Time{})
 	}
 	expired := c.expired
+	closeUpgrade := false
+	if c.closeUpgrade {
+		// A hijacked 101 has no HTTP response body. Finish its response headers
+		// before closing; otherwise ReverseProxy could tunnel an ambiguous
+		// request indefinitely despite request.Close and the normal close header.
+		for _, ch := range b[:n] {
+			c.upgradeTail = c.upgradeTail<<8 | uint32(ch)
+			if c.upgradeTail == 0x0d0a0d0a {
+				closeUpgrade = true
+				c.closeUpgrade = false
+				break
+			}
+		}
+	}
 	p.mu.Unlock()
 	if err != nil && expired {
 		err = idleTimeoutError{err}
+	}
+	if closeUpgrade {
+		_ = c.Close()
 	}
 	return n, err
 }
@@ -184,4 +206,12 @@ func (c *idleConnection) CloseWrite() error {
 		return half.CloseWrite()
 	}
 	return c.Close()
+}
+
+func (c *idleConnection) ambiguousDesync() bool {
+	return c.desync != nil && c.desync.ambiguous()
+}
+
+func (c *idleConnection) clientProtocolFailure() bool {
+	return c.desync != nil && c.desync.protocolFailure()
 }

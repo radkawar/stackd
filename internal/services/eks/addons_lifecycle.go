@@ -205,7 +205,9 @@ func (s *Service) reconcileAddon(ctx context.Context, c Cluster, a Addon) error 
 		}
 		current.Generation++
 		current.Due = s.clock.Now().Add(5 * time.Second)
-		current.Modified = s.clock.Now()
+		if a.Operation != "" {
+			current.Modified = s.clock.Now()
+		}
 		current.Error = ""
 		current.ErrorCode = ""
 		if effectErr != nil {

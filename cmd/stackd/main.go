@@ -31,6 +31,7 @@ import (
 	ecsruntime "stackd/compute/ecs"
 	eksruntime "stackd/compute/eks"
 	elbv2runtime "stackd/compute/elbv2"
+	elbv2desync "stackd/compute/elbv2/desync"
 	glueruntime "stackd/compute/glue"
 	lambdaruntime "stackd/compute/lambda"
 	mqruntime "stackd/compute/mq"
@@ -45,6 +46,7 @@ import (
 	orcruntime "stackd/engine/orc"
 	rdsruntime "stackd/engine/rds"
 	valkeyruntime "stackd/engine/valkey"
+	"stackd/internal/services/iam"
 	"stackd/internal/services/kafka"
 	"stackd/internal/services/mq"
 	"stackd/mail"
@@ -81,6 +83,7 @@ func run() (result error) {
 	smtpFrom := flag.String("smtp-from", "no-reply@stackd.local", "sender mailbox for verification mail")
 	sesEmailDirectory := flag.String("ses-email-directory", "", "capture SES and Cognito email as local MIME files; defaults to <database>.ses with SQLite")
 	ssoUserPoolClientID := flag.String("sso-user-pool-client-id", "", "explicit Cognito password-auth client for local Identity Center browser sign-in")
+	oidcDiscovery := flag.Bool("oidc-discovery", false, "enable HTTPS issuer and JWKS discovery for OIDC federation; disabled by default")
 	dockerHost := flag.String("docker-host", "", "explicit Docker Engine URL; selects transport only, enable each engine with its runtime flag")
 	containerRuntimes := registerContainerRuntimeFlags(flag.CommandLine)
 	computeEndpoint := flag.String("compute-endpoint", "", "AWS endpoint reachable from containers; defaults to host.docker.internal for a non-loopback listener")
@@ -144,6 +147,7 @@ func run() (result error) {
 	flag.StringVar(&eksConfig.WorkerAdvertiseHost, "eks-worker-advertise-host", "", "explicit host IP reachable by EC2 Kubernetes workers")
 	eksImagesFile := flag.String("eks-node-images", "", "JSON file mapping Kubernetes minor versions to imported worker imageId, releaseVersion and amiType")
 	elbv2NodeExecutable := flag.String("elbv2-node-executable", "", "enable real ALB sockets using an installed static Linux relay; requires database and docker-host")
+	elbv2DesyncExecutable := flag.String("elbv2-desync-executable", "", "absolute trusted path to the installed native HTTP desync adapter for ALB defensive mode")
 	valkeyEnabled := flag.Bool("valkey-runtime", false, "enable native ElastiCache/MemoryDB using the installed pinned Valkey image; requires local docker-host")
 	var valkeyConfig valkeyruntime.DockerConfig
 	flag.StringVar(&valkeyConfig.Image, "valkey-image", "", "installed digest-pinned Valkey image override")
@@ -398,6 +402,14 @@ func run() (result error) {
 	var lambdaFunctionNetworkRuntime *lambdaruntime.FunctionNetworkRuntime
 	var valkeyRuntime valkeyruntime.Runtime
 	var elbv2Runtime elbv2runtime.Runtime
+	var elbv2Classifier *elbv2desync.Classifier
+	if *elbv2DesyncExecutable != "" {
+		elbv2Classifier, err = elbv2desync.New(context.Background(), *elbv2DesyncExecutable)
+		if err != nil {
+			return fmt.Errorf("initialize native ALB desync classifier: %w", err)
+		}
+		defer func() { result = errors.Join(result, elbv2Classifier.Close()) }()
+	}
 	var inventoryORC stackd.InventoryORCEncoder
 	buildNamespace := "stackd-codebuild-" + uuid.NewString()
 	if *database != "" {
@@ -538,6 +550,7 @@ func run() (result error) {
 		}
 		if err == nil && *mskEnabled {
 			mskConfig.Client = engine
+			mskConfig.Networks = networks
 			var runtime *mskruntime.Docker
 			runtime, err = mskruntime.NewDocker(runtimeContext, mskConfig)
 			if err == nil {
@@ -557,6 +570,7 @@ func run() (result error) {
 		}
 		if err == nil && *valkeyEnabled {
 			valkeyConfig.Host = *dockerHost
+			valkeyConfig.Networks = networks
 			valkeyConfig.Namespace = strings.Replace(buildNamespace, "stackd-codebuild-", "stackd-valkey-", 1)
 			var runtime *valkeyruntime.Docker
 			runtime, err = valkeyruntime.NewDocker(valkeyConfig)
@@ -645,6 +659,12 @@ func run() (result error) {
 	networking.configure(&config, listener.Addr().String(), tlsConfig != nil)
 	config.SESEmailDirectory = *sesEmailDirectory
 	config.SSOUserPoolClientID = *ssoUserPoolClientID
+	if *oidcDiscovery {
+		config.OIDCDiscovery, err = iam.NewHTTPOIDCDiscoveryWithClock(nil, source)
+		if err != nil {
+			return fmt.Errorf("initialize OIDC discovery: %w", err)
+		}
+	}
 	if buildExecutor != nil {
 		config.CodeBuildExecutor = buildExecutor
 	}
@@ -667,6 +687,7 @@ func run() (result error) {
 	config.LambdaManagedCapacity = lambdaManagedCapacity
 	config.ValkeyRuntime = valkeyRuntime
 	config.ELBV2Runtime = elbv2Runtime
+	config.ELBV2DesyncClassifier = elbv2Classifier
 	config.DNSListenAddress = *dnsListen
 	config.EKSNodeImages = eksNodeImages
 	if guestExecutor != nil {

@@ -30,6 +30,7 @@ import (
 type AthenaGlueProvider interface {
 	http.Handler
 	AthenaGlueCommands
+	DropHiveDatabase(context.Context, *glueapi.DeleteDatabaseInput, bool) (*glueapi.DeleteDatabaseOutput, *awswire.Error)
 }
 
 type AthenaEngine struct {

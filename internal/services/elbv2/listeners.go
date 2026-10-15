@@ -15,6 +15,8 @@ func registerListeners(s *Service) {
 	register(s, "DescribeListeners", s.describeListeners)
 	register(s, "ModifyListener", s.modifyListener)
 	register(s, "DescribeListenerCertificates", s.describeListenerCertificates)
+	register(s, "DescribeListenerAttributes", s.describeListenerAttributes)
+	register(s, "ModifyListenerAttributes", s.modifyListenerAttributes)
 }
 func (s *Service) validateListener(ctx context.Context, tx Reader, lb LoadBalancerRecord, d *api.Listener, certificateID *string) error {
 	if intValue(d.Port) < 1 || intValue(d.Port) > 65535 {

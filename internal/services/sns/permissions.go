@@ -92,7 +92,11 @@ func validateTopicPolicy(document string, key TopicKey) (string, error) {
 			if !strings.HasPrefix(strings.ToLower(action), "sns:") || strings.ContainsAny(action, "*?") {
 				return "", failure("InvalidParameter", "Invalid parameter: Policy statement action out of service scope!")
 			}
-			if _, ok := actions.LookupAction(action); !ok {
+			// Native SNS also accepts the legacy Receive permission in topic
+			// policies. It is not a Receive API or an alias for Subscribe.
+			// examples/terraform-messaging/native-sns-policy.json records valid
+			// admission and an invalid-action control with unchanged readback.
+			if _, ok := actions.LookupAction(action); !ok && !strings.EqualFold(action, "sns:Receive") {
 				return "", failure("InvalidParameter", "Invalid parameter: Policy statement action out of service scope!")
 			}
 		}

@@ -41,7 +41,9 @@ type ContainerNetworkingConfig struct {
 }
 
 type ContainerEndpointConfig struct {
-	MacAddress string `json:",omitempty"`
+	MacAddress string   `json:",omitempty"`
+	Aliases    []string `json:",omitempty"`
+	GwPriority int      `json:",omitempty"`
 	IPAMConfig ContainerEndpointIPAMConfig
 }
 

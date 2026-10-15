@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"slices"
 	"stackd/clock"
+	"stackd/compute/elbv2/desync"
 	"stackd/internal/apievents"
 	"stackd/internal/authorization"
 	"stackd/internal/awsapi"
@@ -18,29 +19,31 @@ import (
 const Namespace = "http://elasticloadbalancing.amazonaws.com/doc/2015-12-01/"
 
 type Config struct {
-	Repository   Repository
-	Authorizer   authorization.Authorizer
-	Recorder     apievents.Recorder
-	Clock        clock.Clock
-	Networks     NetworkAuthority
-	Runtime      NativeRuntime
-	Certificates CertificateSource
-	Metrics      MetricPublisher
-	DNS          DNSAuthority
+	Repository       Repository
+	Authorizer       authorization.Authorizer
+	Recorder         apievents.Recorder
+	Clock            clock.Clock
+	Networks         NetworkAuthority
+	Runtime          NativeRuntime
+	Certificates     CertificateSource
+	Metrics          MetricPublisher
+	DNS              DNSAuthority
+	DesyncClassifier *desync.Classifier
 }
 type Service struct {
-	repository   Repository
-	authorizer   authorization.Authorizer
-	recorder     apievents.Recorder
-	clock        clock.Clock
-	networks     NetworkAuthority
-	certificates CertificateSource
-	metrics      MetricPublisher
-	runtime      *runtimeController
-	dns          DNSAuthority
-	dnsAttached  bool
-	dnsRelease   func()
-	operations   map[string]func(context.Context) (any, *awswire.Error)
+	repository       Repository
+	authorizer       authorization.Authorizer
+	recorder         apievents.Recorder
+	clock            clock.Clock
+	networks         NetworkAuthority
+	certificates     CertificateSource
+	metrics          MetricPublisher
+	runtime          *runtimeController
+	dns              DNSAuthority
+	desyncClassifier *desync.Classifier
+	dnsAttached      bool
+	dnsRelease       func()
+	operations       map[string]func(context.Context) (any, *awswire.Error)
 }
 
 func New(c Config) *Service {
@@ -53,7 +56,7 @@ func New(c Config) *Service {
 	if c.Authorizer == nil {
 		c.Authorizer = authorization.NewWithClock(nil, nil, c.Clock)
 	}
-	s := &Service{repository: c.Repository, authorizer: c.Authorizer, recorder: c.Recorder, clock: c.Clock, networks: c.Networks, certificates: c.Certificates, metrics: c.Metrics, dns: c.DNS, operations: map[string]func(context.Context) (any, *awswire.Error){}}
+	s := &Service{repository: c.Repository, authorizer: c.Authorizer, recorder: c.Recorder, clock: c.Clock, networks: c.Networks, certificates: c.Certificates, metrics: c.Metrics, dns: c.DNS, desyncClassifier: c.DesyncClassifier, operations: map[string]func(context.Context) (any, *awswire.Error){}}
 	registerLoadBalancers(s)
 	registerTargetGroups(s)
 	registerListeners(s)

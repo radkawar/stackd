@@ -10,7 +10,7 @@ func (s *Service) createInstance(ctx context.Context, tx Transaction, in *api.Cr
 	if value(in.Engine) != "docdb" {
 		return nil, failure("InvalidParameterValue", "Engine must be docdb.")
 	}
-	if in.AvailabilityZone != nil || in.CACertificateIdentifier != nil || yes(in.EnablePerformanceInsights) || in.PerformanceInsightsKMSKeyId != nil || in.PreferredMaintenanceWindow != nil || in.PromotionTier != nil || yes(in.AutoMinorVersionUpgrade) || yes(in.CopyTagsToSnapshot) {
+	if in.AvailabilityZone != nil || in.CACertificateIdentifier != nil || yes(in.EnablePerformanceInsights) || in.PerformanceInsightsKMSKeyId != nil || in.PreferredMaintenanceWindow != nil || in.PromotionTier != nil && *in.PromotionTier != 0 || yes(in.AutoMinorVersionUpgrade) || yes(in.CopyTagsToSnapshot) {
 		return nil, unsupported("Managed instance placement, maintenance, promotion, monitoring and snapshot-tag settings are not implemented.")
 	}
 	if value(in.DBInstanceClass) == "" || value(in.DBInstanceClass) == "db.serverless" {
@@ -20,7 +20,7 @@ func (s *Service) createInstance(ctx context.Context, tx Transaction, in *api.Cr
 	if e != nil {
 		return nil, e
 	}
-	if v.Operation != "" || v.Status != "creating" {
+	if v.Operation != "" || v.Status != "available" && v.Status != "creating" {
 		return nil, stateError("cluster")
 	}
 	members, e := membersOf(tx, v)
@@ -56,6 +56,7 @@ func (s *Service) createInstance(ctx context.Context, tx Transaction, in *api.Cr
 	m := Instance{Key: k, Cluster: v.Key.Name, Class: value(in.DBInstanceClass), RuntimeID: id, Status: "creating", Created: s.clock.Now(), Tags: tags}
 	m.Owner = cloudFormationClaim(ctx, k)
 	v.Operation = "create"
+	v.Status = "creating"
 	if v.RestoreSnapshot != "" {
 		v.Operation = "restore"
 	}
@@ -68,6 +69,32 @@ func (s *Service) createInstance(ctx context.Context, tx Transaction, in *api.Cr
 		return nil, e
 	}
 	return &api.CreateDBInstanceOutput{DBInstance: instanceOutput(m, v)}, nil
+}
+
+// modifyInstance admits reassertions of the retained single-writer settings.
+// ApplyImmediately alone schedules no work; unsupported mutations must not
+// restart the native process or change the retained owner.
+func (s *Service) modifyInstance(ctx context.Context, tx Transaction, in *api.ModifyDBInstanceInput) (*api.ModifyDBInstanceOutput, error) {
+	m, err := s.loadInstance(ctx, tx, "ModifyDBInstance", value(in.DBInstanceIdentifier))
+	if err != nil {
+		return nil, err
+	}
+	if in.DBInstanceClass != nil && value(in.DBInstanceClass) != m.Class ||
+		in.NewDBInstanceIdentifier != nil && value(in.NewDBInstanceIdentifier) != m.Key.Name ||
+		yes(in.AutoMinorVersionUpgrade) || yes(in.CopyTagsToSnapshot) || yes(in.EnablePerformanceInsights) ||
+		in.CACertificateIdentifier != nil || in.CertificateRotationRestart != nil ||
+		in.PerformanceInsightsKMSKeyId != nil || in.PreferredMaintenanceWindow != nil ||
+		in.PromotionTier != nil && *in.PromotionTier != 0 {
+		return nil, unsupported("Instance class changes, renaming, managed maintenance, upgrades, certificates, monitoring, snapshot tags and promotion are not implemented.")
+	}
+	v, err := tx.Cluster(Key{Scope: m.Key.Scope, Kind: "cluster", Name: m.Cluster})
+	if err != nil {
+		return nil, err
+	}
+	if m.Status != "available" || v.Status != "available" || v.Operation != "" {
+		return nil, stateError("db")
+	}
+	return &api.ModifyDBInstanceOutput{DBInstance: instanceOutput(m, v)}, nil
 }
 func (s *Service) deleteInstance(ctx context.Context, tx Transaction, in *api.DeleteDBInstanceInput) (*api.DeleteDBInstanceOutput, error) {
 	m, e := s.loadInstance(ctx, tx, "DeleteDBInstance", value(in.DBInstanceIdentifier))
@@ -124,6 +151,8 @@ func (s *Service) rebootInstance(ctx context.Context, tx Transaction, in *api.Re
 }
 func instanceOutput(m Instance, v Cluster) *api.DBInstance {
 	out := &api.DBInstance{DBInstanceArn: new(api.String(m.Key.ARN())), DBInstanceIdentifier: new(api.String(m.Key.Name)), DBClusterIdentifier: new(api.String(m.Cluster)), DBInstanceClass: new(api.String(m.Class)), DbiResourceId: new(api.String("db-" + m.RuntimeID)), DBInstanceStatus: new(api.String(m.Status)), Engine: new(api.String("docdb")), EngineVersion: new(api.String(v.EngineVersion)), InstanceCreateTime: new(api.TStamp(m.Created)), PubliclyAccessible: new(api.Boolean(false)), StorageEncrypted: new(api.Boolean(false)), AutoMinorVersionUpgrade: new(api.Boolean(false))}
+	out.PromotionTier = new(api.IntegerOptional(0))
+	out.CopyTagsToSnapshot = new(api.BooleanOptional(false))
 	if v.Endpoint.Address != "" {
 		out.Endpoint = &api.Endpoint{Address: new(api.String(v.Endpoint.Address)), Port: new(api.Integer(v.Endpoint.Port))}
 	}

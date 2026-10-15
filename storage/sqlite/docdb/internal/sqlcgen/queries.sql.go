@@ -96,7 +96,7 @@ func (q *Queries) DeleteTags(ctx context.Context, arg DeleteTagsParams) error {
 }
 
 const getCluster = `-- name: GetCluster :one
-SELECT "partition", account_id, region, name, runtime_id, username, engine_version, status, operation, restore_snapshot, ciphertext, pending_ciphertext, address, port, replica_set, ca, requested_port, version, created, due, deletion_protection, owner_stack_id, owner_logical_id, owner_token FROM docdb_cluster WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
+SELECT "partition", account_id, region, name, runtime_id, username, engine_version, status, operation, restore_snapshot, ciphertext, pending_ciphertext, address, port, replica_set, ca, requested_port, version, created, due, deletion_protection, owner_stack_id, owner_logical_id, owner_token, backup_retention, backup_window, next_backup FROM docdb_cluster WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
 `
 
 type GetClusterParams struct {
@@ -139,6 +139,9 @@ func (q *Queries) GetCluster(ctx context.Context, arg GetClusterParams) (DocdbCl
 		&i.OwnerStackID,
 		&i.OwnerLogicalID,
 		&i.OwnerToken,
+		&i.BackupRetention,
+		&i.BackupWindow,
+		&i.NextBackup,
 	)
 	return i, err
 }
@@ -180,7 +183,7 @@ func (q *Queries) GetInstance(ctx context.Context, arg GetInstanceParams) (Docdb
 }
 
 const getSnapshot = `-- name: GetSnapshot :one
-SELECT "partition", account_id, region, name, source, source_runtime_id, runtime_id, username, engine_version, status, operation, ciphertext, version, created, due, owner_stack_id, owner_logical_id, owner_token FROM docdb_snapshot WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
+SELECT "partition", account_id, region, name, source, source_runtime_id, runtime_id, username, engine_version, status, operation, ciphertext, version, created, due, owner_stack_id, owner_logical_id, owner_token, automated, expires FROM docdb_snapshot WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
 `
 
 type GetSnapshotParams struct {
@@ -217,12 +220,14 @@ func (q *Queries) GetSnapshot(ctx context.Context, arg GetSnapshotParams) (Docdb
 		&i.OwnerStackID,
 		&i.OwnerLogicalID,
 		&i.OwnerToken,
+		&i.Automated,
+		&i.Expires,
 	)
 	return i, err
 }
 
 const listClusters = `-- name: ListClusters :many
-SELECT "partition", account_id, region, name, runtime_id, username, engine_version, status, operation, restore_snapshot, ciphertext, pending_ciphertext, address, port, replica_set, ca, requested_port, version, created, due, deletion_protection, owner_stack_id, owner_logical_id, owner_token FROM docdb_cluster ORDER BY partition,account_id,region,name
+SELECT "partition", account_id, region, name, runtime_id, username, engine_version, status, operation, restore_snapshot, ciphertext, pending_ciphertext, address, port, replica_set, ca, requested_port, version, created, due, deletion_protection, owner_stack_id, owner_logical_id, owner_token, backup_retention, backup_window, next_backup FROM docdb_cluster ORDER BY partition,account_id,region,name
 `
 
 func (q *Queries) ListClusters(ctx context.Context) ([]DocdbCluster, error) {
@@ -259,6 +264,9 @@ func (q *Queries) ListClusters(ctx context.Context) ([]DocdbCluster, error) {
 			&i.OwnerStackID,
 			&i.OwnerLogicalID,
 			&i.OwnerToken,
+			&i.BackupRetention,
+			&i.BackupWindow,
+			&i.NextBackup,
 		); err != nil {
 			return nil, err
 		}
@@ -314,7 +322,7 @@ func (q *Queries) ListInstances(ctx context.Context) ([]DocdbInstance, error) {
 }
 
 const listSnapshots = `-- name: ListSnapshots :many
-SELECT "partition", account_id, region, name, source, source_runtime_id, runtime_id, username, engine_version, status, operation, ciphertext, version, created, due, owner_stack_id, owner_logical_id, owner_token FROM docdb_snapshot ORDER BY partition,account_id,region,name
+SELECT "partition", account_id, region, name, source, source_runtime_id, runtime_id, username, engine_version, status, operation, ciphertext, version, created, due, owner_stack_id, owner_logical_id, owner_token, automated, expires FROM docdb_snapshot ORDER BY partition,account_id,region,name
 `
 
 func (q *Queries) ListSnapshots(ctx context.Context) ([]DocdbSnapshot, error) {
@@ -345,6 +353,8 @@ func (q *Queries) ListSnapshots(ctx context.Context) ([]DocdbSnapshot, error) {
 			&i.OwnerStackID,
 			&i.OwnerLogicalID,
 			&i.OwnerToken,
+			&i.Automated,
+			&i.Expires,
 		); err != nil {
 			return nil, err
 		}
@@ -406,8 +416,8 @@ func (q *Queries) ListTags(ctx context.Context, arg ListTagsParams) ([]ListTagsR
 }
 
 const putCluster = `-- name: PutCluster :exec
-INSERT INTO docdb_cluster (partition, account_id, region, name, runtime_id, username, engine_version, status, operation, restore_snapshot, ciphertext, pending_ciphertext, address, port, replica_set, ca, requested_port, version, created, due, deletion_protection, owner_stack_id, owner_logical_id, owner_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(partition,account_id,region,name) DO UPDATE SET runtime_id=excluded.runtime_id, username=excluded.username, engine_version=excluded.engine_version, status=excluded.status, operation=excluded.operation, restore_snapshot=excluded.restore_snapshot, ciphertext=excluded.ciphertext, pending_ciphertext=excluded.pending_ciphertext, address=excluded.address, port=excluded.port, replica_set=excluded.replica_set, ca=excluded.ca, requested_port=excluded.requested_port, version=excluded.version, created=excluded.created, due=excluded.due, deletion_protection=excluded.deletion_protection, owner_stack_id=excluded.owner_stack_id, owner_logical_id=excluded.owner_logical_id, owner_token=excluded.owner_token
+INSERT INTO docdb_cluster (partition, account_id, region, name, runtime_id, username, engine_version, status, operation, restore_snapshot, ciphertext, pending_ciphertext, address, port, replica_set, ca, requested_port, version, created, due, deletion_protection, owner_stack_id, owner_logical_id, owner_token, backup_retention, backup_window, next_backup) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(partition,account_id,region,name) DO UPDATE SET runtime_id=excluded.runtime_id, username=excluded.username, engine_version=excluded.engine_version, status=excluded.status, operation=excluded.operation, restore_snapshot=excluded.restore_snapshot, ciphertext=excluded.ciphertext, pending_ciphertext=excluded.pending_ciphertext, address=excluded.address, port=excluded.port, replica_set=excluded.replica_set, ca=excluded.ca, requested_port=excluded.requested_port, version=excluded.version, created=excluded.created, due=excluded.due, deletion_protection=excluded.deletion_protection, owner_stack_id=excluded.owner_stack_id, owner_logical_id=excluded.owner_logical_id, owner_token=excluded.owner_token, backup_retention=excluded.backup_retention, backup_window=excluded.backup_window, next_backup=excluded.next_backup
 `
 
 type PutClusterParams struct {
@@ -435,6 +445,9 @@ type PutClusterParams struct {
 	OwnerStackID       string
 	OwnerLogicalID     string
 	OwnerToken         string
+	BackupRetention    int64
+	BackupWindow       string
+	NextBackup         int64
 }
 
 func (q *Queries) PutCluster(ctx context.Context, arg PutClusterParams) error {
@@ -463,6 +476,9 @@ func (q *Queries) PutCluster(ctx context.Context, arg PutClusterParams) error {
 		arg.OwnerStackID,
 		arg.OwnerLogicalID,
 		arg.OwnerToken,
+		arg.BackupRetention,
+		arg.BackupWindow,
+		arg.NextBackup,
 	)
 	return err
 }
@@ -506,8 +522,8 @@ func (q *Queries) PutInstance(ctx context.Context, arg PutInstanceParams) error 
 }
 
 const putSnapshot = `-- name: PutSnapshot :exec
-INSERT INTO docdb_snapshot (partition, account_id, region, name, source, source_runtime_id, runtime_id, username, engine_version, status, operation, ciphertext, version, created, due, owner_stack_id, owner_logical_id, owner_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(partition,account_id,region,name) DO UPDATE SET source=excluded.source, source_runtime_id=excluded.source_runtime_id, runtime_id=excluded.runtime_id, username=excluded.username, engine_version=excluded.engine_version, status=excluded.status, operation=excluded.operation, ciphertext=excluded.ciphertext, version=excluded.version, created=excluded.created, due=excluded.due, owner_stack_id=excluded.owner_stack_id, owner_logical_id=excluded.owner_logical_id, owner_token=excluded.owner_token
+INSERT INTO docdb_snapshot (partition, account_id, region, name, source, source_runtime_id, runtime_id, username, engine_version, status, operation, ciphertext, version, created, due, owner_stack_id, owner_logical_id, owner_token, automated, expires) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(partition,account_id,region,name) DO UPDATE SET source=excluded.source, source_runtime_id=excluded.source_runtime_id, runtime_id=excluded.runtime_id, username=excluded.username, engine_version=excluded.engine_version, status=excluded.status, operation=excluded.operation, ciphertext=excluded.ciphertext, version=excluded.version, created=excluded.created, due=excluded.due, owner_stack_id=excluded.owner_stack_id, owner_logical_id=excluded.owner_logical_id, owner_token=excluded.owner_token, automated=excluded.automated, expires=excluded.expires
 `
 
 type PutSnapshotParams struct {
@@ -529,6 +545,8 @@ type PutSnapshotParams struct {
 	OwnerStackID    string
 	OwnerLogicalID  string
 	OwnerToken      string
+	Automated       int64
+	Expires         int64
 }
 
 func (q *Queries) PutSnapshot(ctx context.Context, arg PutSnapshotParams) error {
@@ -551,6 +569,8 @@ func (q *Queries) PutSnapshot(ctx context.Context, arg PutSnapshotParams) error 
 		arg.OwnerStackID,
 		arg.OwnerLogicalID,
 		arg.OwnerToken,
+		arg.Automated,
+		arg.Expires,
 	)
 	return err
 }

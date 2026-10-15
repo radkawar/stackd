@@ -206,3 +206,40 @@ func TestAddonConflictDoesNotForceRollbackOverUserFields(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestAddonHealthObservationPreservesModificationTime(t *testing.T) {
+	epoch := time.Date(2026, 10, 14, 0, 0, 0, 0, time.UTC)
+	source := clock.NewManual(epoch)
+	repository := NewMemoryRepository(nil)
+	runtime := &addonFailureRuntime{failure: &native.AddonError{Code: "InsufficientNumberOfReplicas", Message: "native deployment has no available replica"}}
+	service := New(Config{Repository: repository, Clock: source, Runtime: runtime})
+	t.Cleanup(func() { _ = service.Close() })
+	cluster := Cluster{Key: Key{Scope: Scope{Partition: "aws", AccountID: "111111111111", Region: "us-east-1"}, Name: "observed"}, ID: "cluster-id", Status: "ACTIVE"}
+	addon := Addon{Key: cluster.Key, ID: "addon-id", Name: "coredns", Version: native.CoreDNSVersion, AppliedVersion: native.CoreDNSVersion, Configuration: `{"replicaCount":1}`, AppliedConfiguration: `{"replicaCount":1}`, Status: "DEGRADED", ErrorCode: "InsufficientNumberOfReplicas", Error: "native deployment has no available replica", Generation: 1, Created: epoch, Modified: epoch, Due: epoch}
+	if err := repository.Update(t.Context(), func(tx Transaction) error {
+		if err := tx.PutCluster(cluster); err != nil {
+			return err
+		}
+		return tx.PutAddon(addon)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if err := source.Advance(5 * time.Second); err != nil {
+			t.Fatal(err)
+		}
+		if err := service.reconcileAddon(t.Context(), cluster, addon); err != nil {
+			t.Fatal(err)
+		}
+		if err := repository.View(t.Context(), func(reader Reader) error {
+			var err error
+			addon, err = reader.Addon(cluster.Key, addon.Name)
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if !addon.Modified.Equal(epoch) || addon.Status != "DEGRADED" || addon.ErrorCode != "InsufficientNumberOfReplicas" || !addon.Due.After(source.Now()) {
+			t.Fatalf("health read changed configuration modification time or lost health: %+v", addon)
+		}
+	}
+}

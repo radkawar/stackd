@@ -313,6 +313,11 @@ func (s *Service) ExecuteCommand(ctx context.Context, decoded awsapi.DecodedRequ
 }
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if observation, ok := r.Context().Value(requestObservationKey{}).(*requestObservation); ok {
+		// Bind custom access-point attribution before the owner captures its
+		// configuration; the gateway's first observation precedes authentication.
+		observation.rememberRequest(r)
+	}
 	model, _ := awscatalog.LookupService("s3")
 	decoded, ok := awsapi.FromContext(r.Context())
 	if !ok {

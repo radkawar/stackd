@@ -85,6 +85,11 @@ def project(session, sql):
             "ifNotExists": plan.ifNotExists(), "properties": hive_properties(session, sql, kind),
             "location": native_properties.get("location", ""), "comment": native_properties.get("comment", ""),
         }
+    if kind == "DropNamespace":
+        return {
+            "kind": "DROP_DATABASE", "identifier": sequence(plan.namespace().multipartIdentifier()),
+            "ifExists": plan.ifExists(), "cascade": plan.cascade(),
+        }
     if kind != "CreateTable":
         raise UnsupportedDDL("Unsupported Hive DDL statement: " + kind)
     spec = plan.tableSpec()

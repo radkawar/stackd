@@ -40,7 +40,7 @@ func notFound(err error) error {
 	return err
 }
 func (r reader) group(v sqlcgen.LogsGroup) (domain.GroupRecord, error) {
-	g := domain.GroupRecord{CFNOwner: v.CfnOwner, Key: domain.GroupKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name}, ID: v.ID, Created: v.Created, Sequence: v.Sequence, RetentionDays: int32(v.RetentionDays)}
+	g := domain.GroupRecord{CFNOwner: v.CfnOwner, Key: domain.GroupKey{Scope: domain.Scope{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region}, Name: v.Name}, ID: v.ID, Created: v.Created, Sequence: v.Sequence, RetentionDays: int32(v.RetentionDays), DeletionProtected: v.DeletionProtected != 0}
 	tags, err := r.q.ListTags(r.ctx, v.ID)
 	if err != nil {
 		return g, err
@@ -142,7 +142,11 @@ func (w writer) PutGroup(g domain.GroupRecord) error {
 	if err == nil && old.ID != g.ID {
 		return errors.New("log group identity is immutable")
 	}
-	if err := w.q.PutGroup(w.ctx, sqlcgen.PutGroupParams{CfnOwner: g.CFNOwner, Partition: g.Key.Partition, AccountID: g.Key.AccountID, Region: g.Key.Region, Name: g.Key.Name, ID: g.ID, Created: g.Created, Sequence: g.Sequence, RetentionDays: int64(g.RetentionDays)}); err != nil {
+	var deletionProtected int64
+	if g.DeletionProtected {
+		deletionProtected = 1
+	}
+	if err := w.q.PutGroup(w.ctx, sqlcgen.PutGroupParams{CfnOwner: g.CFNOwner, Partition: g.Key.Partition, AccountID: g.Key.AccountID, Region: g.Key.Region, Name: g.Key.Name, ID: g.ID, Created: g.Created, Sequence: g.Sequence, RetentionDays: int64(g.RetentionDays), DeletionProtected: deletionProtected}); err != nil {
 		return err
 	}
 	if err := w.q.DeleteTags(w.ctx, g.ID); err != nil {

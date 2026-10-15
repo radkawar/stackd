@@ -47,9 +47,12 @@ func (s *Service) loadUserGroup(ctx context.Context, r Reader, action, id string
 }
 func authentication(v *User, mode *api.AuthenticationMode, noPassword *api.BooleanOptional, passwords api.PasswordListInput, required bool) error {
 	if mode != nil {
-		if noPassword != nil || len(passwords) > 0 {
+		if boolean(noPassword) || len(passwords) > 0 {
 			return unsupported("AuthenticationMode cannot be combined with password parameters.")
 		}
+		// The provider sends NoPasswordRequired=false with AuthenticationMode.
+		// False does not request a second authentication mechanism.
+		noPassword = nil
 		switch value(mode.Type) {
 		case "password":
 			passwords = mode.Passwords

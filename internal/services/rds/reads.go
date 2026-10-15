@@ -32,6 +32,9 @@ func pageStart(ctx context.Context, action string, marker *api.String, max *api.
 
 func pagePrefix(ctx context.Context, action string) string {
 	sc := scopeFor(ctx)
+	if action == "DescribeGlobalClusters" {
+		sc.Region = ""
+	}
 	return sc.Partition + "/" + sc.AccountID + "/" + sc.Region + "/" + action + "/"
 }
 

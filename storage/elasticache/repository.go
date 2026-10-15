@@ -7,19 +7,20 @@ import (
 )
 
 type (
-	Scope            = service.Scope
-	Key              = service.Key
-	Cluster          = service.Cluster
-	Snapshot         = service.Snapshot
-	User             = service.User
-	UserGroup        = service.UserGroup
-	ParameterGroup   = service.ParameterGroup
-	SubnetGroup      = service.SubnetGroup
-	Subnet           = service.Subnet
-	Repository       = service.Repository
-	Reader           = service.Reader
-	Transaction      = service.Transaction
-	MemoryRepository = service.MemoryRepository
+	Scope              = service.Scope
+	Key                = service.Key
+	Cluster            = service.Cluster
+	CacheNodePlacement = service.CacheNodePlacement
+	Snapshot           = service.Snapshot
+	User               = service.User
+	UserGroup          = service.UserGroup
+	ParameterGroup     = service.ParameterGroup
+	SubnetGroup        = service.SubnetGroup
+	Subnet             = service.Subnet
+	Repository         = service.Repository
+	Reader             = service.Reader
+	Transaction        = service.Transaction
+	MemoryRepository   = service.MemoryRepository
 )
 
 var ErrNotFound = service.ErrNotFound

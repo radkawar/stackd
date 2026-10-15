@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -41,6 +42,150 @@ func TestMasterUsernameAndEnginePasswordBounds(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestDefaultSingleWriterPromotionTierAdmission(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		tier      *api.IntegerOptional
+		wantError bool
+	}{
+		{name: "omitted"},
+		{name: "explicit-default", tier: new(api.IntegerOptional(0))},
+		{name: "nondefault", tier: new(api.IntegerOptional(1)), wantError: true},
+		{name: "maximum", tier: new(api.IntegerOptional(15)), wantError: true},
+		{name: "negative", tier: new(api.IntegerOptional(-1)), wantError: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			create := validateCreateDBInstanceMessage(&api.CreateDBInstanceMessage{PromotionTier: test.tier})
+			modify := validateModifyDBInstanceMessage(&api.ModifyDBInstanceMessage{PromotionTier: test.tier})
+			for operation, err := range map[string]error{"create": create, "modify": modify} {
+				if (err != nil) != test.wantError {
+					t.Fatalf("%s admission error = %v, want error %v", operation, err, test.wantError)
+				}
+			}
+		})
+	}
+}
+
+func TestDeleteSnapshotControlsRespectClusterOwnership(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		kind      string
+		member    bool
+		skip      *api.Boolean
+		final     *api.String
+		wantError bool
+	}{
+		{name: "member-omitted", kind: "db", member: true},
+		{name: "member-false", kind: "db", member: true, skip: new(api.Boolean(false))},
+		{name: "member-true", kind: "db", member: true, skip: new(api.Boolean(true))},
+		{name: "member-snapshot-rejected", kind: "db", member: true, final: new(api.String("final")), wantError: true},
+		{name: "standalone-omitted", kind: "db", wantError: true},
+		{name: "standalone-false", kind: "db", skip: new(api.Boolean(false)), wantError: true},
+		{name: "standalone-true", kind: "db", skip: new(api.Boolean(true))},
+		{name: "standalone-final-snapshot", kind: "db", final: new(api.String("final")), wantError: true},
+		{name: "cluster-omitted", kind: "cluster", wantError: true},
+		{name: "cluster-false", kind: "cluster", skip: new(api.Boolean(false)), wantError: true},
+		{name: "cluster-true", kind: "cluster", skip: new(api.Boolean(true))},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			s := New(Config{})
+			t.Cleanup(func() { _ = s.Close() })
+			v := retainedDatabase(time.Now())
+			v.Key.Kind, v.Status, v.Operation = test.kind, "available", ""
+			if test.member {
+				cluster := v
+				cluster.Key.Kind, cluster.Key.Name = "cluster", "owned-cluster"
+				cluster.Engine = "aurora-postgresql"
+				cluster.Endpoint = engine.Endpoint{Address: "127.0.0.1", Port: 15432}
+				seedDatabase(t, s, cluster)
+				v.Cluster = cluster.Key.Name
+			}
+			seedDatabase(t, s, v)
+			ctx := awsctx.WithMetadata(t.Context(), awsctx.Metadata{Partition: v.Key.Partition, AccountID: v.Key.AccountID, Region: v.Key.Region, PrincipalARN: "arn:aws:iam::111111111111:root"})
+			err := s.repository.Update(ctx, func(tx Transaction) error {
+				_, err := s.deleteDatabase(tx.Context(), tx, test.kind, v.Key.Name, test.skip, test.final, nil)
+				return err
+			})
+			if (err != nil) != test.wantError {
+				t.Fatalf("delete error = %v, want error %v", err, test.wantError)
+			}
+			if test.wantError {
+				if got := readDatabase(t, s, v.Key); got.Status != "available" {
+					t.Fatalf("rejected deletion changed retained owner: %s", got.Status)
+				}
+				return
+			}
+			if got := readDatabase(t, s, v.Key); got.Status != "deleting" || got.Operation != "delete" {
+				t.Fatalf("deletion was not retained: %s/%s", got.Status, got.Operation)
+			}
+			if test.member {
+				cluster := readDatabase(t, s, Key{Scope: v.Key.Scope, Kind: "cluster", Name: v.Cluster})
+				if cluster.Status != "stopping" || cluster.Operation != "detach" || cluster.Endpoint.Address != "" {
+					t.Fatalf("cluster did not retain native detach: %+v", cluster)
+				}
+			}
+		})
+	}
+}
+
+func TestClusterBackupProjectionAndSnapshotTypePagination(t *testing.T) {
+	v := retainedDatabase(time.Now())
+	v.Engine, v.BackupRetention, v.BackupWindow = "docdb", 3, "02:00-03:00"
+	out := clusterDTO(v, nil)
+	if out.BackupRetentionPeriod == nil || *out.BackupRetentionPeriod != 3 || value(out.PreferredBackupWindow) != v.BackupWindow {
+		t.Fatal("DocumentDB backup controls lost in shared cluster projection")
+	}
+	v.Engine = "aurora-postgresql"
+	if out := clusterDTO(v, nil); out.BackupRetentionPeriod != nil || out.PreferredBackupWindow != nil {
+		t.Fatal("native RDS projection advertised unsupported backups")
+	}
+	s := New(Config{})
+	t.Cleanup(func() { _ = s.Close() })
+	ctx := awsctx.WithMetadata(t.Context(), awsctx.Metadata{Partition: "aws", AccountID: "111111111111", Region: "us-east-1", PrincipalARN: "arn:aws:iam::111111111111:root"})
+	scope := scopeFor(ctx)
+	if err := s.repository.Update(ctx, func(tx Transaction) error {
+		for i := range 21 {
+			for _, automated := range []bool{false, true} {
+				prefix := "a-manual-"
+				if automated {
+					prefix = "z-automated-"
+				}
+				if err := tx.PutSnapshot(Snapshot{Key: Key{Scope: scope, Kind: "cluster-snapshot", Name: prefix + strconv.Itoa(i)}, Engine: "docdb", Automated: automated}); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for _, kind := range []string{"manual", "automated"} {
+		if err := s.repository.Attempt(ctx, func(tx Transaction) error {
+			in := &api.DescribeDBClusterSnapshotsMessage{SnapshotType: new(api.String(kind)), MaxRecords: new(api.IntegerOptional(20))}
+			first, err := s.describeClusterSnapshots(ctx, tx, in)
+			if err != nil {
+				return err
+			}
+			if len(first.DBClusterSnapshots) != 20 || first.Marker == nil {
+				t.Fatalf("%s filter did not precede pagination", kind)
+			}
+			for _, snapshot := range first.DBClusterSnapshots {
+				if value(snapshot.SnapshotType) != kind {
+					t.Fatal("snapshot type projection differs from selector")
+				}
+			}
+			in.Marker = first.Marker
+			last, err := s.describeClusterSnapshots(ctx, tx, in)
+			if err == nil && (len(last.DBClusterSnapshots) != 1 || last.Marker != nil || value(last.DBClusterSnapshots[0].SnapshotType) != kind) {
+				t.Fatal("filtered snapshot pagination lost final snapshot")
+			}
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 
@@ -169,6 +314,21 @@ func TestStandaloneCreateRequiresCapacityAndSnapshotsPreserveIt(t *testing.T) {
 				snap.Status = "available"
 				if err := tx.PutSnapshot(snap); err != nil {
 					return err
+				}
+				attributes, err := s.describeSnapshotAttributes(ctx, tx, &api.DescribeDBSnapshotAttributesMessage{DBSnapshotIdentifier: new(api.String(snap.Key.Name))})
+				if err != nil {
+					return err
+				}
+				acl := attributes.DBSnapshotAttributesResult
+				if acl == nil || value(acl.DBSnapshotIdentifier) != snap.Key.Name || len(acl.DBSnapshotAttributes) != 1 || value(acl.DBSnapshotAttributes[0].AttributeName) != "restore" || len(acl.DBSnapshotAttributes[0].AttributeValues) != 0 {
+					t.Fatal("manual snapshot is not private")
+				}
+				other := awsctx.WithMetadata(ctx, awsctx.Metadata{Partition: "aws", AccountID: "222222222222", Region: "us-east-1", PrincipalARN: "arn:aws:iam::222222222222:root"})
+				if _, err := s.describeSnapshotAttributes(other, tx, &api.DescribeDBSnapshotAttributesMessage{DBSnapshotIdentifier: new(api.String(snap.Key.Name))}); err == nil {
+					t.Fatal("cross-account snapshot attribute read admitted")
+				}
+				if _, err := s.describeSnapshotAttributes(ctx, tx, &api.DescribeDBSnapshotAttributesMessage{DBSnapshotIdentifier: new(api.String("missing"))}); err == nil {
+					t.Fatal("missing snapshot attribute read admitted")
 				}
 				restored, err := s.restoreDatabase(ctx, tx, "db", "restored", snap.Key.Name, "", "", "", "", "", nil, nil)
 				if err == nil && restored.AllocatedStorage != 20 {

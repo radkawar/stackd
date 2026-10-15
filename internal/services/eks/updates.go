@@ -36,8 +36,11 @@ func (s *Service) updateClusterConfig(ctx context.Context, tx Transaction, in *a
 	if c.Status != "ACTIVE" {
 		return nil, failure("ResourceInUseException", "Cluster is not active.", 409)
 	}
-	if in.ComputeConfig != nil || in.ControlPlaneScalingConfig != nil || in.KubeApiServerConfig != nil || in.KubeControllerManagerConfig != nil || in.KubeSchedulerConfig != nil || in.KubernetesNetworkConfig != nil || in.RemoteNetworkConfig != nil || in.ResourcesVpcConfig != nil || in.StorageConfig != nil || in.UpgradePolicy != nil || in.ZonalShiftConfig != nil {
+	if in.ControlPlaneScalingConfig != nil || in.KubeApiServerConfig != nil || in.KubeControllerManagerConfig != nil || in.KubeSchedulerConfig != nil || in.RemoteNetworkConfig != nil || in.ResourcesVpcConfig != nil || in.UpgradePolicy != nil || in.ZonalShiftConfig != nil {
 		return nil, unsupported("The requested cluster configuration is not implemented by this runtime.")
+	}
+	if e := validateDisabledAutoMode(in.ComputeConfig, in.KubernetesNetworkConfig, in.StorageConfig); e != nil {
+		return nil, e
 	}
 	u := Update{Key: c.Key, ID: uuid.NewString(), Status: "InProgress", Created: s.clock.Now(), ClientToken: token, RequestHash: hash}
 	changes := 0

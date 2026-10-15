@@ -1,0 +1,723 @@
+{
+  "schema_version": 1,
+  "provider": {
+    "source": "hashicorp/aws",
+    "version": "6.68.0",
+    "commit": "c9b83d813022cdd05fc955480b07e269c6e18023",
+    "terraform": "1.16.6"
+  },
+  "verification": "Actual runs used AWS 6.68.0 with official Terraform 1.15.9 and 1.16.6. ZIP, layer, URL and OCI bytes passed. Seven native imports, updates, prior-version isolation and controller reopen passed. All ordinary no-change plans returned 0. Three strict refresh-only plans returned 2 on both cores. The parent isolated an external Core data-state whitespace defect without a provider or service. These assertions still fail. The final run destroyed 17 managed resources. Signed Lambda, layer, ECR, IAM and log-group absence checks passed. No managed Terraform resources remained.",
+  "classification_policy": "Source registrations describe subsets, not provider parity. Actual evidence applies only to the exercised fixture settings and stages. Unrun registrations, settings and native consumers remain unverified. Unsupported means an absent operation or rejected execution path. Uncalibrated means implemented source with no actual evidence from this fixture.",
+  "sources": {
+    "lambda_registrations": "clones/terraform-provider-aws/internal/service/lambda/service_package_gen.go",
+    "ecr_registrations": "clones/terraform-provider-aws/internal/service/ecr/service_package_gen.go",
+    "lambda_provider_lifecycle": "clones/terraform-provider-aws/internal/service/lambda/function.go",
+    "ecr_provider_lifecycle": "clones/terraform-provider-aws/internal/service/ecr/repository.go",
+    "lambda_document": "docs/lambda.md",
+    "ecr_document": "docs/ecr.md is absent; implementation and pinned provider source substituted, no existing document claim",
+    "lambda_aws_contract": "https://docs.aws.amazon.com/lambda/latest/api/API_UpdateFunctionConfiguration.html",
+    "ecr_aws_contract": "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_PutImageScanningConfiguration.html",
+    "oci_contract": "https://github.com/opencontainers/image-spec/blob/main/manifest.md"
+  },
+  "lambda": [
+    {
+      "type": "aws_lambda_capacity_provider",
+      "registrations": [
+        "framework_resource",
+        "framework_list_resource"
+      ],
+      "classification": "backend_required_partial_unverified",
+      "source": "internal/services/lambda/capacity_controls.go",
+      "fixture": false,
+      "supported_subset": [
+        "native managed EC2 capacity-provider lifecycle with configured real backend"
+      ],
+      "unsupported": [
+        "telemetry_config agent log delivery",
+        "GPU capacity policies"
+      ],
+      "uncalibrated": [
+        "all pinned-provider fields and list/import/update/destroy behavior",
+        "native managed-guest prerequisites and actual managed function execution"
+      ]
+    },
+    {
+      "type": "aws_lambda_function_recursion_config",
+      "registrations": [
+        "framework_resource"
+      ],
+      "classification": "fixture_candidate_unverified",
+      "source": "internal/services/lambda/runtime_controls.go",
+      "fixture": true,
+      "supported_subset": [
+        "recursive_loop=Terminate or Allow; real lineage admission"
+      ],
+      "unsupported": [],
+      "uncalibrated": [
+        "recursive-chain behavior with this Terraform consumer",
+        "standalone import"
+      ],
+      "fixture_evidence": "Declared subset exercised. Strict refresh-only lifecycle assertions fail. See procedure.json."
+    },
+    {
+      "type": "aws_lambda_function_scaling_config",
+      "registrations": [
+        "framework_resource",
+        "framework_list_resource"
+      ],
+      "classification": "managed_capacity_partial_unverified",
+      "source": "internal/services/lambda/capacity_functions.go",
+      "fixture": false,
+      "supported_subset": [
+        "scaling native managed-capacity functions"
+      ],
+      "unsupported": [
+        "scaling ordinary on-demand functions"
+      ],
+      "uncalibrated": [
+        "all pinned-provider configuration, list, import and native managed scaling execution"
+      ]
+    },
+    {
+      "type": "aws_lambda_resource_policy",
+      "registrations": [
+        "framework_resource",
+        "framework_list_resource"
+      ],
+      "classification": "source_backed_partial_unverified",
+      "source": "internal/services/lambda/capacity_policy.go",
+      "fixture": false,
+      "supported_subset": [
+        "whole function policy GetResourcePolicy/PutResourcePolicy/DeleteResourcePolicy through authoritative policy binder"
+      ],
+      "unsupported": [
+        "native ResourcePolicy list handler"
+      ],
+      "uncalibrated": [
+        "all pinned-provider policy shapes, identity, import, update and destroy"
+      ]
+    },
+    {
+      "type": "aws_lambda_runtime_management_config",
+      "registrations": [
+        "framework_resource"
+      ],
+      "classification": "fixture_candidate_unverified",
+      "source": "internal/services/lambda/runtime_controls.go",
+      "fixture": true,
+      "supported_subset": [
+        "Auto and FunctionUpdate policy lifecycle",
+        "qualifier selection and native defaults"
+      ],
+      "unsupported": [
+        "Manual runtime_version_arn: no executable AWS runtime-version catalog"
+      ],
+      "uncalibrated": [
+        "AWS-managed runtime rollout; local execution intentionally uses operator-pinned runtime images",
+        "published-version-qualified management"
+      ],
+      "fixture_evidence": "Declared subset exercised. Strict refresh-only lifecycle assertions fail. See procedure.json."
+    },
+    {
+      "type": "aws_lambda_alias",
+      "registrations": [
+        "sdk_resource",
+        "sdk_data_source",
+        "sdk_list_resource"
+      ],
+      "classification": "fixture_candidate_unverified",
+      "source": "internal/services/lambda/aliases.go",
+      "fixture": true,
+      "supported_subset": [
+        "immutable-version alias create/read/update/import/delete and discovery"
+      ],
+      "unsupported": [],
+      "uncalibrated": [
+        "routing_config.additional_version_weights actual weighted execution",
+        "list-resource protocol"
+      ],
+      "fixture_evidence": "Declared subset exercised. Strict refresh-only lifecycle assertions fail. See procedure.json."
+    },
+    {
+      "type": "aws_lambda_code_signing_config",
+      "registrations": [
+        "sdk_resource",
+        "sdk_data_source"
+      ],
+      "classification": "source_backed_partial_unverified",
+      "source": "internal/services/lambda/code_signing.go",
+      "fixture": false,
+      "supported_subset": [
+        "code-signing owner lifecycle, bindings and signed deployment admission with real Signer artifacts"
+      ],
+      "unsupported": [
+        "non-Lambda Signer platforms",
+        "cross-account signing profile grants"
+      ],
+      "uncalibrated": [
+        "all pinned-provider fields and signed ZIP/layer consumer/import/update/destroy"
+      ]
+    },
+    {
+      "type": "aws_lambda_event_source_mapping",
+      "registrations": [
+        "sdk_resource",
+        "sdk_list_resource"
+      ],
+      "classification": "source_specific_partial_unverified",
+      "source": "internal/services/lambda/event_source_mapping.go",
+      "fixture": false,
+      "supported_subset": [
+        "native SQS/Kinesis/DynamoDB/MSK/self-managed Kafka/Amazon MQ/DocumentDB owners with respective real adapters"
+      ],
+      "unsupported": [
+        "MQ provisioned pollers/logging/custom failure handling",
+        "DocumentDB private VPC placement and partial-batch/filter execution",
+        "Kafka replacement of existing mapping VPC placement",
+        "provisioned Kafka polling"
+      ],
+      "uncalibrated": [
+        "all pinned-provider combinations",
+        "filter KMS requires configured real filter-encryption provider",
+        "per-source settings and actual data-plane execution outside this fixture",
+        "list-resource protocol"
+      ]
+    },
+    {
+      "type": "aws_lambda_function",
+      "registrations": [
+        "sdk_resource",
+        "sdk_data_source",
+        "sdk_list_resource"
+      ],
+      "classification": "fixture_candidate_unverified",
+      "source": "internal/services/lambda/functions.go",
+      "fixture": true,
+      "supported_subset": [
+        "direct ZIP with official Python3.12 RIC, real layer import, precreated execution role lookup",
+        "environment/description/memory/timeout/ephemeral storage/logging/tags/concurrency lifecycle",
+        "publish immutable versions and select alias/version",
+        "SnapStart ApplyOn=None and empty EFS clear requests use ordinary non-snapshot/non-EFS path"
+      ],
+      "unsupported": [
+        "kms_key_arn environment encryption",
+        "source_kms_key_arn code encryption",
+        "file_system_config nonempty EFS attachments",
+        "snap_start PublishedVersions",
+        "tenancy_config",
+        "tracing_config Active"
+      ],
+      "uncalibrated": [
+        "function import nonrefreshable filename/source_code_hash reconciliation",
+        "S3/versioned/S3 REFERENCE code sources",
+        "image_uri/image_config Docker deployment (locally installed immutable snapshot, not ECR pull integration)",
+        "arm64 and other runtime combinations",
+        "vpc_config native network prerequisites",
+        "code_signing_config_arn real signed artifacts",
+        "dead_letter_config targets and async destinations",
+        "durable_config",
+        "capacity_provider_config",
+        "nondefault ephemeral_storage and structured logging",
+        "list-resource protocol"
+      ],
+      "fixture_evidence": "Declared subset exercised. Strict refresh-only lifecycle assertions fail. See procedure.json."
+    },
+    {
+      "type": "aws_lambda_function_event_invoke_config",
+      "registrations": [
+        "sdk_resource"
+      ],
+      "classification": "fixture_candidate_unverified",
+      "source": "internal/services/lambda/async_config.go",
+      "fixture": true,
+      "supported_subset": [
+        "alias-qualified maximum_event_age_in_seconds/maximum_retry_attempts create/read/import/update/delete"
+      ],
+      "unsupported": [],
+      "uncalibrated": [
+        "destination_config.on_failure/on_success target-specific actual deliveries",
+        "Event invocation retries/age/propagation behavior"
+      ],
+      "fixture_evidence": "Declared subset exercised. Strict refresh-only lifecycle assertions fail. See procedure.json."
+    },
+    {
+      "type": "aws_lambda_function_url",
+      "registrations": [
+        "sdk_resource",
+        "sdk_data_source"
+      ],
+      "classification": "fixture_candidate_unverified",
+      "source": "internal/services/lambda/url_config.go",
+      "fixture": true,
+      "supported_subset": [
+        "alias-qualified NONE/BUFFERED URL with explicit two-action URL permission policy",
+        "CORS and real HTTP handler bytes"
+      ],
+      "unsupported": [],
+      "uncalibrated": [
+        "AWS_IAM signed URL consumer",
+        "RESPONSE_STREAM actual stream bytes",
+        "URL import",
+        "all remaining CORS combinations and update propagation"
+      ],
+      "fixture_evidence": "Declared subset exercised. Strict refresh-only lifecycle assertions fail. See procedure.json."
+    },
+    {
+      "type": "aws_lambda_invocation",
+      "registrations": [
+        "sdk_resource",
+        "sdk_data_source",
+        "ephemeral_resource"
+      ],
+      "classification": "fixture_candidate_unverified",
+      "source": "internal/services/lambda/execution.go",
+      "fixture": true,
+      "supported_subset": [
+        "RequestResponse with actual RIC execution and independent signed consumer",
+        "resource create-only scope with revision/version triggers",
+        "data source reads execute actual code"
+      ],
+      "unsupported": [
+        "tenant_id isolated tenancy"
+      ],
+      "uncalibrated": [
+        "resource lifecycle_scope=CRUD and delete payload consumers",
+        "invocation import reconciliation",
+        "ephemeral resource protocol",
+        "all nonfixture invocation settings"
+      ],
+      "fixture_evidence": "Declared subset exercised. Strict refresh-only lifecycle assertions fail. See procedure.json."
+    },
+    {
+      "type": "aws_lambda_functions",
+      "registrations": [
+        "sdk_data_source"
+      ],
+      "classification": "fixture_candidate_unverified",
+      "source": "internal/services/lambda/functions.go",
+      "fixture": true,
+      "supported_subset": [
+        "ListFunctions discovery"
+      ],
+      "unsupported": [],
+      "uncalibrated": [
+        "pinned-provider pagination over large inventories"
+      ],
+      "fixture_evidence": "Declared subset exercised. Strict refresh-only lifecycle assertions fail. See procedure.json."
+    },
+    {
+      "type": "aws_lambda_layer_version",
+      "registrations": [
+        "sdk_resource",
+        "sdk_data_source",
+        "sdk_list_resource"
+      ],
+      "classification": "fixture_candidate_unverified",
+      "source": "internal/services/lambda/layers.go",
+      "fixture": true,
+      "supported_subset": [
+        "ZIP publish/discovery/download/import/delete, compatible runtime/architecture/license",
+        "real Python /opt/python import"
+      ],
+      "unsupported": [],
+      "uncalibrated": [
+        "S3 sources and REFERENCE mode",
+        "signed layers",
+        "cross-account layer consumption",
+        "latest-compatible layer selectors",
+        "list-resource protocol",
+        "import nonrefreshable filename reconciliation"
+      ],
+      "fixture_evidence": "Declared subset exercised. Strict refresh-only lifecycle assertions fail. See procedure.json."
+    },
+    {
+      "type": "aws_lambda_layer_version_permission",
+      "registrations": [
+        "sdk_resource"
+      ],
+      "classification": "fixture_candidate_unverified",
+      "source": "internal/services/lambda/layer_permissions.go",
+      "fixture": true,
+      "supported_subset": [
+        "same-account lambda:GetLayerVersion statement lifecycle"
+      ],
+      "unsupported": [],
+      "uncalibrated": [
+        "organization_id, wildcard/cross-account principals, revision preconditions, standalone import"
+      ],
+      "fixture_evidence": "Declared subset exercised. Strict refresh-only lifecycle assertions fail. See procedure.json."
+    },
+    {
+      "type": "aws_lambda_permission",
+      "registrations": [
+        "sdk_resource",
+        "sdk_list_resource"
+      ],
+      "classification": "fixture_candidate_unverified",
+      "source": "internal/services/lambda/permissions.go",
+      "fixture": true,
+      "supported_subset": [
+        "function_url_auth_type and invoked_via_function_url policy statements with real anonymous HTTP execution",
+        "alias-qualified policies"
+      ],
+      "unsupported": [
+        "list flattening arbitrary deny/multi-principal/unsupported-condition whole-policy statements into individual permission resources"
+      ],
+      "uncalibrated": [
+        "source_arn/source_account/principal_org_id/event_source_token combinations",
+        "standalone import",
+        "list-resource protocol"
+      ],
+      "fixture_evidence": "Declared subset exercised. Strict refresh-only lifecycle assertions fail. See procedure.json."
+    },
+    {
+      "type": "aws_lambda_provisioned_concurrency_config",
+      "registrations": [
+        "sdk_resource"
+      ],
+      "classification": "runtime_required_partial_unverified",
+      "source": "internal/services/lambda/provisioned_concurrency.go",
+      "fixture": false,
+      "supported_subset": [
+        "real initialized qualified runtime environments, readiness/reservations/update/delete"
+      ],
+      "unsupported": [
+        "$LATEST provisioned concurrency (AWS restriction)"
+      ],
+      "uncalibrated": [
+        "all pinned-provider settings and actual provisioned function execution/import"
+      ]
+    },
+    {
+      "type": "aws_lambda_invoke",
+      "registrations": [
+        "action"
+      ],
+      "classification": "source_backed_unverified",
+      "source": "internal/services/lambda/execution.go",
+      "fixture": false,
+      "supported_subset": [
+        "native Invoke underlying action when executor is installed"
+      ],
+      "unsupported": [
+        "tenant_id isolated tenancy"
+      ],
+      "uncalibrated": [
+        "Terraform action lifecycle protocol, payload and function-error handling"
+      ]
+    }
+  ],
+  "ecr": [
+    {
+      "type": "aws_ecr_account_setting",
+      "registrations": [
+        "framework_resource"
+      ],
+      "classification": "unsupported",
+      "source": "internal/services/ecr/service.go",
+      "fixture": false,
+      "supported_subset": [],
+      "unsupported": [
+        "GetAccountSetting/PutAccountSetting: operations are not registered; all account setting names/values/import/update/delete"
+      ],
+      "uncalibrated": []
+    },
+    {
+      "type": "aws_ecr_pull_time_update_exclusion",
+      "registrations": [
+        "framework_resource"
+      ],
+      "classification": "unsupported",
+      "source": "internal/services/ecr/service.go",
+      "fixture": false,
+      "supported_subset": [],
+      "unsupported": [
+        "GetAccountSetting/PutAccountSetting pull-time exclusion operations; all principal_arn patterns/import/update/delete"
+      ],
+      "uncalibrated": []
+    },
+    {
+      "type": "aws_ecr_authorization_token",
+      "registrations": [
+        "sdk_data_source",
+        "ephemeral_resource"
+      ],
+      "classification": "fixture_candidate_unverified",
+      "source": "internal/services/ecr/tokens.go",
+      "fixture": true,
+      "supported_subset": [
+        "The current provider token uses separate read-only state. The independent OCI consumer uses its actual Basic-auth bytes.",
+        "SDK authorization token data source"
+      ],
+      "unsupported": [],
+      "uncalibrated": [
+        "ephemeral resource protocol",
+        "token expiry/current-policy revocation",
+        "registry_id multi-account selectors"
+      ],
+      "fixture_evidence": "Declared subset exercised. Strict refresh-only lifecycle assertions fail. See procedure.json."
+    },
+    {
+      "type": "aws_ecr_images",
+      "registrations": [
+        "framework_data_source"
+      ],
+      "classification": "fixture_candidate_unverified",
+      "source": "internal/services/ecr/images.go",
+      "fixture": true,
+      "supported_subset": [
+        "ListImages actual published manifests"
+      ],
+      "unsupported": [],
+      "uncalibrated": [
+        "pagination over large inventories"
+      ],
+      "fixture_evidence": "Declared subset exercised. Strict refresh-only lifecycle assertions fail. See procedure.json."
+    },
+    {
+      "type": "aws_ecr_image",
+      "registrations": [
+        "sdk_data_source"
+      ],
+      "classification": "fixture_candidate_unverified",
+      "source": "internal/services/ecr/images.go",
+      "fixture": true,
+      "supported_subset": [
+        "image_tag discovery of real OCI manifest digest/bytes"
+      ],
+      "unsupported": [],
+      "uncalibrated": [
+        "most_recent sorting",
+        "image_digest plus image_tag mismatch",
+        "pagination",
+        "archived/image-status extensions"
+      ],
+      "fixture_evidence": "Declared subset exercised. Strict refresh-only lifecycle assertions fail. See procedure.json."
+    },
+    {
+      "type": "aws_ecr_repositories",
+      "registrations": [
+        "framework_data_source"
+      ],
+      "classification": "fixture_candidate_unverified",
+      "source": "internal/services/ecr/repositories.go",
+      "fixture": true,
+      "supported_subset": [
+        "DescribeRepositories discovery"
+      ],
+      "unsupported": [],
+      "uncalibrated": [
+        "repository_names selectors and large inventory pagination"
+      ],
+      "fixture_evidence": "Declared subset exercised. Strict refresh-only lifecycle assertions fail. See procedure.json."
+    },
+    {
+      "type": "aws_ecr_repository",
+      "registrations": [
+        "sdk_resource",
+        "sdk_data_source",
+        "sdk_list_resource"
+      ],
+      "classification": "fixture_candidate_unverified",
+      "source": "internal/services/ecr/repositories.go",
+      "fixture": true,
+      "supported_subset": [
+        "AES256 repository/tags/import/update/force-delete",
+        "IMMUTABLE_WITH_EXCLUSION dev-* then MUTABLE with exclusion clearing",
+        "scan_on_push=false",
+        "real SDK OCI config/layer upload and manifest publication; registry HTTP and signed URL byte downloads"
+      ],
+      "unsupported": [
+        "KMS_DSSE dual-layer encryption",
+        "scan_on_push=true without configured real scanner/database (create and update reject)"
+      ],
+      "uncalibrated": [
+        "KMS key/grant encrypted blobs with real key provider",
+        "all remaining tag-mutability/filter combinations",
+        "Docker CLI pull/run from this registry",
+        "list-resource protocol"
+      ],
+      "fixture_evidence": "Declared subset exercised. Strict refresh-only lifecycle assertions fail. See procedure.json."
+    },
+    {
+      "type": "aws_ecr_repository_policy",
+      "registrations": [
+        "sdk_resource",
+        "sdk_list_resource"
+      ],
+      "classification": "fixture_candidate_unverified",
+      "source": "internal/services/ecr/policies.go",
+      "fixture": true,
+      "supported_subset": [
+        "repository policy create/read/import/delete and actual authorized byte access"
+      ],
+      "unsupported": [],
+      "uncalibrated": [
+        "all IAM principal/condition/deny combinations and policy update",
+        "list-resource protocol"
+      ],
+      "fixture_evidence": "Declared subset exercised. Strict refresh-only lifecycle assertions fail. See procedure.json."
+    },
+    {
+      "type": "aws_ecr_registry_policy",
+      "registrations": [
+        "sdk_resource"
+      ],
+      "classification": "source_backed_partial_unverified",
+      "source": "internal/services/ecr/policies.go",
+      "fixture": false,
+      "supported_subset": [
+        "PutRegistryPolicy/GetRegistryPolicy/DeleteRegistryPolicy with current authorization"
+      ],
+      "unsupported": [],
+      "uncalibrated": [
+        "all pinned-provider policy configuration/import/update/delete and real cross-account consumers"
+      ]
+    },
+    {
+      "type": "aws_ecr_lifecycle_policy",
+      "registrations": [
+        "sdk_resource",
+        "sdk_list_resource"
+      ],
+      "classification": "fixture_candidate_unverified",
+      "source": "internal/services/ecr/lifecycle.go",
+      "fixture": true,
+      "supported_subset": [
+        "expire imageCountMoreThan/sinceImagePushed policies, native scheduler and preview",
+        "fixture creates/imports/updates/deletes real policy while retaining actual manifests"
+      ],
+      "unsupported": [
+        "transition/archive and targetStorageClass",
+        "sinceImagePulled/sinceImageTransitioned selection"
+      ],
+      "uncalibrated": [
+        "pinned-provider timed expiry (fixture deliberately retains image bytes)",
+        "list-resource protocol",
+        "all rule-priority/tag selectors and index-reference combinations"
+      ],
+      "fixture_evidence": "Declared subset exercised. Strict refresh-only lifecycle assertions fail. See procedure.json."
+    },
+    {
+      "type": "aws_ecr_lifecycle_policy_document",
+      "registrations": [
+        "framework_data_source"
+      ],
+      "classification": "provider_local_supported_unverified",
+      "source": "clones/terraform-provider-aws/internal/service/ecr/lifecycle_policy_document_data_source.go",
+      "fixture": true,
+      "supported_subset": [
+        "provider-local JSON document generation (no stackd API)",
+        "expire imageCountMoreThan consumed by real lifecycle owner"
+      ],
+      "unsupported": [],
+      "uncalibrated": [
+        "provider can generate transition/archive/sinceImagePulled/sinceImageTransitioned documents but owner rejects these policies; generation does not establish runtime support",
+        "all nonfixture provider-local settings"
+      ],
+      "fixture_evidence": "Declared subset exercised. Strict refresh-only lifecycle assertions fail. See procedure.json."
+    },
+    {
+      "type": "aws_ecr_registry_scanning_configuration",
+      "registrations": [
+        "sdk_resource"
+      ],
+      "classification": "scanner_required_partial_unverified",
+      "source": "internal/services/ecr/scanning.go",
+      "fixture": false,
+      "supported_subset": [
+        "BASIC empty-rule manual configuration",
+        "BASIC SCAN_ON_PUSH rules with real configured scanner"
+      ],
+      "unsupported": [
+        "ENHANCED Inspector scanning",
+        "CONTINUOUS_SCAN",
+        "nonempty SCAN_ON_PUSH rules without configured real scanner/database"
+      ],
+      "uncalibrated": [
+        "all pinned-provider fields/import/update/delete and actual vulnerability DB findings"
+      ]
+    },
+    {
+      "type": "aws_ecr_replication_configuration",
+      "registrations": [
+        "sdk_resource"
+      ],
+      "classification": "source_backed_partial_unverified",
+      "source": "internal/services/ecr/replication.go",
+      "fixture": false,
+      "supported_subset": [
+        "native blob/manifest copy jobs, destination registry policy, PREFIX_MATCH, IAM service-linked-role issuer required"
+      ],
+      "unsupported": [],
+      "uncalibrated": [
+        "all pinned-provider destination/filter/import/update/delete combinations and cross-region/account byte consumers"
+      ]
+    },
+    {
+      "type": "aws_ecr_pull_through_cache_rule",
+      "registrations": [
+        "sdk_resource",
+        "sdk_data_source"
+      ],
+      "classification": "unsupported",
+      "source": "internal/services/ecr/service.go",
+      "fixture": false,
+      "supported_subset": [],
+      "unsupported": [
+        "Create/Describe/Update/DeletePullThroughCacheRule and upstream execution are not registered; all credential_arn/upstream_registry/upstream_repository_prefix/custom_role_arn paths"
+      ],
+      "uncalibrated": []
+    },
+    {
+      "type": "aws_ecr_repository_creation_template",
+      "registrations": [
+        "sdk_resource",
+        "sdk_data_source"
+      ],
+      "classification": "unsupported",
+      "source": "internal/services/ecr/service.go",
+      "fixture": false,
+      "supported_subset": [],
+      "unsupported": [
+        "Create/Describe/Update/DeleteRepositoryCreationTemplate operations are not registered; all prefix/applied_for/custom_role_arn/encryption/image-tag-mutability/policy/lifecycle-policy/resource-tags settings"
+      ],
+      "uncalibrated": []
+    }
+  ],
+  "corrections": [
+    "Lambda accepts SnapStart ApplyOn=None (disabled) and empty EFS clear requests rather than conflating them with unsupported snapshot/EFS execution. PublishedVersions and nonempty EFS remain explicit errors.",
+    "ECR PutImageScanningConfiguration and PutRegistryScanningConfiguration reject enabling scan_on_push without real scanner/database, matching CreateRepository instead of recording metadata-only scan success.",
+    "The layer version output uses tonumber for the signed SDK absence check.",
+    "Short-lived ECR credentials use separate state. The infrastructure plan does not own token timestamps."
+  ],
+  "data_plane_boundary": "Fixture publishes real OCI image config and gzipped tar blobs through signed InitiateLayerUpload/UploadLayerPart/CompleteLayerUpload/PutImage. Independent consumer retrieves registry manifests/blobs under Basic auth and SDK layer download URLs, validates descriptor digests/sizes/rootfs diff IDs, and compares extracted binary payload. This does not claim Docker registry pull/run or ECR-to-Lambda image execution. Lambda fixture executes actual ZIP bytes through official RIC independently of the OCI artifact.",
+  "prerequisites": [
+    "Official Terraform 1.15.9 or later",
+    "AWS provider exactly 6.68.0 and the checked-in checksum lock",
+    "Python dependencies from examples/requirements.txt",
+    "Docker-backed Lambda with installed official runtime and storage images plus matching telemetry helpers",
+    "Use a fresh fixture-owned controller. The fixture reopens its database and destroys its IAM prerequisites."
+  ],
+  "commands": [
+    "$EXAMPLE_PYTHON examples/terraform-compute/lambda-ecr/run.py --port 14707 --provider-mirror $AWS_PROVIDER_MIRROR",
+    "$EXAMPLE_PYTHON examples/terraform-compute/lambda-ecr/run.py --provider-mirror $AWS_PROVIDER_MIRROR --port 14707 --docker-host unix:///var/run/docker.sock",
+    "$EXAMPLE_PYTHON examples/terraform-compute/lambda-ecr/consumer.py http://127.0.0.1:14707 PRIVATE_RUN/second-outputs.json PRIVATE_RUN/second-image.json PRIVATE_RUN/first-outputs.json",
+    "go test ./internal/services/lambda ./internal/services/ecr -run '^TestTerraform' -count=1"
+  ],
+  "procedure": [
+    "Initialize the exact AWS provider version with the checked-in checksum lock.",
+    "Create the owned IAM role, network-independent Lambda resources and ECR repository.",
+    "Push the first real OCI manifest and blob bytes into the owned registry.",
+    "Consume actual Lambda, URL, layer and authenticated OCI bytes through independent clients.",
+    "Save strict refresh-only and ordinary no-change plans. Require exit 0 and retain every failed assertion.",
+    "Import all seven owned native identities without replacing their live resources.",
+    "Apply the code, environment, alias and layer update. Push the second OCI image.",
+    "Require second revision bytes through the updated alias and URL. Require first bytes through the prior published version.",
+    "Require the prior OCI digest to retain its manifest. Delete that digest through signed BatchDeleteImage.",
+    "Stop and reopen the same owned controller database. Repeat both retained Lambda-version consumers and OCI consumers.",
+    "Save both strict no-change plans again. Retain failed assertions until normal cleanup completes.",
+    "Use ordinary Terraform destroy for all declared resources, including the nonempty owned ECR repository.",
+    "Check signed Lambda, layer, ECR, IAM and log-group absence. Check empty managed Terraform state."
+  ]
+}

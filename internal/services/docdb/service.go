@@ -53,7 +53,7 @@ func New(c Config) *Service {
 	}
 	s := &Service{repository: c.Repository, authorizer: c.Authorizer, recorder: c.Recorder, clock: c.Clock, runtime: c.Runtime, cipher: c.Cipher, operations: map[string]func(context.Context) (any, *awswire.Error){}}
 	s.names = c.Names
-	s.jobs = scheduler.New(c.Clock, clusterJobs{s}, snapshotJobs{s})
+	s.jobs = scheduler.New(c.Clock, clusterJobs{s}, snapshotJobs{s}, backupJobs{s})
 	register(s, "CreateDBCluster", s.createCluster)
 	register(s, "DescribeDBClusters", s.describeClusters)
 	register(s, "ModifyDBCluster", s.modifyCluster)
@@ -62,6 +62,7 @@ func New(c Config) *Service {
 	register(s, "StopDBCluster", s.stopCluster)
 	register(s, "CreateDBInstance", s.createInstance)
 	register(s, "DescribeDBInstances", s.describeInstances)
+	register(s, "ModifyDBInstance", s.modifyInstance)
 	register(s, "DeleteDBInstance", s.deleteInstance)
 	register(s, "RebootDBInstance", s.rebootInstance)
 	register(s, "CreateDBClusterSnapshot", s.createSnapshot)
@@ -104,7 +105,7 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // TODO: Comeback implement DocumentDB managed networking/storage, distributed
-// readers/failover, parameter groups, automated backups/PITR and remaining controls
+// readers/failover, parameter groups, continuous backups/PITR and remaining controls
 // against real owners; the native backend is not the AWS DocumentDB storage engine.
 func (s *Service) ExecuteCommand(ctx context.Context, req awsapi.DecodedRequest) (any, *awswire.Error) {
 	ctx = awsapi.WithDecodedRequest(ctx, req)

@@ -1,0 +1,266 @@
+{
+  "provider": {
+    "source": "hashicorp/aws",
+    "version": "6.68.0",
+    "commit": "c9b83d813022cdd05fc955480b07e269c6e18023",
+    "metadata": [
+      "clones/terraform-provider-aws/internal/service/codebuild/service_package_gen.go",
+      "clones/terraform-provider-aws/internal/service/codepipeline/service_package_gen.go",
+      "clones/terraform-provider-aws/internal/service/sfn/service_package_gen.go"
+    ]
+  },
+  "verification": {
+    "status": "blocked_strict_refresh_only_exit_code; actual lifecycle and consumers exercised in both variants, not a clean acceptance pass",
+    "controller": "/home/r/dev/minor/stackd/.stackd/verify-observability-rv4tqke0/bin/stackd",
+    "terraform": "1.15.9",
+    "python_sdk": "boto3/botocore 1.43.98",
+    "provider_mirror": "/tmp/stackd-terraform-eip-59nmy6o_/.terraform/providers",
+    "report": "/home/r/dev/minor/stackd/.stackd/verify-jobs-logs-y43ckdi_/report.json",
+    "runs": [
+      {
+        "mode": "plain",
+        "port": 14831,
+        "exit": 1,
+        "workspace": "/home/r/dev/minor/stackd/.stackd/stackd-terraform-jobs-nemgh961",
+        "log": "/home/r/dev/minor/stackd/.stackd/verify-jobs-logs-y43ckdi_/plain-14831-full-lifecycle.log",
+        "resource_prefix": "stackd-jobs-bcdfbcf5ae59"
+      },
+      {
+        "mode": "docker",
+        "port": 14832,
+        "exit": 1,
+        "image": "sha256:6aa6ba1ae1662df3e7400a25d3293bc464c3a907da13370eec7637128c8eb0a3",
+        "workspace": "/home/r/dev/minor/stackd/.stackd/stackd-terraform-jobs-by__xhxp",
+        "log": "/home/r/dev/minor/stackd/.stackd/verify-jobs-logs-y43ckdi_/docker-14832-full-lifecycle.log",
+        "resource_prefix": "stackd-jobs-f3713c8e0437"
+      }
+    ],
+    "passed": [
+      "Creation, signed control/data-source identity reads, all six state-remove/native-ID imports and identity-preserving apply, v2 update and concurrent-build-limit removal.",
+      "Seven actual activity executions per variant: v1 alias, v2 alias/current/retained-v1, then fresh v2 alias/current/retained-v1 after real stop and SQLite reopen; every output and ActivitySucceeded history checked.",
+      "Three actual S3 ZIP pipeline consumers per variant, including a fresh execution after reopen; retained pre-shutdown histories and source/output ZIP and deployment bytes checked.",
+      "Docker: three actual standalone builds with 24 process-produced binary bytes each and three S3-to-CodeBuild-to-S3 pipelines with 36 transformed binary bytes each; retained standalone BUILD_ID ZIP bytes/history and fresh reopened builds checked.",
+      "Ordinary and post-reopen no-op plans both exit 0, applyable=false, no resource drift or non-no-op resource/output changes.",
+      "Each final run ordinarily destroys 17 managed resources, checks signed native absence and empty Terraform state, and retains no owned resources. Earlier failed-attempt workspaces are also ordinarily destroyed and absence/state-empty checked."
+    ],
+    "blocker": {
+      "stage": "refresh_and_noop",
+      "observed": "Terraform 1.15.9 plan -refresh-only -detailed-exitcode returns 2 and applyable=true while printing No changes. Public plan JSON has no resource_drift/resource_changes and no-op output changes. Embedded tfstate-prev and tfstate compare semantically identical for all resources, identities, private bytes, dependencies and outputs; only serial/lineage differ.",
+      "attempted": "Explicit apply -refresh-only computed-state reconciliation did not produce a subsequent strict refresh-only exit 0. Failed assertions remain recorded and re-raised after reopened consumers and ordinary teardown; exit 2 is not accepted.",
+      "prerequisite": "A real Terraform refresh-only planner returning exit 0 for this empty persisted-state diff is required for clean acceptance. Exact upstream cause is not established; no owner API or runtime drift was observed.",
+      "upstream_precedent": ["https://github.com/hashicorp/terraform/issues/37406", "https://github.com/hashicorp/terraform/pull/37886"]
+    },
+    "source_changes": "Fixture only; no CodeBuild Go owner bug observed and no shared source, root build, staging or commit performed."
+  },
+  "fixture": {
+    "runner": "examples/terraform-application-controls/jobs/run.py",
+    "configuration": "examples/terraform-application-controls/jobs/main.tf",
+    "terraform": "1.15.9",
+    "commands": [
+      "python -m pip install -r examples/requirements.txt",
+      "python examples/terraform-application-controls/jobs/run.py --port 14731 --provider-mirror /absolute/path/to/provider-mirror",
+      "docker build -t local/stackd-jobs:prepared /absolute/path/to/prepared-context",
+      "docker image inspect --format '{{.Id}}' local/stackd-jobs:prepared",
+      "python examples/terraform-application-controls/jobs/run.py --port 14732 --provider-mirror /absolute/path/to/provider-mirror --docker --build-image sha256:REPLACE_WITH_INSTALLED_IMAGE_ID"
+    ],
+    "prerequisites": [
+      "A prebuilt actual controller selected with --stackd; this runner does not build or replace shared/root source.",
+      "Python and examples/requirements.txt; Terraform 1.15.9 on PATH; provider AWS 6.68.0 installed from publisher or a prepared filesystem mirror.",
+      "No AWS account, paid cloud resource, inherited AWS credentials, external endpoint or existing controller is used.",
+      "Default mode needs no container runtime: Step Functions activity callbacks and S3 pipeline deployment are actual consumers. CodeBuild projects in this mode are lifecycle controls only, not successful jobs.",
+      "Docker mode requires explicit local Docker Engine transport, trusted dedicated host, reachable compute endpoint selected by examples/local.py containers=True, and an installed immutable Linux build image containing /bin/sh and python3 on PATH. Prepare the image yourself; the fixture never pulls images or installs packages.",
+      "Controller, SQLite DB, Terraform state/plans, outputs and evidence live in a unique mode-0700 retained workspace. --work-parent selects an existing parent; --stackd selects a prebuilt executable; --port must be unused."
+    ],
+    "lifecycle": ["create", "provider_read", "native_sdk_read", "state_remove_and_native_id_import", "update", "refresh_only_noop", "repeated_plan_noop", "controller_stop", "sqlite_reopen", "retained_control_identities_versions_history_and_artifact_bytes", "fresh_native_consumers_after_reopen", "reopen_plan_noop", "destroy", "native_sdk_absence", "empty_terraform_state"],
+    "consumers": [
+      "Signed Step Functions SDK StartExecution against alias, unqualified machine and retained old published version; actual activity lease/input, worker SHA-256 computation, heartbeat, task-token success, terminal output and retained ActivitySucceeded history.",
+      "Signed SDK StartPipelineExecution; independent S3 reads of retained source/output ZIPs and deployed binary member bytes. Default mode is S3 Source -> S3 Deploy; Docker mode is S3 Source -> real CodeBuild -> S3 Deploy.",
+      "Docker mode additionally starts an independent NO_SOURCE CodeBuild process, awaits its real completion and consumes its S3 ZIP artifact's process-produced binary bytes.",
+      "v1 -> v2 changes project description/environment/tags/concurrency, pipeline destination prefix/tags, machine definition/publication, activity tags, alias description/routes. The original v1 workflow version is executed after v2 is current.",
+      "After a real controller stop and SQLite reopen, independently read retained successful workflow histories, pipeline ZIP and deployment bytes, and (Docker mode) actual build history and BUILD_ID-namespaced artifact bytes; then start fresh alias, unqualified and retained-version workflows, a fresh pipeline, and a fresh standalone build in Docker mode.",
+      "Private evidence.json records factual stages, owned identities, Terraform command exit codes/log paths, consumer execution handles and artifact hashes, and ordinary destroy/signed absence/empty-state cleanup."
+    ],
+    "not_covered": [
+      "Fleet, source credentials, report groups, CodeBuild resource policies or webhooks, CodePipeline custom action types or webhooks.",
+      "Provider actions and list-resource query interfaces are inventoried separately but not exercised by this lifecycle fixture.",
+      "No claim of whole-service parity, every supported setting, batch/agent readiness, cryptographic substitution or successful jobs without actual runtime execution."
+    ]
+  },
+  "resources": [
+    {
+      "type": "aws_codebuild_project",
+      "owner": "internal/services/codebuild/projects.go",
+      "disposition": "implemented_subset_fixture_exercised_strict_refresh_blocked",
+      "provider_operations": ["CreateProject", "BatchGetProjects", "UpdateProject", "DeleteProject", "UpdateProjectVisibility"],
+      "fixture": ["aws_codebuild_project.standalone", "aws_codebuild_project.pipeline"],
+      "import": "project ARN (provider also resolves a name via BatchGetProjects)",
+      "fix": "UpdateProject concurrentBuildLimit=-1 now removes the retained per-project limit instead of failing positive-limit validation; provider emits this sentinel when concurrent_build_limit is removed.",
+      "settings_supported_by_fixture": ["LINUX_CONTAINER", "BUILD_GENERAL1_SMALL", "prepared image", "NO_SOURCE and CODEPIPELINE sources", "inline buildspec", "S3 ZIP and CODEPIPELINE artifacts", "PLAINTEXT environment", "disabled CloudWatch/S3 logs", "description", "service role", "tags", "concurrent build limit removal"],
+      "gaps": [
+        "UpdateProjectVisibility is not registered: PUBLIC project visibility and resource_access_role changes are unsupported.",
+        "Badges, nonzero auto_retry_limit, build_batch_config, file_system_locations and VPC projects reject as unimplemented.",
+        "Only LINUX_CONTAINER and BUILD_GENERAL1_SMALL/MEDIUM/LARGE compute are admitted; other platforms, architectures/compute types, Lambda compute and Mac/Windows environments are unsupported.",
+        "Privileged mode, custom certificates, compute_configuration, docker_server and host_kernel are unsupported.",
+        "CODECOMMIT source, build-status reporting, insecure TLS and primary source identifiers are unsupported. Supported Git providers still require actual authorized reachable Git servers; this fixture does not supply Git credentials.",
+        "LOCAL cache and local cache modes reject; only S3 and NO_CACHE are supported. S3 cache/logging, secret/parameter environment values, secondary sources/artifacts and registry credentials are outside this fixture.",
+        "Non-NONE artifact bucket_owner_access rejects; fleet-backed projects need real ACTIVE capacity from the independent fleet runtime."
+      ]
+    },
+    {
+      "type": "aws_codebuild_fleet",
+      "owner": "internal/services/codebuild/controls.go",
+      "disposition": "implemented_subset_not_exercised",
+      "provider_operations": ["CreateFleet", "BatchGetFleets", "UpdateFleet", "DeleteFleet"],
+      "import": "fleet ARN including native incarnation UUID",
+      "gaps": [
+        "Creation requires configured real FleetExecutor and installed immutable -codebuild-fleet-image, not fabricated ACTIVE status.",
+        "Only LINUX_CONTAINER, BUILD_GENERAL1_SMALL/MEDIUM/LARGE, positive base capacity, QUEUE/ON_DEMAND overflow, tags and optional validated service role are admitted.",
+        "Custom AMI/image_id, compute_configuration, proxy_configuration, scaling_configuration and VPC configurations reject.",
+        "Capacity/compute/environment/service-role/image changes are unsupported; update only accepts unchanged capacity settings plus overflow behavior and tags. No resize/drain implementation is claimed.",
+        "Fixture does not create/import/update/destroy a fleet or exercise fleet data source."
+      ]
+    },
+    {
+      "type": "aws_codebuild_report_group",
+      "disposition": "unsupported",
+      "provider_operations": ["CreateReportGroup", "BatchGetReportGroups", "UpdateReportGroup", "DeleteReportGroup"],
+      "gaps": ["Report-group lifecycle, report ingestion/export and report byte consumers have no registered CodeBuild owner operations."]
+    },
+    {
+      "type": "aws_codebuild_resource_policy",
+      "disposition": "unsupported",
+      "provider_operations": ["PutResourcePolicy", "GetResourcePolicy", "DeleteResourcePolicy"],
+      "gaps": ["These API operations are not registered. Existing RAM-backed resource sharing does not implement this Terraform resource."]
+    },
+    {
+      "type": "aws_codebuild_source_credential",
+      "owner": "internal/services/codebuild/controls.go",
+      "disposition": "implemented_subset_not_exercised",
+      "provider_operations": ["ImportSourceCredentials", "ListSourceCredentials", "DeleteSourceCredentials"],
+      "import": "credential ARN; token itself cannot be recovered from list",
+      "gaps": [
+        "Needs configured actual credential cipher and real provider credentials for an authenticated Git consumer; no fake token fixture is supplied.",
+        "PERSONAL_ACCESS_TOKEN, SECRETS_MANAGER and BITBUCKET BASIC_AUTH are admitted. OAUTH is console-only and other auth modes reject. BASIC_AUTH/username are valid only for BITBUCKET.",
+        "Supported server types are GITHUB, GITHUB_ENTERPRISE, BITBUCKET, GITLAB and GITLAB_SELF_MANAGED; this fixture does not establish live Git provider authorization or push/webhook delivery."
+      ]
+    },
+    {
+      "type": "aws_codebuild_webhook",
+      "disposition": "unsupported",
+      "provider_operations": ["CreateWebhook", "BatchGetProjects", "UpdateWebhook", "DeleteWebhook"],
+      "gaps": ["CreateWebhook, UpdateWebhook and DeleteWebhook are unregistered; no real source-provider hook provisioning, authentication or delivery owner is present."]
+    },
+    {
+      "type": "aws_codepipeline",
+      "owner": "internal/services/codepipeline/definitions.go",
+      "disposition": "implemented_subset_fixture_exercised_strict_refresh_blocked",
+      "provider_operations": ["CreatePipeline", "GetPipeline", "UpdatePipeline", "DeletePipeline", "ListTagsForResource", "TagResource", "UntagResource"],
+      "fixture": ["aws_codepipeline.jobs"],
+      "import": "pipeline name",
+      "settings_supported_by_fixture": ["V2", "QUEUED", "single-region S3 artifact store", "S3 Source with polling disabled", "S3 Deploy extraction", "CodeBuild Build in Docker opt-in mode", "role", "tags"],
+      "gaps": [
+        "Cross-region artifact_stores and triggers reject. Cross-account/cross-region action roles are not claimed.",
+        "Automatic stage before_entry/on_success/on_failure conditions, rule execution, automatic rollback and stage blockers are unsupported.",
+        "Only AWS S3 Source/Deploy, CodeBuild Build/Test, AppConfig Deploy, Manual Approval and Lambda Invoke action families have real owners. GitHub/CodeStar/CodeCommit/ECS/CloudFormation/other providers and custom/third-party workers are unsupported.",
+        "CodeBuild batch actions and action command/environment declarations are unsupported; provider-specific broad quotas/error-precedence are not complete.",
+        "Pipeline definition updates fence old advancement but do not establish natural terminal cancellation of old pending work; fixture finishes admitted work before changing configuration."
+      ]
+    },
+    {
+      "type": "aws_codepipeline_custom_action_type",
+      "disposition": "unsupported",
+      "provider_operations": ["CreateCustomActionType", "ListActionTypes", "DeleteCustomActionType", "ListTagsForResource", "TagResource", "UntagResource"],
+      "gaps": ["Custom action-type lifecycle and custom/third-party worker job acquisition are unimplemented; built-in provider execution does not establish custom action support."]
+    },
+    {
+      "type": "aws_codepipeline_webhook",
+      "disposition": "unsupported",
+      "provider_operations": ["PutWebhook", "ListWebhooks", "DeleteWebhook", "RegisterWebhookWithThirdParty", "DeregisterWebhookWithThirdParty", "ListTagsForResource", "TagResource", "UntagResource"],
+      "gaps": ["Webhook lifecycle, real external hook registration and authenticated ingress delivery are not registered owner operations."]
+    },
+    {
+      "type": "aws_sfn_activity",
+      "owner": "internal/services/stepfunctions/activities.go",
+      "disposition": "implemented_subset_fixture_exercised_strict_refresh_blocked",
+      "provider_operations": ["CreateActivity", "DescribeActivity", "DeleteActivity", "ListTagsForResource", "TagResource", "UntagResource"],
+      "fixture": ["aws_sfn_activity.worker"],
+      "import": "activity ARN",
+      "settings_supported_by_fixture": ["name", "tag updates", "real task lease/heartbeat/callback"],
+      "gaps": ["Fixture uses AWS-owned encryption only; customer-managed encryption requires actual KMS owner/key authority and is not exercised here.", "Activity name changes are replacement, not an update API; only tags are updated in place."]
+    },
+    {
+      "type": "aws_sfn_alias",
+      "owner": "internal/services/stepfunctions/aliases.go",
+      "disposition": "implemented_subset_fixture_exercised_strict_refresh_blocked",
+      "provider_operations": ["CreateStateMachineAlias", "DescribeStateMachineAlias", "UpdateStateMachineAlias", "DeleteStateMachineAlias"],
+      "fixture": ["aws_sfn_alias.live"],
+      "import": "alias-qualified state-machine ARN",
+      "settings_supported_by_fixture": ["name", "description update", "100-percent route replacement", "execution pins version"],
+      "gaps": ["Two-version weighted routing is implemented but not exercised; this fixture makes no statistical distribution claim.", "Alias automatic deployment strategies/alarms are not fields of this pinned Terraform resource and are not implied by route updates."]
+    },
+    {
+      "type": "aws_sfn_state_machine",
+      "owner": "internal/services/stepfunctions/machines.go",
+      "disposition": "implemented_subset_fixture_exercised_strict_refresh_blocked",
+      "provider_operations": ["ValidateStateMachineDefinition", "CreateStateMachine", "DescribeStateMachine", "ListStateMachineVersions", "UpdateStateMachine", "DeleteStateMachine", "ListTagsForResource", "TagResource", "UntagResource"],
+      "fixture": ["aws_sfn_state_machine.jobs"],
+      "import": "unqualified state-machine ARN",
+      "settings_supported_by_fixture": ["STANDARD", "name", "execution role", "JSONPath Pass and Activity Task", "publish", "definition update", "tags"],
+      "gaps": [
+        "There is no separate aws_sfn_state_machine_version resource in service_package_gen.go: published versions belong to state_machine.publish and are observed by the versions data source and SDK.",
+        "version_description is provider-computed-only in AWS 6.68.0, not a configurable publication description.",
+        "Fixture does not exercise EXPRESS, logging_configuration, tracing_configuration, customer-managed encryption_configuration, distributed Map, ECS/Lambda integrations, nested workflows, JSONata, retries or redrive. These have existing owners with their documented boundaries, not blanket fixture coverage.",
+        "Arbitrary AWS SDK integrations require their real target service owner and current execution-role authority; operation selection alone is not whole-service execution parity.",
+        "No fake process invocation or activity completion is used: the explicit Python SDK worker owns the leased task result."
+      ]
+    }
+  ],
+  "data_sources": [
+    {
+      "type": "aws_codebuild_fleet",
+      "disposition": "implemented_subset_not_exercised",
+      "provider_operations": ["BatchGetFleets"],
+      "gaps": ["Needs an independently created real fleet with a configured reservation image/runtime; fixture supplies no fake fleet."]
+    },
+    {
+      "type": "aws_sfn_activity",
+      "disposition": "implemented_subset_fixture_exercised_strict_refresh_blocked",
+      "provider_operations": ["ListActivities", "DescribeActivity"],
+      "fixture": "data.aws_sfn_activity.worker",
+      "gaps": ["Name lookup is exercised; direct ARN lookup is implemented but not separately exercised."]
+    },
+    {
+      "type": "aws_sfn_alias",
+      "disposition": "implemented_subset_fixture_exercised_strict_refresh_blocked",
+      "provider_operations": ["ListStateMachineAliases", "DescribeStateMachineAlias"],
+      "fixture": "data.aws_sfn_alias.live",
+      "gaps": ["Single alias in owned scope; provider's first-page/suffix-match lookup behavior is not broad alias pagination conformance."]
+    },
+    {
+      "type": "aws_sfn_state_machine",
+      "disposition": "implemented_subset_fixture_exercised_strict_refresh_blocked",
+      "provider_operations": ["ListStateMachines", "DescribeStateMachine"],
+      "fixture": "data.aws_sfn_state_machine.jobs",
+      "gaps": ["Name lookup and current definition are exercised; multi-page/multi-region account discovery is not."]
+    },
+    {
+      "type": "aws_sfn_state_machine_versions",
+      "disposition": "implemented_subset_fixture_exercised_strict_refresh_blocked",
+      "provider_operations": ["ListStateMachineVersions"],
+      "fixture": "data.aws_sfn_state_machine_versions.jobs",
+      "gaps": ["Two retained publications exercised before and after SQLite reopen; 1000-version quotas and multi-page enumeration are not exercised."]
+    }
+  ],
+  "other_provider_surfaces": [
+    {"kind": "action", "type": "aws_codebuild_start_build", "disposition": "real_StartBuild_owner_present_provider_action_unverified", "gaps": ["Runner invokes actual StartBuild through SDK in Docker mode, not Terraform action syntax."]},
+    {"kind": "action", "type": "aws_sfn_start_execution", "disposition": "real_StartExecution_owner_present_provider_action_unverified", "gaps": ["Runner invokes actual StartExecution through SDK, not Terraform action syntax."]},
+    {"kind": "list_resource", "type": "aws_codebuild_project", "disposition": "ListProjects_BatchGetProjects_owners_present_list_interface_unverified"},
+    {"kind": "list_resource", "type": "aws_codepipeline", "disposition": "ListPipelines_GetPipeline_tag_owners_present_list_interface_unverified"},
+    {"kind": "list_resource", "type": "aws_sfn_state_machine", "disposition": "ListStateMachines_DescribeStateMachine_tag_owners_present_list_interface_unverified"}
+  ],
+  "metadata_counts": {
+    "codebuild": {"resources": 6, "data_sources": 1, "actions": 1, "list_resources": 1},
+    "codepipeline": {"resources": 3, "data_sources": 0, "actions": 0, "list_resources": 1},
+    "sfn": {"resources": 3, "data_sources": 4, "actions": 1, "list_resources": 1}
+  }
+}

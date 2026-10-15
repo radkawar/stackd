@@ -28,6 +28,9 @@ func authorizerOutput(v AuthorizerRecord) *api.Authorizer {
 	for i, p := range v.ProviderARNs {
 		out.ProviderARNs[i] = api.ProviderARN(p)
 	}
+	if v.CognitoTTLSeconds != nil {
+		out.AuthorizerResultTtlInSeconds = new(api.NullableInteger(*v.CognitoTTLSeconds))
+	}
 	return out
 }
 
@@ -137,8 +140,10 @@ func (s *Service) createAuthorizer(tx Transaction, in *api.CreateAuthorizerReque
 	if kind == "COGNITO_USER_POOLS" && value(in.AuthorizerCredentials) != "" {
 		return nil, unsupported("Lambda invocation credentials on a Cognito authorizer")
 	}
-	if kind == "COGNITO_USER_POOLS" && (value(in.IdentitySource) != "method.request.header.Authorization" || value(in.IdentityValidationExpression) != "" || value(in.AuthorizerUri) != "" || in.AuthorizerResultTtlInSeconds != nil) {
-		return nil, unsupported("Cognito custom identity source, validation or caching")
+	// Native Cognito Create ignores the TTL field, including the provider's
+	// default300. Only a later PATCH can retain it on the control resource.
+	if kind == "COGNITO_USER_POOLS" && (value(in.IdentitySource) != "method.request.header.Authorization" || value(in.IdentityValidationExpression) != "" || value(in.AuthorizerUri) != "") {
+		return nil, unsupported("Cognito custom identity source or validation")
 	}
 	rows, err := tx.Authorizers(owner.Key)
 	if err != nil {
@@ -255,16 +260,18 @@ func (s *Service) updateAuthorizer(tx Transaction, in *api.UpdateAuthorizerReque
 			err = patchString(p, &row.URI, "add", "replace", "remove")
 		case path == "/identityValidationExpression" && row.LambdaAuthorizer != nil:
 			err = patchString(p, &row.LambdaAuthorizer.ValidationExpression, "add", "replace", "remove")
-		case path == "/authorizerResultTtlInSeconds" && row.LambdaAuthorizer != nil:
+		case path == "/authorizerResultTtlInSeconds":
 			v := ""
 			err = replace(p, &v)
 			if err == nil {
 				var ttl int64
 				ttl, err = strconv.ParseInt(v, 10, 32)
-				if err != nil {
+				if err != nil || ttl < 0 || ttl > 3600 {
 					err = bad("Invalid authorizer result TTL")
-				} else {
+				} else if row.LambdaAuthorizer != nil {
 					row.LambdaAuthorizer.TTLSeconds = int32(ttl)
+				} else {
+					row.CognitoTTLSeconds = new(int32(ttl))
 				}
 			}
 		case path == "/authorizerCredentials":

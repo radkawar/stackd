@@ -11,6 +11,10 @@ import (
 
 func tagKey(ctx context.Context, arn string) (Key, error) {
 	sc := scopeFor(ctx)
+	if strings.HasPrefix(arn, "arn:"+sc.Partition+":rds::") {
+		k, err := globalKey(ctx, arn)
+		return k.resourceKey(), err
+	}
 	prefix := "arn:" + sc.Partition + ":rds:" + sc.Region + ":" + sc.AccountID + ":"
 	if !strings.HasPrefix(arn, prefix) {
 		return Key{}, notFound("db")
@@ -31,6 +35,9 @@ func readTags(tx Reader, k Key) (map[string]string, error) {
 	var e error
 	switch k.Kind {
 
+	case "global-cluster":
+		v, err := tx.GlobalCluster(GlobalKey{GlobalScope: GlobalScope{Partition: k.Partition, AccountID: k.AccountID}, Name: k.Name})
+		tags, e = v.Tags, err
 	case "db", "cluster":
 		v, err := tx.Database(k)
 		tags, e = v.Tags, err
@@ -73,6 +80,13 @@ func readTags(tx Reader, k Key) (map[string]string, error) {
 func writeTags(tx Transaction, k Key, tags map[string]string) error {
 	switch k.Kind {
 
+	case "global-cluster":
+		v, e := tx.GlobalCluster(GlobalKey{GlobalScope: GlobalScope{Partition: k.Partition, AccountID: k.AccountID}, Name: k.Name})
+		if e != nil {
+			return e
+		}
+		v.Tags = tags
+		return tx.PutGlobalCluster(v)
 	case "db", "cluster":
 		v, e := tx.Database(k)
 		if e != nil {

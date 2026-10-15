@@ -12,7 +12,7 @@ import (
 
 func (s *Service) bindGrantPrincipal(ctx context.Context, reference string) (string, string, *awswire.Error) {
 	partition := scopeFor(ctx).partition
-	if regionalEC2GrantPrincipal(reference, partition) || regionalECRGrantPrincipal(reference, partition) {
+	if regionalEC2GrantPrincipal(reference, partition) || regionalECRGrantPrincipal(reference, partition) || kafkaGrantPrincipal(reference, partition) {
 		return reference, "", nil
 	}
 	if len(reference) == 12 && strings.Trim(reference, "0123456789") == "" {
@@ -47,6 +47,13 @@ func regionalEC2GrantPrincipal(reference, partition string) bool {
 // principal fields and constrain authority with the repository encryption context.
 func regionalECRGrantPrincipal(reference, partition string) bool {
 	return regionalGrantPrincipal(reference, partition, "ecr")
+}
+
+// Native MSK grants use this service identity in the legacy principal fields.
+// Admission does not grant authority: current key policy and grant constraints
+// still apply. Other partitions and service-principal fields are not inferred.
+func kafkaGrantPrincipal(reference, partition string) bool {
+	return partition == "aws" && reference == "kafka.amazonaws.com"
 }
 
 func regionalGrantPrincipal(reference, partition, service string) bool {

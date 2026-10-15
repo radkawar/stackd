@@ -114,6 +114,9 @@ func (o *requestObservation) rememberRequest(r *http.Request) {
 	if previous.SignatureVersion != "" && next.SignatureVersion == "" || previous.TransportKnown && !next.TransportKnown || websiteRequest(o.request) && !websiteRequest(r) {
 		return
 	}
+	if !o.captured && (previous.Region != next.Region || previous.Partition != next.Partition) {
+		o.bucketName, o.key, o.action, o.operation = requestTarget(r)
+	}
 	o.request = r
 }
 

@@ -41,15 +41,16 @@ type LogsEvent struct {
 }
 
 type LogsGroup struct {
-	Partition     string
-	AccountID     string
-	Region        string
-	Name          string
-	ID            string
-	Created       int64
-	Sequence      int64
-	RetentionDays int64
-	CfnOwner      string
+	Partition         string
+	AccountID         string
+	Region            string
+	Name              string
+	ID                string
+	Created           int64
+	Sequence          int64
+	RetentionDays     int64
+	CfnOwner          string
+	DeletionProtected int64
 }
 
 type LogsMetricFilter struct {

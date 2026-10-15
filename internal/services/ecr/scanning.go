@@ -74,6 +74,9 @@ func (s *Service) putRegistryScanningConfiguration(tx Transaction, in *api.PutRe
 			}
 		}
 	}
+	if len(in.Rules) > 0 && s.scanner == nil {
+		return nil, failure("ValidationException", "Scan on push requires a configured vulnerability scanner and its vulnerability database.")
+	}
 	registry, err := s.registry(tx, scope)
 	if err != nil {
 		return nil, err
@@ -154,6 +157,9 @@ func (s *Service) putImageScanningConfiguration(tx Transaction, in *api.PutImage
 		return nil, err
 	}
 	repo.ScanOnPush = bool(*in.ImageScanningConfiguration.ScanOnPush)
+	if repo.ScanOnPush && s.scanner == nil {
+		return nil, failure("ValidationException", "Scan on push requires a configured vulnerability scanner and its vulnerability database.")
+	}
 	if err = tx.PutRepository(repo); err != nil {
 		return nil, err
 	}

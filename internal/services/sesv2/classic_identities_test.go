@@ -84,6 +84,14 @@ func TestClassicVerificationSharesIdentityState(t *testing.T) {
 	if len(attrs.VerificationAttributes) != 1 || *attrs.VerificationAttributes[classic.Identity(key.Name)].VerificationStatus != classic.VerificationStatusSuccess {
 		t.Fatalf("verification projection: %+v", attrs)
 	}
+	notifications := classicSuccess(t, s, "GetIdentityNotificationAttributes", &classic.GetIdentityNotificationAttributesInput{Identities: classic.IdentityList{classic.Identity(key.Name), "missing@example.invalid"}}).(*classic.GetIdentityNotificationAttributesOutput)
+	if len(notifications.NotificationAttributes) != 1 {
+		t.Fatalf("notification identity projection: %+v", notifications)
+	}
+	feedback := notifications.NotificationAttributes[classic.Identity(key.Name)]
+	if feedback.ForwardingEnabled == nil || !bool(*feedback.ForwardingEnabled) || valueNotificationTopic(feedback.BounceTopic) != "" || valueNotificationTopic(feedback.ComplaintTopic) != "" || valueNotificationTopic(feedback.DeliveryTopic) != "" {
+		t.Fatalf("default feedback projection: %+v", feedback)
+	}
 	listed = classicSuccess(t, s, "ListVerifiedEmailAddresses", &classic.ListVerifiedEmailAddressesInput{}).(*classic.ListVerifiedEmailAddressesOutput)
 	if !reflect.DeepEqual(listed.VerifiedEmailAddresses, classic.AddressList{classic.Address(key.Name)}) {
 		t.Fatal(listed.VerifiedEmailAddresses)
@@ -93,6 +101,13 @@ func TestClassicVerificationSharesIdentityState(t *testing.T) {
 		t.Fatalf("classic deletion not visible in v2: %v", e)
 	}
 	classicSuccess(t, s, "DeleteIdentity", &classic.DeleteIdentityInput{Identity: new(classic.Identity(key.Name))})
+}
+
+func valueNotificationTopic(topic *classic.NotificationTopic) string {
+	if topic == nil {
+		return ""
+	}
+	return string(*topic)
 }
 
 func TestIdentityPoliciesControlDelegatedSending(t *testing.T) {

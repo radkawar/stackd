@@ -181,7 +181,7 @@ func (s *Service) createService(ctx context.Context, tx Transaction, in *api.Cre
 	if err := validateServiceCapacity(data.CapacityProviderStrategy); err != nil {
 		return nil, err
 	}
-	if err := s.validateServiceExecution(ctx, cluster, record, definition); err != nil {
+	if err := s.validateServiceExecution(ctx, cluster, record, definition, true); err != nil {
 		return nil, err
 	}
 	old, err := tx.Service(key)
@@ -447,7 +447,9 @@ func (s *Service) updateService(ctx context.Context, tx Transaction, in *api.Upd
 	if err := validateServiceCapacity(data.CapacityProviderStrategy); err != nil {
 		return nil, err
 	}
-	if err := s.validateServiceExecution(ctx, cluster, record, definition); err != nil {
+	// A count or policy update reuses the admitted task roles. Application Auto
+	// Scaling's service role can update capacity without passing those roles again.
+	if err := s.validateServiceExecution(ctx, cluster, record, definition, in.TaskDefinition != nil); err != nil {
 		return nil, err
 	}
 	if err := s.ensureReplicaRole(ctx); err != nil {

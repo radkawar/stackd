@@ -20,7 +20,7 @@ func (d *Docker) topology(ctx context.Context, m manifest) error {
 	if !m.ClusterMode {
 		for i := 1; i < len(m.Nodes); i++ {
 			c := d.clientFor(m, i)
-			err := c.SlaveOf(ctx, "127.0.0.1", strconv.Itoa(int(m.Nodes[0].Port))).Err()
+			err := c.SlaveOf(ctx, m.address(0), strconv.Itoa(int(m.Nodes[0].Port))).Err()
 			c.Close()
 			if err != nil {
 				return err
@@ -44,7 +44,7 @@ func (d *Docker) topology(ctx context.Context, m manifest) error {
 				return err
 			}
 			if i > 0 {
-				if err = root.Do(ctx, "CLUSTER", "MEET", "127.0.0.1", n.Port, n.BusPort).Err(); err != nil {
+				if err = root.Do(ctx, "CLUSTER", "MEET", m.address(i), n.Port, n.BusPort).Err(); err != nil {
 					return err
 				}
 			}
@@ -217,6 +217,9 @@ func (d *Docker) Statistics(ctx context.Context, spec Specification) (Statistics
 		return Statistics{}, err
 	}
 	defer d.unlock()
+	if spec.ClusterARN != "" {
+		return d.statisticsManaged(ctx, spec)
+	}
 	s, err := d.inspect(ctx, spec.ID)
 	if err != nil {
 		return Statistics{}, err
@@ -228,6 +231,10 @@ func (d *Docker) Statistics(ctx context.Context, spec Specification) (Statistics
 	if err != nil {
 		return Statistics{}, err
 	}
+	return d.measureStatistics(ctx, m)
+}
+
+func (d *Docker) measureStatistics(ctx context.Context, m manifest) (Statistics, error) {
 	var out Statistics
 	for i := range m.Nodes {
 		c := d.clientFor(m, i)

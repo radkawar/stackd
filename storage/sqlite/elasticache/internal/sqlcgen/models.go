@@ -4,6 +4,16 @@
 
 package sqlcgen
 
+type ElasticacheClientSubnet struct {
+	Partition string
+	AccountID string
+	Region    string
+	Kind      string
+	Name      string
+	Ordinal   int64
+	SubnetID  string
+}
+
 type ElasticacheCluster struct {
 	Partition           string
 	AccountID           string
@@ -29,6 +39,8 @@ type ElasticacheCluster struct {
 	Created             int64
 	Due                 int64
 	CloudformationOwner string
+	SubnetGroup         string
+	ClientPort          int64
 }
 
 type ElasticacheMember struct {
@@ -52,6 +64,24 @@ type ElasticacheNode struct {
 	Shard     int64
 	Replica   int64
 	Port      int64
+}
+
+type ElasticacheNodePlacement struct {
+	Partition        string
+	AccountID        string
+	Region           string
+	Kind             string
+	Name             string
+	Ordinal          int64
+	NodeIndex        int64
+	InterfaceID      string
+	SubnetID         string
+	AvailabilityZone string
+	NetworkID        string
+	Address          string
+	Gateway          string
+	Pool             string
+	Mac              string
 }
 
 type ElasticacheParameter struct {
@@ -83,6 +113,16 @@ type ElasticachePasswordHash struct {
 	Name      string
 	HexHash   string
 	Ordinal   int64
+}
+
+type ElasticacheSecurityGroup struct {
+	Partition       string
+	AccountID       string
+	Region          string
+	Kind            string
+	Name            string
+	Ordinal         int64
+	SecurityGroupID string
 }
 
 type ElasticacheSnapshot struct {

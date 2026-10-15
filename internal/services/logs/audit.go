@@ -40,6 +40,8 @@ func projectAuditResources(ctx context.Context, input, output any, wire *awswire
 		group = value(in.LogGroupName)
 	case *api.DeleteLogGroupRequest:
 		group = value(in.LogGroupName)
+	case *api.PutLogGroupDeletionProtectionRequest:
+		identifier, groupEvent = value(in.LogGroupIdentifier), true
 	case *api.DescribeLogGroupsRequest:
 		group = value(in.LogGroupNamePrefix)
 	case *api.CreateLogStreamRequest:

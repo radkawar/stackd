@@ -9,7 +9,7 @@ import (
 	"regexp"
 )
 
-var policyTableName = regexp.MustCompile(`^stackd_(ec2|ecs|elbv2|lambda)_[a-f0-9]+$`)
+var policyTableName = regexp.MustCompile(`^stackd_(ec2|ecs|elbv2|lambda|msk|elasticache)_[a-f0-9]+$`)
 var publicPool = netip.MustParsePrefix("198.18.0.0/15")
 
 // ApplyPolicy installs outside-customer packet policy and the EC2-owned public
@@ -97,7 +97,7 @@ for table in $(printf '%s' "$tables" | jq -r '.nftables[].table? | select(.famil
     state=$(nft -j list table ip "$table")
     owner=$(printf '%s' "$state" | jq -r '.nftables[] | select(has("table")) | .table.comment // ""')
     if [ "$owner" != "stackd:$OWNER" ] && [ "$table" != "$PUBLIC_TABLE" ]; then continue; fi
-    case "$owner" in stackd:stackd_ec2_*|stackd:stackd_ecs_*|stackd:stackd_elbv2_*|stackd:stackd_lambda_*) ;; *) fail "public table is not owned: $table";; esac
+    case "$owner" in stackd:stackd_ec2_*|stackd:stackd_ecs_*|stackd:stackd_elbv2_*|stackd:stackd_lambda_*|stackd:stackd_msk_*|stackd:stackd_elasticache_*) ;; *) fail "public table is not owned: $table";; esac
     controller=$(printf '%s' "$state" | jq -r '.nftables[].chain? | select(.name == "controller") | .comment // ""')
     [ "$controller" = "$CONTROLLER" ] || fail "public IPv4 belongs to another native controller: $table"
     identity=$(printf '%s' "$state" | jq -r '.nftables[].chain? | select(.name == "identity") | .comment // ""')

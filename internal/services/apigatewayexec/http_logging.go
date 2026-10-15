@@ -61,36 +61,36 @@ func (w *requestMetrics) recordRejection(rejected *rejection) {
 	if o.responseType != "" {
 		return
 	}
-	switch w.Header().Get("X-Amzn-ErrorType") {
+	o.responseType = gatewayRejectionType(w.Header().Get("X-Amzn-ErrorType"), rejected.Status)
+}
+
+func gatewayRejectionType(errorType string, status int) string {
+	switch errorType {
 	case "MissingAuthenticationTokenException":
-		o.responseType = "MISSING_AUTHENTICATION_TOKEN"
+		return "MISSING_AUTHENTICATION_TOKEN"
 	case "InvalidKeyParameter":
-		o.responseType = "INVALID_API_KEY"
+		return "INVALID_API_KEY"
 	case "QuotaExceededException":
-		o.responseType = "QUOTA_EXCEEDED"
+		return "QUOTA_EXCEEDED"
 	case "TooManyRequestsException":
-		o.responseType = "THROTTLED"
+		return "THROTTLED"
 	}
-	if o.responseType != "" {
-		return
-	}
-	switch rejected.Status {
+	switch status {
 	case http.StatusUnauthorized:
-		o.responseType = "UNAUTHORIZED"
+		return "UNAUTHORIZED"
 	case http.StatusForbidden:
-		o.responseType = "ACCESS_DENIED"
+		return "ACCESS_DENIED"
 	case http.StatusRequestEntityTooLarge:
-		o.responseType = "REQUEST_TOO_LARGE"
+		return "REQUEST_TOO_LARGE"
 	case http.StatusTooManyRequests:
-		o.responseType = "THROTTLED"
+		return "THROTTLED"
 	case http.StatusGatewayTimeout:
-		o.responseType = "INTEGRATION_TIMEOUT"
+		return "INTEGRATION_TIMEOUT"
 	default:
-		if rejected.Status >= 500 {
-			o.responseType = "DEFAULT_5XX"
-		} else {
-			o.responseType = "DEFAULT_4XX"
+		if status >= 500 {
+			return "DEFAULT_5XX"
 		}
+		return "DEFAULT_4XX"
 	}
 }
 

@@ -22,25 +22,39 @@ import (
 	"stackd/compute/ports"
 )
 
-type nativeNode struct{ Port, BusPort int32 }
+type nativeNode struct {
+	Port, BusPort int32
+	Address       string
+}
 type manifest struct {
-	ID, Secret              string
-	Shards, Replicas        int32
-	ClusterMode, TLSEnabled bool
-	MemoryBytes             int64
-	Nodes                   []nativeNode
+	ID, Secret                   string
+	ClusterARN                   string
+	Partition, AccountID, Region string
+	Networks                     []nativeAttachment
+	Shards, Replicas             int32
+	ClusterMode, TLSEnabled      bool
+	MemoryBytes                  int64
+	Nodes                        []nativeNode
 }
 type containerState struct {
 	ID, Image string
 	Config    struct {
-		Labels          map[string]string
-		Entrypoint, Cmd []string
+		Image, User, WorkingDir string
+		Labels                  map[string]string
+		Entrypoint, Cmd, Env    []string
 	}
 	HostConfig struct {
-		NetworkMode string
-		Privileged  bool
-		Binds       []string
-		Memory      int64
+		NetworkMode                                              string
+		Privileged                                               bool
+		Binds                                                    []string
+		Memory                                                   int64
+		MemorySwap, CPUPeriod, CPUQuota, PidsLimit               int64
+		ReadonlyRootfs, PublishAllPorts                          bool
+		CapAdd, CapDrop, SecurityOpt, ExtraHosts, DNS, DNSSearch []string
+		IpcMode                                                  string
+		Mounts                                                   []docker.ContainerMount
+		PortBindings                                             map[string][]struct{ HostIP, HostPort string }
+		RestartPolicy                                            struct{ Name string }
 	}
 	Mounts []struct {
 		Type, Name, Destination string
@@ -49,6 +63,12 @@ type containerState struct {
 	State struct {
 		Running bool
 		Status  string
+	}
+	NetworkSettings struct {
+		Networks map[string]struct {
+			IPAddress, Gateway, MacAddress string
+			IPAMConfig                     *docker.ContainerEndpointIPAMConfig
+		}
 	}
 }
 type volumeState struct {
@@ -92,7 +112,10 @@ func (d *Docker) checkContainer(s containerState, id string) error {
 	return nil
 }
 func (d *Docker) containerConfig(spec Specification) docker.ContainerConfig {
-	config := docker.ContainerConfig{Image: d.image, Entrypoint: []string{"/bin/sh", "/data/start.sh"}, Labels: d.labels(spec.ID, "engine"), User: "999:1000"}
+	config := docker.ContainerConfig{Image: d.image, Entrypoint: []string{"/bin/sh", "/data/start.sh"}, User: "999:1000"}
+	if spec.ClusterARN == "" {
+		config.Labels = d.labels(spec.ID, "engine")
+	}
 	config.HostConfig.NetworkMode = "host"
 	config.HostConfig.Mounts = []docker.ContainerMount{{Type: "volume", Source: d.name(spec.ID, "data"), Target: "/data", VolumeOptions: docker.ContainerVolumeOptions{NoCopy: true}}}
 	config.HostConfig.LogConfig = docker.ContainerLogConfig{Type: "none"}
@@ -104,13 +127,19 @@ func (d *Docker) containerConfig(spec Specification) docker.ContainerConfig {
 	if memory == 0 {
 		memory = 512 << 20
 	}
-	config.HostConfig.Memory = (memory + (128 << 20)) * int64(spec.Shards*(spec.Replicas+1))
+	config.HostConfig.Memory = memory + (128 << 20)
+	if spec.ClusterARN == "" {
+		config.HostConfig.Memory *= int64(spec.Shards * (spec.Replicas + 1))
+	}
 	config.HostConfig.MemorySwap = config.HostConfig.Memory
 	config.HostConfig.CPUPeriod = 100000
 	config.HostConfig.CPUQuota = 200000
 	return config
 }
 func (d *Docker) newManifest(ctx context.Context, spec Specification) (manifest, []net.Listener, error) {
+	if spec.ClusterARN != "" {
+		return managedManifest(spec), nil, nil
+	}
 	m := manifest{ID: spec.ID, Secret: rand.Text(), Shards: spec.Shards, Replicas: spec.Replicas, ClusterMode: spec.ClusterMode, TLSEnabled: spec.TLSEnabled, MemoryBytes: spec.MemoryBytes}
 	m.Nodes = make([]nativeNode, int(spec.Shards*(spec.Replicas+1)))
 	held := make([]net.Listener, 0, len(m.Nodes)*2)
@@ -203,11 +232,19 @@ func (d *Docker) readManifest(ctx context.Context, s containerState, spec Specif
 	if err = json.Unmarshal(data, &m); err != nil {
 		return m, err
 	}
-	if m.ID != spec.ID || m.Shards != spec.Shards || m.Replicas != spec.Replicas || m.ClusterMode != spec.ClusterMode || m.TLSEnabled != spec.TLSEnabled || m.MemoryBytes != spec.MemoryBytes || m.Secret == "" || len(m.Nodes) != int(m.Shards*(m.Replicas+1)) {
+	if m.ID != spec.ID || m.ClusterARN != spec.ClusterARN || m.Shards != spec.Shards || m.Replicas != spec.Replicas || m.ClusterMode != spec.ClusterMode || m.TLSEnabled != spec.TLSEnabled || m.MemoryBytes != spec.MemoryBytes || m.Secret == "" || len(m.Nodes) != int(m.Shards*(m.Replicas+1)) {
 		return m, errors.New("native Valkey topology or identity differs from retained intent")
+	}
+	if spec.ClusterARN == "" && (m.Partition != "" || m.AccountID != "" || m.Region != "" || len(m.Networks) != 0 || len(spec.Networks) != 0 || spec.RefreshNetwork != nil) {
+		return m, errors.New("standalone Valkey configuration cannot adopt managed scope or networking")
 	}
 	if err := m.validatePorts(); err != nil {
 		return m, err
+	}
+	if spec.ClusterARN != "" {
+		if err := validateManagedManifest(m, spec); err != nil {
+			return m, err
+		}
 	}
 	return m, nil
 }
@@ -250,9 +287,10 @@ func (d *Docker) initialize(ctx context.Context, s containerState, spec Specific
 	return d.putFiles(ctx, s.ID, files)
 }
 func (d *Docker) clientFor(m manifest, index int) *redis.Client {
-	options := &redis.Options{Addr: net.JoinHostPort("127.0.0.1", strconv.Itoa(int(m.Nodes[index].Port))), Username: controllerUser, Password: m.Secret, Protocol: 2, DisableIdentity: true, MaxRetries: -1, DialTimeout: time.Second, ReadTimeout: 3 * time.Second, WriteTimeout: 3 * time.Second, ContextTimeoutEnabled: true}
+	options := &redis.Options{Addr: net.JoinHostPort(m.address(index), strconv.Itoa(int(m.Nodes[index].Port))), Username: controllerUser, Password: m.Secret, Protocol: 2, DisableIdentity: true, MaxRetries: -1, DialTimeout: time.Second, ReadTimeout: 3 * time.Second, WriteTimeout: 3 * time.Second, ContextTimeoutEnabled: true}
 	if m.TLSEnabled {
 		options.TLSConfig = d.tlsConfig.Clone()
+		options.TLSConfig.ServerName = m.address(index)
 	}
 	return redis.NewClient(options)
 }
@@ -264,11 +302,19 @@ func (d *Docker) Ensure(ctx context.Context, spec Specification) (Deployment, er
 	return d.ensure(ctx, spec)
 }
 func (d *Docker) ensure(ctx context.Context, spec Specification) (Deployment, error) {
+	if spec.ClusterARN != "" {
+		return d.ensureManaged(ctx, spec)
+	}
 	if err := validateSpecification(spec); err != nil {
 		return Deployment{}, err
 	}
 	if spec.TLSEnabled && d.tlsConfig == nil {
 		return Deployment{}, errors.New("native TLS requires an explicitly configured Valkey server certificate/key")
+	}
+	if spec.TLSEnabled && d.ca != nil {
+		if err := d.ca.VerifyHostname("127.0.0.1"); err != nil {
+			return Deployment{}, errors.New("standalone Valkey TLS requires its configured loopback server certificate")
+		}
 	}
 	ctx, cancel := context.WithTimeout(ctx, d.startupTimeout)
 	defer cancel()
@@ -325,7 +371,7 @@ func (d *Docker) ensure(ctx context.Context, spec Specification) (Deployment, er
 func deployment(m manifest) Deployment {
 	out := Deployment{}
 	for i, n := range m.Nodes {
-		ep := Endpoint{Address: "127.0.0.1", Port: n.Port}
+		ep := Endpoint{Address: m.address(i), Port: n.Port}
 		out.Nodes = append(out.Nodes, Node{ID: fmt.Sprintf("%04d", i+1), Shard: int32(i) / (m.Replicas + 1), Replica: int32(i) % (m.Replicas + 1), Endpoint: ep})
 	}
 	out.Endpoint = out.Nodes[0].Endpoint
@@ -333,26 +379,28 @@ func deployment(m manifest) Deployment {
 }
 func (d *Docker) waitNative(ctx context.Context, m manifest) error {
 	for i := range m.Nodes {
-		c := d.clientFor(m, i)
-		err := waitCondition(ctx, func() (bool, error) {
-			if e := c.Ping(ctx).Err(); e != nil {
-				return false, nil
-			}
-			info, e := c.Info(ctx, "server").Result()
-			if e != nil {
-				return false, e
-			}
-			if !strings.Contains(info, "valkey_version:"+Version+"\r\n") {
-				return false, errors.New("native server is not the pinned Valkey version")
-			}
-			return true, nil
-		})
-		c.Close()
-		if err != nil {
+		if err := d.waitNativeNode(ctx, m, i); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+func (d *Docker) waitNativeNode(ctx context.Context, m manifest, index int) error {
+	c := d.clientFor(m, index)
+	defer c.Close()
+	return waitCondition(ctx, func() (bool, error) {
+		if e := c.Ping(ctx).Err(); e != nil {
+			return false, nil
+		}
+		info, e := c.Info(ctx, "server").Result()
+		if e != nil {
+			return false, e
+		}
+		if !strings.Contains(info, "valkey_version:"+Version+"\r\n") {
+			return false, errors.New("native server is not the pinned Valkey version")
+		}
+		return true, nil
+	})
 }
 func waitCondition(ctx context.Context, fn func() (bool, error)) error {
 	timer := time.NewTicker(50 * time.Millisecond)
@@ -402,6 +450,9 @@ func (d *Docker) Restart(ctx context.Context, spec Specification) (Deployment, e
 		return Deployment{}, err
 	}
 	defer d.unlock()
+	if spec.ClusterARN != "" {
+		return d.restartManaged(ctx, spec)
+	}
 	s, err := d.inspect(ctx, spec.ID)
 	if err != nil {
 		return Deployment{}, err
@@ -424,6 +475,13 @@ func (d *Docker) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	defer d.unlock()
+	managed, found, err := d.managedDescriptor(ctx, id)
+	if err != nil {
+		return err
+	}
+	if found {
+		return d.deleteManaged(ctx, managed)
+	}
 	s, err := d.inspect(ctx, id)
 	if err == nil {
 		if err = d.checkContainer(s, id); err != nil {

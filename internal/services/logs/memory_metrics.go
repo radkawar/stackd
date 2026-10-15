@@ -27,6 +27,18 @@ func (r memoryReader) MetricFilter(k MetricFilterKey) (MetricFilterRecord, error
 	}
 	return cloneMetricFilter(v), nil
 }
+func (r memoryReader) MetricFilterCount(groupID string) (int64, error) {
+	if err := r.tx.Check(false); err != nil {
+		return 0, err
+	}
+	var count int64
+	for key := range r.state.metricFilters {
+		if key.GroupID == groupID {
+			count++
+		}
+	}
+	return count, nil
+}
 
 func (r memoryReader) MetricFilters(q MetricFilterQuery) ([]MetricFilterRecord, error) {
 	if err := r.tx.Check(false); err != nil {

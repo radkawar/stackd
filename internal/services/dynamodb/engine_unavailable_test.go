@@ -78,3 +78,22 @@ func TestRetainedTableRejectsEngineEffectsWithoutRuntime(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestTableClassRequiresImplementedStorageEffect(t *testing.T) {
+	in := api.CreateTableInput{
+		TableName:            new(api.TableArn("storage-class")),
+		BillingMode:          new(api.BillingModePAY_PER_REQUEST),
+		KeySchema:            api.KeySchema{{AttributeName: new(api.KeySchemaAttributeName("pk")), KeyType: new(api.KeyTypeHASH)}},
+		AttributeDefinitions: api.AttributeDefinitions{{AttributeName: new(api.KeySchemaAttributeName("pk")), AttributeType: new(api.ScalarAttributeTypeS)}},
+	}
+	for _, class := range []*api.TableClass{nil, new(api.TableClassSTANDARD)} {
+		in.TableClass = class
+		if err := validateCreate(&in); err != nil {
+			t.Fatalf("default class rejected: %v", err)
+		}
+	}
+	in.TableClass = new(api.TableClassSTANDARD_INFREQUENT_ACCESS)
+	if err := validateCreate(&in); err == nil {
+		t.Fatal("infrequent-access storage admitted without a native tier owner")
+	}
+}

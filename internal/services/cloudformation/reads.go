@@ -24,6 +24,7 @@ func (s *Service) registerReads() {
 	register(s, "GetTemplate", s.getTemplate)
 	register(s, "ValidateTemplate", s.validateTemplate)
 	register(s, "GetTemplateSummary", s.templateSummary)
+	register(s, "DescribeType", s.describeType)
 }
 func page[T any](r Reader, action, filter, token string, rows []T, key func(T) string) ([]T, *api.NextToken, error) {
 	binding := requestHash([]any{scopeFor(r.Context()), action, filter})

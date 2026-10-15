@@ -6,11 +6,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/netip"
+	"slices"
 	"strings"
 
 	"golang.org/x/net/dns/dnsmessage"
 
 	"stackd/compute/dns"
+	api "stackd/internal/awsapi/elbv2"
 )
 
 // DNSAuthority attaches this service's read-only DNS owner to an already bound
@@ -170,7 +172,14 @@ func (s *Service) lookupDNS(ctx context.Context, question dnsmessage.Question, a
 		return result, nil
 	}
 	ctx = runtimeContext(ctx, selected.Scope)
+	healthyZones, err := s.dnsHealthyZones(ctx, selected)
+	if err != nil {
+		return result, err
+	}
 	for _, zone := range selected.Data.AvailabilityZones {
+		if len(healthyZones) > 0 && !healthyZones[value(zone.ZoneName)] {
+			continue
+		}
 		id := selected.AttachmentIDs[value(zone.SubnetId)]
 		if id == "" {
 			continue
@@ -189,4 +198,74 @@ func (s *Service) lookupDNS(ctx context.Context, question dnsmessage.Question, a
 		result.Answers = append(result.Answers, dnsmessage.Resource{Header: dnsmessage.ResourceHeader{Name: question.Name, Type: dnsmessage.TypeA, Class: dnsmessage.ClassINET, TTL: 60}, Body: &dnsmessage.AResource{A: address.As4()}})
 	}
 	return result, nil
+}
+
+// dnsHealthyZones evaluates the fixed minimum-healthy-target count of one for
+// every associated group. A target in "all" contributes to each enabled zone.
+// An empty result means no healthy zone remains, so DNS fails open to all live
+// ALB attachments. With no associated groups the ALB likewise retains its DNS.
+// Health is retained by the probe worker, but network identity is resolved live
+// outside the repository transaction, just as it is during forwarding.
+func (s *Service) dnsHealthyZones(ctx context.Context, lb LoadBalancerRecord) (map[string]bool, error) {
+	type groupTargets struct {
+		group   TargetGroupRecord
+		targets []TargetRecord
+	}
+	var groups []groupTargets
+	err := s.repository.View(ctx, func(tx Reader) error {
+		rows, e := tx.TargetGroups(lb.Scope)
+		if e != nil {
+			return e
+		}
+		for _, group := range rows {
+			if !slices.Contains(group.Data.LoadBalancerArns, api.LoadBalancerArn(value(lb.Data.LoadBalancerArn))) {
+				continue
+			}
+			targets, e := tx.Targets(lb.Scope, value(group.Data.TargetGroupArn))
+			if e != nil {
+				return e
+			}
+			groups = append(groups, groupTargets{group, targets})
+		}
+		return nil
+	})
+	if err != nil || len(groups) == 0 {
+		return nil, err
+	}
+	healthy := make(map[string]bool, len(lb.Data.AvailabilityZones))
+	for _, zone := range lb.Data.AvailabilityZones {
+		healthy[value(zone.ZoneName)] = true
+	}
+	for _, snapshot := range groups {
+		counts := make(map[string]int, len(healthy))
+		for _, target := range snapshot.targets {
+			if target.State != "healthy" {
+				continue
+			}
+			endpoint, e := s.networks.ResolveTarget(ctx, lb.Scope, value(snapshot.group.Data.VpcId), value(snapshot.group.Data.TargetType), value(target.Data.Id))
+			if e != nil || !targetEndpointMatches(target.Scope, value(snapshot.group.Data.TargetType), value(target.Data.Id), target.OwnerARN, target.Incarnation, endpoint) {
+				continue
+			}
+			if _, e := targetAddress(endpoint); e != nil {
+				continue
+			}
+			zone := value(target.Data.AvailabilityZone)
+			if zone == "" {
+				zone = endpoint.AvailabilityZone
+			}
+			if zone == "all" {
+				for zone := range healthy {
+					counts[zone]++
+				}
+			} else {
+				counts[zone]++
+			}
+		}
+		for zone := range healthy {
+			if counts[zone] < 1 {
+				delete(healthy, zone)
+			}
+		}
+	}
+	return healthy, nil
 }

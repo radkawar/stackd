@@ -3,6 +3,7 @@ package kafka
 import (
 	"context"
 	"github.com/google/uuid"
+	"slices"
 	api "stackd/internal/awsapi/kafka"
 	"strconv"
 	"strings"
@@ -89,18 +90,74 @@ func (s *Service) create(ctx context.Context, t Transaction, name string, p *api
 	if e = ValidateSpecification(baseSpecification(v)); e != nil {
 		return v, invalid(e.Error())
 	}
+	if v.DefaultMetrics {
+		if _, ok := s.runtime.(MetricsRuntime); !ok || s.metrics == nil {
+			return v, unsupported("DEFAULT monitoring requires native broker measurements and the CloudWatch owner")
+		}
+	}
+	if len(v.ClientSubnets) > 0 && s.networks == nil {
+		return v, unsupported("Broker subnet allocation requires the EC2 network owner")
+	}
+	if len(v.ClientSubnets) > 0 {
+		if _, ok := s.runtime.(QuarantineRuntime); !ok {
+			return v, unsupported("Managed broker networks require an exact-owned quarantine runtime")
+		}
+	}
+	if len(v.ClientSubnets) > 0 || v.DefaultMetrics {
+		if s.serviceLinkedRoles == nil {
+			return v, unsupported("Managed broker networks and monitoring require the IAM service-linked-role owner")
+		}
+		if e = s.serviceLinkedRoles.EnsureServiceLinkedRole(ctx, "kafka.amazonaws.com"); e != nil {
+			return v, e
+		}
+	}
+	if len(v.ClientSubnets) > 0 {
+		for broker := 1; broker <= int(v.Brokers); broker++ {
+			attachment, err := s.networks.AllocateBrokerNetwork(runtimeContext(ctx, v), BrokerNetworkRequest{Identity: BrokerNetworkIdentity{ClusterARN: v.ARN, Incarnation: v.Incarnation, BrokerID: broker}, SubnetIDs: v.ClientSubnets, SecurityGroups: v.SecurityGroups})
+			if err != nil {
+				return v, err
+			}
+			if attachment.InterfaceID == "" || attachment.SubnetID == "" || attachment.AvailabilityZone == "" || attachment.Network.NetworkID == "" {
+				return v, invalid("EC2 returned an incomplete broker attachment")
+			}
+			v.BrokerNetworks = append(v.BrokerNetworks, BrokerNetworkRecord{BrokerID: broker, InterfaceID: attachment.InterfaceID, SubnetID: attachment.SubnetID, AvailabilityZone: attachment.AvailabilityZone, NetworkID: attachment.Network.NetworkID})
+		}
+	}
 	return v, t.PutCluster(v)
 }
 
-// No EC2 instance/subnet/security-group field is stored as inert metadata. The
-// native loopback listener is selected explicitly by empty networking controls.
+// EC2 owns requested subnet placement and packet policy. Empty network fields
+// retain the explicit local-only workflow, not an invented managed placement.
 func admitProvisioned(p *api.ProvisionedRequest, v *ClusterRecord) error {
 	if p.BrokerNodeGroupInfo == nil {
 		return invalid("BrokerNodeGroupInfo is required")
 	}
 	b := p.BrokerNodeGroupInfo
-	if len(b.ClientSubnets) > 0 || len(b.SecurityGroups) > 0 || len(b.ZoneIds) > 0 || b.BrokerAZDistribution != nil || b.ConnectivityInfo != nil {
-		return unsupported("VPC networking, security groups, AZ distribution and public connectivity are not implemented; native listeners use loopback")
+	if len(b.ZoneIds) > 0 || b.ConnectivityInfo != nil {
+		return unsupported("Explicit zone IDs and multi-VPC/public connectivity are not implemented")
+	}
+	if len(b.ClientSubnets) == 0 {
+		if len(b.SecurityGroups) > 0 || b.BrokerAZDistribution != nil {
+			return unsupported("Broker AZ distribution and security groups require EC2-owned subnets")
+		}
+	} else {
+		if len(b.ClientSubnets) != 2 && len(b.ClientSubnets) != 3 {
+			return invalid("DEFAULT broker placement requires two or three subnets in distinct Availability Zones")
+		}
+		if value(b.BrokerAZDistribution) != "" && value(b.BrokerAZDistribution) != "DEFAULT" {
+			return unsupported("Only DEFAULT broker AZ distribution is supported")
+		}
+		if v.Brokers < 1 || int(v.Brokers)%len(b.ClientSubnets) != 0 {
+			return invalid("The broker count must be a positive multiple of the subnet count")
+		}
+		for _, subnet := range b.ClientSubnets {
+			v.ClientSubnets = append(v.ClientSubnets, string(subnet))
+		}
+		for _, group := range b.SecurityGroups {
+			v.SecurityGroups = append(v.SecurityGroups, string(group))
+		}
+		slices.Sort(v.ClientSubnets)
+		slices.Sort(v.SecurityGroups)
 	}
 	if value(b.InstanceType) != "kafka.local" {
 		return unsupported("Only kafka.local native broker allocation is supported")
@@ -108,8 +165,17 @@ func admitProvisioned(p *api.ProvisionedRequest, v *ClusterRecord) error {
 	if b.StorageInfo != nil {
 		return unsupported("Managed EBS storage settings are not implemented")
 	}
-	if p.EnhancedMonitoring != nil || p.LoggingInfo != nil || p.OpenMonitoring != nil || p.Rebalancing != nil || p.StorageMode != nil {
-		return unsupported("Managed monitoring, logging, rebalancing and storage modes are not implemented")
+	if p.LoggingInfo != nil || p.OpenMonitoring != nil || p.Rebalancing != nil || p.StorageMode != nil {
+		return unsupported("Managed logging, open monitoring, rebalancing and storage modes are not implemented")
+	}
+	// AWS enables DEFAULT monitoring when the managed placement omits this
+	// field. The explicit subnet-free local API remains a separate boundary.
+	v.DefaultMetrics = len(v.ClientSubnets) > 0
+	if p.EnhancedMonitoring != nil {
+		if value(p.EnhancedMonitoring) != "DEFAULT" {
+			return unsupported("Only DEFAULT native broker monitoring is implemented")
+		}
+		v.DefaultMetrics = true
 	}
 	v.SecurityMode = "TLS"
 	if p.EncryptionInfo != nil {
@@ -167,10 +233,11 @@ func (s *Service) deleteCluster(ctx context.Context, t Transaction, in *api.Dele
 		return nil, invalid("The current cluster version does not match")
 	}
 	for _, ref := range v.Secrets {
-		if e = s.secrets.ReleaseSCRAM(ctx, v.ARN, ref); e != nil {
+		if e = s.secrets.ReleaseSCRAM(ctx, v.ARN, v.Incarnation, ref); e != nil {
 			return nil, e
 		}
 	}
+	v.Secrets = nil
 	v.Version++
 	v.State = "DELETING"
 	v.Operation = "delete"

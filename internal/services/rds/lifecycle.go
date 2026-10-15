@@ -27,6 +27,25 @@ func (s *Service) Start() error {
 			if v.Cluster != "" {
 				continue
 			}
+			if v.Key.Kind == "cluster" {
+				writer := false
+				for _, member := range all {
+					if member.Key.Scope == v.Key.Scope && member.Cluster == v.Key.Name {
+						writer = true
+						break
+					}
+				}
+				if !writer {
+					if v.Status == "creating" && v.Due.IsZero() {
+						v.Status = "available"
+						v.Version++
+						if e = tx.PutDatabase(v); e != nil {
+							return e
+						}
+					}
+					continue
+				}
+			}
 			if v.Status == "available" {
 
 				v.Status = "starting"
@@ -241,7 +260,7 @@ func (j databaseJobs) Run(ctx context.Context, job scheduler.Job) error {
 
 				}
 			}
-			current.Status = "creating"
+			current.Status = "available"
 			current.Endpoint = engine.Endpoint{}
 			current.Due = time.Time{}
 			current.Operation = ""
@@ -335,6 +354,11 @@ func (j databaseJobs) Run(ctx context.Context, job scheduler.Job) error {
 // or starts a process and never holds a repository transaction during native I/O.
 func (s *Service) observeDatabase(ctx context.Context, v Database) error {
 	if v.Status != "available" || v.Cluster != "" {
+		return nil
+	}
+	// An empty Aurora cluster is an available control resource, not a
+	// published native endpoint that can be probed or reconciled.
+	if v.Key.Kind == "cluster" && v.Endpoint.Address == "" {
 		return nil
 	}
 	ctx = runtimeContext(ctx, v.Key)

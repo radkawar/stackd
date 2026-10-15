@@ -34,12 +34,15 @@ func (a *AthenaEngine) applyHiveDDL(ctx context.Context, request athena.Executio
 	if len(plan.Identifier) == 0 {
 		return fmt.Errorf("native Hive DDL has no identifier")
 	}
-	properties := make(api.ParametersMap, len(plan.Properties))
-	for name, value := range plan.Properties {
-		properties[api.KeyString(name)] = api.ParametersMapValue(value)
+	var properties api.ParametersMap
+	if plan.Kind != "DROP_DATABASE" {
+		properties = make(api.ParametersMap, len(plan.Properties))
+		for name, value := range plan.Properties {
+			properties[api.KeyString(name)] = api.ParametersMapValue(value)
+		}
 	}
 	switch plan.Kind {
-	case "CREATE_DATABASE":
+	case "CREATE_DATABASE", "DROP_DATABASE":
 		if len(plan.Identifier) > 2 {
 			return fmt.Errorf("hive database identifier has too many components")
 		}
@@ -51,6 +54,13 @@ func (a *AthenaEngine) applyHiveDDL(ctx context.Context, request athena.Executio
 			}
 		}
 		name := strings.ToLower(plan.Identifier[len(plan.Identifier)-1])
+		if plan.Kind == "DROP_DATABASE" {
+			_, rejected := a.Glue.DropHiveDatabase(awsctx.WithViaService(ctx, "athena.amazonaws.com"), &api.DeleteDatabaseInput{CatalogId: new(api.CatalogIdString(catalogID)), Name: new(api.NameString(name))}, plan.Cascade)
+			if rejected != nil && !(plan.IfExists && rejected.Code == "EntityNotFoundException") {
+				return rejected
+			}
+			return nil
+		}
 		input := &api.DatabaseInput{Name: new(api.NameString(name)), Parameters: properties}
 		if plan.Comment != "" {
 			input.Description = new(api.DescriptionString(plan.Comment))

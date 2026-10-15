@@ -45,6 +45,9 @@ func compareKey(a, b Key) int {
 }
 func cloneCluster(v Cluster) Cluster {
 	v.Nodes = slices.Clone(v.Nodes)
+	v.ClientSubnets = slices.Clone(v.ClientSubnets)
+	v.SecurityGroups = slices.Clone(v.SecurityGroups)
+	v.NodePlacements = slices.Clone(v.NodePlacements)
 	v.AuthHashes = slices.Clone(v.AuthHashes)
 	v.Parameters = maps.Clone(v.Parameters)
 	v.Tags = maps.Clone(v.Tags)

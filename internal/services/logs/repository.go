@@ -27,6 +27,7 @@ type GroupRecord struct {
 	ID                string
 	Created, Sequence int64
 	RetentionDays     int32
+	DeletionProtected bool
 	Tags              map[string]string
 }
 type StreamKey struct{ GroupID, Name string }
@@ -184,6 +185,7 @@ type Reader interface {
 	SubscriptionDelivery(string) (SubscriptionDelivery, error)
 	NextSubscriptionDelivery() (scheduler.Job, bool, error)
 	MetricFilter(MetricFilterKey) (MetricFilterRecord, error)
+	MetricFilterCount(groupID string) (int64, error)
 	// MetricFilters is scoped and ordered by filter name, then log-group name;
 	// AfterName/AfterGroupName is an exclusive continuation boundary.
 	MetricFilters(MetricFilterQuery) ([]MetricFilterRecord, error)

@@ -26,10 +26,24 @@ func (c *ClassicService) describeConfigurationSet(tx Transaction, in *classic.De
 	if e != nil {
 		return nil, e
 	}
-	if len(in.ConfigurationSetAttributeNames) > 0 {
-		return nil, unsupported("Configuration-set event destinations, reputation, tracking and delivery options require their real consumers.")
+	outClassic := &classic.DescribeConfigurationSetOutput{ConfigurationSet: &classic.ConfigurationSet{Name: (*classic.ConfigurationSetName)(out.ConfigurationSetName)}}
+	for _, attribute := range in.ConfigurationSetAttributeNames {
+		switch attribute {
+		case classic.ConfigurationSetAttributeREPUTATION_OPTIONS:
+			// Sending is shared with v2 and is consumed on every send. Reputation
+			// metrics remain disabled; enabling them still fails explicitly.
+			outClassic.ReputationOptions = &classic.ReputationOptions{
+				SendingEnabled:           (*classic.Enabled)(out.SendingOptions.SendingEnabled),
+				ReputationMetricsEnabled: new(classic.Enabled(false)),
+			}
+		case classic.ConfigurationSetAttributeDELIVERY_OPTIONS, classic.ConfigurationSetAttributeTRACKING_OPTIONS, classic.ConfigurationSetAttributeEVENT_DESTINATIONS:
+			// No configured delivery, tracking or event destination exists.
+			// Reading their absence must not require enabling those systems.
+		default:
+			return nil, bad("Invalid configuration set attribute.")
+		}
 	}
-	return &classic.DescribeConfigurationSetOutput{ConfigurationSet: &classic.ConfigurationSet{Name: (*classic.ConfigurationSetName)(out.ConfigurationSetName)}}, nil
+	return outClassic, nil
 }
 func (c *ClassicService) deleteConfigurationSet(tx Transaction, in *classic.DeleteConfigurationSetInput) (*classic.DeleteConfigurationSetOutput, error) {
 	_, e := c.owner.deleteConfigurationSet(tx, &api.DeleteConfigurationSetInput{ConfigurationSetName: (*api.ConfigurationSetName)(in.ConfigurationSetName)})

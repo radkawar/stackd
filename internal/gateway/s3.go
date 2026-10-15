@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"slices"
 	"strconv"
@@ -139,11 +140,6 @@ func (g *Gateway) serveS3CORS(w http.ResponseWriter, r *http.Request, service *S
 	if !ok {
 		return false
 	}
-	bucket, _, _ := strings.Cut(strings.TrimPrefix(S3RequestPath(r), "/"), "/")
-	bucket, err := url.PathUnescape(bucket)
-	if err != nil {
-		return false
-	}
 	metadata := awsctx.FromContext(r.Context())
 	metadata.AccountID = policy.AnonymousAccountID
 	if awscatalog.RegionPartition(region) == "" {
@@ -151,7 +147,13 @@ func (g *Gateway) serveS3CORS(w http.ResponseWriter, r *http.Request, service *S
 	}
 	metadata.Region, metadata.Partition = region, awscatalog.RegionPartition(region)
 	BindRequestTransport(r, &metadata)
-	return provider.ServeCORS(w, r.WithContext(awsctx.WithMetadata(r.Context(), metadata)), bucket)
+	r = r.WithContext(awsctx.WithMetadata(r.Context(), metadata))
+	bucket, _, _ := strings.Cut(strings.TrimPrefix(S3RequestPath(r), "/"), "/")
+	bucket, err := url.PathUnescape(bucket)
+	if err != nil {
+		return false
+	}
+	return provider.ServeCORS(w, r, bucket)
 }
 
 func validateS3Authentication(r *http.Request) *awswire.Error {
@@ -181,6 +183,9 @@ func S3RequestPath(r *http.Request) string {
 		host = name
 	}
 	bucket := s3AccessPointBucket(host)
+	if bucket == "" {
+		bucket = s3CustomAccessPointBucket(host, awsctx.FromContext(r.Context()).Region)
+	}
 	if bucket == "" {
 		if before, _, ok := strings.Cut(host, ".s3."); ok {
 			bucket = before
@@ -212,6 +217,31 @@ func s3AccessPointBucket(host string) string {
 	partition := awscatalog.RegionPartition(region)
 	separator := strings.LastIndexByte(name, '-')
 	if !ok || partition == "" || separator < 1 {
+		return ""
+	}
+	return "arn:" + partition + ":s3:" + region + ":" + name[separator+1:] + ":accesspoint/" + name[:separator]
+}
+
+// SDKs keep ordinary buckets in the path for numeric endpoints, but prepend an
+// access-point name and account even there. Restrict this discriminator to IPv4:
+// custom DNS bucket names ending in an account-like suffix remain ordinary
+// virtual-hosted buckets. Dispatch uses the authenticated region; anonymous
+// requests and CORS use the gateway's configured unsigned region.
+func s3CustomAccessPointBucket(host, region string) string {
+	name, endpoint, ok := strings.Cut(strings.TrimSuffix(strings.ToLower(host), "."), ".")
+	if !ok {
+		return ""
+	}
+	address, err := netip.ParseAddr(endpoint)
+	if err != nil || !address.Is4() {
+		return ""
+	}
+	separator := strings.LastIndexByte(name, '-')
+	if separator < 1 || !accountPattern.MatchString(name[separator+1:]) {
+		return ""
+	}
+	partition := awscatalog.RegionPartition(region)
+	if partition == "" {
 		return ""
 	}
 	return "arn:" + partition + ":s3:" + region + ":" + name[separator+1:] + ":accesspoint/" + name[:separator]

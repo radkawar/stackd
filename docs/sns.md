@@ -413,6 +413,22 @@ established actual logging authority, then observed all 32 subsequent publicatio
 delivered and logged while the sample-rate attribute remained absent; this does
 not establish AWS's internal random-sampling algorithm.
 
+`ApplicationSuccessFeedbackSampleRate` is also an independent topic setting.
+It accepts integers from 0 through 100 and retains explicit zero on reads.
+Clearing an absent application feedback role does not require a mobile endpoint.
+Nonempty application feedback roles and mobile delivery remain unsupported.
+This does not report a working mobile data plane. AWS defines these fields in
+[`SetTopicAttributes`](https://docs.aws.amazon.com/sns/latest/api/API_SetTopicAttributes.html).
+
+The AWS 6.68.0 provider sends a zero application sample rate during ordinary topic
+creation, even when the configuration has no mobile subscriptions. The baseline
+`examples/terraform-messaging/run.py` run exposed a rejection of that independent
+setting. The owner now uses the existing typed feedback state and normal
+transactional IAM path for the setting. The rebuilt controller consumed the
+fixture's revision-one SNS, EventBridge, Pipes, Scheduler and AppConfig effects.
+That run stopped at a service-linked-role description refresh delta, before
+import/update completion; full lifecycle and destroy remain unverified.
+
 Role assignment requires caller `iam:PassRole` for `sns.amazonaws.com` and current
 SNS trust. Native configuration checks distinguish an existing wrong-trust role
 (`InvalidParameter`) from a missing role (`AuthorizationError` for PassRole).
@@ -482,6 +498,13 @@ correlated notifications and cleanup. Their observed distinctions include:
   `AddPermission` accepts SNS action names such as `Publish`, not `sns:Publish`
   or wildcard spellings. Empty policy statements and removing the last statement
   are not silently converted into a permissive policy.
+- Topic policy admission also accepts the legacy `SNS:Receive` permission.
+  A [bounded native capture](../examples/terraform-messaging/native-sns-policy.json)
+  set and read this permission on one owned topic. An unknown-action control
+  returned `InvalidParameter` and left the admitted policy unchanged. The topic
+  then returned `NotFound` after deletion; no publication or subscription occurred.
+  This is a policy-language permission, not a new Receive operation or an alias
+  for subscription or delivery. The current IAM action catalog does not list it.
 - Ordinary IAM calls do not acquire the legacy `aws:SourceOwner` condition.
   Native CloudWatch service publication can satisfy the owner-scoped default
   topic policy. SNS reuses the existing IAM evaluator and resource-policy binder;

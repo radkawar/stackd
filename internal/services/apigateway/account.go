@@ -51,6 +51,12 @@ func (s *Service) updateAccount(tx Transaction, in *api.UpdateAccountRequest) (*
 		if value(patch.Path) != "/cloudwatchRoleArn" {
 			return nil, unsupported("account patch path " + value(patch.Path))
 		}
+		// API Gateway clears this optional setting with replace and no value.
+		// Keep the ordinary operation/from checks; other patch paths still
+		// require a value through replace.
+		if patch.Value == nil {
+			patch.Value = ptr("")
+		}
 		if err := replace(patch, &row.CloudWatchRoleARN); err != nil {
 			return nil, err
 		}

@@ -4,18 +4,27 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"stackd/compute/network"
 	"stackd/internal/awsctx"
 	"stackd/internal/scheduler"
 	"time"
 )
 
-const healthInterval = 30 * time.Second
+const healthInterval = time.Minute
 
 func baseSpecification(v ClusterRecord) Specification {
-	return Specification{ARN: v.ARN, Incarnation: v.Incarnation, Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, Brokers: v.Brokers, KafkaVersion: v.KafkaVersion, ServerProperties: v.ServerProperties, SecurityMode: v.SecurityMode}
+	spec := Specification{ARN: v.ARN, Incarnation: v.Incarnation, Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, Brokers: v.Brokers, KafkaVersion: v.KafkaVersion, ServerProperties: v.ServerProperties, SecurityMode: v.SecurityMode, DefaultMetrics: v.DefaultMetrics}
+	for _, attachment := range v.BrokerNetworks {
+		spec.Networks = append(spec.Networks, BrokerNetwork{InterfaceID: attachment.InterfaceID, SubnetID: attachment.SubnetID, AvailabilityZone: attachment.AvailabilityZone, Network: network.Specification{NetworkID: attachment.NetworkID}})
+	}
+	return spec
 }
 func runtimeContext(ctx context.Context, v ClusterRecord) context.Context {
-	return awsctx.WithMetadata(ctx, awsctx.Metadata{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, InvokedBy: "kafka.amazonaws.com", ServicePrincipal: awsctx.ServicePrincipal{Name: "kafka.amazonaws.com", SourceARN: v.ARN}})
+	metadata := awsctx.Metadata{Partition: v.Partition, AccountID: v.AccountID, Region: v.Region, InvokedBy: "kafka.amazonaws.com", ServicePrincipal: awsctx.ServicePrincipal{Name: "kafka.amazonaws.com", SourceARN: v.ARN}}
+	if len(v.ClientSubnets) > 0 || v.DefaultMetrics {
+		metadata.IssuerARN = "arn:" + v.Partition + ":iam::" + v.AccountID + ":role/aws-service-role/kafka.amazonaws.com/AWSServiceRoleForKafka"
+	}
+	return awsctx.WithMetadata(ctx, metadata)
 }
 func (s *Service) specification(ctx context.Context, v ClusterRecord) (Specification, error) {
 	spec := baseSpecification(v)
@@ -25,14 +34,42 @@ func (s *Service) specification(ctx context.Context, v ClusterRecord) (Specifica
 	if len(v.Secrets) > 0 && s.secrets == nil {
 		return spec, errors.New("Secrets Manager owner is unavailable")
 	}
-	for _, ref := range v.Secrets {
-		u, e := s.secrets.LoadSCRAM(ctx, v.ARN, ref)
-		if e != nil {
-			return spec, e
+	if len(v.Secrets) > 0 {
+		var credentialErr error
+		// Secret metadata, canonical CMK inspection and AWSCURRENT reads share
+		// one snapshot. Secrets Manager may retain old-key envelopes, so separate
+		// snapshots could otherwise decrypt stale authority during a key change.
+		err := s.repository.Update(ctx, func(t Transaction) error {
+			current, err := t.Cluster(v.ARN)
+			if err != nil {
+				return err
+			}
+			if current.Incarnation != v.Incarnation || current.Version != v.Version {
+				return conflict("The cluster changed while SCRAM credentials were being loaded")
+			}
+			for _, association := range current.Secrets {
+				user, err := s.secrets.LoadSCRAM(t.Context(), v.ARN, v.Incarnation, association)
+				if err != nil {
+					// Failed child commands have already rolled back. Preserve
+					// their actual audit outcomes without publishing readiness.
+					credentialErr = err
+					return nil
+				}
+				spec.Users = append(spec.Users, user)
+			}
+			return nil
+		})
+		if err != nil {
+			return spec, err
 		}
-		spec.Users = append(spec.Users, u)
+		if credentialErr != nil {
+			return spec, credentialErr
+		}
 	}
-	return spec, ValidateSpecification(spec)
+	if err := ValidateSpecification(spec); err != nil {
+		return spec, err
+	}
+	return s.networkSpecification(ctx, v, spec)
 }
 
 // Start fences all persisted endpoints before any caller can reuse them. Native
@@ -108,9 +145,15 @@ func (j clusterJobs) Run(ctx context.Context, job scheduler.Job) error {
 		nativeErr = errors.New("native Kafka runtime is unavailable")
 	} else if v.Operation == "delete" {
 		nativeErr = s.runtime.Delete(nativeCtx, baseSpecification(v))
+		if nativeErr == nil {
+			nativeErr = s.releaseBrokerNetworks(nativeCtx, v)
+		}
 	} else {
 		var spec Specification
 		spec, nativeErr = s.specification(nativeCtx, v)
+		if nativeErr != nil {
+			nativeErr = s.quarantineManaged(nativeCtx, v, nativeErr)
+		}
 		if nativeErr == nil {
 			if v.Operation == "REBOOT_BROKER" {
 				endpoint, nativeErr = s.runtime.Reboot(nativeCtx, spec, v.RebootBrokerID)
@@ -119,6 +162,12 @@ func (j clusterJobs) Run(ctx context.Context, job scheduler.Job) error {
 			}
 			if nativeErr == nil {
 				nativeErr = validateEndpoint(v, endpoint)
+			}
+			if nativeErr == nil {
+				nativeErr = s.collectMetrics(nativeCtx, v, spec)
+			}
+			if nativeErr != nil {
+				nativeErr = s.quarantineManaged(nativeCtx, v, nativeErr)
 			}
 		}
 	}
@@ -219,7 +268,14 @@ func (s *Service) observe(ctx context.Context, arn, action string) error {
 	if s.runtime == nil {
 		nativeErr = errors.New("native Kafka runtime is unavailable")
 	} else {
-		endpoint, nativeErr = s.runtime.Status(runtimeContext(ctx, v), baseSpecification(v))
+		var spec Specification
+		spec, nativeErr = s.networkSpecification(runtimeContext(ctx, v), v, baseSpecification(v))
+		if nativeErr != nil {
+			nativeErr = s.quarantineManaged(ctx, v, nativeErr)
+		}
+		if nativeErr == nil {
+			endpoint, nativeErr = s.runtime.Status(runtimeContext(ctx, v), spec)
+		}
 		if nativeErr == nil {
 			nativeErr = validateEndpoint(v, endpoint)
 		}

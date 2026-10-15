@@ -12,9 +12,11 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"sync"
 	"time"
 
 	"stackd/compute/docker"
+	"stackd/compute/network"
 	"stackd/compute/ports"
 	msk "stackd/internal/services/kafka"
 )
@@ -42,6 +44,7 @@ type DockerConfig struct {
 	// Zero selects three minutes.
 	StartupTimeout time.Duration
 	PortRange      ports.Range
+	Networks       *network.Bridges
 }
 
 // Docker retains exact incarnation-owned containers, volumes and one network.
@@ -54,6 +57,9 @@ type Docker struct {
 	startupTimeout               time.Duration
 	portRange                    ports.Range
 	gate                         chan struct{}
+	networks                     *network.Bridges
+	statusMu                     sync.Mutex
+	statusFlights                map[string]*statusFlight
 	closed                       bool
 }
 
@@ -109,7 +115,7 @@ func NewDocker(ctx context.Context, cfg DockerConfig) (*Docker, error) {
 			return nil, errors.New("kafka 3.7.1 requires the pinned Apache image content")
 		}
 	}
-	return &Docker{client: cfg.Client, image: DockerImage, imageID: image.ID, imageEnv: image.Config.Env, endpointHost: cfg.EndpointHost, startupTimeout: cfg.StartupTimeout, portRange: cfg.PortRange, gate: make(chan struct{}, 1)}, nil
+	return &Docker{client: cfg.Client, image: DockerImage, imageID: image.ID, imageEnv: image.Config.Env, endpointHost: cfg.EndpointHost, startupTimeout: cfg.StartupTimeout, portRange: cfg.PortRange, networks: cfg.Networks, gate: make(chan struct{}, 1)}, nil
 }
 
 func resourceName(spec msk.Specification, role string) string {

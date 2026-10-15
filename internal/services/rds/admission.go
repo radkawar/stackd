@@ -134,8 +134,8 @@ func validateCreateDBInstanceMessage(in *api.CreateDBInstanceMessage) error {
 	if len(in.ProcessorFeatures) != 0 {
 		return unsupported("ProcessorFeatures is not supported by the native RDS runtime.")
 	}
-	if in.PromotionTier != nil {
-		return unsupported("PromotionTier is not supported by the native RDS runtime.")
+	if in.PromotionTier != nil && *in.PromotionTier != 0 {
+		return unsupported("Only the default PromotionTier of 0 is supported by the single-writer native RDS runtime.")
 	}
 	if boolean(in.PubliclyAccessible) {
 		return unsupported("PubliclyAccessible is not supported by the native RDS runtime.")
@@ -235,7 +235,7 @@ func validateCreateDBClusterMessage(in *api.CreateDBClusterMessage) error {
 		return unsupported("EngineLifecycleSupport is not supported by the native RDS runtime.")
 	}
 	if in.GlobalClusterIdentifier != nil {
-		return unsupported("GlobalClusterIdentifier is not supported by the native RDS runtime.")
+		return unsupported("GlobalClusterIdentifier requires a real global replication engine; initially empty global clusters cannot accept regional members.")
 	}
 	if in.Iops != nil {
 		return unsupported("Iops is not supported by the native RDS runtime.")
@@ -451,8 +451,8 @@ func validateModifyDBInstanceMessage(in *api.ModifyDBInstanceMessage) error {
 	if len(in.ProcessorFeatures) != 0 {
 		return unsupported("ProcessorFeatures is not supported by the native RDS runtime.")
 	}
-	if in.PromotionTier != nil {
-		return unsupported("PromotionTier is not supported by the native RDS runtime.")
+	if in.PromotionTier != nil && *in.PromotionTier != 0 {
+		return unsupported("Only the default PromotionTier of 0 is supported by the single-writer native RDS runtime.")
 	}
 	if boolean(in.PubliclyAccessible) {
 		return unsupported("PubliclyAccessible is not supported by the native RDS runtime.")

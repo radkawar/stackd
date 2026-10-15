@@ -86,8 +86,11 @@ func (s *Service) updateCode(ctx context.Context, in *api.UpdateFunctionCodeInpu
 	})
 }
 func (s *Service) updateConfiguration(ctx context.Context, in *api.UpdateFunctionConfigurationInput) (*api.UpdateFunctionConfigurationOutput, *awswire.Error) {
-	if in.KMSKeyArn != nil || in.FileSystemConfigs != nil || in.SnapStart != nil {
+	if in.KMSKeyArn != nil || len(in.FileSystemConfigs) > 0 {
 		return nil, unsupported("The requested advanced Lambda deployment configuration is not implemented.")
+	}
+	if wire := validateSnapStart(in.SnapStart); wire != nil {
+		return nil, wire
 	}
 	if wire := validateTracingConfiguration(in.TracingConfig); wire != nil {
 		return nil, wire

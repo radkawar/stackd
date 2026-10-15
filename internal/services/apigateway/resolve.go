@@ -26,6 +26,9 @@ func (s *Service) Resolve(ctx context.Context, apiID, stage, method, path string
 		if owner.EffectiveDisabled {
 			return failure("ForbiddenException", "Forbidden", 403)
 		}
+		if method == "ANY" || !methodVerb(method) {
+			return missing()
+		}
 		if stage == "" {
 			first, rest, ok := strings.Cut(strings.TrimPrefix(path, "/"), "/")
 			stage = first
@@ -82,6 +85,7 @@ func (s *Service) Resolve(ctx context.Context, apiID, stage, method, path string
 		out = &apigatewayexec.Route{Partition: owner.Key.Partition, AccountID: owner.Key.AccountID, Region: owner.Key.Region, APIID: apiID, APIName: owner.Name, Stage: stage, DeploymentID: deployment.Key.DeploymentID, ResourceID: exact.ResourceID, ResourcePath: exact.Path, RouteKey: exact.HTTPMethod + " " + exact.Path, FunctionARN: exact.FunctionARN, PayloadVersion: "1.0", AuthorizationType: exact.AuthorizationType, Scopes: exact.Scopes, UserPoolARNs: exact.UserPoolARNs, StageVariables: selected.Variables, PathParameters: parameters}
 		out.ProtocolType = "REST"
 		out.Mock = exact.Mock
+		out.HTTPProxy = cloneHTTPProxy(exact.HTTPProxy)
 		out.BinaryMediaTypes = owner.BinaryMediaTypes
 		out.GatewayResponses = owner.GatewayResponses
 		out.IntegrationTimeoutMillis = exact.TimeoutMillis

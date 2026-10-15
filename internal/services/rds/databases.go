@@ -122,6 +122,10 @@ func (s *Service) createCluster(ctx context.Context, tx Transaction, in *api.Cre
 	v.CopyTags = boolean(in.CopyTagsToSnapshot)
 	v.HTTPEnabled = boolean(in.EnableHttpEndpoint)
 	v.Due = time.Time{}
+	// The cluster control resource precedes its writer. Its endpoint remains
+	// absent until authenticated native startup; Data API rejects that absence.
+	// https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Aurora.CreateInstance.html
+	v.Status, v.Operation = "available", ""
 	if e = tx.PutDatabase(v); e != nil {
 		return nil, e
 	}
@@ -176,8 +180,9 @@ func (s *Service) createWriter(ctx context.Context, tx Transaction, k Key, in *a
 	v := Database{Key: k, Engine: c.Engine, EngineVersion: c.EngineVersion, DatabaseName: c.DatabaseName, Username: c.Username, Class: value(in.DBInstanceClass), Cluster: c.Key.Name, RuntimeID: c.RuntimeID, Status: "creating", Desired: "running", Version: 1, Created: s.clock.Now(), Tags: tags, DeletionProtection: boolean(in.DeletionProtection), CopyTags: boolean(in.CopyTagsToSnapshot)}
 	v.ResourceID, v.Owner = id, cloudFormationClaim(ctx, k)
 	c.Due = s.clock.Now()
+	c.Status = "creating"
 	if c.Operation == "" {
-		c.Operation = "start"
+		c.Operation = "create"
 	}
 	c.Version++
 	if e = tx.PutDatabase(c); e != nil {
@@ -458,10 +463,13 @@ func (s *Service) deleteDatabase(ctx context.Context, tx Transaction, kind, name
 	if v.Status == "backing-up" || v.Status == "modifying" || v.Status == "deleting" {
 		return v, stateError(kind)
 	}
-	if !boolean(skip) {
+	if v.Cluster == "" && !boolean(skip) {
 		return v, unsupported("Create a manual snapshot first, then set SkipFinalSnapshot; final snapshot deletion is not implemented.")
 	}
 	if final != nil {
+		if v.Cluster != "" {
+			return v, failure("InvalidParameterCombination", "Snapshot the DB cluster, not an individual cluster member.")
+		}
 		return v, failure("InvalidParameterCombination", "FinalDBSnapshotIdentifier conflicts with SkipFinalSnapshot.")
 	}
 	dbs, e := tx.Databases(v.Key.Scope)

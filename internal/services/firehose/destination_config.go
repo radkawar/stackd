@@ -62,9 +62,44 @@ func mergeDestination(out api.ExtendedS3DestinationDescription, v api.ExtendedS3
 	if value(out.S3BackupMode) == "Enabled" && value(v.S3BackupMode) == "Disabled" {
 		return out, failure("InvalidArgumentException", "Disabling S3 backup is not currently supported.")
 	}
-	if v.DataFormatConversionConfiguration != nil || v.DynamicPartitioningConfiguration != nil {
-		// TODO: Comeback — implement format conversion and dynamic partitioning.
-		return out, unsupported("data format conversion and dynamic partitioning")
+	if conversion := v.DataFormatConversionConfiguration; conversion != nil {
+		// AWS defaults format conversion to enabled. Only an explicit disabled
+		// configuration is executable without the format-conversion owner.
+		if conversion.Enabled == nil || bool(*conversion.Enabled) {
+			return out, unsupported("data format conversion")
+		}
+		current := api.DataFormatConversionConfiguration{}
+		if out.DataFormatConversionConfiguration != nil {
+			current = *out.DataFormatConversionConfiguration
+		}
+		current.Enabled = conversion.Enabled
+		if conversion.InputFormatConfiguration != nil {
+			current.InputFormatConfiguration = conversion.InputFormatConfiguration
+		}
+		if conversion.OutputFormatConfiguration != nil {
+			current.OutputFormatConfiguration = conversion.OutputFormatConfiguration
+		}
+		if conversion.SchemaConfiguration != nil {
+			current.SchemaConfiguration = conversion.SchemaConfiguration
+		}
+		out.DataFormatConversionConfiguration = &current
+	}
+	if partitioning := v.DynamicPartitioningConfiguration; partitioning != nil {
+		if partitioning.Enabled != nil && bool(*partitioning.Enabled) {
+			return out, unsupported("dynamic partitioning")
+		}
+		current := api.DynamicPartitioningConfiguration{}
+		if out.DynamicPartitioningConfiguration != nil {
+			current = *out.DynamicPartitioningConfiguration
+		}
+		current.Enabled = partitioning.Enabled
+		if current.Enabled == nil {
+			current.Enabled = new(api.BooleanObject(false))
+		}
+		if partitioning.RetryOptions != nil {
+			current.RetryOptions = partitioning.RetryOptions
+		}
+		out.DynamicPartitioningConfiguration = &current
 	}
 	if v.BucketARN != nil {
 		out.BucketARN = v.BucketARN

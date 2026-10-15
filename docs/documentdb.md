@@ -29,10 +29,13 @@ owns containers and volumes. Persistent shutdown detaches; ephemeral shutdown
 removes its exact-owned native resources. Never run two controllers against the
 same metadata/namespace.
 
-Create a `docdb` cluster and then a `CreateDBInstance` writer. An empty cluster is
-not an available document server. The current control contract selects engine
-family `5.0`; this does **not** relabel the binary, whose native `buildInfo` remains
-MongoDB 7.0.43. Instance classes are control identifiers, not AWS hardware capacity.
+Create a `docdb` cluster and then a `CreateDBInstance` writer. The empty
+control-plane cluster reports `available`, as required by the
+[AWS CLI creation contract](https://docs.aws.amazon.com/documentdb/latest/devguide/db-cluster-create.html).
+It has no document endpoint and `ResolveCluster.Ready` stays false until the real
+writer completes authenticated native readiness. The control contract selects
+engine family `5.0`; this does **not** relabel the binary, whose native `buildInfo`
+remains MongoDB 7.0.43. Instance classes are identifiers, not AWS hardware capacity.
 
 The returned endpoint binds Docker-host **loopback only**. TLS is mandatory;
 clients explicitly trust the owner-generated CA and authenticate against `admin`
@@ -44,8 +47,9 @@ connection lookup; a local operator can read `/data/db/security/ca.pem` from its
 exact-owned container. The host/Docker daemon remain trusted. Remote Docker needs
 an explicit localhost tunnel preserving the port; this is not AWS VPC networking.
 Requests attaching subnet groups/security groups or claiming managed encryption,
-serverless scaling, maintenance/backup schedules and managed secrets fail rather
-than becoming inert metadata.
+serverless scaling, scheduled maintenance and managed secrets fail rather than
+becoming inert metadata. Backup retention/window settings own real daily cold
+snapshot work and expiry; they do not claim continuous online AWS backups.
 
 ## One shared RDS Query namespace
 
@@ -94,9 +98,27 @@ They briefly stop client connections and restart the source. A restored cluster
 requires its own writer, native volume, endpoint/trust identity and control-plane
 incarnation. Snapshot credentials and bytes survive source password changes and
 source deletion; subsequent source writes are not part of an earlier snapshot.
-This is not an online AWS snapshot, automated backup or point-in-time recovery.
+This is not an online AWS snapshot or point-in-time recovery.
 Deletion requires explicit `SkipFinalSnapshot`; callers create a supported manual
 snapshot first instead of receiving a fake final backup.
+
+`BackupRetentionPeriod` admits 1–35 days and defaults to 1.
+`PreferredBackupWindow` uses a UTC window of at least 30 minutes; the local
+default is `09:00-09:30`, not AWS's randomly selected regional window. The shared
+service-time scheduler commits one generation-fenced daily snapshot intent before
+its native cold copy. Retries keep the same immutable snapshot incarnation.
+Missed windows produce one current real snapshot, not invented historical data.
+Automated copies appear as `SnapshotType=automated` in both official SDKs.
+Retention changes recompute exact-owned expiry from each copy's creation time.
+Expiry waits for in-progress restores, commits retirement, and then deletes the
+native snapshot outside the transaction. Cluster deletion retires its automated
+copies but leaves manual snapshots. The typed deadlines and policy survive
+SQLite reopen through schema415.
+
+This is a daily local backup adapter over MongoDB's physical copy capability.
+[AWS continuously backs up data and supports any point within the retention period](https://docs.aws.amazon.com/documentdb/latest/devguide/backup_restore.html);
+that online storage and oplog/time-index recovery owner remains absent.
+Do not treat the local cold snapshot's connection pause as AWS behavior.
 
 `Service.ResolveCluster(ctx, arn)` is the authoritative Lambda source boundary:
 current `rds:DescribeDBClusters` authority, an available writer, immutable
@@ -151,6 +173,28 @@ and account isolation. A signed Go SDK regression proves mixed-owner pagination,
 engine filtering, cross-SDK markers, owner mutation and RDS-only-field rejection.
 These are bounded workflows, not exhaustive service conformance.
 
+The permanent Terraform workflow is
+[`examples/terraform-storage`](../examples/terraform-storage/docdb.py).
+Install the pinned Mongo image, `boto3`, `pymongo`, Terraform1.15.9 and the
+AWS6.68.0 filesystem mirror, then run:
+
+```sh
+python3 examples/terraform-storage/run.py --services docdb \
+  --provider-mirror /absolute/path/to/provider/mirror
+```
+
+This workflow uses an owned paused service timeline to exercise daily backup and
+expiry without waiting 24 wall-clock hours. It declares cluster/writer resources,
+imports them, changes the native password, tags, backup retention and window,
+consumes binary BSON through verified TLS and SCRAM, checks transaction rollback
+and independent restored bytes, reopens SQLite, and destroys its exact-owned
+resources. The new workflow and transition regressions are **unverified until
+run**; the fixture emits a report only for completed stages.
+[`docdb-limits.json`](../examples/terraform-storage/docdb-limits.json) records
+prerequisites, source references and exact resource/settings gaps. The generated
+[provider inventory](terraform-provider-apis.json) remains the authoritative list
+of every current-provider resource and data source, not a lifecycle pass claim.
+
 ## Explicit differences and remaining operations
 
 The [AWS functional differences](https://docs.aws.amazon.com/documentdb/latest/devguide/functional-differences.html)
@@ -171,7 +215,7 @@ remain the reference, not generic MongoDB documentation:
 - Managed distributed storage, readers/failover/Multi-AZ, global clusters,
   elastic/serverless capacity, cloud VPC/SG/NACL enforcement, AWS CA rotation,
   IAM database authentication and customer-managed storage encryption are absent.
-- Parameter/subnet groups, automated backups/PITR, snapshot sharing/copy/export,
+- Parameter/subnet groups, continuous online backups/PITR, snapshot sharing/copy/export,
   scheduled maintenance, engine upgrades, managed secret rotation, event
   subscriptions and the remaining generated control operations return explicit
   unsupported errors. No successful billable native DocumentDB lifecycle capture

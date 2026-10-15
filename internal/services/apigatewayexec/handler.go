@@ -47,6 +47,9 @@ type Config struct {
 	Clock          clock.Clock
 	// WebACLs applies AWS WAF web ACLs associated with REST API stages.
 	WebACLs WebACLs
+	// HTTPClient supplies the instance-owned outbound transport. Redirects and
+	// cookie jars are disabled for proxy execution; requests own their deadline.
+	HTTPClient *http.Client
 }
 
 type Handler struct {
@@ -62,6 +65,7 @@ type Handler struct {
 	logs               LogPublisher
 	clock              clock.Clock
 	webACLs            WebACLs
+	httpClient         *http.Client
 	validationPatterns sync.Map
 }
 
@@ -69,8 +73,14 @@ func New(c Config) *Handler {
 	if c.Clock == nil {
 		c.Clock = clock.Real{}
 	}
+	client := http.Client{}
+	if c.HTTPClient != nil {
+		client = *c.HTTPClient
+	}
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	client.Jar = nil
 	return &Handler{http: c.HTTP, rest: c.REST, authentication: c.Authentication,
-		authorization: c.Authorization, functions: c.Functions, roles: c.Roles, authorizers: NewAuthorizerExecutor(c.Functions, c.Roles), keys: c.Keys, usagePlans: c.UsagePlans, metrics: c.Metrics, logs: c.Logs, clock: c.Clock, webACLs: c.WebACLs}
+		authorization: c.Authorization, functions: c.Functions, roles: c.Roles, authorizers: NewAuthorizerExecutor(c.Functions, c.Roles), keys: c.Keys, usagePlans: c.UsagePlans, metrics: c.Metrics, logs: c.Logs, clock: c.Clock, webACLs: c.WebACLs, httpClient: &client}
 }
 
 func (s *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -129,6 +139,9 @@ func (s *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		var wire *awswire.Error
 		if errors.As(err, &wire) {
 			rejected = &rejection{wire.StatusCode, wire.Message}
+			if wire.Code != "" {
+				w.Header().Set("X-Amzn-ErrorType", wire.Code)
+			}
 		} else if err != nil && !errors.Is(err, ErrUnknownAPI) {
 			rejected = &rejection{http.StatusInternalServerError, "Internal Server Error"}
 		}
@@ -203,6 +216,10 @@ func (s *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(route.Mock.StatusCode)
 		_, _ = io.WriteString(w, route.Mock.Body)
+		return
+	}
+	if rest && route.HTTPProxy != nil {
+		s.executeHTTPProxy(w, r, route, body, response, observation)
 		return
 	}
 	payload, err := json.Marshal(s.payload(r, route, path, body, identity, rest))

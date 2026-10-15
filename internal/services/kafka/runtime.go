@@ -12,11 +12,22 @@ type Runtime interface {
 	Close() error
 }
 
+// QuarantineRuntime stops only exact-owned brokers without deleting retained
+// bytes. Managed packet prerequisites must fail closed before native I/O begins.
+type QuarantineRuntime interface {
+	Quarantine(context.Context, Specification) error
+}
+
 type Specification struct {
 	ARN, Incarnation, Partition, AccountID, Region string
 	Brokers                                        int32
 	KafkaVersion, ServerProperties, SecurityMode   string
 	Users                                          []SCRAMUser
+	Networks                                       []BrokerNetwork
+	DefaultMetrics                                 bool
+	// RefreshNetwork runs under the runtime's native install lock. It prevents
+	// an old EC2 snapshot from overwriting a newer packet-policy installation.
+	RefreshNetwork func(context.Context, int) (BrokerNetwork, error)
 }
 type SCRAMUser struct{ Username, Password string }
 type Broker struct {
@@ -31,13 +42,13 @@ type Endpoint struct {
 
 // Secrets resolves current secret versions and KMS authority without retaining
 // password material in cluster state. ResolveSCRAM uses the calling principal;
-// LoadSCRAM is restricted to the cluster's service-owned association.
+// LoadSCRAM requires the exact cluster incarnation's durable association.
 type Secrets interface {
 	ResolveSCRAM(context.Context, string, string) (SCRAMUser, error)
-	LoadSCRAM(context.Context, string, string) (SCRAMUser, error)
-	// Policy association changes join the caller's shared resource transaction.
-	AssociateSCRAM(context.Context, string, string) error
-	ReleaseSCRAM(context.Context, string, string) error
+	LoadSCRAM(context.Context, string, string, SCRAMAssociation) (SCRAMUser, error)
+	// Grant and policy mutations join the caller's shared resource transaction.
+	AssociateSCRAM(context.Context, string, string, string, SCRAMAssociation) (SCRAMAssociation, error)
+	ReleaseSCRAM(context.Context, string, string, SCRAMAssociation) error
 }
 
 // ClusterDescribePermission selects the consumer's required describe authority.

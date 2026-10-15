@@ -15,6 +15,7 @@ import (
 func registerSavedQueries(s *Service) {
 	registerControl(s, "CreateNamedQuery", s.createNamedQuery)
 	registerControl(s, "GetNamedQuery", s.getNamedQuery)
+	registerControl(s, "BatchGetNamedQuery", s.batchGetNamedQuery)
 	registerControl(s, "DeleteNamedQuery", s.deleteNamedQuery)
 	registerControl(s, "ListNamedQueries", s.listNamedQueries)
 	registerControl(s, "CreatePreparedStatement", s.createPreparedStatement)
@@ -66,22 +67,45 @@ func (s *Service) createNamedQuery(ctx context.Context, tx Transaction, in *api.
 	}
 	return &api.CreateNamedQueryOutput{NamedQueryId: v.Data.NamedQueryId}, nil
 }
-func (s *Service) getNamedQuery(ctx context.Context, tx Transaction, in *api.GetNamedQueryInput) (*api.GetNamedQueryOutput, error) {
-	v, err := tx.NamedQuery(resourceFor(ctx, value(in.NamedQueryId)))
+func (s *Service) loadNamedQuery(ctx context.Context, tx Transaction, id, action string) (NamedQueryRecord, error) {
+	v, err := tx.NamedQuery(resourceFor(ctx, id))
 	if err != nil {
-		return nil, err
+		return v, err
 	}
-	if _, err := s.loadWorkGroup(ctx, tx, value(v.Data.WorkGroup), "GetNamedQuery"); err != nil {
+	_, err = s.loadWorkGroup(ctx, tx, value(v.Data.WorkGroup), action)
+	return v, err
+}
+func (s *Service) getNamedQuery(ctx context.Context, tx Transaction, in *api.GetNamedQueryInput) (*api.GetNamedQueryOutput, error) {
+	v, err := s.loadNamedQuery(ctx, tx, value(in.NamedQueryId), "GetNamedQuery")
+	if err != nil {
 		return nil, err
 	}
 	return &api.GetNamedQueryOutput{NamedQuery: &v.Data}, nil
 }
-func (s *Service) deleteNamedQuery(ctx context.Context, tx Transaction, in *api.DeleteNamedQueryInput) (*api.DeleteNamedQueryOutput, error) {
-	v, err := tx.NamedQuery(resourceFor(ctx, value(in.NamedQueryId)))
-	if err != nil {
-		return nil, err
+func (s *Service) batchGetNamedQuery(ctx context.Context, tx Transaction, in *api.BatchGetNamedQueryInput) (*api.BatchGetNamedQueryOutput, error) {
+	if len(in.NamedQueryIds) < 1 || len(in.NamedQueryIds) > 50 {
+		return nil, invalidRequest("NamedQueryIds must contain between 1 and 50 query IDs.")
 	}
-	if _, err := s.loadWorkGroup(ctx, tx, value(v.Data.WorkGroup), "DeleteNamedQuery"); err != nil {
+	out := &api.BatchGetNamedQueryOutput{NamedQueries: make(api.NamedQueryList, 0, len(in.NamedQueryIds)), UnprocessedNamedQueryIds: api.UnprocessedNamedQueryIdList{}}
+	for _, id := range in.NamedQueryIds {
+		v, err := s.loadNamedQuery(ctx, tx, string(id), "BatchGetNamedQuery")
+		if err == nil {
+			out.NamedQueries = append(out.NamedQueries, v.Data)
+			continue
+		}
+		rejected := wireError(err)
+		if rejected.StatusCode >= 500 {
+			return nil, err
+		}
+		out.UnprocessedNamedQueryIds = append(out.UnprocessedNamedQueryIds, api.UnprocessedNamedQueryId{
+			NamedQueryId: new(id), ErrorCode: new(api.ErrorCode(rejected.Code)), ErrorMessage: new(api.ErrorMessage(rejected.Message)),
+		})
+	}
+	return out, nil
+}
+func (s *Service) deleteNamedQuery(ctx context.Context, tx Transaction, in *api.DeleteNamedQueryInput) (*api.DeleteNamedQueryOutput, error) {
+	v, err := s.loadNamedQuery(ctx, tx, value(in.NamedQueryId), "DeleteNamedQuery")
+	if err != nil {
 		return nil, err
 	}
 	if err := tx.DeleteNamedQuery(v.Key); err != nil {

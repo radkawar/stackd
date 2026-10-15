@@ -28,8 +28,8 @@ func mergeLogging(current []string, in *api.Logging) ([]string, error) {
 	if in != nil {
 		seen := make(map[string]bool)
 		for _, setup := range in.ClusterLogging {
-			if setup.Enabled == nil || len(setup.Types) == 0 {
-				return nil, invalid("Each clusterLogging entry requires enabled and types.")
+			if setup.Enabled == nil {
+				return nil, invalid("Each clusterLogging entry requires enabled.")
 			}
 			for _, category := range setup.Types {
 				name := string(category)

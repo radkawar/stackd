@@ -77,8 +77,13 @@ func (d *httpOIDCDiscovery) Discover(ctx context.Context, request OIDCDiscoveryR
 	// fixed root selection with IAM's public-CA-or-configured-thumbprint rule.
 	tlsConfig.InsecureSkipVerify = true
 	customVerification := tlsConfig.VerifyConnection
+	// TLS does not send SNI for IP literals, so ConnectionState.ServerName
+	// alone cannot authenticate an IP-address issuer or JWKS endpoint.
+	expectedHostname := issuer.Hostname()
 	tlsConfig.VerifyConnection = func(state tls.ConnectionState) error {
-		if err := verifyOIDCTLS(state, tlsConfig.RootCAs, request.Thumbprints); err != nil {
+		verifiedState := state
+		verifiedState.ServerName = expectedHostname
+		if err := verifyOIDCTLS(verifiedState, tlsConfig.RootCAs, request.Thumbprints); err != nil {
 			return err
 		}
 		if customVerification != nil {
@@ -102,6 +107,11 @@ func (d *httpOIDCDiscovery) Discover(ctx context.Context, request OIDCDiscoveryR
 	if err != nil {
 		return OIDCDiscoveryResult{}, err
 	}
+	jwksURL, err := discoveryURL(result.JWKSURL)
+	if err != nil {
+		return OIDCDiscoveryResult{}, err
+	}
+	expectedHostname = jwksURL.Hostname()
 	keys, keyThumbprints, keyExpiry, err := fetchOIDCJSON(ctx, client, result.JWKSURL, d.clock)
 	if err != nil {
 		return OIDCDiscoveryResult{}, err

@@ -214,7 +214,7 @@ func (q *Queries) GetDestination(ctx context.Context, arg GetDestinationParams) 
 }
 
 const getGroup = `-- name: GetGroup :one
-SELECT "partition", account_id, region, name, id, created, sequence, retention_days, cfn_owner FROM logs_groups WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
+SELECT "partition", account_id, region, name, id, created, sequence, retention_days, cfn_owner, deletion_protected FROM logs_groups WHERE partition = ? AND account_id = ? AND region = ? AND name = ?
 `
 
 type GetGroupParams struct {
@@ -242,6 +242,7 @@ func (q *Queries) GetGroup(ctx context.Context, arg GetGroupParams) (LogsGroup, 
 		&i.Sequence,
 		&i.RetentionDays,
 		&i.CfnOwner,
+		&i.DeletionProtected,
 	)
 	return i, err
 }
@@ -589,7 +590,7 @@ func (q *Queries) ListDestinations(ctx context.Context, arg ListDestinationsPara
 }
 
 const listGroups = `-- name: ListGroups :many
-SELECT "partition", account_id, region, name, id, created, sequence, retention_days, cfn_owner FROM logs_groups WHERE partition = ?1 AND account_id = ?2 AND region = ?3
+SELECT "partition", account_id, region, name, id, created, sequence, retention_days, cfn_owner, deletion_protected FROM logs_groups WHERE partition = ?1 AND account_id = ?2 AND region = ?3
  AND name > ?4 AND substr(name, 1, length(?5)) = ?5
  AND instr(name, ?6) > 0
  AND (?7 = '' OR ?7 = 'STANDARD')
@@ -635,6 +636,7 @@ func (q *Queries) ListGroups(ctx context.Context, arg ListGroupsParams) ([]LogsG
 			&i.Sequence,
 			&i.RetentionDays,
 			&i.CfnOwner,
+			&i.DeletionProtected,
 		); err != nil {
 			return nil, err
 		}
@@ -1079,22 +1081,23 @@ func (q *Queries) PutDestinationTag(ctx context.Context, arg PutDestinationTagPa
 }
 
 const putGroup = `-- name: PutGroup :exec
-INSERT INTO logs_groups (partition, account_id, region, name, id, created, sequence, retention_days, cfn_owner)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO logs_groups (partition, account_id, region, name, id, created, sequence, retention_days, cfn_owner, deletion_protected)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, name) DO UPDATE SET
- sequence=excluded.sequence, retention_days=excluded.retention_days, cfn_owner=excluded.cfn_owner
+ sequence=excluded.sequence, retention_days=excluded.retention_days, cfn_owner=excluded.cfn_owner, deletion_protected=excluded.deletion_protected
 `
 
 type PutGroupParams struct {
-	Partition     string
-	AccountID     string
-	Region        string
-	Name          string
-	ID            string
-	Created       int64
-	Sequence      int64
-	RetentionDays int64
-	CfnOwner      string
+	Partition         string
+	AccountID         string
+	Region            string
+	Name              string
+	ID                string
+	Created           int64
+	Sequence          int64
+	RetentionDays     int64
+	CfnOwner          string
+	DeletionProtected int64
 }
 
 func (q *Queries) PutGroup(ctx context.Context, arg PutGroupParams) error {
@@ -1108,6 +1111,7 @@ func (q *Queries) PutGroup(ctx context.Context, arg PutGroupParams) error {
 		arg.Sequence,
 		arg.RetentionDays,
 		arg.CfnOwner,
+		arg.DeletionProtected,
 	)
 	return err
 }

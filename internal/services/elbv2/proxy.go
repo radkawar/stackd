@@ -3,11 +3,11 @@ package elbv2
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httptrace"
 	"net/http/httputil"
 	"slices"
-	"sort"
 	"strconv"
 	"time"
 
@@ -17,8 +17,20 @@ import (
 func (r *runtimeController) serve(w http.ResponseWriter, request *http.Request, scope Scope, listenerARN string, node *runtimeNode) {
 	ctx := runtimeContext(request.Context(), scope)
 	client := idleRequestConnection(ctx)
+	ambiguous := client != nil && client.ambiguousDesync()
+	if ambiguous {
+		request.Close = true
+		w.Header().Set("Connection", "close")
+	}
 	if client != nil {
 		request.TLS = client.requestTLS()
+		// ALB accepts one final request after the client keepalive duration
+		// elapses, then gracefully closes HTTP/1 after this response. This is
+		// connection age, not idle time, and does not cut off a streaming body.
+		if !client.accepted.IsZero() && time.Since(client.accepted) >= defaultClientKeepAlive {
+			w.Header().Set("Connection", "close")
+			request.Close = true
+		}
 	}
 	if client != nil && request.Body != nil && request.Body != http.NoBody {
 		client.policy.mu.Lock()
@@ -54,6 +66,9 @@ func (r *runtimeController) serve(w http.ResponseWriter, request *http.Request, 
 		}
 		return nil
 	})
+	// This identifies ALB-generated responses only. Successful forwarding
+	// removes it before the target's original response headers are copied.
+	w.Header().Set("Server", "awselb/2.0")
 	if err != nil {
 		http.Error(w, "Service Unavailable", http.StatusServiceUnavailable)
 		return
@@ -138,8 +153,19 @@ func (r *runtimeController) serve(w http.ResponseWriter, request *http.Request, 
 		groupARN = value(group.Data.TargetGroupArn)
 		started = time.Now()
 		connected, negotiatingTLS := false, false
+		var targetConnection net.Conn
+		defer func() {
+			if targetConnection != nil {
+				_ = targetConnection.Close()
+			}
+		}()
 		inflightCtx = httptrace.WithClientTrace(inflightCtx, &httptrace.ClientTrace{
-			GotConn:           func(httptrace.GotConnInfo) { connected = true },
+			GotConn: func(info httptrace.GotConnInfo) {
+				connected = true
+				if ambiguous {
+					targetConnection = info.Conn
+				}
+			},
 			TLSHandshakeStart: func() { negotiatingTLS = true },
 		})
 		proxy := &httputil.ReverseProxy{Transport: node.transport, FlushInterval: -1,
@@ -147,6 +173,13 @@ func (r *runtimeController) serve(w http.ResponseWriter, request *http.Request, 
 				originalHost := p.In.Host
 				p.SetURL(destination)
 				p.Out.Host = originalHost
+				// ReverseProxy clears incoming Close. Restore the actual
+				// defensive both-leg closure after its request rewriting.
+				p.Out.Close = ambiguous
+				// Transport reads the request body before it writes trailers.
+				// Keep the map populated by net/http at EOF, not Clone's
+				// pre-body copy of nil trailer values.
+				p.Out.Trailer = p.In.Trailer
 				p.Out.Header["X-Forwarded-For"] = slices.Clone(p.In.Header["X-Forwarded-For"])
 				p.SetXForwarded()
 				if port := listener.Data.Port; port != nil {
@@ -158,6 +191,7 @@ func (r *runtimeController) serve(w http.ResponseWriter, request *http.Request, 
 				return nil
 			},
 			ErrorHandler: func(w http.ResponseWriter, req *http.Request, e error) {
+				w.Header().Set("Server", "awselb/2.0")
 				status = 502
 				connectionError = !connected && !negotiatingTLS
 				var timeout interface{ Timeout() bool }
@@ -167,63 +201,19 @@ func (r *runtimeController) serve(w http.ResponseWriter, request *http.Request, 
 				if client := idleRequestConnection(req.Context()); client != nil && client.clientBodyTimeout() {
 					status = 408
 					w.Header().Set("Connection", "close")
+				} else if client != nil && client.clientProtocolFailure() {
+					status = 400
+					w.Header().Set("Connection", "close")
 				}
 				http.Error(w, http.StatusText(status), status)
 			},
 		}
+		w.Header().Del("Server")
 		proxy.ServeHTTP(w, request.WithContext(inflightCtx))
 	default:
 		status = 500
 		http.Error(w, "Internal Server Error", status)
 	}
-}
-func (r *runtimeController) selectTarget(ctx context.Context, scope Scope, groupARN string) (TargetRecord, TargetGroupRecord, TargetEndpoint, error) {
-	var group TargetGroupRecord
-	var candidates []TargetRecord
-	err := r.service.repository.View(ctx, func(tx Reader) error {
-		var e error
-		group, e = tx.TargetGroup(scope, groupARN)
-		if e != nil {
-			return e
-		}
-		candidates, e = tx.Targets(scope, groupARN)
-		return e
-	})
-	if err != nil {
-		return TargetRecord{}, group, TargetEndpoint{}, err
-	}
-	healthy := make([]TargetRecord, 0, len(candidates))
-	unhealthy := make([]TargetRecord, 0, len(candidates))
-	for _, target := range candidates {
-		switch target.State {
-		case "healthy":
-			healthy = append(healthy, target)
-		case "unhealthy":
-			unhealthy = append(unhealthy, target)
-		}
-	}
-	eligible := healthy
-	if len(eligible) == 0 {
-		eligible = unhealthy
-	} // ALB fails open only for registered unhealthy targets, never draining/initial.
-	sort.Slice(eligible, func(i, j int) bool { return runtimeTargetKey(eligible[i]) < runtimeTargetKey(eligible[j]) })
-	if len(eligible) == 0 {
-		return TargetRecord{}, group, TargetEndpoint{}, ErrNotFound
-	}
-	start := int(r.targetSequence.Add(1) % uint64(len(eligible)))
-	for i := range eligible {
-		target := eligible[(start+i)%len(eligible)]
-		endpoint, e := r.service.networks.ResolveTarget(ctx, scope, value(group.Data.VpcId), value(group.Data.TargetType), value(target.Data.Id))
-		if e != nil || !targetEndpointMatches(target.Scope, value(group.Data.TargetType), value(target.Data.Id), target.OwnerARN, target.Incarnation, endpoint) {
-			continue
-		}
-		enabled, e := r.targetEnabled(ctx, group, target, endpoint)
-		if e != nil || !enabled {
-			continue
-		}
-		return target, group, endpoint, nil
-	}
-	return TargetRecord{}, group, TargetEndpoint{}, ErrNotFound
 }
 func (r *runtimeController) admitForward(ctx context.Context, lb LoadBalancerRecord, observed TargetRecord, zone string, cancel context.CancelFunc) (func(), error) {
 	key := runtimeTargetKey(observed)

@@ -21,6 +21,12 @@ func methodVerb(v string) bool {
 }
 func methodOutput(r Reader, v MethodRecord) (*api.Method, error) {
 	out := &api.Method{HttpMethod: ptr(v.Key.HTTPMethod), AuthorizationType: ptr(v.AuthorizationType), AuthorizerId: optional(v.AuthorizerID), OperationName: optional(v.OperationName), AuthorizationScopes: stringsOut(v.Scopes), ApiKeyRequired: new(api.NullableBoolean(v.APIKeyRequired))}
+	if len(v.RequestParameters) != 0 {
+		out.RequestParameters = api.MapOfStringToBoolean{}
+		for name, required := range v.RequestParameters {
+			out.RequestParameters[api.String(name)] = api.NullableBoolean(required)
+		}
+	}
 	if len(v.Responses) != 0 {
 		out.MethodResponses = make(api.MapOfMethodResponse, len(v.Responses))
 		for status, response := range v.Responses {
@@ -83,7 +89,8 @@ func (s *Service) putMethod(tx Transaction, in *api.PutMethodRequest) (*api.Meth
 		return nil, err
 	}
 	key := MethodKey{ResourceKey: ResourceKey{APIKey: owner.Key, ResourceID: value(in.ResourceId)}, HTTPMethod: value(in.HttpMethod)}
-	if _, err := tx.Resource(key.ResourceKey); err != nil {
+	resource, err := tx.Resource(key.ResourceKey)
+	if err != nil {
 		return nil, err
 	}
 	if _, err := tx.Method(key); err == nil {
@@ -91,13 +98,18 @@ func (s *Service) putMethod(tx Transaction, in *api.PutMethodRequest) (*api.Meth
 	} else if !errors.Is(err, ErrNotFound) {
 		return nil, err
 	}
-	// TODO: Comeback request validators/models and declared required request
-	// parameters must be enforced by their execution owner before admission.
-	if len(in.RequestModels) > 0 || len(in.RequestParameters) > 0 || value(in.RequestValidatorId) != "" {
-		return nil, unsupported("request models, request parameters or validators")
+	if len(in.RequestModels) > 0 || value(in.RequestValidatorId) != "" {
+		return nil, unsupported("request models or validators")
 	}
 	row := MethodRecord{Key: key, AuthorizationType: value(in.AuthorizationType), AuthorizerID: value(in.AuthorizerId), OperationName: value(in.OperationName), Scopes: stringsIn(in.AuthorizationScopes)}
 	row.APIKeyRequired = truth(in.ApiKeyRequired)
+	row.RequestParameters = map[string]bool{}
+	for name, required := range in.RequestParameters {
+		row.RequestParameters[string(name)] = bool(required)
+	}
+	if err := validatePathDeclarations(resource, row.RequestParameters); err != nil {
+		return nil, err
+	}
 	if err := validateMethod(tx, row); err != nil {
 		return nil, err
 	}
@@ -150,6 +162,30 @@ func (s *Service) updateMethod(tx Transaction, in *api.UpdateMethodRequest) (*ap
 			err = patchBool(p, &row.APIKeyRequired)
 		case path == "/authorizationScopes" || strings.HasPrefix(path, "/authorizationScopes/"):
 			err = patchList(p, "/authorizationScopes", &row.Scopes)
+		case strings.HasPrefix(path, "/requestParameters/"):
+			name := strings.TrimPrefix(path, "/requestParameters/")
+			if p.From != nil {
+				return nil, bad("Unsupported method request parameter patch")
+			}
+			switch value(p.Op) {
+			case "remove":
+				if _, ok := row.RequestParameters[name]; !ok {
+					return nil, bad("Method request parameter does not exist")
+				}
+				delete(row.RequestParameters, name)
+			case "add", "replace":
+				var required bool
+				p.Op = new(api.Op("replace"))
+				err = patchBool(p, &required)
+				if err == nil {
+					if row.RequestParameters == nil {
+						row.RequestParameters = map[string]bool{}
+					}
+					row.RequestParameters[name] = required
+				}
+			default:
+				err = unsupported("method request parameter patch operation")
+			}
 		default:
 			err = unsupported("method patch path " + path)
 		}
@@ -159,6 +195,20 @@ func (s *Service) updateMethod(tx Transaction, in *api.UpdateMethodRequest) (*ap
 	}
 	// Switching to NONE or AWS_IAM leaves the retained authorizer metadata
 	// inactive; deployment execution selects only the current authorization type.
+	resource, err := tx.Resource(row.Key.ResourceKey)
+	if err != nil {
+		return nil, err
+	}
+	if err := validatePathDeclarations(resource, row.RequestParameters); err != nil {
+		return nil, err
+	}
+	if integration, err := tx.Integration(row.Key); err == nil && integration.HTTPProxy != nil {
+		if err := validateHTTPProxy(integration.HTTPProxy, row, resource); err != nil {
+			return nil, err
+		}
+	} else if err != nil && !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
 	if err := validateMethod(tx, row); err != nil {
 		return nil, err
 	}
@@ -173,6 +223,14 @@ func integrationOutput(v IntegrationRecord) *api.Integration {
 		out := &api.Integration{Type: new(api.IntegrationTypeMOCK), RequestTemplates: api.MapOfStringToString{"application/json": api.String("{\"statusCode\":" + status + "}")}, PassthroughBehavior: ptr("WHEN_NO_MATCH"), TimeoutInMillis: new(api.Integer(v.TimeoutMillis))}
 		if !v.Mock.ResponseDeleted {
 			out.IntegrationResponses = api.MapOfIntegrationResponse{api.String(status): *integrationResponseOutput(v.Mock)}
+		}
+		return out
+	}
+	if v.HTTPProxy != nil {
+		out := &api.Integration{Type: new(api.IntegrationTypeHTTP_PROXY), HttpMethod: ptr(v.HTTPProxy.Method), Uri: ptr(v.HTTPProxy.URI), ConnectionType: new(api.ConnectionTypeINTERNET), PassthroughBehavior: ptr("WHEN_NO_MATCH"), TimeoutInMillis: new(api.Integer(v.TimeoutMillis)), CacheNamespace: ptr(v.Key.ResourceID), CacheKeyParameters: api.ListOfString{}, ResponseTransferMode: new(api.ResponseTransferModeBUFFERED)}
+		out.RequestParameters = api.MapOfStringToString{}
+		for target, source := range v.HTTPProxy.PathParameters {
+			out.RequestParameters[api.String("integration.request.path."+target)] = api.String("method.request.path." + source)
 		}
 		return out
 	}
@@ -217,6 +275,9 @@ func (s *Service) putIntegration(tx Transaction, in *api.PutIntegrationRequest) 
 	if err != nil {
 		return nil, err
 	}
+	if value(in.Type) == "HTTP_PROXY" {
+		return s.putHTTPProxy(tx, key, method, in)
+	}
 	if value(in.Type) == "MOCK" {
 		if value(in.CacheNamespace) != "" {
 			return nil, unsupported("MOCK cache namespace")
@@ -257,7 +318,7 @@ func (s *Service) putIntegration(tx Transaction, in *api.PutIntegrationRequest) 
 	// TODO: Comeback nonproxy mappings, private integrations,
 	// streaming, configurable timeouts, stage URI substitutions and integration caches.
 	if value(in.Type) != "AWS_PROXY" || value(in.IntegrationHttpMethod) != "POST" {
-		return nil, unsupported("only POST Lambda AWS_PROXY integrations are supported")
+		return nil, unsupported("supported integrations are POST Lambda AWS_PROXY, INTERNET HTTP_PROXY and literal MOCK")
 	}
 	if len(in.CacheKeyParameters) > 0 || len(in.RequestParameters) > 0 || len(in.RequestTemplates) > 0 || value(in.ContentHandling) != "" || value(in.ConnectionId) != "" || value(in.IntegrationTarget) != "" || in.TlsConfig != nil {
 		return nil, unsupported("mapping, caching, private integration or TLS settings")
@@ -321,6 +382,12 @@ func (s *Service) updateIntegration(tx Transaction, in *api.UpdateIntegrationReq
 		return nil, err
 	}
 	for _, p := range in.PatchOperations {
+		if row.HTTPProxy != nil {
+			if err := patchHTTPProxy(p, &row); err != nil {
+				return nil, err
+			}
+			continue
+		}
 		if row.Mock != nil && (value(p.Path) == "/uri" || value(p.Path) == "/credentials" || value(p.Path) == "/httpMethod") {
 			return nil, unsupported("MOCK URI, credentials or HTTP method patch")
 		}
@@ -367,7 +434,19 @@ func (s *Service) updateIntegration(tx Transaction, in *api.UpdateIntegrationReq
 			return nil, err
 		}
 	}
-	if row.Mock == nil {
+	if row.HTTPProxy != nil {
+		method, err := tx.Method(row.Key)
+		if err != nil {
+			return nil, err
+		}
+		resource, err := tx.Resource(row.Key.ResourceKey)
+		if err != nil {
+			return nil, err
+		}
+		if err := validateHTTPProxy(row.HTTPProxy, method, resource); err != nil {
+			return nil, err
+		}
+	} else if row.Mock == nil {
 		if _, err := functionARN(row.URI, owner.Key.Scope); err != nil {
 			return nil, err
 		}

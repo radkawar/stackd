@@ -371,9 +371,6 @@ func (s *Service) setTopicAttribute(ctx context.Context, topic *TopicRecord, nam
 		if protocol, attribute := feedbackAttribute(name); protocol != "" {
 			return s.setFeedbackAttribute(ctx, topic, protocol, attribute, v)
 		}
-		if strings.HasPrefix(name, "Application") && (strings.HasSuffix(name, "FeedbackRoleArn") || strings.HasSuffix(name, "SuccessFeedbackSampleRate")) {
-			return unsupported("Mobile platform feedback requires a supported mobile delivery endpoint.")
-		}
 		return failure("InvalidParameter", "Invalid parameter: AttributeName")
 	}
 	return nil

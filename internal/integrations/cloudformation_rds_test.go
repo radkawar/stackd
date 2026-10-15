@@ -275,7 +275,7 @@ func assertRelationalConfiguration(t *testing.T, before, after cloudformation.Pr
 	t.Helper()
 	// These are persisted resource contracts, not scheduler status, transient
 	// endpoints, or incidental defaults in a whole native response.
-	for _, key := range []string{"DBInstanceIdentifier", "DBClusterIdentifier", "DBInstanceClass", "Engine", "EngineVersion", "MasterUsername", "DBName", "DatabaseName", "Port", "DeletionProtection", "CopyTagsToSnapshot", "EnableHttpEndpoint", "DBParameterGroupName", "DBClusterParameterGroupName", "Family", "Description", "DBSubnetGroupDescription", "SubnetIds", "Parameters", "Tags"} {
+	for _, key := range []string{"DBInstanceIdentifier", "DBClusterIdentifier", "DBInstanceClass", "AllocatedStorage", "Engine", "EngineVersion", "MasterUsername", "DBName", "DatabaseName", "Port", "DeletionProtection", "CopyTagsToSnapshot", "EnableHttpEndpoint", "DBParameterGroupName", "DBClusterParameterGroupName", "Family", "Description", "DBSubnetGroupDescription", "SubnetIds", "Parameters", "Tags"} {
 		old, oldPresent := before[key]
 		current, present := after[key]
 		if oldPresent != present || !reflect.DeepEqual(old, current) {
@@ -296,7 +296,7 @@ func TestRelationalMissingNativeRuntimeRejectsAdmissionAndRetainsUnavailableInte
 			commands := NewStepFunctionsCommands(map[string]awscommands.CommandExecutor{"rds": service})
 			var h cloudformation.ResourceHandler = cfnRDSInstance{commands}
 			kind, engine := "db", "postgres"
-			p := cloudformation.Properties{"DBInstanceIdentifier": "missing-runtime", "DBInstanceClass": "db.t3.micro", "Engine": engine, "MasterUsername": "owner", "MasterUserPassword": "test-password"}
+			p := cloudformation.Properties{"DBInstanceIdentifier": "missing-runtime", "DBInstanceClass": "db.t3.micro", "Engine": engine, "AllocatedStorage": 20, "MasterUsername": "owner", "MasterUserPassword": "test-password"}
 			if cluster {
 				h, kind, engine = cfnRDSCluster{commands}, "cluster", "aurora-postgresql"
 				p = cloudformation.Properties{"DBClusterIdentifier": "missing-runtime", "Engine": engine, "MasterUsername": "owner", "MasterUserPassword": "test-password"}

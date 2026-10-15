@@ -41,6 +41,19 @@ type RdsDatabase struct {
 	AllocatedStorage   int64
 }
 
+type RdsGlobalCluster struct {
+	Partition              string
+	AccountID              string
+	Name                   string
+	ResourceID             string
+	Engine                 string
+	EngineVersion          string
+	DatabaseName           string
+	EngineLifecycleSupport string
+	DeletionProtection     int64
+	StorageEncrypted       int64
+}
+
 type RdsParameter struct {
 	Partition      string
 	AccountID      string

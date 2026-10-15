@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"stackd/compute/docker"
+	"stackd/compute/network"
 	msk "stackd/internal/services/kafka"
 )
 
@@ -37,9 +38,9 @@ type containerState struct {
 	ID     string `json:"Id"`
 	Image  string
 	Config struct {
-		Labels               map[string]string
-		Entrypoint, Cmd, Env []string
-		User, Hostname       string
+		Labels                map[string]string
+		Entrypoint, Cmd, Env  []string
+		User, Hostname, Image string
 	}
 	HostConfig struct {
 		NetworkMode  string
@@ -53,6 +54,15 @@ type containerState struct {
 		Running, Paused, Restarting, Dead bool
 		ExitCode                          int
 		Status, Error                     string
+		Pid                               int
+		StartedAt                         string
+	}
+	NetworkSettings struct {
+		Networks map[string]struct {
+			IPAddress, Gateway, MacAddress string
+			Aliases                        []string
+			GwPriority                     int
+		}
 	}
 }
 type volumeState struct {
@@ -151,14 +161,34 @@ func (d *Docker) containerConfig(spec msk.Specification, role string, m *materia
 		return c
 	}
 	c.HostConfig.NetworkMode = resourceName(spec, "network")
+	// Container names exist on every attached bridge. A separate alias only on
+	// this private bridge keeps quorum traffic out of customer packet policy.
+	priority := 0
+	if len(spec.Networks) > 0 {
+		priority = 100
+	}
+	c.NetworkingConfig = &docker.ContainerNetworkingConfig{EndpointsConfig: map[string]docker.ContainerEndpointConfig{
+		resourceName(spec, "network"): {Aliases: []string{resourceName(spec, "internal-"+nodeText)}, GwPriority: priority},
+	}}
 	c.HostConfig.Mounts = []docker.ContainerMount{dataMount, configMount}
 	c.Entrypoint = []string{"/bin/bash", "-ec"}
 	c.Cmd = []string{`if [ ! -f ` + dataPath + `/meta.properties ]; then /opt/kafka/bin/kafka-storage.sh format --cluster-id "$(cat ` + configPath + `/cluster-id)" --config ` + configPath + `/broker-` + nodeText + `.properties --add-scram "$(cat ` + configPath + `/admin-scram)"; fi; exec /opt/kafka/bin/kafka-server-start.sh ` + configPath + `/broker-` + nodeText + `.properties`}
 	c.Env = []string{"KAFKA_HEAP_OPTS=-Xms256m -Xmx512m"}
 	c.ExposedPorts = map[string]struct{}{"9092/tcp": {}, "9095/tcp": {}}
+	if spec.DefaultMetrics {
+		c.Env = append(c.Env, "JMX_PORT=9010", "KAFKA_JMX_OPTS=-Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.host=127.0.0.1 -Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.rmi.port=9011")
+	}
+	if len(spec.Networks) > 0 {
+		// Docker recreates this tmpfs on every start. A stopped process cannot
+		// leave a stale admission marker for the next broker process.
+		c.Cmd[0] = `while [ ! -e /mnt/shared/config/stackd-network-ready ]; do sleep 0.1; done; ` + c.Cmd[0]
+	}
 	if m != nil {
 		p := m.Nodes[node-1]
-		c.HostConfig.PortBindings = map[string][]portBinding{"9092/tcp": {{HostIP: d.endpointHost, HostPort: strconv.Itoa(p.Client)}}, "9095/tcp": {{HostIP: d.endpointHost, HostPort: strconv.Itoa(p.Admin)}}}
+		c.HostConfig.PortBindings = map[string][]portBinding{"9095/tcp": {{HostIP: d.endpointHost, HostPort: strconv.Itoa(p.Admin)}}}
+		if len(spec.Networks) == 0 {
+			c.HostConfig.PortBindings["9092/tcp"] = []portBinding{{HostIP: d.endpointHost, HostPort: strconv.Itoa(p.Client)}}
+		}
 	}
 	return c
 }
@@ -174,6 +204,16 @@ func (d *Docker) checkContainer(s containerState, spec msk.Specification, role s
 	})
 	if s.Image != d.imageID || s.Config.User != want.User || s.Config.Hostname != want.Hostname || !slices.Equal(s.Config.Entrypoint, want.Entrypoint) || !slices.Equal(s.Config.Cmd, want.Cmd) || s.HostConfig.NetworkMode != want.HostConfig.NetworkMode || s.HostConfig.Privileged || len(s.HostConfig.Binds) != 0 || !sameMounts || !maps.Equal(s.HostConfig.Tmpfs, want.HostConfig.Tmpfs) {
 		return fmt.Errorf("MSK container %s has conflicting native configuration", s.ID)
+	}
+	if strings.HasPrefix(role, "broker-") {
+		_, node, _ := strings.Cut(role, "-")
+		endpoint, exists := s.NetworkSettings.Networks[resourceName(spec, "network")]
+		if !exists || !slices.Contains(endpoint.Aliases, resourceName(spec, "internal-"+node)) {
+			return errors.New("MSK broker has no exact private quorum DNS alias")
+		}
+		if len(spec.Networks) > 0 && endpoint.GwPriority != 100 {
+			return errors.New("MSK broker has no exact private administration gateway priority")
+		}
 	}
 	expectedEnv := make(map[string]string, len(d.imageEnv)+len(want.Env))
 	for _, entry := range d.imageEnv {
@@ -204,7 +244,23 @@ func (d *Docker) createContainer(ctx context.Context, spec msk.Specification, ro
 	name := resourceName(spec, role)
 	s, err := d.inspect(ctx, name)
 	if dockerStatus(err, http.StatusNotFound) {
-		err = d.client.JSON(ctx, http.MethodPost, "/containers/create?name="+url.QueryEscape(name), d.containerConfig(spec, role, m), nil)
+		config := d.containerConfig(spec, role, m)
+		create := func() error {
+			return d.client.JSON(ctx, http.MethodPost, "/containers/create?name="+url.QueryEscape(name), config, nil)
+		}
+		if attachment, ok := brokerNetwork(spec, role); ok {
+			if d.networks == nil {
+				return s, errors.New("MSK EC2 native bridge manager is unavailable")
+			}
+			err = d.networks.WithBridge(ctx, attachment.Network, func(bridge network.Bridge) error {
+				config.NetworkingConfig.EndpointsConfig[bridge.Name] = docker.ContainerEndpointConfig{
+					MacAddress: attachment.Network.MAC, IPAMConfig: docker.ContainerEndpointIPAMConfig{IPv4Address: attachment.Network.Address.String()},
+				}
+				return create()
+			})
+		} else {
+			err = create()
+		}
 		if err == nil || dockerStatus(err, http.StatusConflict) {
 			s, err = d.inspect(ctx, name)
 		}

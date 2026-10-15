@@ -98,7 +98,7 @@ func validateTags(tags map[string]string) error {
 	return nil
 }
 func (s *Service) createBroker(ctx context.Context, t Transaction, in *api.CreateBrokerInput) (*api.CreateBrokerOutput, error) {
-	name, engine := value(in.BrokerName), value(in.EngineType)
+	name, engine := value(in.BrokerName), strings.ToUpper(value(in.EngineType))
 	if !brokerName.MatchString(name) {
 		return nil, invalid("BrokerName must contain 1-50 letters, numbers, hyphens or underscores")
 	}
@@ -278,8 +278,12 @@ func (s *Service) describeBroker(ctx context.Context, t Transaction, in *api.Des
 	boolean(&o.AutoMinorVersionUpgrade, false)
 	timestamp(&o.Created, v.Created)
 	tagMap(&o.Tags, v.Tags)
-	for _, u := range brokerUsers(v) {
-		o.Users = append(o.Users, userSummary(u))
+	// RabbitMQ users belong to its native management API. Advertising the
+	// bootstrap administrator here incorrectly invites ActiveMQ-only user reads.
+	if v.Engine == "ACTIVEMQ" {
+		for _, u := range brokerUsers(v) {
+			o.Users = append(o.Users, userSummary(u))
+		}
 	}
 	o.MaintenanceWindowStartTime = maintenanceOutput(v)
 	o.Logs = logsSummary(v)

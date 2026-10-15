@@ -3,6 +3,9 @@ package valkey
 import "errors"
 
 func (m manifest) validatePorts() error {
+	if m.ClusterARN != "" {
+		return m.validateManagedPorts()
+	}
 	seen := make(map[int32]bool, len(m.Nodes)*2)
 	claim := func(port int32) error {
 		if port < 1 || port > 65535 || seen[port] {

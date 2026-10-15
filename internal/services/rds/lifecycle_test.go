@@ -92,6 +92,103 @@ func readDatabase(t *testing.T, s *Service, k Key) Database {
 	return v
 }
 
+func TestEmptyClusterControlPrecedesNativeWriter(t *testing.T) {
+	now := time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC)
+	s := New(Config{Clock: clock.NewManual(now), Runtime: controlledRuntime{}, Cipher: testCipher{}})
+	t.Cleanup(func() { _ = s.Close() })
+	ctx := awsctx.WithMetadata(t.Context(), awsctx.Metadata{Partition: "aws", AccountID: "111111111111", Region: "us-east-1", PrincipalARN: "arn:aws:iam::111111111111:root"})
+	name, eng, version, user := api.String("owned-cluster"), api.String("aurora-postgresql"), api.String("17.11"), api.String("owner")
+	password := api.SensitiveString("test-password")
+	var cluster Key
+	if err := s.repository.Update(ctx, func(tx Transaction) error {
+		out, err := s.createCluster(ctx, tx, &api.CreateDBClusterMessage{DBClusterIdentifier: &name, Engine: &eng, EngineVersion: &version, MasterUsername: &user, MasterUserPassword: &password})
+		if err != nil {
+			return err
+		}
+		if value(out.DBCluster.Status) != "available" || out.DBCluster.Endpoint != nil {
+			t.Fatal("empty cluster must expose only its available control resource")
+		}
+		cluster = Key{Scope: scopeFor(ctx), Kind: "cluster", Name: string(name)}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	control := readDatabase(t, s, cluster)
+	if control.Operation != "" || !control.Due.IsZero() || control.Endpoint.Address != "" {
+		t.Fatal("empty cluster scheduled or exposed a native engine")
+	}
+	resolved, err := s.ResolveDataCluster(ctx, cluster.ARN())
+	if err != nil || resolved.Status == "available" || resolved.Endpoint.Address != "" {
+		t.Fatalf("empty cluster admitted SQL: %+v %v", resolved, err)
+	}
+	writer, class := api.String("owned-writer"), api.String("db.t3.micro")
+	if err := s.repository.Update(ctx, func(tx Transaction) error {
+		_, err := s.createWriter(ctx, tx, Key{Scope: cluster.Scope, Kind: "db", Name: string(writer)}, &api.CreateDBInstanceMessage{
+			DBInstanceIdentifier: &writer, DBClusterIdentifier: &name, Engine: &eng, EngineVersion: &version, DBInstanceClass: &class,
+		})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	pending := readDatabase(t, s, cluster)
+	if pending.Status != "creating" || pending.Operation != "create" || pending.Due != now || pending.Endpoint.Address != "" {
+		t.Fatal("writer admission did not retain a fenced native creation intent")
+	}
+	if err := (databaseJobs{s}).Run(ctx, selectDatabase(t, s)); err != nil {
+		t.Fatal(err)
+	}
+	if current := readDatabase(t, s, cluster); current.Status != "available" || current.Endpoint.Address == "" {
+		t.Fatal("native completion did not publish its authenticated endpoint")
+	}
+}
+
+func TestStartupDoesNotReconcileMemberlessCluster(t *testing.T) {
+	now := time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC)
+	s := New(Config{Clock: clock.NewManual(now), Runtime: controlledRuntime{}, Cipher: testCipher{}})
+	t.Cleanup(func() { _ = s.Close() })
+	cluster := retainedDatabase(now)
+	cluster.Key.Kind, cluster.Engine = "cluster", "aurora-postgresql"
+	cluster.Status, cluster.Operation, cluster.Due = "creating", "create", time.Time{}
+	seedDatabase(t, s, cluster)
+	if err := s.Start(); err != nil {
+		t.Fatal(err)
+	}
+	current := readDatabase(t, s, cluster.Key)
+	if current.Status != "available" || !current.Due.IsZero() || current.Endpoint.Address != "" {
+		t.Fatal("startup fabricated an empty cluster SQL endpoint or scheduled native work")
+	}
+	if _, found, err := (databaseJobs{s}).Next(t.Context()); err != nil || found {
+		t.Fatalf("memberless cluster retained native work: found=%v error=%v", found, err)
+	}
+}
+
+func TestRestoredClusterRetainsNativeSnapshotUntilWriter(t *testing.T) {
+	now := time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC)
+	s := New(Config{Clock: clock.NewManual(now), Runtime: controlledRuntime{}, Cipher: testCipher{}})
+	t.Cleanup(func() { _ = s.Close() })
+	ctx := awsctx.WithMetadata(t.Context(), awsctx.Metadata{Partition: "aws", AccountID: "111111111111", Region: "us-east-1", PrincipalARN: "arn:aws:iam::111111111111:root"})
+	key := Key{Scope: scopeFor(ctx), Kind: "cluster-snapshot", Name: "captured-cluster"}
+	if err := s.repository.Update(ctx, func(tx Transaction) error {
+		if err := tx.PutSnapshot(Snapshot{Key: key, Engine: "aurora-postgresql", EngineVersion: "17.11", DatabaseName: "proof", RuntimeID: "immutable-capture", Status: "available", Ciphertext: []byte{0x81, 0x42}, Parameters: map[string]string{}, Tags: map[string]string{}}); err != nil {
+			return err
+		}
+		current, err := s.restoreDatabase(ctx, tx, "cluster", "restored-control", key.Name, "aurora-postgresql", "17.11", "", "", "", nil, nil)
+		if err != nil {
+			return err
+		}
+		if current.Status != "available" || !current.Due.IsZero() || current.Endpoint.Address != "" || current.Operation != "restore" || current.RestoreSnapshot != "immutable-capture" {
+			t.Fatal("restored control lost native capture intent or fabricated SQL readiness")
+		}
+		return tx.PutDatabase(current)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	current, err := s.ResolveDataCluster(ctx, Key{Scope: key.Scope, Kind: "cluster", Name: "restored-control"}.ARN())
+	if err != nil || current.Status == "available" || current.Endpoint.Address != "" {
+		t.Fatalf("restored memberless control admitted SQL: %+v %v", current, err)
+	}
+}
+
 func selectDatabase(t *testing.T, s *Service) scheduler.Job {
 	t.Helper()
 	job, found, e := (databaseJobs{s}).Next(t.Context())

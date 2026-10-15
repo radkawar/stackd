@@ -22,6 +22,7 @@ type ServiceRecord struct {
 	Data                 api.Service
 	CreateInput          api.CreateServiceInput
 	Deployments          []ServiceDeployment
+	DeploymentHistory    api.ServiceDeployments
 	AcceptedEventID      string
 	DrainAfter           time.Time
 	NextMetricCollection time.Time
@@ -60,6 +61,7 @@ type ServiceDeployment struct {
 	RetryAfter     time.Time
 	Deadline       time.Time
 	Completed      bool
+	FinishedAt     time.Time
 }
 type ServiceQuery struct {
 	ClusterKey

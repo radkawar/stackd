@@ -129,7 +129,13 @@ func (s *Service) updateProject(ctx context.Context, tx Transaction, in *api.Upd
 		p.QueuedTimeoutInMinutes = in.QueuedTimeoutInMinutes
 	}
 	if in.ConcurrentBuildLimit != nil {
-		p.ConcurrentBuildLimit = in.ConcurrentBuildLimit
+		if *in.ConcurrentBuildLimit == -1 {
+			// UpdateProject uses -1 to remove the project-specific limit.
+			// Keep absence authoritative for reads and build admission.
+			p.ConcurrentBuildLimit = nil
+		} else {
+			p.ConcurrentBuildLimit = in.ConcurrentBuildLimit
+		}
 	}
 	if in.Tags != nil {
 		p.Tags = in.Tags

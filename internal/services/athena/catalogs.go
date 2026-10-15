@@ -81,12 +81,18 @@ func (s *Service) updateDataCatalog(ctx context.Context, tx Transaction, in *api
 	if err != nil {
 		return nil, err
 	}
-	if err := validateCatalog(v.Key.Name, value(in.Type), in.Parameters); err != nil {
+	parameters := v.Data.Parameters
+	if in.Parameters != nil {
+		parameters = in.Parameters
+	}
+	if err := validateCatalog(v.Key.Name, value(in.Type), parameters); err != nil {
 		return nil, err
 	}
 	v.Data.Type = in.Type
-	v.Data.Parameters = in.Parameters
-	v.Data.Description = in.Description
+	v.Data.Parameters = parameters
+	if in.Description != nil {
+		v.Data.Description = in.Description
+	}
 	if err := tx.PutCatalog(v); err != nil {
 		return nil, err
 	}

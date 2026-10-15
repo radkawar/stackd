@@ -66,6 +66,15 @@ func (q *Queries) AllClusters(ctx context.Context) ([]MskCluster, error) {
 	return items, nil
 }
 
+const deleteBrokerNetworks = `-- name: DeleteBrokerNetworks :exec
+DELETE FROM msk_broker_networks WHERE arn = ?
+`
+
+func (q *Queries) DeleteBrokerNetworks(ctx context.Context, arn string) error {
+	_, err := q.db.ExecContext(ctx, deleteBrokerNetworks, arn)
+	return err
+}
+
 const deleteCluster = `-- name: DeleteCluster :exec
 DELETE FROM msk_clusters WHERE arn = ?
 `
@@ -90,6 +99,24 @@ DELETE FROM msk_cluster_secrets WHERE arn = ?
 
 func (q *Queries) DeleteClusterSecrets(ctx context.Context, arn string) error {
 	_, err := q.db.ExecContext(ctx, deleteClusterSecrets, arn)
+	return err
+}
+
+const deleteClusterSecurityGroups = `-- name: DeleteClusterSecurityGroups :exec
+DELETE FROM msk_cluster_security_groups WHERE arn = ?
+`
+
+func (q *Queries) DeleteClusterSecurityGroups(ctx context.Context, arn string) error {
+	_, err := q.db.ExecContext(ctx, deleteClusterSecurityGroups, arn)
+	return err
+}
+
+const deleteClusterSubnets = `-- name: DeleteClusterSubnets :exec
+DELETE FROM msk_cluster_subnets WHERE arn = ?
+`
+
+func (q *Queries) DeleteClusterSubnets(ctx context.Context, arn string) error {
+	_, err := q.db.ExecContext(ctx, deleteClusterSubnets, arn)
 	return err
 }
 
@@ -179,6 +206,17 @@ func (q *Queries) GetCluster(ctx context.Context, arn string) (MskCluster, error
 	return i, err
 }
 
+const getClusterNetworkOptions = `-- name: GetClusterNetworkOptions :one
+SELECT default_metrics FROM msk_cluster_network_options WHERE arn = ?
+`
+
+func (q *Queries) GetClusterNetworkOptions(ctx context.Context, arn string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getClusterNetworkOptions, arn)
+	var default_metrics int64
+	err := row.Scan(&default_metrics)
+	return default_metrics, err
+}
+
 const getConfiguration = `-- name: GetConfiguration :one
 SELECT arn, "partition", account_id, region, name, description, created, latest_revision, owner_stack_id, owner_logical_id, owner_token FROM msk_configurations WHERE arn = ?
 `
@@ -250,6 +288,47 @@ func (q *Queries) GetRevision(ctx context.Context, arg GetRevisionParams) (MskRe
 	return i, err
 }
 
+const listBrokerNetworks = `-- name: ListBrokerNetworks :many
+SELECT broker_id,interface_id,subnet_id,availability_zone,network_id FROM msk_broker_networks WHERE arn = ? ORDER BY broker_id
+`
+
+type ListBrokerNetworksRow struct {
+	BrokerID         int64
+	InterfaceID      string
+	SubnetID         string
+	AvailabilityZone string
+	NetworkID        string
+}
+
+func (q *Queries) ListBrokerNetworks(ctx context.Context, arn string) ([]ListBrokerNetworksRow, error) {
+	rows, err := q.db.QueryContext(ctx, listBrokerNetworks, arn)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListBrokerNetworksRow{}
+	for rows.Next() {
+		var i ListBrokerNetworksRow
+		if err := rows.Scan(
+			&i.BrokerID,
+			&i.InterfaceID,
+			&i.SubnetID,
+			&i.AvailabilityZone,
+			&i.NetworkID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listClusterBrokers = `-- name: ListClusterBrokers :many
 SELECT arn, broker_id, address FROM msk_cluster_brokers WHERE arn = ? ORDER BY broker_id
 `
@@ -278,7 +357,7 @@ func (q *Queries) ListClusterBrokers(ctx context.Context, arn string) ([]MskClus
 }
 
 const listClusterSecrets = `-- name: ListClusterSecrets :many
-SELECT arn, secret_arn FROM msk_cluster_secrets WHERE arn = ? ORDER BY secret_arn
+SELECT arn, secret_arn, kms_key_arn, grant_id, incarnation FROM msk_cluster_secrets WHERE arn = ? ORDER BY secret_arn
 `
 
 func (q *Queries) ListClusterSecrets(ctx context.Context, arn string) ([]MskClusterSecret, error) {
@@ -290,10 +369,70 @@ func (q *Queries) ListClusterSecrets(ctx context.Context, arn string) ([]MskClus
 	items := []MskClusterSecret{}
 	for rows.Next() {
 		var i MskClusterSecret
-		if err := rows.Scan(&i.Arn, &i.SecretArn); err != nil {
+		if err := rows.Scan(
+			&i.Arn,
+			&i.SecretArn,
+			&i.KmsKeyArn,
+			&i.GrantID,
+			&i.Incarnation,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listClusterSecurityGroups = `-- name: ListClusterSecurityGroups :many
+SELECT security_group_id FROM msk_cluster_security_groups WHERE arn = ? ORDER BY security_group_id
+`
+
+func (q *Queries) ListClusterSecurityGroups(ctx context.Context, arn string) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listClusterSecurityGroups, arn)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var security_group_id string
+		if err := rows.Scan(&security_group_id); err != nil {
+			return nil, err
+		}
+		items = append(items, security_group_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listClusterSubnets = `-- name: ListClusterSubnets :many
+SELECT subnet_id FROM msk_cluster_subnets WHERE arn = ? ORDER BY ordinal
+`
+
+func (q *Queries) ListClusterSubnets(ctx context.Context, arn string) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listClusterSubnets, arn)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var subnet_id string
+		if err := rows.Scan(&subnet_id); err != nil {
+			return nil, err
+		}
+		items = append(items, subnet_id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -568,6 +707,31 @@ func (q *Queries) ListRevisions(ctx context.Context, arn string) ([]MskRevision,
 	return items, nil
 }
 
+const putBrokerNetwork = `-- name: PutBrokerNetwork :exec
+INSERT INTO msk_broker_networks (arn,broker_id,interface_id,subnet_id,availability_zone,network_id) VALUES (?,?,?,?,?,?)
+`
+
+type PutBrokerNetworkParams struct {
+	Arn              string
+	BrokerID         int64
+	InterfaceID      string
+	SubnetID         string
+	AvailabilityZone string
+	NetworkID        string
+}
+
+func (q *Queries) PutBrokerNetwork(ctx context.Context, arg PutBrokerNetworkParams) error {
+	_, err := q.db.ExecContext(ctx, putBrokerNetwork,
+		arg.Arn,
+		arg.BrokerID,
+		arg.InterfaceID,
+		arg.SubnetID,
+		arg.AvailabilityZone,
+		arg.NetworkID,
+	)
+	return err
+}
+
 const putCluster = `-- name: PutCluster :exec
 INSERT INTO msk_clusters (arn,partition,account_id,region,name,incarnation,kafka_version,security_mode,state,failure,operation,operation_arn,configuration_arn,pending_configuration_arn,configuration_revision,pending_configuration_revision,server_properties,pending_server_properties,brokers,version,created,due,capem,policy_document,policy_version,reboot_broker_id,owner_stack_id,owner_logical_id,owner_token) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT (arn) DO UPDATE SET partition=excluded.partition,account_id=excluded.account_id,region=excluded.region,name=excluded.name,incarnation=excluded.incarnation,kafka_version=excluded.kafka_version,security_mode=excluded.security_mode,state=excluded.state,failure=excluded.failure,operation=excluded.operation,operation_arn=excluded.operation_arn,configuration_arn=excluded.configuration_arn,pending_configuration_arn=excluded.pending_configuration_arn,configuration_revision=excluded.configuration_revision,pending_configuration_revision=excluded.pending_configuration_revision,server_properties=excluded.server_properties,pending_server_properties=excluded.pending_server_properties,brokers=excluded.brokers,version=excluded.version,created=excluded.created,due=excluded.due,capem=excluded.capem,policy_document=excluded.policy_document,policy_version=excluded.policy_version,reboot_broker_id=excluded.reboot_broker_id
 `
@@ -655,17 +819,69 @@ func (q *Queries) PutClusterBroker(ctx context.Context, arg PutClusterBrokerPara
 	return err
 }
 
+const putClusterNetworkOptions = `-- name: PutClusterNetworkOptions :exec
+INSERT INTO msk_cluster_network_options (arn,default_metrics) VALUES (?,?) ON CONFLICT (arn) DO UPDATE SET default_metrics=excluded.default_metrics
+`
+
+type PutClusterNetworkOptionsParams struct {
+	Arn            string
+	DefaultMetrics int64
+}
+
+func (q *Queries) PutClusterNetworkOptions(ctx context.Context, arg PutClusterNetworkOptionsParams) error {
+	_, err := q.db.ExecContext(ctx, putClusterNetworkOptions, arg.Arn, arg.DefaultMetrics)
+	return err
+}
+
 const putClusterSecret = `-- name: PutClusterSecret :exec
-INSERT INTO msk_cluster_secrets (arn,secret_arn) VALUES (?,?)
+INSERT INTO msk_cluster_secrets (arn,secret_arn,kms_key_arn,grant_id,incarnation) VALUES (?,?,?,?,?)
 `
 
 type PutClusterSecretParams struct {
-	Arn       string
-	SecretArn string
+	Arn         string
+	SecretArn   string
+	KmsKeyArn   string
+	GrantID     string
+	Incarnation string
 }
 
 func (q *Queries) PutClusterSecret(ctx context.Context, arg PutClusterSecretParams) error {
-	_, err := q.db.ExecContext(ctx, putClusterSecret, arg.Arn, arg.SecretArn)
+	_, err := q.db.ExecContext(ctx, putClusterSecret,
+		arg.Arn,
+		arg.SecretArn,
+		arg.KmsKeyArn,
+		arg.GrantID,
+		arg.Incarnation,
+	)
+	return err
+}
+
+const putClusterSecurityGroup = `-- name: PutClusterSecurityGroup :exec
+INSERT INTO msk_cluster_security_groups (arn,security_group_id) VALUES (?,?)
+`
+
+type PutClusterSecurityGroupParams struct {
+	Arn             string
+	SecurityGroupID string
+}
+
+func (q *Queries) PutClusterSecurityGroup(ctx context.Context, arg PutClusterSecurityGroupParams) error {
+	_, err := q.db.ExecContext(ctx, putClusterSecurityGroup, arg.Arn, arg.SecurityGroupID)
+	return err
+}
+
+const putClusterSubnet = `-- name: PutClusterSubnet :exec
+INSERT INTO msk_cluster_subnets (arn,ordinal,subnet_id) VALUES (?,?,?)
+`
+
+type PutClusterSubnetParams struct {
+	Arn      string
+	Ordinal  int64
+	SubnetID string
+}
+
+func (q *Queries) PutClusterSubnet(ctx context.Context, arg PutClusterSubnetParams) error {
+	_, err := q.db.ExecContext(ctx, putClusterSubnet, arg.Arn, arg.Ordinal, arg.SubnetID)
 	return err
 }
 

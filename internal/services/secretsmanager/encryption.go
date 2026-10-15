@@ -13,11 +13,22 @@ import (
 
 // DataKeys is the KMS boundary. Implementations retain the request principal and
 // set kms:ViaService; key operations join the current resource transaction.
+// Decrypt returns the ciphertext-authenticated canonical KMS key ARN.
 type DataKeys interface {
 	GenerateDataKey(context.Context, string, map[string]string) ([]byte, []byte, string, *awswire.Error)
 	Encrypt(context.Context, string, []byte, map[string]string) ([]byte, string, *awswire.Error)
 	Decrypt(context.Context, []byte, map[string]string) ([]byte, string, *awswire.Error)
 	EnsureServiceKey(context.Context, string) (string, *awswire.Error)
+}
+
+type requiredKMSKeyContextKey struct{}
+
+// WithRequiredKMSKey constrains an internal consumer's secret read to a
+// previously resolved canonical KMS key ARN. It does not authorize decryption.
+// Public requests cannot set this context value and retain historical-envelope
+// fallback; callers requiring current-key authority must opt in explicitly.
+func WithRequiredKMSKey(ctx context.Context, keyARN string) context.Context {
+	return context.WithValue(ctx, requiredKMSKeyContextKey{}, keyARN)
 }
 
 func encryptionContext(secret SecretRecord, versionID string) map[string]string {
@@ -100,10 +111,17 @@ func (s *Service) openVersion(r Reader, secret SecretRecord, version VersionReco
 		return nil, err
 	}
 	var rejected error
+	requiredKey, constrained := r.Context().Value(requiredKMSKeyContextKey{}).(string)
 	for _, value := range slices.Backward(values) {
-		key, _, denied := s.keys.Decrypt(r.Context(), value.WrappedKey, encryptionContext(secret, version.Key.ID))
+		key, actualKey, denied := s.keys.Decrypt(r.Context(), value.WrappedKey, encryptionContext(secret, version.Key.ID))
 		if denied != nil {
+			clear(key)
 			rejected = keyFailure(denied, true)
+			continue
+		}
+		if constrained && (requiredKey == "" || actualKey != requiredKey) {
+			clear(key)
+			rejected = failure("AccessDeniedException", "The secret could not be decrypted with the required KMS key.")
 			continue
 		}
 		block, err := aes.NewCipher(key)

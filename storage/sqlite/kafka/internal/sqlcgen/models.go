@@ -4,6 +4,15 @@
 
 package sqlcgen
 
+type MskBrokerNetwork struct {
+	Arn              string
+	BrokerID         int64
+	InterfaceID      string
+	SubnetID         string
+	AvailabilityZone string
+	NetworkID        string
+}
+
 type MskCluster struct {
 	Arn                          string
 	Partition                    string
@@ -42,9 +51,28 @@ type MskClusterBroker struct {
 	Address  string
 }
 
+type MskClusterNetworkOption struct {
+	Arn            string
+	DefaultMetrics int64
+}
+
 type MskClusterSecret struct {
-	Arn       string
-	SecretArn string
+	Arn         string
+	SecretArn   string
+	KmsKeyArn   string
+	GrantID     string
+	Incarnation string
+}
+
+type MskClusterSecurityGroup struct {
+	Arn             string
+	SecurityGroupID string
+}
+
+type MskClusterSubnet struct {
+	Arn      string
+	Ordinal  int64
+	SubnetID string
 }
 
 type MskClusterTag struct {

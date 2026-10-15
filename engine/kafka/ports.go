@@ -24,6 +24,10 @@ func (d *Docker) reserveBrokerPorts(ctx context.Context, brokers int32, m *mater
 	// Reserve all public sockets before private ephemeral allocation, so private
 	// ports cannot consume a not-yet-reserved customer slot in a narrow pool.
 	for node := range m.Nodes {
+		if m.Networked {
+			m.Nodes[node].Client = 9092
+			continue
+		}
 		listener, err := d.portRange.Listen(ctx, d.endpointHost, 0)
 		if err != nil {
 			return fail(err)
@@ -45,7 +49,13 @@ func (d *Docker) reserveBrokerPorts(ctx context.Context, brokers int32, m *mater
 func (m *material) validatePorts() error {
 	seen := make(map[int]bool, len(m.Nodes)*2)
 	for _, node := range m.Nodes {
-		for _, port := range [...]int{node.Client, node.Admin} {
+		for index, port := range [...]int{node.Client, node.Admin} {
+			if m.Networked && index == 0 {
+				if port != 9092 {
+					return errors.New("MSK network client port differs from its retained listener")
+				}
+				continue
+			}
 			if port < 1 || port > 65535 || seen[port] {
 				return errors.New("MSK retained native ports are invalid or duplicated")
 			}

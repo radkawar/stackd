@@ -17,6 +17,7 @@ type resourceSchema struct {
 	StructureJSON, StringLimitsJSON, TemplateStructureJSON, UpdateStructureJSON string
 	Tagging                                                                     resourceTaggingSchema
 	HandlerPermissions                                                          map[string][]string
+	Registry                                                                    resourceRegistryContract
 }
 type resourceTaggingSchema struct {
 	Taggable, TagOnCreate, TagUpdatable, CloudFormationSystemTags bool

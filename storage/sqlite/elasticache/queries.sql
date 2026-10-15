@@ -86,3 +86,24 @@ SELECT * FROM elasticache_subnet WHERE partition = ? AND account_id = ? AND regi
 INSERT INTO elasticache_subnet (partition, account_id, region, kind, name, subnet_id, vpc_id, availability_zone) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 -- name: DeleteSubnets :exec
 DELETE FROM elasticache_subnet WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ?;
+
+-- name: PutClusterPlacementIntent :exec
+UPDATE elasticache_cluster SET subnet_group = ?, client_port = ? WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ?;
+-- name: ListClientSubnets :many
+SELECT * FROM elasticache_client_subnet WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ? ORDER BY ordinal;
+-- name: PutClientSubnet :exec
+INSERT INTO elasticache_client_subnet (partition, account_id, region, kind, name, ordinal, subnet_id) VALUES (?, ?, ?, ?, ?, ?, ?);
+-- name: DeleteClientSubnets :exec
+DELETE FROM elasticache_client_subnet WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ?;
+-- name: ListSecurityGroups :many
+SELECT * FROM elasticache_security_group WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ? ORDER BY ordinal;
+-- name: PutSecurityGroup :exec
+INSERT INTO elasticache_security_group (partition, account_id, region, kind, name, ordinal, security_group_id) VALUES (?, ?, ?, ?, ?, ?, ?);
+-- name: DeleteSecurityGroups :exec
+DELETE FROM elasticache_security_group WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ?;
+-- name: ListNodePlacements :many
+SELECT * FROM elasticache_node_placement WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ? ORDER BY ordinal;
+-- name: PutNodePlacement :exec
+INSERT INTO elasticache_node_placement (partition, account_id, region, kind, name, ordinal, node_index, interface_id, subnet_id, availability_zone, network_id, address, gateway, pool, mac) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+-- name: DeleteNodePlacements :exec
+DELETE FROM elasticache_node_placement WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ?;

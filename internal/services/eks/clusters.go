@@ -69,8 +69,14 @@ func (s *Service) createCluster(ctx context.Context, tx Transaction, in *api.Cre
 	}
 	// TODO: Comeback implement VPC/CNI, encryption, auto-mode and custom
 	// control-plane configuration through their native dependency owners.
-	if in.ComputeConfig != nil || in.ControlPlaneScalingConfig != nil || len(in.EncryptionConfig) > 0 || in.KubeApiServerConfig != nil || in.KubeControllerManagerConfig != nil || in.KubeSchedulerConfig != nil || in.KubernetesNetworkConfig != nil || in.OutpostConfig != nil || in.RemoteNetworkConfig != nil || in.StorageConfig != nil || in.UpgradePolicy != nil || in.ZonalShiftConfig != nil || in.BootstrapSelfManagedAddons != nil {
+	if in.ControlPlaneScalingConfig != nil || len(in.EncryptionConfig) > 0 || in.KubeApiServerConfig != nil || in.KubeControllerManagerConfig != nil || in.KubeSchedulerConfig != nil || in.OutpostConfig != nil || in.RemoteNetworkConfig != nil || in.UpgradePolicy != nil || in.ZonalShiftConfig != nil {
 		return nil, unsupported("The requested cluster configuration is not implemented by this runtime.")
+	}
+	if e := validateDisabledAutoMode(in.ComputeConfig, in.KubernetesNetworkConfig, in.StorageConfig); e != nil {
+		return nil, e
+	}
+	if e := validateBootstrapSelfManagedAddons(in.BootstrapSelfManagedAddons); e != nil {
+		return nil, e
 	}
 	c.EnabledLogTypes, e = mergeLogging(nil, in.Logging)
 	if e != nil {
@@ -199,6 +205,33 @@ func clusterAPI(c Cluster) *api.Cluster {
 		out.Health = &api.ClusterHealth{Issues: api.ClusterIssueList{{Code: new(api.ClusterIssueCode("ClusterUnreachable")), Message: new(api.String(c.Error))}}}
 	}
 	return out
+}
+
+// The native k3s adapter starts CoreDNS, kube-proxy and its Flannel CNI. Omission
+// and true select that real baseline. It cannot remove those components, and
+// accepting false would promise an empty cluster that the adapter does not make.
+// This does not claim that Flannel is the AWS VPC CNI.
+func validateBootstrapSelfManagedAddons(enabled *api.BoxedBoolean) error {
+	if enabled != nil && !bool(*enabled) {
+		return unsupported("Disabling bootstrap networking and DNS is not implemented by the configured Kubernetes runtime.")
+	}
+	return nil
+}
+
+// Terraform sends these disabled Auto Mode defaults even when no Auto Mode
+// block is configured. They request absence of native workers/LB/storage, not
+// successful implementation of those execution backends.
+func validateDisabledAutoMode(compute *api.ComputeConfigRequest, network *api.KubernetesNetworkConfigRequest, storage *api.StorageConfigRequest) error {
+	if compute != nil && (compute.Enabled != nil && bool(*compute.Enabled) || len(compute.NodePools) != 0 || value(compute.NodeRoleArn) != "") {
+		return unsupported("EKS Auto Mode compute is not implemented by this runtime.")
+	}
+	if network != nil && (network.IpFamily != nil || network.ServiceIpv4Cidr != nil || network.ElasticLoadBalancing != nil && network.ElasticLoadBalancing.Enabled != nil && bool(*network.ElasticLoadBalancing.Enabled)) {
+		return unsupported("EKS network overrides and Auto Mode load balancing are not implemented by this runtime.")
+	}
+	if storage != nil && storage.BlockStorage != nil && storage.BlockStorage.Enabled != nil && bool(*storage.BlockStorage.Enabled) {
+		return unsupported("EKS Auto Mode block storage is not implemented by this runtime.")
+	}
+	return nil
 }
 func requestHash(v any) (string, error) {
 	b, e := json.Marshal(v)

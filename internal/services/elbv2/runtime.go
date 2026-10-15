@@ -36,7 +36,7 @@ type runtimeController struct {
 	nodes          map[string]map[string]*runtimeNode
 	sequence       atomic.Uint64
 	actionSequence atomic.Uint64
-	targetSequence atomic.Uint64
+	targetRotation targetRoundRobin
 	inflight       map[string]map[uint64]forwardFlight
 	work           map[string]runtimeWork
 	workers        sync.WaitGroup
@@ -234,6 +234,11 @@ func (r *runtimeController) reconcileLoadBalancer(ctx context.Context, arn strin
 	}
 	if r.native == nil || r.service.networks == nil || !r.service.dnsAttached {
 		return r.finishReconcile(ctx, lb, errors.New("native load-balancer network runtime or DNS endpoint is unavailable"))
+	}
+	if r.service.desyncClassifier != nil {
+		if err := r.service.desyncClassifier.Health(ctx); err != nil {
+			return r.finishReconcile(ctx, lb, errors.New("native http-desync-guardian classifier is unavailable: "+err.Error()))
+		}
 	}
 	groups := make([]string, len(lb.Data.SecurityGroups))
 	for i, g := range lb.Data.SecurityGroups {
@@ -523,7 +528,7 @@ func (r *runtimeController) reconcileListeners(ctx context.Context, lb LoadBalan
 				}
 			}
 		}
-		listener = idleListener{Listener: listener, policy: node.idle, tlsConfig: tlsConfig}
+		listener = idleListener{Listener: listener, policy: node.idle, tlsConfig: tlsConfig, classifier: r.service.desyncClassifier}
 		server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) { r.serve(w, request, lb.Scope, arn, node) }), ConnContext: idleHTTPContext, ConnState: idleHTTPState}
 		node.listeners[arn] = &runtimeListener{data: api.CloneListener(data), certificateID: record.CertificateID, server: server}
 		go func() { _ = server.Serve(listener) }()

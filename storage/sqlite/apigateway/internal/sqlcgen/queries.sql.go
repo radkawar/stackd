@@ -191,6 +191,58 @@ func (q *Queries) DeleteDeploymentRoutes(ctx context.Context, arg DeleteDeployme
 	return err
 }
 
+const deleteHTTPProxyIntegrations = `-- name: DeleteHTTPProxyIntegrations :exec
+DELETE FROM apigateway_http_proxy_integrations WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND resource_id = ? AND http_method = ?
+`
+
+type DeleteHTTPProxyIntegrationsParams struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	ApiID      string
+	ResourceID string
+	HttpMethod string
+}
+
+func (q *Queries) DeleteHTTPProxyIntegrations(ctx context.Context, arg DeleteHTTPProxyIntegrationsParams) error {
+	_, err := q.db.ExecContext(ctx, deleteHTTPProxyIntegrations,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.ApiID,
+		arg.ResourceID,
+		arg.HttpMethod,
+	)
+	return err
+}
+
+const deleteHTTPProxyRoutes = `-- name: DeleteHTTPProxyRoutes :exec
+DELETE FROM apigateway_http_proxy_routes WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND deployment_id = ? AND resource_id = ? AND http_method = ?
+`
+
+type DeleteHTTPProxyRoutesParams struct {
+	Partition    string
+	AccountID    string
+	Region       string
+	ApiID        string
+	DeploymentID string
+	ResourceID   string
+	HttpMethod   string
+}
+
+func (q *Queries) DeleteHTTPProxyRoutes(ctx context.Context, arg DeleteHTTPProxyRoutesParams) error {
+	_, err := q.db.ExecContext(ctx, deleteHTTPProxyRoutes,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.ApiID,
+		arg.DeploymentID,
+		arg.ResourceID,
+		arg.HttpMethod,
+	)
+	return err
+}
+
 const deleteIntegration = `-- name: DeleteIntegration :exec
 DELETE FROM apigateway_integrations WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND resource_id = ? AND http_method = ?
 `
@@ -231,6 +283,31 @@ type DeleteMethodParams struct {
 
 func (q *Queries) DeleteMethod(ctx context.Context, arg DeleteMethodParams) error {
 	_, err := q.db.ExecContext(ctx, deleteMethod,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.ApiID,
+		arg.ResourceID,
+		arg.HttpMethod,
+	)
+	return err
+}
+
+const deleteMethodRequestParameters = `-- name: DeleteMethodRequestParameters :exec
+DELETE FROM apigateway_method_request_parameters WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND resource_id = ? AND http_method = ?
+`
+
+type DeleteMethodRequestParametersParams struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	ApiID      string
+	ResourceID string
+	HttpMethod string
+}
+
+func (q *Queries) DeleteMethodRequestParameters(ctx context.Context, arg DeleteMethodRequestParametersParams) error {
+	_, err := q.db.ExecContext(ctx, deleteMethodRequestParameters,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -475,7 +552,7 @@ func (q *Queries) GetAPI(ctx context.Context, arg GetAPIParams) (ApigatewayApi, 
 }
 
 const getAuthorizer = `-- name: GetAuthorizer :one
-SELECT "partition", account_id, region, api_id, authorizer_id, name, auth_type, authorizer_type, authorizer_uri, function_arn, validation_expression, ttl_seconds, credentials_arn, cfn_stack_id, cfn_logical_id, cfn_incarnation FROM apigateway_authorizers WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND authorizer_id = ?
+SELECT "partition", account_id, region, api_id, authorizer_id, name, auth_type, authorizer_type, authorizer_uri, function_arn, validation_expression, ttl_seconds, credentials_arn, cfn_stack_id, cfn_logical_id, cfn_incarnation, cognito_ttl_seconds FROM apigateway_authorizers WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND authorizer_id = ?
 `
 
 type GetAuthorizerParams struct {
@@ -512,6 +589,7 @@ func (q *Queries) GetAuthorizer(ctx context.Context, arg GetAuthorizerParams) (A
 		&i.CfnStackID,
 		&i.CfnLogicalID,
 		&i.CfnIncarnation,
+		&i.CognitoTtlSeconds,
 	)
 	return i, err
 }
@@ -973,7 +1051,7 @@ func (q *Queries) ListAuthorizerPools(ctx context.Context, arg ListAuthorizerPoo
 }
 
 const listAuthorizers = `-- name: ListAuthorizers :many
-SELECT "partition", account_id, region, api_id, authorizer_id, name, auth_type, authorizer_type, authorizer_uri, function_arn, validation_expression, ttl_seconds, credentials_arn, cfn_stack_id, cfn_logical_id, cfn_incarnation FROM apigateway_authorizers WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? ORDER BY authorizer_id
+SELECT "partition", account_id, region, api_id, authorizer_id, name, auth_type, authorizer_type, authorizer_uri, function_arn, validation_expression, ttl_seconds, credentials_arn, cfn_stack_id, cfn_logical_id, cfn_incarnation, cognito_ttl_seconds FROM apigateway_authorizers WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? ORDER BY authorizer_id
 `
 
 type ListAuthorizersParams struct {
@@ -1014,6 +1092,7 @@ func (q *Queries) ListAuthorizers(ctx context.Context, arg ListAuthorizersParams
 			&i.CfnStackID,
 			&i.CfnLogicalID,
 			&i.CfnIncarnation,
+			&i.CognitoTtlSeconds,
 		); err != nil {
 			return nil, err
 		}
@@ -1175,6 +1254,272 @@ func (q *Queries) ListDeployments(ctx context.Context, arg ListDeploymentsParams
 			&i.CfnStackID,
 			&i.CfnLogicalID,
 			&i.CfnIncarnation,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listHTTPProxyIntegrationPaths = `-- name: ListHTTPProxyIntegrationPaths :many
+SELECT "partition", account_id, region, api_id, resource_id, http_method, target, source FROM apigateway_http_proxy_integration_paths WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND resource_id = ? AND http_method = ? ORDER BY target
+`
+
+type ListHTTPProxyIntegrationPathsParams struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	ApiID      string
+	ResourceID string
+	HttpMethod string
+}
+
+func (q *Queries) ListHTTPProxyIntegrationPaths(ctx context.Context, arg ListHTTPProxyIntegrationPathsParams) ([]ApigatewayHttpProxyIntegrationPath, error) {
+	rows, err := q.db.QueryContext(ctx, listHTTPProxyIntegrationPaths,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.ApiID,
+		arg.ResourceID,
+		arg.HttpMethod,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ApigatewayHttpProxyIntegrationPath{}
+	for rows.Next() {
+		var i ApigatewayHttpProxyIntegrationPath
+		if err := rows.Scan(
+			&i.Partition,
+			&i.AccountID,
+			&i.Region,
+			&i.ApiID,
+			&i.ResourceID,
+			&i.HttpMethod,
+			&i.Target,
+			&i.Source,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listHTTPProxyIntegrations = `-- name: ListHTTPProxyIntegrations :many
+SELECT "partition", account_id, region, api_id, resource_id, http_method, uri, integration_method FROM apigateway_http_proxy_integrations WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND resource_id = ? AND http_method = ?
+`
+
+type ListHTTPProxyIntegrationsParams struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	ApiID      string
+	ResourceID string
+	HttpMethod string
+}
+
+func (q *Queries) ListHTTPProxyIntegrations(ctx context.Context, arg ListHTTPProxyIntegrationsParams) ([]ApigatewayHttpProxyIntegration, error) {
+	rows, err := q.db.QueryContext(ctx, listHTTPProxyIntegrations,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.ApiID,
+		arg.ResourceID,
+		arg.HttpMethod,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ApigatewayHttpProxyIntegration{}
+	for rows.Next() {
+		var i ApigatewayHttpProxyIntegration
+		if err := rows.Scan(
+			&i.Partition,
+			&i.AccountID,
+			&i.Region,
+			&i.ApiID,
+			&i.ResourceID,
+			&i.HttpMethod,
+			&i.Uri,
+			&i.IntegrationMethod,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listHTTPProxyRoutePaths = `-- name: ListHTTPProxyRoutePaths :many
+SELECT "partition", account_id, region, api_id, deployment_id, resource_id, http_method, target, source FROM apigateway_http_proxy_route_paths WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND deployment_id = ? AND resource_id = ? AND http_method = ? ORDER BY target
+`
+
+type ListHTTPProxyRoutePathsParams struct {
+	Partition    string
+	AccountID    string
+	Region       string
+	ApiID        string
+	DeploymentID string
+	ResourceID   string
+	HttpMethod   string
+}
+
+func (q *Queries) ListHTTPProxyRoutePaths(ctx context.Context, arg ListHTTPProxyRoutePathsParams) ([]ApigatewayHttpProxyRoutePath, error) {
+	rows, err := q.db.QueryContext(ctx, listHTTPProxyRoutePaths,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.ApiID,
+		arg.DeploymentID,
+		arg.ResourceID,
+		arg.HttpMethod,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ApigatewayHttpProxyRoutePath{}
+	for rows.Next() {
+		var i ApigatewayHttpProxyRoutePath
+		if err := rows.Scan(
+			&i.Partition,
+			&i.AccountID,
+			&i.Region,
+			&i.ApiID,
+			&i.DeploymentID,
+			&i.ResourceID,
+			&i.HttpMethod,
+			&i.Target,
+			&i.Source,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listHTTPProxyRoutes = `-- name: ListHTTPProxyRoutes :many
+SELECT "partition", account_id, region, api_id, deployment_id, resource_id, http_method, uri, integration_method FROM apigateway_http_proxy_routes WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND deployment_id = ? AND resource_id = ? AND http_method = ?
+`
+
+type ListHTTPProxyRoutesParams struct {
+	Partition    string
+	AccountID    string
+	Region       string
+	ApiID        string
+	DeploymentID string
+	ResourceID   string
+	HttpMethod   string
+}
+
+func (q *Queries) ListHTTPProxyRoutes(ctx context.Context, arg ListHTTPProxyRoutesParams) ([]ApigatewayHttpProxyRoute, error) {
+	rows, err := q.db.QueryContext(ctx, listHTTPProxyRoutes,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.ApiID,
+		arg.DeploymentID,
+		arg.ResourceID,
+		arg.HttpMethod,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ApigatewayHttpProxyRoute{}
+	for rows.Next() {
+		var i ApigatewayHttpProxyRoute
+		if err := rows.Scan(
+			&i.Partition,
+			&i.AccountID,
+			&i.Region,
+			&i.ApiID,
+			&i.DeploymentID,
+			&i.ResourceID,
+			&i.HttpMethod,
+			&i.Uri,
+			&i.IntegrationMethod,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMethodRequestParameters = `-- name: ListMethodRequestParameters :many
+SELECT "partition", account_id, region, api_id, resource_id, http_method, name, required FROM apigateway_method_request_parameters WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND resource_id = ? AND http_method = ? ORDER BY name
+`
+
+type ListMethodRequestParametersParams struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	ApiID      string
+	ResourceID string
+	HttpMethod string
+}
+
+func (q *Queries) ListMethodRequestParameters(ctx context.Context, arg ListMethodRequestParametersParams) ([]ApigatewayMethodRequestParameter, error) {
+	rows, err := q.db.QueryContext(ctx, listMethodRequestParameters,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.ApiID,
+		arg.ResourceID,
+		arg.HttpMethod,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ApigatewayMethodRequestParameter{}
+	for rows.Next() {
+		var i ApigatewayMethodRequestParameter
+		if err := rows.Scan(
+			&i.Partition,
+			&i.AccountID,
+			&i.Region,
+			&i.ApiID,
+			&i.ResourceID,
+			&i.HttpMethod,
+			&i.Name,
+			&i.Required,
 		); err != nil {
 			return nil, err
 		}
@@ -1778,8 +2123,8 @@ func (q *Queries) PutAPITags(ctx context.Context, arg PutAPITagsParams) error {
 }
 
 const putAuthorizer = `-- name: PutAuthorizer :exec
-INSERT INTO apigateway_authorizers (partition, account_id, region, api_id, authorizer_id, name, auth_type, authorizer_type, authorizer_uri, function_arn, validation_expression, ttl_seconds, credentials_arn, cfn_stack_id, cfn_logical_id, cfn_incarnation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, api_id, authorizer_id) DO UPDATE SET name = excluded.name, auth_type = excluded.auth_type, authorizer_type = excluded.authorizer_type, authorizer_uri = excluded.authorizer_uri, function_arn = excluded.function_arn, validation_expression = excluded.validation_expression, ttl_seconds = excluded.ttl_seconds, credentials_arn = excluded.credentials_arn, cfn_stack_id = excluded.cfn_stack_id, cfn_logical_id = excluded.cfn_logical_id, cfn_incarnation = excluded.cfn_incarnation
+INSERT INTO apigateway_authorizers (partition, account_id, region, api_id, authorizer_id, name, auth_type, authorizer_type, authorizer_uri, function_arn, validation_expression, ttl_seconds, credentials_arn, cfn_stack_id, cfn_logical_id, cfn_incarnation, cognito_ttl_seconds) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, api_id, authorizer_id) DO UPDATE SET name = excluded.name, auth_type = excluded.auth_type, authorizer_type = excluded.authorizer_type, authorizer_uri = excluded.authorizer_uri, function_arn = excluded.function_arn, validation_expression = excluded.validation_expression, ttl_seconds = excluded.ttl_seconds, credentials_arn = excluded.credentials_arn, cfn_stack_id = excluded.cfn_stack_id, cfn_logical_id = excluded.cfn_logical_id, cfn_incarnation = excluded.cfn_incarnation, cognito_ttl_seconds = excluded.cognito_ttl_seconds
 `
 
 type PutAuthorizerParams struct {
@@ -1799,6 +2144,7 @@ type PutAuthorizerParams struct {
 	CfnStackID           string
 	CfnLogicalID         string
 	CfnIncarnation       string
+	CognitoTtlSeconds    sql.NullInt64
 }
 
 func (q *Queries) PutAuthorizer(ctx context.Context, arg PutAuthorizerParams) error {
@@ -1819,6 +2165,7 @@ func (q *Queries) PutAuthorizer(ctx context.Context, arg PutAuthorizerParams) er
 		arg.CfnStackID,
 		arg.CfnLogicalID,
 		arg.CfnIncarnation,
+		arg.CognitoTtlSeconds,
 	)
 	return err
 }
@@ -2031,6 +2378,126 @@ func (q *Queries) PutDeploymentRoutes(ctx context.Context, arg PutDeploymentRout
 	return err
 }
 
+const putHTTPProxyIntegrationPaths = `-- name: PutHTTPProxyIntegrationPaths :exec
+INSERT INTO apigateway_http_proxy_integration_paths (partition, account_id, region, api_id, resource_id, http_method, target, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type PutHTTPProxyIntegrationPathsParams struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	ApiID      string
+	ResourceID string
+	HttpMethod string
+	Target     string
+	Source     string
+}
+
+func (q *Queries) PutHTTPProxyIntegrationPaths(ctx context.Context, arg PutHTTPProxyIntegrationPathsParams) error {
+	_, err := q.db.ExecContext(ctx, putHTTPProxyIntegrationPaths,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.ApiID,
+		arg.ResourceID,
+		arg.HttpMethod,
+		arg.Target,
+		arg.Source,
+	)
+	return err
+}
+
+const putHTTPProxyIntegrations = `-- name: PutHTTPProxyIntegrations :exec
+INSERT INTO apigateway_http_proxy_integrations (partition, account_id, region, api_id, resource_id, http_method, uri, integration_method) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type PutHTTPProxyIntegrationsParams struct {
+	Partition         string
+	AccountID         string
+	Region            string
+	ApiID             string
+	ResourceID        string
+	HttpMethod        string
+	Uri               string
+	IntegrationMethod string
+}
+
+func (q *Queries) PutHTTPProxyIntegrations(ctx context.Context, arg PutHTTPProxyIntegrationsParams) error {
+	_, err := q.db.ExecContext(ctx, putHTTPProxyIntegrations,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.ApiID,
+		arg.ResourceID,
+		arg.HttpMethod,
+		arg.Uri,
+		arg.IntegrationMethod,
+	)
+	return err
+}
+
+const putHTTPProxyRoutePaths = `-- name: PutHTTPProxyRoutePaths :exec
+INSERT INTO apigateway_http_proxy_route_paths (partition, account_id, region, api_id, deployment_id, resource_id, http_method, target, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type PutHTTPProxyRoutePathsParams struct {
+	Partition    string
+	AccountID    string
+	Region       string
+	ApiID        string
+	DeploymentID string
+	ResourceID   string
+	HttpMethod   string
+	Target       string
+	Source       string
+}
+
+func (q *Queries) PutHTTPProxyRoutePaths(ctx context.Context, arg PutHTTPProxyRoutePathsParams) error {
+	_, err := q.db.ExecContext(ctx, putHTTPProxyRoutePaths,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.ApiID,
+		arg.DeploymentID,
+		arg.ResourceID,
+		arg.HttpMethod,
+		arg.Target,
+		arg.Source,
+	)
+	return err
+}
+
+const putHTTPProxyRoutes = `-- name: PutHTTPProxyRoutes :exec
+INSERT INTO apigateway_http_proxy_routes (partition, account_id, region, api_id, deployment_id, resource_id, http_method, uri, integration_method) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type PutHTTPProxyRoutesParams struct {
+	Partition         string
+	AccountID         string
+	Region            string
+	ApiID             string
+	DeploymentID      string
+	ResourceID        string
+	HttpMethod        string
+	Uri               string
+	IntegrationMethod string
+}
+
+func (q *Queries) PutHTTPProxyRoutes(ctx context.Context, arg PutHTTPProxyRoutesParams) error {
+	_, err := q.db.ExecContext(ctx, putHTTPProxyRoutes,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.ApiID,
+		arg.DeploymentID,
+		arg.ResourceID,
+		arg.HttpMethod,
+		arg.Uri,
+		arg.IntegrationMethod,
+	)
+	return err
+}
+
 const putIntegration = `-- name: PutIntegration :exec
 INSERT INTO apigateway_integrations (partition, account_id, region, api_id, resource_id, http_method, uri, timeout_millis, credentials_arn) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (partition, account_id, region, api_id, resource_id, http_method) DO UPDATE SET uri = excluded.uri, timeout_millis = excluded.timeout_millis, credentials_arn = excluded.credentials_arn
@@ -2099,6 +2566,35 @@ func (q *Queries) PutMethod(ctx context.Context, arg PutMethodParams) error {
 		arg.CfnStackID,
 		arg.CfnLogicalID,
 		arg.CfnIncarnation,
+	)
+	return err
+}
+
+const putMethodRequestParameters = `-- name: PutMethodRequestParameters :exec
+INSERT INTO apigateway_method_request_parameters (partition, account_id, region, api_id, resource_id, http_method, name, required) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type PutMethodRequestParametersParams struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	ApiID      string
+	ResourceID string
+	HttpMethod string
+	Name       string
+	Required   bool
+}
+
+func (q *Queries) PutMethodRequestParameters(ctx context.Context, arg PutMethodRequestParametersParams) error {
+	_, err := q.db.ExecContext(ctx, putMethodRequestParameters,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.ApiID,
+		arg.ResourceID,
+		arg.HttpMethod,
+		arg.Name,
+		arg.Required,
 	)
 	return err
 }

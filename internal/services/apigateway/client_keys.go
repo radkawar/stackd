@@ -101,7 +101,7 @@ func (s *Service) createAPIKey(tx Transaction, in *api.CreateApiKeyRequest) (*ap
 		return nil, err
 	}
 	keyValue := value(in.Value)
-	if in.Value == nil {
+	if keyValue == "" {
 		keyValue = rand.Text()
 	} else if err := validClientKeyValue(keyValue); err != nil {
 		return nil, err

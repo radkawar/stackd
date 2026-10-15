@@ -18,6 +18,15 @@ func endpoint(v engine.Endpoint) *api.Endpoint {
 func memberName(v Cluster, n engine.Node) string {
 	return fmt.Sprintf("%s-%04d", v.Key.Name, n.Shard*(v.Replicas+1)+n.Replica+1)
 }
+func placementZone(v Cluster, n engine.Node) *api.String {
+	index := int(n.Shard)*(int(v.Replicas)+1) + int(n.Replica) + 1
+	for _, placement := range v.NodePlacements {
+		if placement.NodeIndex == index && placement.AvailabilityZone != "" {
+			return new(api.String(placement.AvailabilityZone))
+		}
+	}
+	return nil
+}
 func clusterOutput(v Cluster, showNodes bool) *api.CacheCluster {
 	parameter := v.ParameterGroup
 	if parameter == "" {
@@ -31,9 +40,21 @@ func clusterOutput(v Cluster, showNodes bool) *api.CacheCluster {
 		status = "applying"
 	}
 	out := &api.CacheCluster{ARN: new(api.String(v.Key.ARN())), CacheClusterId: new(api.String(v.Key.Name)), CacheClusterStatus: new(api.String(v.Status)), CacheClusterCreateTime: new(v.Created), Engine: new(api.String(v.Engine)), EngineVersion: new(api.String(v.EngineVersion)), CacheNodeType: new(api.String(v.NodeType)), NumCacheNodes: new(api.IntegerOptional(1)), TransitEncryptionEnabled: new(api.BooleanOptional(v.TLSEnabled)), AtRestEncryptionEnabled: new(api.BooleanOptional(false)), AuthTokenEnabled: new(api.BooleanOptional(len(v.AuthHashes) > 0)), AutoMinorVersionUpgrade: new(api.Boolean(false)), SnapshotRetentionLimit: new(api.IntegerOptional(0)), CacheParameterGroup: &api.CacheParameterGroupStatus{CacheParameterGroupName: new(api.String(parameter)), ParameterApplyStatus: new(api.String(status))}}
+	if v.TLSEnabled {
+		out.TransitEncryptionMode = new(api.TransitEncryptionMode("required"))
+	}
+	if v.SubnetGroup != "" {
+		out.CacheSubnetGroupName = new(api.String(v.SubnetGroup))
+		for _, id := range v.SecurityGroups {
+			out.SecurityGroups = append(out.SecurityGroups, api.SecurityGroupMembership{SecurityGroupId: new(api.String(id)), Status: new(api.String("active"))})
+		}
+		if len(v.Nodes) > 0 {
+			out.PreferredAvailabilityZone = placementZone(v, v.Nodes[0])
+		}
+	}
 	if showNodes {
 		for _, n := range v.Nodes {
-			out.CacheNodes = append(out.CacheNodes, api.CacheNode{CacheNodeId: new(api.String("0001")), CacheNodeStatus: new(api.String(v.Status)), CacheNodeCreateTime: new(v.Created), Endpoint: endpoint(n.Endpoint), ParameterGroupStatus: new(api.String(status))})
+			out.CacheNodes = append(out.CacheNodes, api.CacheNode{CacheNodeId: new(api.String("0001")), CacheNodeStatus: new(api.String(v.Status)), CacheNodeCreateTime: new(v.Created), Endpoint: endpoint(n.Endpoint), ParameterGroupStatus: new(api.String(status)), CustomerAvailabilityZone: placementZone(v, n)})
 		}
 	}
 	return out
@@ -69,7 +90,12 @@ func replicationOutput(v Cluster) *api.ReplicationGroup {
 					out.ConfigurationEndpoint = endpoint(n.Endpoint)
 				}
 			}
-			g.NodeGroupMembers = append(g.NodeGroupMembers, api.NodeGroupMember{CacheClusterId: new(api.String(name)), CacheNodeId: new(api.String("0001")), CurrentRole: new(api.String(role)), ReadEndpoint: endpoint(n.Endpoint)})
+			if n.Replica == 1 {
+				// Advertise the actual native replica, never a fabricated endpoint
+				// or a primary standing in for an absent reader.
+				g.ReaderEndpoint = endpoint(n.Endpoint)
+			}
+			g.NodeGroupMembers = append(g.NodeGroupMembers, api.NodeGroupMember{CacheClusterId: new(api.String(name)), CacheNodeId: new(api.String("0001")), CurrentRole: new(api.String(role)), ReadEndpoint: endpoint(n.Endpoint), PreferredAvailabilityZone: placementZone(v, n)})
 		}
 		out.NodeGroups = append(out.NodeGroups, g)
 	}

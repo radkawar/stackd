@@ -252,3 +252,31 @@ func TestParseOIDCDiscoveryRejectsAmbiguousKeysAndCertificates(t *testing.T) {
 		})
 	}
 }
+
+func TestOIDCDiscoveryChecksIPHostnameWithoutSNI(t *testing.T) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	template := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "issuer.example.com"}, DNSNames: []string{"issuer.example.com"}, NotBefore: now.Add(-time.Hour), NotAfter: now.Add(time.Hour), KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("IP issuer with a DNS-only certificate reached HTTP processing")
+	}))
+	server.Config.ErrorLog = log.New(io.Discard, "", 0)
+	server.TLS = &tls.Config{Certificates: []tls.Certificate{{Certificate: [][]byte{der}, PrivateKey: key}}}
+	server.StartTLS()
+	defer server.Close()
+	source, err := NewHTTPOIDCDiscovery(&http.Transport{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = source.Discover(context.Background(), OIDCDiscoveryRequest{IssuerURL: server.URL, Thumbprints: []string{OIDCChainThumbprint([]*x509.Certificate{server.Certificate()})}})
+	if err == nil {
+		t.Fatal("matching certificate thumbprint bypassed IP hostname verification")
+	}
+}

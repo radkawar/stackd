@@ -48,6 +48,8 @@ func notFound(kind string) error {
 	code := "DBInstanceNotFound"
 	switch kind {
 
+	case "global-cluster":
+		code = "GlobalClusterNotFoundFault"
 	case "cluster":
 		code = "DBClusterNotFoundFault"
 	case "snapshot":
@@ -67,6 +69,8 @@ func existsError(kind string) error {
 	code := "DBInstanceAlreadyExists"
 	switch kind {
 
+	case "global-cluster":
+		code = "GlobalClusterAlreadyExistsFault"
 	case "cluster":
 		code = "DBClusterAlreadyExistsFault"
 	case "snapshot":
@@ -302,6 +306,12 @@ func clusterDTO(v Database, members []Database) api.DBCluster {
 	out := api.DBCluster{DBClusterIdentifier: new(api.String(v.Key.Name)), DBClusterArn: new(api.String(v.Key.ARN())), DbClusterResourceId: new(api.String("cluster-" + v.ResourceID)), Status: new(api.String(v.Status)), Engine: new(api.String(v.Engine)), EngineVersion: new(api.String(v.EngineVersion)), EngineMode: new(api.String("provisioned")), MasterUsername: new(api.String(v.Username)), ClusterCreateTime: new(api.TStamp(v.Created)), MultiAZ: new(api.BooleanOptional(false)), StorageEncrypted: new(api.Boolean(false)), DeletionProtection: new(api.BooleanOptional(v.DeletionProtection)), CopyTagsToSnapshot: new(api.BooleanOptional(v.CopyTags)), HttpEndpointEnabled: new(api.BooleanOptional(v.HTTPEnabled)), IAMDatabaseAuthenticationEnabled: new(api.BooleanOptional(false)), TagList: tagList(v.Tags)}
 	if v.DatabaseName != "" {
 		out.DatabaseName = new(api.String(v.DatabaseName))
+	}
+	if v.Engine == "docdb" {
+		out.BackupRetentionPeriod = new(api.IntegerOptional(v.BackupRetention))
+		if v.BackupWindow != "" {
+			out.PreferredBackupWindow = new(api.String(v.BackupWindow))
+		}
 	}
 	if v.ParameterGroup != "" {
 		out.DBClusterParameterGroup = new(api.String(v.ParameterGroup))

@@ -52,6 +52,34 @@ func TestClassicSDKSharedTemplateBothFrontendOrders(t *testing.T) {
 			credential := credentials.NewStaticCredentialsProvider("test", "test", "")
 			c := ses.New(ses.Options{Region: "us-east-1", BaseEndpoint: aws.String(server.URL), Credentials: credential, HTTPClient: server.Client(), RetryMaxAttempts: 1})
 			c2 := sesv2.New(sesv2.Options{Region: "us-east-1", BaseEndpoint: aws.String(server.URL), Credentials: credential, HTTPClient: server.Client(), RetryMaxAttempts: 1})
+			configuration := aws.String("shared-configuration")
+			if _, e = c.CreateConfigurationSet(t.Context(), &ses.CreateConfigurationSetInput{ConfigurationSet: &classic.ConfigurationSet{Name: configuration}}); e != nil {
+				t.Fatal(e)
+			}
+			attributes := []classic.ConfigurationSetAttribute{
+				classic.ConfigurationSetAttributeDeliveryOptions,
+				classic.ConfigurationSetAttributeReputationOptions,
+				classic.ConfigurationSetAttributeTrackingOptions,
+				classic.ConfigurationSetAttributeEventDestinations,
+			}
+			for _, enabled := range []bool{true, false, true} {
+				if _, e = c2.PutConfigurationSetSendingOptions(t.Context(), &sesv2.PutConfigurationSetSendingOptionsInput{ConfigurationSetName: configuration, SendingEnabled: enabled}); e != nil {
+					t.Fatal(e)
+				}
+				readConfiguration, err := c.DescribeConfigurationSet(t.Context(), &ses.DescribeConfigurationSetInput{ConfigurationSetName: configuration, ConfigurationSetAttributeNames: attributes})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if readConfiguration.ReputationOptions == nil || readConfiguration.ReputationOptions.SendingEnabled != enabled || readConfiguration.ReputationOptions.ReputationMetricsEnabled {
+					t.Fatalf("classic did not observe shared sending state: %+v", readConfiguration.ReputationOptions)
+				}
+				if readConfiguration.DeliveryOptions != nil || readConfiguration.TrackingOptions != nil || len(readConfiguration.EventDestinations) != 0 {
+					t.Fatalf("unconfigured options were synthesized: %+v", readConfiguration)
+				}
+			}
+			if _, e = c.DeleteConfigurationSet(t.Context(), &ses.DeleteConfigurationSetInput{ConfigurationSetName: configuration}); e != nil {
+				t.Fatal(e)
+			}
 			template := aws.String("shared-template")
 			if _, e = c.CreateTemplate(t.Context(), &ses.CreateTemplateInput{Template: &classic.Template{TemplateName: template, SubjectPart: aws.String("Classic {{name}}"), TextPart: aws.String("Actual stored body")}}); e != nil {
 				t.Fatal(e)

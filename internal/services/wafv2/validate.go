@@ -71,10 +71,15 @@ func unsupported(path, reason string) *awswire.Error {
 // admitDefinition validates a web ACL definition, returning it with its
 // capacity and the IP set ARNs it references.
 func admitDefinition(r Reader, sc Scope, in definitionInput) (Definition, int64, []string, error) {
+	// These shapes contain only an optional ImmunityTimeProperty. An empty
+	// shape selects no token setting and does not add a CAPTCHA/Challenge action.
+	// Terraform sends these empty shapes even when its blocks are absent.
+	// https://docs.aws.amazon.com/waf/latest/APIReference/API_CaptchaConfig.html
+	// https://docs.aws.amazon.com/waf/latest/APIReference/API_ChallengeConfig.html
 	for name, set := range map[string]bool{
 		"ApplicationConfig":            in.ApplicationConfig != nil,
-		"CaptchaConfig":                in.CaptchaConfig != nil,
-		"ChallengeConfig":              in.ChallengeConfig != nil,
+		"CaptchaConfig":                in.CaptchaConfig != nil && in.CaptchaConfig.ImmunityTimeProperty != nil,
+		"ChallengeConfig":              in.ChallengeConfig != nil && in.ChallengeConfig.ImmunityTimeProperty != nil,
 		"DataProtectionConfig":         in.DataProtectionConfig != nil,
 		"MonetizationConfig":           in.MonetizationConfig != nil,
 		"OnSourceDDoSProtectionConfig": in.OnSourceDDoSProtectionConfig != nil,
@@ -256,7 +261,8 @@ func (a *admission) rules(rules api.Rules, bodies api.CustomResponseBodies) (int
 		if err := validateVisibility(path+".VisibilityConfig", *rule.VisibilityConfig); err != nil {
 			return 0, err
 		}
-		if rule.CaptchaConfig != nil || rule.ChallengeConfig != nil {
+		if rule.CaptchaConfig != nil && rule.CaptchaConfig.ImmunityTimeProperty != nil ||
+			rule.ChallengeConfig != nil && rule.ChallengeConfig.ImmunityTimeProperty != nil {
 			return 0, unsupported(path+".CaptchaConfig/ChallengeConfig", "CAPTCHA and Challenge actions are not implemented")
 		}
 		if rule.OverrideAction != nil {

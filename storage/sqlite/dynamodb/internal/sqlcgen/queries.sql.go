@@ -714,6 +714,10 @@ func (q *Queries) ListOnDemandSwitches(ctx context.Context, arg ListOnDemandSwit
 
 const listPendingTables = `-- name: ListPendingTables :many
 SELECT "partition", account_id, region, name, database_id, physical_name, archival_summary, attribute_definitions, billing_mode_summary, creation_date_time, deletion_protection_enabled, global_secondary_indexes, global_table_settings_replication_mode, global_table_version, global_table_witnesses, item_count, key_schema, latest_stream_arn, latest_stream_label, local_secondary_indexes, multi_region_consistency, on_demand_throughput, provisioned_throughput, replicas, restore_summary, sse_description, stream_specification, table_arn, table_class_summary, table_id, table_name, table_size_bytes, table_status, vector_indexes, warm_throughput, ttl_attribute_name, ttl_status, ttl_changed_at, ttl_next_scan, metrics_next_at, recovery_id, restore_recovery_id, restore_recovery_sequence, replica_group_id, replica_cursor, replica_last_source_at, replica_unauthorized_at, replica_settings_pending, owner_stack_id, owner_logical_id, owner_token FROM dynamodb_tables WHERE table_status IN ('CREATING', 'UPDATING', 'DELETING')
+OR (table_status = 'ACTIVE' AND EXISTS (
+    SELECT 1 FROM json_each(global_secondary_indexes) AS gsi
+    WHERE gsi.type = 'object' AND json_extract(gsi.value, '$.IndexStatus') IS NOT 'ACTIVE'
+))
 ORDER BY partition, account_id, region, name
 `
 

@@ -148,6 +148,9 @@ func (r reader) method(v sqlcgen.ApigatewayMethod) (domain.MethodRecord, error) 
 	if err := r.loadMethodResponses(&out); err != nil {
 		return domain.MethodRecord{}, err
 	}
+	if err := r.loadMethodRequestParameters(&out); err != nil {
+		return domain.MethodRecord{}, err
+	}
 	{
 		rows, err := r.q.ListMethodScopes(r.ctx, sqlcgen.ListMethodScopesParams{Partition: out.Key.Partition, AccountID: out.Key.AccountID, Region: out.Key.Region, ApiID: out.Key.ID, ResourceID: out.Key.ResourceID, HttpMethod: out.Key.HTTPMethod})
 		if err != nil {
@@ -190,6 +193,9 @@ func (w writer) PutMethod(v domain.MethodRecord) error {
 	if err := w.putMethodResponses(v); err != nil {
 		return err
 	}
+	if err := w.putMethodRequestParameters(v); err != nil {
+		return err
+	}
 	if err := w.q.DeleteMethodScopes(w.ctx, sqlcgen.DeleteMethodScopesParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, ResourceID: k.ResourceID, HttpMethod: k.HTTPMethod}); err != nil {
 		return err
 	}
@@ -211,6 +217,10 @@ func (r reader) integration(v sqlcgen.ApigatewayIntegration) (domain.Integration
 	if err != nil {
 		return domain.IntegrationRecord{}, err
 	}
+	out.HTTPProxy, err = r.loadHTTPProxyIntegration(out.Key)
+	if err != nil {
+		return domain.IntegrationRecord{}, err
+	}
 	return out, nil
 }
 func (r reader) Integration(k domain.MethodKey) (domain.IntegrationRecord, error) {
@@ -226,6 +236,9 @@ func (w writer) PutIntegration(v domain.IntegrationRecord) error {
 		return err
 	}
 	if err := w.putMockIntegration(v.Key, v.Mock); err != nil {
+		return err
+	}
+	if err := w.putHTTPProxyIntegration(v.Key, v.HTTPProxy); err != nil {
 		return err
 	}
 	return nil
@@ -246,6 +259,9 @@ func (r reader) authorizer(v sqlcgen.ApigatewayAuthorizer) (domain.AuthorizerRec
 		for _, source := range sources {
 			out.LambdaAuthorizer.IdentitySources = append(out.LambdaAuthorizer.IdentitySources, source.Source)
 		}
+	}
+	if v.CognitoTtlSeconds.Valid {
+		out.CognitoTTLSeconds = new(int32(v.CognitoTtlSeconds.Int64))
 	}
 	{
 		rows, err := r.q.ListAuthorizerPools(r.ctx, sqlcgen.ListAuthorizerPoolsParams{Partition: out.Key.Partition, AccountID: out.Key.AccountID, Region: out.Key.Region, ApiID: out.Key.ID, AuthorizerID: out.Key.AuthorizerID})
@@ -285,6 +301,9 @@ func (w writer) PutAuthorizer(v domain.AuthorizerRecord) error {
 	k := v.Key
 	params := sqlcgen.PutAuthorizerParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, ApiID: k.ID, AuthorizerID: k.AuthorizerID, Name: v.Name, AuthType: v.AuthType, AuthorizerType: "COGNITO_USER_POOLS", AuthorizerUri: v.URI}
 	params.CfnStackID, params.CfnLogicalID, params.CfnIncarnation = v.Ownership.StackID, v.Ownership.LogicalID, v.Ownership.Incarnation
+	if v.CognitoTTLSeconds != nil {
+		params.CognitoTtlSeconds = sql.NullInt64{Int64: int64(*v.CognitoTTLSeconds), Valid: true}
+	}
 	if a := v.LambdaAuthorizer; a != nil {
 		params.AuthorizerType, params.FunctionArn, params.ValidationExpression, params.TtlSeconds = a.Type, a.FunctionARN, a.ValidationExpression, int64(a.TTLSeconds)
 		params.CredentialsArn = a.CredentialsARN
@@ -337,6 +356,10 @@ func (r reader) deployment(v sqlcgen.ApigatewayDeployment) (domain.DeploymentRec
 		route.CredentialsARN = row.CredentialsArn
 		route.APIKeyRequired = row.ApiKeyRequired
 		route.Mock, err = r.loadMockRoute(out.Key, row.ResourceID, row.HttpMethod)
+		if err != nil {
+			return domain.DeploymentRecord{}, err
+		}
+		route.HTTPProxy, err = r.loadHTTPProxyRoute(out.Key, row.ResourceID, row.HttpMethod)
 		if err != nil {
 			return domain.DeploymentRecord{}, err
 		}
@@ -418,6 +441,9 @@ func (w writer) PutDeployment(v domain.DeploymentRecord) error {
 			return err
 		}
 		if err := w.putMockRoute(k, route.ResourceID, route.HTTPMethod, route.Mock); err != nil {
+			return err
+		}
+		if err := w.putHTTPProxyRoute(k, route.ResourceID, route.HTTPMethod, route.HTTPProxy); err != nil {
 			return err
 		}
 		if a := route.LambdaAuthorizer; a != nil {

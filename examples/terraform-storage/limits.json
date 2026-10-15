@@ -1,0 +1,38 @@
+{
+  "inventory_status": "unverified",
+  "terraform_version": "1.15.9",
+  "aws_provider_version": "6.68.0",
+  "aws_provider_source_revision": "c9b83d813022cdd05fc955480b07e269c6e18023",
+  "evidence": "Only stages actually completed in a retained run's report.json establish behavior. This file and resource configuration are not pass evidence.",
+  "complete_inventory": "inventory.json records all 100 owned provider resource types and 47 data source types, required SDK APIs and exact remaining lifecycle list. docs/terraform-provider-apis.json is authoritative.",
+  "prerequisites": {
+    "all": ["Separately built bin/stackd", "Python boto3", "Terraform 1.15.9", "Prepared filesystem mirror containing hashicorp/aws 6.68.0", "Unoccupied loopback port 14704"],
+    "s3": ["No native container prerequisite"],
+    "ebs": ["Direct snapshot blocks and provider snapshot copy need no QEMU"],
+    "dynamodb": ["Local Linux Docker accessible at unix:///var/run/docker.sock", "Controller can reach Docker-published loopback ports", "Installed amazon/dynamodb-local@sha256:ff89bd48ff32cd8d9be5fee8873b65b8854dc408f1afe881be6eb00247bc0dab (DynamoDB Local 3.3.1); fixture/controller never pull"],
+    "rds": ["See rds-limits.json for native PostgreSQL/MySQL pins and client prerequisites; module imported only when selected"],
+    "docdb": ["Standalone --services docdb only, due to manual time for daily backups and retention expiry", "See docdb-limits.json for Mongo TLS prerequisites and pins"]
+  },
+  "lifecycle": ["create", "signed real binary/item/stream consumers", "state removal and supported provider import", "update", "refresh-only unchanged plan", "ordinary unchanged plan", "same SQLite controller reopen and repeat consumers", "destroy", "signed missing-resource and exact owned native labels cleanup"],
+  "resources": [
+    "aws_s3_bucket.data", "aws_s3_bucket_versioning.data", "aws_s3_bucket_cors_configuration.data", "aws_s3_bucket_public_access_block.data", "aws_s3_bucket_ownership_controls.data", "aws_s3_bucket_server_side_encryption_configuration.data", "aws_s3_object.data", "aws_s3_object_copy.data", "aws_s3_account_public_access_block.data", "aws_s3_access_point.data", "aws_s3control_access_point_policy.data",
+    "aws_dynamodb_table.data", "aws_dynamodb_table_item.data",
+    "aws_ebs_snapshot_copy.data", "aws_ebs_snapshot_block_public_access.data"
+  ],
+  "data_sources": ["aws_s3_bucket.current", "aws_s3_object.current", "aws_dynamodb_table.current", "aws_dynamodb_table_item.current"],
+  "copy_source_contract": "S3 CopyObject accepts SDK path-escaped sources and whole-header form-escaped sources, including explicit version IDs. SDK path escapes keep literal question marks, plus signs and percent text in object keys. A whole-header escaped bucket/key separator is decoded before its version query is read.",
+  "gaps": [
+    "aws_s3_object_copy and aws_ebs_snapshot_copy do not expose classic importers in provider 6.68.0; fixture does not remove those resources from state. Import lifecycle exercises bucket, access point, and DynamoDB table.",
+    "aws_ebs_snapshot requires a real volume_id. This no-QEMU fixture instead uses a real EBS Direct source snapshot and Terraform aws_ebs_snapshot_copy, verifying the copied block bytes. Volume creation, attachment and volume-origin snapshots are not covered.",
+    "S3 uses SSE-S3 AES256 only; SSE-KMS/key lifecycle is not covered.",
+    "S3 access point configuration/policy are read through signed S3 Control APIs; access-point ARN object routing is not claimed.",
+    "Fixture covers one DynamoDB GSI and NEW_AND_OLD_IMAGES stream consumer; PITR, replicas and backups are not covered.",
+    "No execution, build, test, lint or format result is established by creating these fixtures."
+  ],
+  "commands": [
+    "python examples/terraform-storage/run.py --services s3,dynamodb,ebs --provider-mirror /absolute/path/to/mirror",
+    "python examples/terraform-storage/run.py --services s3,dynamodb,ebs,rds --provider-mirror /absolute/path/to/mirror",
+    "python examples/terraform-storage/run.py --services docdb --provider-mirror /absolute/path/to/mirror"
+  ],
+  "artifact_safety": "Run root and module workspaces are mode 0700. Terraform state/variables can contain passwords. Terraform stdout/stderr are retained as private mode-0600 files for failure diagnosis. Only credential-free command argv/returncodes and actually completed stages are retained in report.json; do not publish private logs, states or variables."
+}

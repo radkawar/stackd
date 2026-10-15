@@ -300,6 +300,8 @@ func TestCreateBrokerConsoleAccessByEngine(t *testing.T) {
 		{name: "activemq-console", engine: "ACTIVEMQ", console: true, groups: []string{"clients"}},
 		{name: "activemq-messaging-only", engine: "ACTIVEMQ"},
 		{name: "rabbitmq-ignores-activemq-fields", engine: "RABBITMQ", console: true, groups: []string{"not an ActiveMQ group"}},
+		{name: "activemq-provider-label", engine: "ActiveMQ", console: true, groups: []string{"clients"}},
+		{name: "rabbitmq-provider-label", engine: "RabbitMQ"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s, ctx, v := controlFixture(t)
@@ -310,10 +312,15 @@ func TestCreateBrokerConsoleAccessByEngine(t *testing.T) {
 			text(&in.DeploymentMode, "SINGLE_INSTANCE")
 			text(&in.HostInstanceType, "mq.t3.micro")
 			boolean(&in.PubliclyAccessible, true)
+			boolean(&in.AutoMinorVersionUpgrade, false)
+			in.Logs = &api.Logs{}
+			boolean(&in.Logs.General, false)
+			boolean(&in.Logs.Audit, false)
 			u := api.User{}
 			text(&u.Username, "console-user")
 			text(&u.Password, "console-password-123")
 			boolean(&u.ConsoleAccess, tc.console)
+			boolean(&u.ReplicationUser, false)
 			stringList(&u.Groups, tc.groups)
 			in.Users = append(in.Users, u)
 			if e := s.repository.Attempt(ctx, func(tx Transaction) error {
@@ -327,11 +334,32 @@ func TestCreateBrokerConsoleAccessByEngine(t *testing.T) {
 			}
 			created := storedBroker(t, s, v)
 			user := created.Users[0]
-			if user.Password != "console-password-123" || user.ConsoleAccess != (tc.engine == "ACTIVEMQ" && tc.console) {
+			if user.Password != "console-password-123" || user.ConsoleAccess != (created.Engine == "ACTIVEMQ" && tc.console) {
 				t.Fatalf("initial console authority not retained correctly: %+v", user)
 			}
-			if tc.engine == "RABBITMQ" && len(user.Groups) != 0 {
+			if created.Engine == "RABBITMQ" && len(user.Groups) != 0 {
 				t.Fatalf("RabbitMQ retained ActiveMQ groups: %+v", user)
+			}
+			describe := &api.DescribeBrokerInput{}
+			text(&describe.BrokerId, created.ID)
+			if err := s.repository.Attempt(ctx, func(tx Transaction) error {
+				out, err := s.describeBroker(tx.Context(), tx, describe)
+				if err != nil {
+					return err
+				}
+				wantUsers := 0
+				if created.Engine == "ACTIVEMQ" {
+					wantUsers = 1
+				}
+				if len(out.Users) != wantUsers {
+					t.Fatalf("broker exposed the wrong engine's user API: %+v", out.Users)
+				}
+				if truth(out.AutoMinorVersionUpgrade) || out.Logs == nil || truth(out.Logs.General) || truth(out.Logs.Audit) {
+					t.Fatalf("disabled provider defaults changed broker controls: %+v", out)
+				}
+				return nil
+			}); err != nil {
+				t.Fatal(err)
 			}
 		})
 	}

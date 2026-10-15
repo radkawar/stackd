@@ -27,7 +27,11 @@ func (d *Docker) adminClient(m *material) (*wire.Client, *wire.Transport, error)
 	if err != nil {
 		return nil, nil, err
 	}
-	transport := &wire.Transport{ClientID: "stackd-msk-native", TLS: &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots}, SASL: mechanism, MetadataTTL: time.Second, Dial: (&net.Dialer{Timeout: 3 * time.Second}).DialContext}
+	certificate, err := tls.X509KeyPair(m.CertPEM, m.KeyPEM)
+	if err != nil {
+		return nil, nil, fmt.Errorf("MSK runtime administration identity is invalid: %w", err)
+	}
+	transport := &wire.Transport{ClientID: "stackd-msk-native", TLS: &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots, Certificates: []tls.Certificate{certificate}}, SASL: mechanism, MetadataTTL: time.Second, Dial: (&net.Dialer{Timeout: 3 * time.Second}).DialContext}
 	addresses := make([]string, len(m.Nodes))
 	for n, p := range m.Nodes {
 		addresses[n] = net.JoinHostPort(d.endpointHost, strconv.Itoa(p.Admin))
@@ -38,7 +42,11 @@ func (d *Docker) adminClient(m *material) (*wire.Client, *wire.Transport, error)
 func (d *Docker) endpoint(spec msk.Specification, m *material) msk.Endpoint {
 	endpoint := msk.Endpoint{CAPEM: append([]byte(nil), m.CAPEM...), SecurityMode: spec.SecurityMode}
 	for n, p := range m.Nodes {
-		endpoint.Brokers = append(endpoint.Brokers, msk.Broker{ID: int32(n + 1), Address: net.JoinHostPort(d.endpointHost, strconv.Itoa(p.Client))})
+		address := net.JoinHostPort(d.endpointHost, strconv.Itoa(p.Client))
+		if len(spec.Networks) > 0 {
+			address = net.JoinHostPort(spec.Networks[n].Network.Address.String(), "9092")
+		}
+		endpoint.Brokers = append(endpoint.Brokers, msk.Broker{ID: int32(n + 1), Address: address})
 	}
 	return endpoint
 }

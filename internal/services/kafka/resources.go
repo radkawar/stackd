@@ -69,7 +69,7 @@ func registerResources(s *Service) {
 		if e != nil {
 			return nil, e
 		}
-		rows := slices.Clone(v.Secrets)
+		rows := scramSecretARNs(v.Secrets)
 		slices.Sort(rows)
 		rows, next, e := page(rows, in.MaxResults, value(in.NextToken), pageBinding(ctx, "ListScramSecrets", v.ARN), func(x string) string { return x })
 		if e != nil {
@@ -133,6 +133,14 @@ func (s *Service) getPolicy(ctx context.Context, t Transaction, in *api.GetClust
 	return out, nil
 }
 
+func scramSecretARNs(associations []SCRAMAssociation) []string {
+	refs := make([]string, len(associations))
+	for i, association := range associations {
+		refs[i] = association.SecretARN
+	}
+	return refs
+}
+
 type preparedKey struct{}
 type preparedMutation struct {
 	ARN, Incarnation string
@@ -192,7 +200,7 @@ func (s *Service) prepare(ctx context.Context, action string, in any) (context.C
 		return ctx, e
 	}
 	if action == "DeleteCluster" {
-		refs = slices.Clone(v.Secrets)
+		refs = scramSecretARNs(v.Secrets)
 		if x := value(in.(*api.DeleteClusterInput).CurrentVersion); x != "" && x != strconv.FormatInt(v.Version, 10) {
 			return ctx, invalid("The current cluster version does not match")
 		}
@@ -254,18 +262,26 @@ func (s *Service) associateSecrets(ctx context.Context, t Transaction, in *api.B
 	}
 	p := ctx.Value(preparedKey{}).(preparedMutation)
 	for _, ref := range p.Accepted {
-		if e = s.secrets.AssociateSCRAM(ctx, v.ARN, ref); e != nil {
-			return nil, e
+		index := slices.IndexFunc(v.Secrets, func(association SCRAMAssociation) bool { return association.SecretARN == ref })
+		var previous SCRAMAssociation
+		if index >= 0 {
+			previous = v.Secrets[index]
 		}
-		if !slices.Contains(v.Secrets, ref) {
-			v.Secrets = append(v.Secrets, ref)
+		association, err := s.secrets.AssociateSCRAM(ctx, v.ARN, v.Incarnation, ref, previous)
+		if err != nil {
+			return nil, err
+		}
+		if index >= 0 {
+			v.Secrets[index] = association
+		} else {
+			v.Secrets = append(v.Secrets, association)
 		}
 	}
 	if len(v.Secrets) > 100 {
 		return nil, invalid("A cluster supports at most 100 SCRAM secrets")
 	}
 	if len(p.Accepted) > 0 {
-		if e = s.beginOperation(t, &v, "UPDATE_SCRAM_SECRETS"); e != nil {
+		if e = s.queueSCRAMSynchronization(t, &v); e != nil {
 			return nil, e
 		}
 	}
@@ -283,19 +299,33 @@ func (s *Service) disassociateSecrets(ctx context.Context, t Transaction, in *ap
 	}
 	p := ctx.Value(preparedKey{}).(preparedMutation)
 	for _, ref := range p.Accepted {
-		if slices.Contains(v.Secrets, ref) {
-			if e = s.secrets.ReleaseSCRAM(ctx, v.ARN, ref); e != nil {
+		index := slices.IndexFunc(v.Secrets, func(association SCRAMAssociation) bool { return association.SecretARN == ref })
+		if index >= 0 {
+			if e = s.secrets.ReleaseSCRAM(ctx, v.ARN, v.Incarnation, v.Secrets[index]); e != nil {
 				return nil, e
 			}
 		}
 	}
-	v.Secrets = slices.DeleteFunc(v.Secrets, func(ref string) bool { return slices.Contains(p.Accepted, ref) })
+	v.Secrets = slices.DeleteFunc(v.Secrets, func(association SCRAMAssociation) bool { return slices.Contains(p.Accepted, association.SecretARN) })
 	if len(p.Accepted) > 0 {
-		if e = s.beginOperation(t, &v, "UPDATE_SCRAM_SECRETS"); e != nil {
+		if e = s.queueSCRAMSynchronization(t, &v); e != nil {
 			return nil, e
 		}
 	}
 	out := &api.BatchDisassociateScramSecretOutput{UnprocessedScramSecrets: p.Rejected}
 	text(&out.ClusterArn, v.ARN)
 	return out, nil
+}
+
+// Secret association accepts desired credentials; AWS synchronizes them
+// periodically, rather than replacing an already-ready cluster with a public
+// cluster update operation. Native completion still establishes actual readiness.
+func (s *Service) queueSCRAMSynchronization(t Transaction, v *ClusterRecord) error {
+	v.Version++
+	v.Operation = "reconcile"
+	v.OperationARN = ""
+	v.RebootBrokerID = 0
+	v.Failure = ""
+	v.Due = s.clock.Now()
+	return t.PutCluster(*v)
 }

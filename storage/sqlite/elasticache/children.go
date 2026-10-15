@@ -141,6 +141,9 @@ func (w writer) putSubnets(k domain.Key, v []domain.Subnet) error {
 	return nil
 }
 func (w writer) deleteChildren(k domain.Key) error {
+	if e := w.deletePlacementChildren(k); e != nil {
+		return e
+	}
 	if e := w.q.DeleteTags(w.ctx, sqlcgen.DeleteTagsParams{Partition: k.Partition, AccountID: k.AccountID, Region: k.Region, Kind: k.Kind, Name: k.Name}); e != nil {
 		return e
 	}

@@ -247,3 +247,68 @@ func TestServiceLoadBalancerRemovalCreatesImmutableDeployment(t *testing.T) {
 		}
 	}
 }
+
+type deniedServiceTaskRoles struct {
+	TaskRoles
+	calls int
+}
+
+func (r *deniedServiceTaskRoles) Validate(context.Context, string, string) error {
+	r.calls++
+	return failure("AccessDeniedException", "The caller cannot pass this task role.")
+}
+
+func TestServiceCapacityUpdateDoesNotPassAdmittedRolesAgain(t *testing.T) {
+	now := time.Date(2026, 10, 14, 0, 0, 0, 0, time.UTC)
+	task, _ := targetFixtureTask(now)
+	dependencies := targetAdmissionDependencies{}
+	roles := &deniedServiceTaskRoles{}
+	s := New(Config{Clock: clock.NewManual(now), Executor: dependencies, Networks: dependencies, TaskRoles: roles, Roles: dependencies})
+	t.Cleanup(func() { _ = s.Close() })
+	ctx := awsctx.WithMetadata(t.Context(), awsctx.Metadata{Partition: task.Key.Partition, AccountID: task.Key.AccountID, Region: task.Key.Region, PrincipalARN: "arn:aws:iam::111122223333:root", PrincipalID: task.Key.AccountID})
+	key := ServiceKey{ClusterKey: task.Key.ClusterKey, ServiceName: task.ServiceName}
+	definition := task.Definition
+	definition.TaskDefinitionArn = new(api.String("arn:aws:ecs:us-east-1:111122223333:task-definition/web:1"))
+	definition.Status = new(api.TaskDefinitionStatus("ACTIVE"))
+	definition.Cpu, definition.Memory = new(api.String("256")), new(api.String("512"))
+	definition.TaskRoleArn = new(api.String("arn:aws:iam::111122223333:role/customer-task"))
+	definitionKey, rejected := definitionKey(ctx, value(definition.TaskDefinitionArn), false)
+	if rejected != nil {
+		t.Fatal(rejected)
+	}
+	definitionRecord := TaskDefinitionRecord{Key: definitionKey, Data: definition}
+	record := ServiceRecord{Key: key, Data: api.Service{
+		Status: new(api.String("ACTIVE")), ClusterArn: new(api.String(key.ClusterKey.ARN())), TaskDefinition: definition.TaskDefinitionArn,
+		DesiredCount: new(api.Integer(0)), LaunchType: new(api.LaunchType("FARGATE")), SchedulingStrategy: new(api.SchedulingStrategy("REPLICA")),
+		NetworkConfiguration: &api.NetworkConfiguration{AwsvpcConfiguration: &api.AwsVpcConfiguration{Subnets: api.StringList{"subnet-a"}}},
+		DeploymentController: &api.DeploymentController{Type: new(api.DeploymentControllerType("ECS"))},
+		PropagateTags:        new(api.PropagateTags("NONE")), AvailabilityZoneRebalancing: new(api.AvailabilityZoneRebalancing("DISABLED")),
+	}}
+	record.Deployments = []ServiceDeployment{s.newServiceDeployment(ctx, record, definitionRecord, nil)}
+	if err := s.repository.Update(ctx, func(tx Transaction) error {
+		if err := tx.PutCluster(ClusterRecord{Key: key.ClusterKey, Data: api.Cluster{Status: new(api.String("ACTIVE"))}}); err != nil {
+			return err
+		}
+		if err := tx.PutTaskDefinition(definitionRecord); err != nil {
+			return err
+		}
+		return tx.PutService(record)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	input := &api.UpdateServiceInput{Cluster: new(api.String(key.Name)), Service: new(api.String(key.ServiceName)), DesiredCount: new(api.BoxedInteger(0))}
+	if _, rejected := runCommand(s, ctx, "UpdateService", input, s.updateService); rejected != nil || roles.calls != 0 {
+		t.Fatalf("capacity update passed existing roles: rejected=%v calls=%d", rejected, roles.calls)
+	}
+	input.TaskDefinition = definition.TaskDefinitionArn
+	if _, rejected := runCommand(s, ctx, "UpdateService", input, s.updateService); rejected == nil || rejected.Code != "AccessDeniedException" || roles.calls != 1 {
+		t.Fatalf("explicit task-definition update bypassed PassRole: rejected=%v calls=%d", rejected, roles.calls)
+	}
+	denied := awsctx.FromContext(ctx)
+	denied.HasSessionPolicy = true
+	denied.SessionPolicies = []string{`{"Statement":[{"Effect":"Deny","Action":"ecs:UpdateService","Resource":"*"}]}`}
+	input.TaskDefinition = nil
+	if _, rejected := runCommand(s, awsctx.WithMetadata(ctx, denied), "UpdateService", input, s.updateService); rejected == nil || rejected.Code != "AccessDeniedException" || roles.calls != 1 {
+		t.Fatalf("capacity update bypassed service authorization: rejected=%v calls=%d", rejected, roles.calls)
+	}
+}

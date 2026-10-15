@@ -159,6 +159,18 @@ func validateTracingConfiguration(config *api.TracingConfig) *awswire.Error {
 	return failure("InvalidParameterValueException", "Tracing mode must be Active or PassThrough.", 400)
 }
 
+// None uses the ordinary non-snapshot executor. Terraform also sends None when
+// removing a snap_start block; only enabling snapshots requires a new executor.
+func validateSnapStart(config *api.SnapStart) *awswire.Error {
+	if config == nil || value(config.ApplyOn) == "" || value(config.ApplyOn) == "None" {
+		return nil
+	}
+	if value(config.ApplyOn) == "PublishedVersions" {
+		return unsupported("Lambda SnapStart snapshot execution is not implemented.")
+	}
+	return failure("InvalidParameterValueException", "SnapStart ApplyOn must be None or PublishedVersions.", 400)
+}
+
 func (s *Service) createFunction(ctx context.Context, in *api.CreateFunctionInput) (out *api.CreateFunctionOutput, wire *awswire.Error) {
 	if in.Code.SourceKMSKeyArn != nil {
 		return nil, unsupported("Customer-key code encryption is not implemented.")
@@ -173,8 +185,11 @@ func (s *Service) createFunction(ctx context.Context, in *api.CreateFunctionInpu
 	if packageImage && (in.Runtime != nil || in.Handler != nil || in.Code.ImageUri == nil || in.Code.ZipFile != nil || in.Code.S3Bucket != nil || in.Code.S3Key != nil || in.Code.S3ObjectVersion != nil || in.Code.S3ObjectStorageMode != nil || len(in.Layers) > 0 || in.CodeSigningConfigArn != nil) {
 		return nil, failure("InvalidParameterValueException", "Image deployments require only Code.ImageUri and cannot specify Runtime, Handler, Layers or code signing.", 400)
 	}
-	if in.KMSKeyArn != nil || len(in.FileSystemConfigs) > 0 || in.SnapStart != nil || in.TenancyConfig != nil {
+	if in.KMSKeyArn != nil || len(in.FileSystemConfigs) > 0 || in.TenancyConfig != nil {
 		return nil, unsupported("The requested advanced Lambda deployment configuration is not implemented.")
+	}
+	if wire := validateSnapStart(in.SnapStart); wire != nil {
+		return nil, wire
 	}
 	if wire := validateTracingConfiguration(in.TracingConfig); wire != nil {
 		return nil, wire

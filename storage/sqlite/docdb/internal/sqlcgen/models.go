@@ -29,6 +29,9 @@ type DocdbCluster struct {
 	OwnerStackID       string
 	OwnerLogicalID     string
 	OwnerToken         string
+	BackupRetention    int64
+	BackupWindow       string
+	NextBackup         int64
 }
 
 type DocdbInstance struct {
@@ -65,6 +68,8 @@ type DocdbSnapshot struct {
 	OwnerStackID    string
 	OwnerLogicalID  string
 	OwnerToken      string
+	Automated       int64
+	Expires         int64
 }
 
 type DocdbTag struct {

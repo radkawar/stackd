@@ -119,6 +119,10 @@ ORDER BY name COLLATE BINARY LIMIT sqlc.arg(row_limit);
 
 -- name: ListPendingTables :many
 SELECT * FROM dynamodb_tables WHERE table_status IN ('CREATING', 'UPDATING', 'DELETING')
+OR (table_status = 'ACTIVE' AND EXISTS (
+    SELECT 1 FROM json_each(global_secondary_indexes) AS gsi
+    WHERE gsi.type = 'object' AND json_extract(gsi.value, '$.IndexStatus') IS NOT 'ACTIVE'
+))
 ORDER BY partition, account_id, region, name;
 
 -- name: ListTTLTables :many

@@ -58,6 +58,22 @@ func TestRAMOrganizationSharingUsesCurrentMembershipRetained(t *testing.T) {
 				t.Fatalf("organization invitation: %+v %v", invitations, err)
 			}
 			check := func(allowed bool) {
+				shares, err := cl.ram("us-east-1", consumer, "test").GetResourceShares(ctx, &ram.GetResourceSharesInput{ResourceOwner: "OTHER-ACCOUNTS", ResourceShareArns: []string{aws.ToString(share.ResourceShare.ResourceShareArn)}})
+				want := 0
+				if allowed {
+					want = 1
+				}
+				if err != nil || len(shares.ResourceShares) != want {
+					t.Fatalf("current organization share visibility: %+v %v", shares, err)
+				}
+				resources, err := cl.ram("us-east-1", consumer, "test").ListResources(ctx, &ram.ListResourcesInput{ResourceOwner: "OTHER-ACCOUNTS", ResourceShareArns: []string{aws.ToString(share.ResourceShare.ResourceShareArn)}})
+				if err != nil || len(resources.Resources) != want {
+					t.Fatalf("current organization resource visibility: %+v %v", resources, err)
+				}
+				if allowed {
+					_, err := cl.ram("us-east-1", consumer, "test").DisassociateResourceShare(ctx, &ram.DisassociateResourceShareInput{ResourceShareArn: share.ResourceShare.ResourceShareArn, Principals: []string{consumer}})
+					assertAPIError(t, err, "OperationNotPermittedException")
+				}
 				t.Helper()
 				out, err := cl.ssm("us-east-1", consumer, "test").GetParameter(ctx, &ssm.GetParameterInput{Name: new(arn)})
 				if !allowed {

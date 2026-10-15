@@ -59,7 +59,7 @@ func (s *Service) reconcileTable(ctx context.Context, record *TableRecord) (bool
 		if observed.Table == nil {
 			return false, fmt.Errorf("engine DescribeTable omitted table %s", record.Key.ARN())
 		}
-		if value(observed.Table.TableStatus) != "ACTIVE" {
+		if !engineTableReady(observed.Table) {
 			return true, nil
 		}
 		in := engineUpdateInput(record.PendingUpdate, observed.Table)
@@ -70,6 +70,13 @@ func (s *Service) reconcileTable(ctx context.Context, record *TableRecord) (bool
 				return false, err
 			}
 			observed.Table = nil
+		}
+	case "ACTIVE":
+		// Older controllers could publish the table while its native GSI was
+		// still CREATING. Re-read that retained transition without replaying a
+		// mutation whose original pending input has already been retired.
+		if engineTableReady(&record.Data) {
+			return false, nil
 		}
 	case "DELETING":
 		if err := s.deleteTableData(ctx, record); err != nil && !engineCode(err, "ResourceNotFoundException") {
@@ -91,7 +98,7 @@ func (s *Service) reconcileTable(ctx context.Context, record *TableRecord) (bool
 	if observed.Table == nil {
 		return false, fmt.Errorf("engine DescribeTable omitted table %s", record.Key.ARN())
 	}
-	if value(observed.Table.TableStatus) != "ACTIVE" {
+	if !engineTableReady(observed.Table) {
 		return true, nil
 	}
 	if record.Data.RestoreSummary != nil {

@@ -10,9 +10,6 @@ func validateCreateCacheClusterMessage(in *api.CreateCacheClusterMessage) error 
 	if len(in.CacheSecurityGroupNames) != 0 {
 		return unsupported("CacheSecurityGroupNames is not supported by the native cache runtime.")
 	}
-	if in.CacheSubnetGroupName != nil {
-		return unsupported("CacheSubnetGroupName is not supported by the native cache runtime.")
-	}
 	if in.IpDiscovery != nil {
 		return unsupported("IpDiscovery is not supported by the native cache runtime.")
 	}
@@ -28,8 +25,8 @@ func validateCreateCacheClusterMessage(in *api.CreateCacheClusterMessage) error 
 	if in.OutpostMode != nil {
 		return unsupported("OutpostMode is not supported by the native cache runtime.")
 	}
-	if in.Port != nil {
-		return unsupported("Port is not supported by the native cache runtime.")
+	if in.Port != nil && (value(in.CacheSubnetGroupName) == "" || *in.Port != 6379) {
+		return unsupported("Configured ports require managed cache placement on port6379.")
 	}
 	if in.PreferredAvailabilityZone != nil {
 		return unsupported("PreferredAvailabilityZone is not supported by the native cache runtime.")
@@ -49,8 +46,8 @@ func validateCreateCacheClusterMessage(in *api.CreateCacheClusterMessage) error 
 	if in.ReplicationGroupId != nil {
 		return unsupported("ReplicationGroupId is not supported by the native cache runtime.")
 	}
-	if len(in.SecurityGroupIds) != 0 {
-		return unsupported("SecurityGroupIds is not supported by the native cache runtime.")
+	if len(in.SecurityGroupIds) != 0 && value(in.CacheSubnetGroupName) == "" {
+		return unsupported("SecurityGroupIds requires explicit CacheSubnetGroupName placement.")
 	}
 	if len(in.SnapshotArns) != 0 {
 		return unsupported("SnapshotArns is not supported by the native cache runtime.")
@@ -69,9 +66,6 @@ func validateCreateCacheClusterMessage(in *api.CreateCacheClusterMessage) error 
 func validateCreateReplicationGroupMessage(in *api.CreateReplicationGroupMessage) error {
 	if len(in.CacheSecurityGroupNames) != 0 {
 		return unsupported("CacheSecurityGroupNames is not supported by the native cache runtime.")
-	}
-	if in.CacheSubnetGroupName != nil {
-		return unsupported("CacheSubnetGroupName is not supported by the native cache runtime.")
 	}
 	if in.DataTieringEnabled != nil {
 		return unsupported("DataTieringEnabled is not supported by the native cache runtime.")
@@ -100,8 +94,8 @@ func validateCreateReplicationGroupMessage(in *api.CreateReplicationGroupMessage
 	if in.NotificationTopicArn != nil {
 		return unsupported("NotificationTopicArn is not supported by the native cache runtime.")
 	}
-	if in.Port != nil {
-		return unsupported("Port is not supported by the native cache runtime.")
+	if in.Port != nil && (value(in.CacheSubnetGroupName) == "" || *in.Port != 6379) {
+		return unsupported("Configured ports require managed cache placement on port6379.")
 	}
 	if len(in.PreferredCacheClusterAZs) != 0 {
 		return unsupported("PreferredCacheClusterAZs is not supported by the native cache runtime.")
@@ -112,8 +106,8 @@ func validateCreateReplicationGroupMessage(in *api.CreateReplicationGroupMessage
 	if in.PrimaryClusterId != nil {
 		return unsupported("PrimaryClusterId is not supported by the native cache runtime.")
 	}
-	if len(in.SecurityGroupIds) != 0 {
-		return unsupported("SecurityGroupIds is not supported by the native cache runtime.")
+	if len(in.SecurityGroupIds) != 0 && value(in.CacheSubnetGroupName) == "" {
+		return unsupported("SecurityGroupIds requires explicit CacheSubnetGroupName placement.")
 	}
 	if in.ServerlessCacheSnapshotName != nil {
 		return unsupported("ServerlessCacheSnapshotName is not supported by the native cache runtime.")

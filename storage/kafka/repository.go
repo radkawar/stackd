@@ -18,6 +18,8 @@ type (
 	MemoryRepository    = service.MemoryRepository
 	Endpoint            = service.Endpoint
 	Broker              = service.Broker
+	BrokerNetworkRecord = service.BrokerNetworkRecord
+	SCRAMAssociation    = service.SCRAMAssociation
 )
 
 var ErrNotFound = service.ErrNotFound

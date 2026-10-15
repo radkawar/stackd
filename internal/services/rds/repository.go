@@ -37,7 +37,11 @@ type Database struct {
 	RequestedPort                                                        int32
 	// AllocatedStorage is requested GiB, not an enforced host-volume quota.
 	// Zero means no capacity request was made (including legacy databases).
-	AllocatedStorage                                             int32
+	AllocatedStorage int32
+	// DocumentDB projections supply these fields; standalone RDS admission does
+	// not enable managed automated backups.
+	BackupRetention                                              int32
+	BackupWindow                                                 string
 	Version                                                      int64
 	Created, Due                                                 time.Time
 	DeletionProtection, HTTPEnabled, CopyTags, PendingParameters bool
@@ -51,9 +55,12 @@ type Snapshot struct {
 	Source, SourceRuntimeID, RuntimeID, Engine, EngineVersion, DatabaseName, Username, Class, Status string
 	Ciphertext                                                                                       []byte
 	AllocatedStorage                                                                                 int32
-	Parameters, Tags                                                                                 map[string]string
-	Version                                                                                          int64
-	Created, Due                                                                                     time.Time
+	// Automated is supplied by the DocumentDB snapshot projection. Native RDS
+	// snapshots remain manual; their retained default is false.
+	Automated        bool
+	Parameters, Tags map[string]string
+	Version          int64
+	Created, Due     time.Time
 }
 
 type ParameterGroup struct {
@@ -94,6 +101,8 @@ type Reader interface {
 	ParameterGroups(Scope) ([]ParameterGroup, error)
 	SubnetGroup(Key) (SubnetGroup, error)
 	SubnetGroups(Scope) ([]SubnetGroup, error)
+	GlobalCluster(GlobalKey) (GlobalCluster, error)
+	GlobalClusters(GlobalScope) ([]GlobalCluster, error)
 }
 type Transaction interface {
 	Reader
@@ -105,6 +114,8 @@ type Transaction interface {
 	DeleteParameterGroup(Key) error
 	PutSubnetGroup(SubnetGroup) error
 	DeleteSubnetGroup(Key) error
+	PutGlobalCluster(GlobalCluster) error
+	DeleteGlobalCluster(GlobalKey) error
 }
 
 // CredentialCipher delegates durable authenticated encryption to the KMS owner.

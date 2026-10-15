@@ -79,6 +79,7 @@ func (j clusterJobs) Run(ctx context.Context, job scheduler.Job) error {
 	var v Cluster
 	var spec engine.Specification
 	waiting := false
+	var nativeErr error
 	e = s.repository.View(ctx, func(r Reader) error {
 		var e error
 		v, e = r.Cluster(k)
@@ -104,11 +105,14 @@ func (j clusterJobs) Run(ctx context.Context, job scheduler.Job) error {
 		}
 		return e
 	})
-	if errors.Is(e, ErrNotFound) {
+	if errors.Is(e, ErrNotFound) && v.RuntimeID == "" {
 		return nil
 	}
 	if e != nil {
-		return e
+		if v.SubnetGroup == "" {
+			return e
+		}
+		nativeErr = s.quarantineManaged(ctx, v, e)
 	}
 	if uint64(v.Version) != job.Version || !v.Due.Equal(job.Due) || v.Due.After(s.clock.Now()) {
 		return nil
@@ -129,27 +133,46 @@ func (j clusterJobs) Run(ctx context.Context, job scheduler.Job) error {
 	}
 	var deployment engine.Deployment
 	var sample *engine.Statistics
-	var nativeErr error
+	ctx = managedRuntimeContext(ctx, v)
 	if s.runtime == nil {
 		nativeErr = errors.New("native cache runtime unavailable")
-	} else {
-		switch v.Operation {
-		case "delete", "delete-after-snapshot":
-			nativeErr = s.runtime.Delete(ctx, v.RuntimeID)
-		case "reboot":
-			deployment, nativeErr = s.runtime.Restart(ctx, spec)
-		default:
-			if v.RestoreSnapshot != "" {
-				deployment, nativeErr = s.runtime.Restore(ctx, spec, v.RestoreSnapshot)
-			} else {
-				deployment, nativeErr = s.runtime.Ensure(ctx, spec)
+	} else if nativeErr == nil {
+		if v.Operation != "delete" && v.Operation != "delete-after-snapshot" {
+			v, nativeErr = s.allocateCacheNetworks(ctx, v)
+			if nativeErr == nil {
+				spec, nativeErr = s.networkSpecification(ctx, v, spec)
 			}
 		}
-		if nativeErr == nil && v.Operation != "delete" && v.Operation != "delete-after-snapshot" && s.metrics != nil {
-			stat, err := s.runtime.Statistics(ctx, spec)
-			if err == nil {
-				sample = &stat
+		if nativeErr == nil {
+			switch v.Operation {
+			case "delete", "delete-after-snapshot":
+				nativeErr = s.runtime.Delete(ctx, v.RuntimeID)
+				if nativeErr == nil {
+					nativeErr = s.releaseCacheNetworks(ctx, v)
+				}
+			case "reboot":
+				deployment, nativeErr = s.runtime.Restart(ctx, spec)
+			default:
+				if v.RestoreSnapshot != "" {
+					deployment, nativeErr = s.runtime.Restore(ctx, spec, v.RestoreSnapshot)
+				} else {
+					deployment, nativeErr = s.runtime.Ensure(ctx, spec)
+				}
 			}
+		}
+		if nativeErr == nil && v.Operation != "delete" && v.Operation != "delete-after-snapshot" {
+			nativeErr = validateManagedDeployment(v, deployment)
+			if nativeErr == nil && s.metrics != nil {
+				stat, err := s.runtime.Statistics(ctx, spec)
+				if err == nil {
+					sample = &stat
+				} else if v.SubnetGroup != "" {
+					nativeErr = err
+				}
+			}
+		}
+		if nativeErr != nil && v.Operation != "delete" && v.Operation != "delete-after-snapshot" {
+			nativeErr = s.quarantineManaged(ctx, v, nativeErr)
 		}
 	}
 	if ctx.Err() != nil {
@@ -338,9 +361,16 @@ func (j snapshotJobs) Run(ctx context.Context, job scheduler.Job) error {
 		return nil
 	}
 	var nativeErr error
+	if v.Operation == "snapshot" && source.SubnetGroup != "" {
+		ctx = managedRuntimeContext(ctx, source)
+		spec, nativeErr = s.networkSpecification(ctx, source, spec)
+		if nativeErr != nil {
+			nativeErr = s.quarantineManaged(ctx, source, nativeErr)
+		}
+	}
 	if s.runtime == nil {
 		nativeErr = errors.New("native cache runtime unavailable")
-	} else {
+	} else if nativeErr == nil {
 		switch v.Operation {
 		case "delete":
 			nativeErr = s.runtime.DeleteSnapshot(ctx, v.RuntimeID)
@@ -348,6 +378,9 @@ func (j snapshotJobs) Run(ctx context.Context, job scheduler.Job) error {
 			nativeErr = s.runtime.CopySnapshot(ctx, v.CopySource, v.RuntimeID)
 		default:
 			nativeErr = s.runtime.Snapshot(ctx, spec, v.RuntimeID)
+		}
+		if nativeErr != nil && v.Operation == "snapshot" {
+			nativeErr = s.quarantineManaged(ctx, source, nativeErr)
 		}
 	}
 	if ctx.Err() != nil {

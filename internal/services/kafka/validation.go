@@ -94,6 +94,9 @@ func ValidateSpecification(v Specification) error {
 	if v.Brokers < 1 || v.Brokers > 3 {
 		return fmt.Errorf("only one to three native Kafka brokers are supported")
 	}
+	if len(v.Networks) != 0 && len(v.Networks) != int(v.Brokers) {
+		return fmt.Errorf("each native Kafka broker requires its own EC2 attachment")
+	}
 	if v.SecurityMode != "PLAINTEXT" && v.SecurityMode != "TLS" && v.SecurityMode != "SASL_SCRAM" {
 		return fmt.Errorf("unsupported Kafka authentication mode")
 	}

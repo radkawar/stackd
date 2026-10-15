@@ -15,6 +15,9 @@ type (
 	ParameterGroup      = service.ParameterGroup
 	Subnet              = service.Subnet
 	SubnetGroup         = service.SubnetGroup
+	GlobalScope         = service.GlobalScope
+	GlobalKey           = service.GlobalKey
+	GlobalCluster       = service.GlobalCluster
 	Repository          = service.Repository
 	Reader              = service.Reader
 	Transaction         = service.Transaction

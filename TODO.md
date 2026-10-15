@@ -19,6 +19,17 @@ callers need them. Detailed fleet behavior and quota tuning do not block the nex
 service. [The shared design policy](docs/verification-kernel.md#iam-evaluation-and-strict-behavior)
 keeps service-specific accounting and error semantics authoritative.
 
+- [ ] Implement genuine DynamoDB managed-key encryption across native table/index
+  storage, Streams, backups and regional replicas. Pinned DynamoDB Local ignores
+  SSE selection and stores readable SQLite bytes; an alias or key-generation
+  call alone is not encryption. The separate Terraform replica resource also
+  resolves `alias/aws/dynamodb` unconditionally. Keep that provider dependency
+  distinct from the native-storage design gap; ordinary regional replication
+  evidence does not complete this item.
+- [ ] Complete Kafka SCRAM association grants, current-key/credential rotation,
+  retained reassociation and exact grant retirement, with real protocol checks.
+  Keep native storage-grant principal evidence distinct from uncaptured AWS
+  SCRAM grant shape. Do not add fictitious service-role permissions or bypass KMS.
 - [x] Generate the operation inventory from explicit service selection, pinned
   SDK Smithy models and actual built-in registrations. `make generate-coverage`
   refreshes `docs/services.json`; `make generate-coverage-check` and the explicit

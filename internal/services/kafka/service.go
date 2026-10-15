@@ -18,22 +18,28 @@ import (
 )
 
 type Config struct {
-	Repository Repository
-	Authorizer authorization.Authorizer
-	Recorder   apievents.Recorder
-	Clock      clock.Clock
-	Runtime    Runtime
-	Secrets    Secrets
+	Repository         Repository
+	Authorizer         authorization.Authorizer
+	Recorder           apievents.Recorder
+	Clock              clock.Clock
+	Runtime            Runtime
+	Secrets            Secrets
+	Networks           NetworkControl
+	ServiceLinkedRoles ServiceLinkedRoles
+	Metrics            Metrics
 }
 type Service struct {
-	repository Repository
-	authorizer authorization.Authorizer
-	recorder   apievents.Recorder
-	clock      clock.Clock
-	runtime    Runtime
-	secrets    Secrets
-	jobs       *scheduler.Driver
-	operations map[string]func(context.Context) (any, *awswire.Error)
+	repository         Repository
+	authorizer         authorization.Authorizer
+	recorder           apievents.Recorder
+	clock              clock.Clock
+	runtime            Runtime
+	secrets            Secrets
+	networks           NetworkControl
+	serviceLinkedRoles ServiceLinkedRoles
+	metrics            Metrics
+	jobs               *scheduler.Driver
+	operations         map[string]func(context.Context) (any, *awswire.Error)
 }
 
 func New(c Config) *Service {
@@ -46,7 +52,7 @@ func New(c Config) *Service {
 	if c.Authorizer == nil {
 		c.Authorizer = authorization.NewWithClock(nil, nil, c.Clock)
 	}
-	s := &Service{repository: c.Repository, authorizer: c.Authorizer, recorder: c.Recorder, clock: c.Clock, runtime: c.Runtime, secrets: c.Secrets, operations: map[string]func(context.Context) (any, *awswire.Error){}}
+	s := &Service{repository: c.Repository, authorizer: c.Authorizer, recorder: c.Recorder, clock: c.Clock, runtime: c.Runtime, secrets: c.Secrets, networks: c.Networks, serviceLinkedRoles: c.ServiceLinkedRoles, metrics: c.Metrics, operations: map[string]func(context.Context) (any, *awswire.Error){}}
 	s.jobs = scheduler.New(c.Clock, clusterJobs{s})
 	registerClusters(s)
 	registerConfigurations(s)
@@ -83,9 +89,9 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	awswire.WriteJSONBytes(w, r, body)
 }
 
-// TODO: Comeback implement MSK serverless, managed VPC/network enforcement,
-// IAM/mTLS data authentication, managed storage encryption, monitoring sinks,
-// replication, multi-VPC connectivity and mutable fleet topology with real owners.
+// ExecuteCommand exposes the native-backed operation set. Serverless clusters,
+// managed storage/encryption, IAM/mTLS data authentication, replication,
+// multi-VPC connectivity and mutable fleet topology remain unavailable.
 func (s *Service) ExecuteCommand(ctx context.Context, d awsapi.DecodedRequest) (any, *awswire.Error) {
 	ctx = awsapi.WithDecodedRequest(ctx, d)
 	if f := s.operations[string(d.Operation.Name)]; f != nil {
@@ -108,6 +114,7 @@ func register[I, O any](s *Service, action string, f func(context.Context, Trans
 			return nil, wireError(e)
 		}
 		ctx, e = s.prepare(ctx, action, in)
+		ctx, outcomes := apievents.RetainOutcomes(ctx)
 		var out *O
 		if e == nil {
 			e = s.repository.Attempt(ctx, func(t Transaction) error {
@@ -126,7 +133,18 @@ func register[I, O any](s *Service, action string, f func(context.Context, Trans
 		w := wireError(e)
 		completion, cancel := apievents.CompletionContext(ctx)
 		defer cancel()
-		if e = s.recordCall(completion, action, in, nil, w); e != nil {
+		var dependency interface{ RecordRejection(context.Context) error }
+		if errors.As(e, &dependency) {
+			if err := dependency.RecordRejection(completion); err != nil {
+				return nil, wireError(err)
+			}
+		}
+		if e = s.repository.Update(completion, func(t Transaction) error {
+			if err := outcomes.Record(t.Context()); err != nil {
+				return err
+			}
+			return s.recordCall(t.Context(), action, in, nil, w)
+		}); e != nil {
 			return nil, wireError(e)
 		}
 		return nil, w

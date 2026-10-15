@@ -8,12 +8,15 @@ import (
 	"net"
 	"net/http"
 	"time"
+
+	"stackd/compute/elbv2/desync"
 )
 
 type idleListener struct {
 	net.Listener
-	policy    *connectionIdlePolicy
-	tlsConfig *tls.Config
+	policy     *connectionIdlePolicy
+	tlsConfig  *tls.Config
+	classifier *desync.Classifier
 }
 
 func (l idleListener) Accept() (net.Conn, error) {
@@ -21,14 +24,21 @@ func (l idleListener) Accept() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	c := &idleConnection{Conn: raw, policy: l.policy, last: time.Now(), client: true, response: raw}
+	now := time.Now()
+	c := &idleConnection{Conn: raw, policy: l.policy, last: now, accepted: now, client: true, response: raw}
 	if l.tlsConfig != nil {
 		// Observe encrypted byte activity below TLS, but mark HTTP input only
 		// after TLS has yielded plaintext. An incomplete handshake can then
 		// close without waiting on TLS's handshake mutex or inventing HTTP.
-		c.Conn = tls.Server(tlsActivityConn{Conn: raw, idle: c}, l.tlsConfig)
-		c.response = c.Conn
+		c.tlsTransport = tls.Server(tlsActivityConn{Conn: raw, idle: c}, l.tlsConfig)
+		c.Conn = c.tlsTransport
+		c.response = c.tlsTransport
 		c.secure = true
+	}
+	if l.classifier != nil {
+		// This wrapper reads decrypted plaintext, not encrypted TLS records.
+		c.desync = newDesyncConnection(plaintextActivityConn{Conn: c.Conn, idle: c}, l.classifier, c)
+		c.Conn = c.desync
 	}
 	l.policy.mu.Lock()
 	l.policy.connections[c] = struct{}{}
@@ -67,7 +77,7 @@ func (c *idleConnection) requestTLS() *tls.ConnectionState {
 	c.policy.mu.Lock()
 	defer c.policy.mu.Unlock()
 	if c.tlsState == nil {
-		state := c.Conn.(*tls.Conn).ConnectionState()
+		state := c.tlsTransport.ConnectionState()
 		c.tlsState = &state
 	}
 	return c.tlsState
@@ -107,7 +117,43 @@ func idleHTTPState(conn net.Conn, state http.ConnState) {
 		_ = c.Conn.SetReadDeadline(time.Time{})
 		c.last = time.Now()
 		c.timer.Reset(p.timeout)
+		if c.desync != nil {
+			c.closeUpgrade = state == http.StateHijacked && c.desync.ambiguous()
+			c.desync.completeRequest(state == http.StateHijacked)
+		}
 	}
+}
+
+// The pre-parser may read fragmented headers before returning anything to
+// net/http. Account for that real byte activity and incomplete HTTP input here,
+// while encrypted traffic continues to be observed below TLS.
+type plaintextActivityConn struct {
+	net.Conn
+	idle *idleConnection
+}
+
+func (c plaintextActivityConn) Read(buffer []byte) (int, error) {
+	n, err := c.Conn.Read(buffer)
+	if n > 0 {
+		if !c.idle.secure {
+			c.idle.touch()
+		}
+		c.idle.policy.mu.Lock()
+		c.idle.input = true
+		if c.idle.reading {
+			c.idle.readAt = time.Now()
+			_ = c.Conn.SetReadDeadline(c.idle.readAt.Add(c.idle.policy.timeout))
+		}
+		c.idle.policy.mu.Unlock()
+	}
+	return n, err
+}
+
+func (c plaintextActivityConn) CloseWrite() error {
+	if half, ok := c.Conn.(interface{ CloseWrite() error }); ok {
+		return half.CloseWrite()
+	}
+	return c.Conn.Close()
 }
 
 type idleRequestBody struct {

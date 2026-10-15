@@ -15,6 +15,7 @@ func cloneServiceRecord(v ServiceRecord) ServiceRecord {
 	v.Data = api.CloneService(v.Data)
 	v.CreateInput = api.CloneCreateServiceRequest(v.CreateInput)
 	v.Deployments = slices.Clone(v.Deployments)
+	v.DeploymentHistory = cloneTerraformServiceDeployments(v.DeploymentHistory)
 	if v.Deployments != nil {
 		v.Data.Deployments = make(api.Deployments, len(v.Deployments))
 	}

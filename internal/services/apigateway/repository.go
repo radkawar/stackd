@@ -66,6 +66,7 @@ type MethodRecord struct {
 	Scopes                                         []string
 	APIKeyRequired                                 bool
 	Responses                                      map[string]MethodResponse
+	RequestParameters                              map[string]bool
 }
 type MethodResponse struct{ Headers map[string]bool }
 type IntegrationRecord struct {
@@ -74,6 +75,7 @@ type IntegrationRecord struct {
 	CredentialsARN string
 	TimeoutMillis  int32
 	Mock           *apigatewayexec.MockIntegration
+	HTTPProxy      *apigatewayexec.HTTPProxyIntegration
 }
 type AuthorizerRecord struct {
 	Ownership        Ownership
@@ -82,6 +84,9 @@ type AuthorizerRecord struct {
 	ProviderARNs     []string
 	URI              string
 	LambdaAuthorizer *apigatewayexec.LambdaAuthorizer
+	// Cognito ignores TTL on Create but retains an optional value set by PATCH.
+	// This control field does not enable Lambda-style authorization caching.
+	CognitoTTLSeconds *int32
 }
 
 // DeploymentRoute is an owned snapshot, deliberately independent of mutable
@@ -94,6 +99,7 @@ type DeploymentRoute struct {
 	LambdaAuthorizer                                             *apigatewayexec.LambdaAuthorizer
 	APIKeyRequired                                               bool
 	Mock                                                         *apigatewayexec.MockIntegration
+	HTTPProxy                                                    *apigatewayexec.HTTPProxyIntegration
 }
 type DeploymentResource struct{ ResourceID, Path string }
 type DeploymentRecord struct {

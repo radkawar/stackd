@@ -474,7 +474,115 @@ func (s *Service) removePrincipal(tx Transaction, p *PrincipalAssociation) error
 	}
 	return nil
 }
+
+// leaveResourceShare implements RAM's documented recipient withdrawal contract,
+// not foreign-account management of the share or its resources.
+func (s *Service) leaveResourceShare(tx Transaction, sh Share, in *api.DisassociateResourceShareRequest) (*api.DisassociateResourceShareResponse, error) {
+	sc := scopeFor(tx.Context())
+	if sh.Partition != sc.Partition || sh.Region != sc.Region {
+		return nil, ErrNotFound
+	}
+	if sh.Status != "ACTIVE" || sh.FeatureSet != "STANDARD" {
+		return nil, ErrNotFound
+	}
+	if len(in.ResourceArns) != 0 || len(in.Sources) != 0 || len(in.Principals) != 1 || string(in.Principals[0]) != sc.AccountID {
+		return nil, failure("OperationNotPermittedException", "Recipients can remove only their own individual account from a resource share.")
+	}
+	index := -1
+	for i, p := range sh.Principals {
+		if p.Principal == sc.AccountID && p.PrincipalID == "" {
+			index = i
+			break
+		}
+	}
+	if index < 0 {
+		visible, e := s.visibleShare(tx, sh, "OTHER-ACCOUNTS")
+		if e != nil {
+			return nil, e
+		}
+		if visible {
+			return nil, failure("OperationNotPermittedException", "Only individually shared AWS accounts can leave a resource share.")
+		}
+		return nil, ErrNotFound
+	}
+	p := &sh.Principals[index]
+	if p.Organization {
+		return nil, failure("OperationNotPermittedException", "Organization resource shares cannot be left by a recipient.")
+	}
+	if s.organization != nil {
+		eligible, e := s.organization.Eligible(tx.Context(), sh.AccountID, sc.AccountID, sc.AccountID)
+		if e != nil {
+			return nil, e
+		}
+		if eligible {
+			return nil, failure("OperationNotPermittedException", "Organization resource shares cannot be left by a recipient.")
+		}
+	}
+	rec, replay, e := receipt(tx, "DisassociateResourceShare", in.ClientToken, in)
+	if e != nil {
+		return nil, e
+	}
+	active, e := s.principalActive(tx, sh, *p, sc.AccountID)
+	if e != nil {
+		return nil, e
+	}
+	// A retained receipt permits only an authenticated retry of this exact
+	// completed withdrawal. It grants no read access and cannot revive an edge.
+	if !active && !(replay && rec.ARN == sh.ARN && p.Status == "DISASSOCIATED") {
+		return nil, ErrNotFound
+	}
+	if e = s.authorizeAccountGrant(tx, "DisassociateResourceShare", sh.ARN, sh.Tags, true); e != nil {
+		return nil, e
+	}
+	for _, a := range sh.Resources {
+		current, live, e := s.currentResource(tx, a)
+		if e != nil {
+			return nil, e
+		}
+		if !live {
+			continue
+		}
+		// AWS documents this finite set; notably SSM parameters cannot be
+		// withdrawn by recipients. Their owner must revoke or delete the share.
+		switch current.ResourceType {
+		case "rds:Cluster", "ec2:CapacityReservation", "ec2:DedicatedHost",
+			"license-manager:LicenseConfiguration", "ec2:LocalGatewayRouteTable",
+			"outposts:Outpost", "outposts:Site", "route53resolver:ResolverRule",
+			"ec2:CoipPool", "ec2:PrefixList", "ec2:Subnet", "ec2:TrafficMirrorTarget",
+			"ec2:TransitGateway", "ec2:TransitGatewayMulticastDomain":
+		default:
+			return nil, failure("OperationNotPermittedException", "A resource type in this share does not support recipient withdrawal.")
+		}
+	}
+	if e = s.claimEdge(tx, sh, "PRINCIPAL", sc.AccountID); e != nil {
+		return nil, e
+	}
+	if !replay {
+		if e = s.removePrincipal(tx, p); e != nil {
+			return nil, e
+		}
+		sh.Updated = s.clock.Now()
+		if e = tx.PutShare(sh); e != nil {
+			return nil, e
+		}
+		rec.ARN = sh.ARN
+		if e = saveReceipt(tx, rec); e != nil {
+			return nil, e
+		}
+	}
+	return &api.DisassociateResourceShareResponse{ClientToken: in.ClientToken, ResourceShareAssociations: selectedAssociations(sh, nil, in.Principals)}, nil
+}
+
 func (s *Service) disassociateResourceShare(tx Transaction, in *api.DisassociateResourceShareRequest) (*api.DisassociateResourceShareResponse, error) {
+	// A recipient can leave only its own individual-account association.
+	// All owner mutations continue through the ordinary ownership path.
+	current, e := tx.Share(value(in.ResourceShareArn))
+	if e != nil {
+		return nil, e
+	}
+	if current.AccountID != scopeFor(tx.Context()).AccountID {
+		return s.leaveResourceShare(tx, current, in)
+	}
 	v, e := s.ownedShare(tx, value(in.ResourceShareArn), "DisassociateResourceShare", true)
 	if e != nil {
 		return nil, e

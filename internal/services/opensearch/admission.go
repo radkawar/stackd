@@ -80,11 +80,39 @@ func validateCommon(cluster *api.ClusterConfig, ebs *api.EBSOptions, security *a
 		return failure("ValidationException", "Native node-to-node TLS is not supported.")
 	}
 	if endpoint != nil {
-		if err := rejectOtherFields(endpoint, "EnforceHTTPS", "CustomEndpointEnabled"); err != nil {
+		if err := rejectOtherFields(endpoint, "EnforceHTTPS", "CustomEndpointEnabled", "TLSSecurityPolicy"); err != nil {
 			return err
+		}
+		// Provider 6.68.0 expands an omitted, computed TLS policy to an empty
+		// enum. It requests no transport effect; a named policy still does.
+		if endpoint.TLSSecurityPolicy != nil && *endpoint.TLSSecurityPolicy != "" {
+			return failure("ValidationException", "Managed TLS policies are not supported.")
 		}
 		if enabled(endpoint.EnforceHTTPS) || enabled(endpoint.CustomEndpointEnabled) {
 			return failure("ValidationException", "Managed HTTPS/custom endpoints are not supported.")
+		}
+	}
+	return nil
+}
+
+// validateDisabledOptions admits provider-serialized disabled controls only.
+// Credentials, schedules and enabled managed effects remain unsupported, and
+// no accepted disabled option is retained as fictional runtime configuration.
+func validateDisabledOptions(cognito *api.CognitoOptions, software *api.SoftwareUpdateOptions) error {
+	if cognito != nil {
+		if err := rejectOtherFields(cognito, "Enabled"); err != nil {
+			return err
+		}
+		if enabled(cognito.Enabled) {
+			return failure("ValidationException", "Native Cognito authentication is not supported.")
+		}
+	}
+	if software != nil {
+		if err := rejectOtherFields(software, "AutoSoftwareUpdateEnabled"); err != nil {
+			return err
+		}
+		if enabled(software.AutoSoftwareUpdateEnabled) {
+			return failure("ValidationException", "Managed automatic software updates are not supported; the installed native engine is pinned.")
 		}
 	}
 	return nil
@@ -96,13 +124,19 @@ func validateCreate(in *api.CreateDomainRequest) error {
 	if version := value(in.EngineVersion); version != "" && version != EngineVersion {
 		return failure("ValidationException", "Unsupported engine version: "+version+". The installed runtime supports "+EngineVersion+" only.")
 	}
-	if err := rejectOtherFields(in, "DomainName", "EngineVersion", "AccessPolicies", "AdvancedOptions", "ClusterConfig", "EBSOptions", "AdvancedSecurityOptions", "EncryptionAtRestOptions", "NodeToNodeEncryptionOptions", "DomainEndpointOptions", "TagList"); err != nil {
+	if err := rejectOtherFields(in, "DomainName", "EngineVersion", "AccessPolicies", "AdvancedOptions", "ClusterConfig", "EBSOptions", "AdvancedSecurityOptions", "EncryptionAtRestOptions", "NodeToNodeEncryptionOptions", "DomainEndpointOptions", "CognitoOptions", "SoftwareUpdateOptions", "TagList"); err != nil {
+		return err
+	}
+	if err := validateDisabledOptions(in.CognitoOptions, in.SoftwareUpdateOptions); err != nil {
 		return err
 	}
 	return validateCommon(in.ClusterConfig, in.EBSOptions, in.AdvancedSecurityOptions, in.EncryptionAtRestOptions, in.NodeToNodeEncryptionOptions, in.DomainEndpointOptions)
 }
 func validateUpdate(in *api.UpdateDomainConfigRequest) error {
-	if err := rejectOtherFields(in, "DomainName", "AccessPolicies", "AdvancedOptions", "ClusterConfig", "EBSOptions", "AdvancedSecurityOptions", "EncryptionAtRestOptions", "NodeToNodeEncryptionOptions", "DomainEndpointOptions"); err != nil {
+	if err := rejectOtherFields(in, "DomainName", "AccessPolicies", "AdvancedOptions", "ClusterConfig", "EBSOptions", "AdvancedSecurityOptions", "EncryptionAtRestOptions", "NodeToNodeEncryptionOptions", "DomainEndpointOptions", "CognitoOptions", "SoftwareUpdateOptions"); err != nil {
+		return err
+	}
+	if err := validateDisabledOptions(in.CognitoOptions, in.SoftwareUpdateOptions); err != nil {
 		return err
 	}
 	return validateCommon(in.ClusterConfig, in.EBSOptions, in.AdvancedSecurityOptions, in.EncryptionAtRestOptions, in.NodeToNodeEncryptionOptions, in.DomainEndpointOptions)

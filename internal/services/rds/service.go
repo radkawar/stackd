@@ -77,6 +77,7 @@ func New(c Config) *Service {
 	register(s, "DisableHttpEndpoint", s.disableHTTP)
 	register(s, "CreateDBSnapshot", s.createSnapshot)
 	register(s, "DescribeDBSnapshots", s.describeSnapshots)
+	register(s, "DescribeDBSnapshotAttributes", s.describeSnapshotAttributes)
 	register(s, "DeleteDBSnapshot", s.deleteSnapshot)
 	register(s, "RestoreDBInstanceFromDBSnapshot", s.restoreInstance)
 	register(s, "CreateDBClusterSnapshot", s.createClusterSnapshot)
@@ -103,6 +104,13 @@ func New(c Config) *Service {
 	register(s, "RemoveTagsFromResource", s.removeTags)
 	register(s, "ListTagsForResource", s.listTags)
 	register(s, "DescribeDBEngineVersions", s.describeEngineVersions)
+	register(s, "CreateGlobalCluster", s.createGlobalCluster)
+	register(s, "DescribeGlobalClusters", s.describeGlobalClusters)
+	register(s, "ModifyGlobalCluster", s.modifyGlobalCluster)
+	register(s, "DeleteGlobalCluster", s.deleteGlobalCluster)
+	register(s, "RemoveFromGlobalCluster", s.removeFromGlobalCluster)
+	register(s, "FailoverGlobalCluster", s.failoverGlobalCluster)
+	register(s, "SwitchoverGlobalCluster", s.switchoverGlobalCluster)
 	return s
 }
 
@@ -245,7 +253,7 @@ func (s *Service) recordCall(ctx context.Context, action string, in, out any, re
 	}
 	readOnly := false
 	switch action {
-	case "DescribeDBInstances", "DescribeDBClusters", "DescribeDBSnapshots", "DescribeDBClusterSnapshots", "DescribeDBParameterGroups", "DescribeDBClusterParameterGroups", "DescribeDBParameters", "DescribeDBClusterParameters", "DescribeDBSubnetGroups", "DescribeDBEngineVersions", "ListTagsForResource":
+	case "DescribeDBInstances", "DescribeDBClusters", "DescribeDBSnapshots", "DescribeDBSnapshotAttributes", "DescribeDBClusterSnapshots", "DescribeDBParameterGroups", "DescribeDBClusterParameterGroups", "DescribeDBParameters", "DescribeDBClusterParameters", "DescribeDBSubnetGroups", "DescribeDBEngineVersions", "DescribeGlobalClusters", "ListTagsForResource":
 		readOnly = true
 	}
 	projection := apievents.Projection{Category: journal.CategoryManagement, ReadOnly: readOnly, Request: awsapi.DocumentProjection{Fields: map[string]awsapi.FieldProjection{"masterUserPassword": {Mode: awsapi.RedactValueField}, "tdeCredentialPassword": {Mode: awsapi.RedactValueField}, "preSignedUrl": {Mode: awsapi.RedactValueField}, "parameters.parameterValue": {Mode: awsapi.RedactValueField}}}}
@@ -269,7 +277,7 @@ func failure(code, message string) *awswire.Error {
 	case "InternalFailure":
 		status = 500
 	case "DBInstanceNotFound", "DBClusterNotFoundFault", "DBSnapshotNotFound",
-		"DBClusterSnapshotNotFoundFault", "DBParameterGroupNotFound", "DBSubnetGroupNotFoundFault":
+		"DBClusterSnapshotNotFoundFault", "DBParameterGroupNotFound", "DBSubnetGroupNotFoundFault", "GlobalClusterNotFoundFault":
 		status = 404
 	}
 	return &awswire.Error{Code: code, Message: message, StatusCode: status}

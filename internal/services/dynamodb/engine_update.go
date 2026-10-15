@@ -6,9 +6,23 @@ import (
 	api "stackd/internal/awsapi/dynamodb"
 )
 
-// engineUpdateApplied recognizes completion after a restart between the native
-// mutation and the retained control-plane commit. Only this controller writes
-// these physical table configurations; no second receipt protocol is needed.
+// An ACTIVE table can still have a native GSI backfill or deletion in progress.
+// Presence identifies an applied mutation, not readiness to publish its result.
+func engineTableReady(table *api.TableDescription) bool {
+	if value(table.TableStatus) != "ACTIVE" {
+		return false
+	}
+	for _, index := range table.GlobalSecondaryIndexes {
+		if value(index.IndexStatus) != "ACTIVE" {
+			return false
+		}
+	}
+	return true
+}
+
+// engineUpdateApplied recognizes a submitted mutation after a restart between
+// the native effect and the retained control-plane commit. Readiness is checked
+// separately so a transitioning index is never mutated a second time.
 func engineUpdateApplied(table *api.TableDescription, in *api.UpdateTableInput) bool {
 	if in.BillingMode != nil {
 		mode := "PROVISIONED"

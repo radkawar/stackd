@@ -2,6 +2,7 @@ package valkey
 
 import (
 	"context"
+	"crypto"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"stackd/compute/docker"
+	"stackd/compute/network"
 	"stackd/compute/ports"
 )
 
@@ -24,25 +26,32 @@ const Image = "valkey/valkey@sha256:1cb6b20b70d927560cc4cc5397b5f045e74aa603ff76
 const controllerUser = "stackd-controller"
 const labelPrefix = "stackd.valkey."
 
-// DockerConfig addresses a local Docker daemon. The caller supplies a trusted
-// server certificate for TLS deployments. Native files are sensitive local
-// storage, not an emulation of AWS-managed physical storage encryption.
-// PortRange bounds new client endpoints; private cluster buses stay ephemeral.
+// DockerConfig addresses a local Docker daemon. Standalone TLS uses the supplied
+// loopback server certificate/key; managed TLS signs actual-IP leaves with that
+// installed CA/key (CA:true, KeyCertSign). Native files are sensitive local bytes,
+// not AWS-managed physical storage encryption. PortRange is standalone-only;
+// managed customer endpoints use fixed6379 and the supplied shared Bridges.
 type DockerConfig struct {
 	Host, Namespace, Image, TLSCertificate, TLSKey string
 	StartupTimeout                                 time.Duration
 	PortRange                                      ports.Range
+	Networks                                       *network.Bridges
 }
 type Docker struct {
-	client           *docker.Client
-	namespace, image string
-	certificate, key []byte
-	tlsConfig        *tls.Config
-	startupTimeout   time.Duration
-	portRange        ports.Range
-	gate             chan struct{}
-	mu               sync.Mutex
-	closed           bool
+	client               *docker.Client
+	namespace, image     string
+	certificate, key     []byte
+	tlsConfig            *tls.Config
+	ca                   *x509.Certificate
+	caKey                crypto.Signer
+	networks             *network.Bridges
+	imageEnv, toolkitEnv []string
+	toolkitImage         string
+	startupTimeout       time.Duration
+	portRange            ports.Range
+	gate                 chan struct{}
+	mu                   sync.Mutex
+	closed               bool
 }
 
 var immutableImage = regexp.MustCompile(`^(?:[^\s@]+@)?sha256:[a-f0-9]{64}$`)
@@ -70,7 +79,7 @@ func NewDocker(c DockerConfig) (*Docker, error) {
 	if c.StartupTimeout < 0 {
 		return nil, errors.New("valkey startup timeout must be positive")
 	}
-	d := &Docker{namespace: c.Namespace, startupTimeout: c.StartupTimeout, portRange: c.PortRange, gate: make(chan struct{}, 1)}
+	d := &Docker{namespace: c.Namespace, startupTimeout: c.StartupTimeout, portRange: c.PortRange, networks: c.Networks, gate: make(chan struct{}, 1)}
 	if (c.TLSCertificate == "") != (c.TLSKey == "") {
 		return nil, errors.New("valkey TLS certificate and key must be configured together")
 	}
@@ -92,14 +101,21 @@ func NewDocker(c DockerConfig) (*Docker, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err = cert.VerifyHostname("127.0.0.1"); err != nil {
-			return nil, fmt.Errorf("valkey TLS certificate must cover 127.0.0.1: %w", err)
+		if err = cert.VerifyHostname("127.0.0.1"); err != nil && (c.Networks == nil || !cert.IsCA || !cert.BasicConstraintsValid || cert.KeyUsage&x509.KeyUsageCertSign == 0) {
+			return nil, fmt.Errorf("standalone Valkey TLS certificate must cover 127.0.0.1: %w", err)
 		}
 		roots := x509.NewCertPool()
 		if !roots.AppendCertsFromPEM(d.certificate) {
 			return nil, errors.New("invalid Valkey TLS trust chain")
 		}
 		d.tlsConfig = &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12, ServerName: "127.0.0.1"}
+		if cert.IsCA && cert.BasicConstraintsValid && cert.KeyUsage&x509.KeyUsageCertSign != 0 {
+			signer, ok := pair.PrivateKey.(crypto.Signer)
+			if !ok {
+				return nil, errors.New("native Valkey managed TLS requires a signing private key")
+			}
+			d.ca, d.caKey = cert, signer
+		}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -109,8 +125,9 @@ func NewDocker(c DockerConfig) (*Docker, error) {
 	}
 	d.client = client
 	var image struct {
-		ID string `json:"Id"`
-		OS string `json:"Os"`
+		ID     string `json:"Id"`
+		OS     string `json:"Os"`
+		Config struct{ Env []string }
 	}
 	if err = client.JSON(ctx, http.MethodGet, "/images/"+url.PathEscape(c.Image)+"/json", nil, &image); err != nil {
 		client.Close()
@@ -121,6 +138,23 @@ func NewDocker(c DockerConfig) (*Docker, error) {
 		return nil, errors.New("valkey requires the installed Linux image")
 	}
 	d.image = image.ID
+	d.imageEnv = image.Config.Env
+	if c.Networks != nil {
+		var toolkit struct {
+			ID     string `json:"Id"`
+			OS     string `json:"Os"`
+			Config struct{ Env []string }
+		}
+		if err = client.JSON(ctx, http.MethodGet, "/images/"+url.PathEscape(docker.ToolkitImage)+"/json", nil, &toolkit); err != nil {
+			client.Close()
+			return nil, fmt.Errorf("install pinned managed Valkey networking toolkit explicitly: %w", err)
+		}
+		if toolkit.ID == "" || toolkit.OS != "linux" {
+			client.Close()
+			return nil, errors.New("managed Valkey requires the installed Linux networking toolkit")
+		}
+		d.toolkitImage, d.toolkitEnv = toolkit.ID, toolkit.Config.Env
+	}
 	return d, nil
 }
 

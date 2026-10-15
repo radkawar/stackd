@@ -2,7 +2,11 @@
 // MemoryDB. It is not an AWS control plane or a general engine manager.
 package valkey
 
-import "context"
+import (
+	"context"
+
+	"stackd/compute/network"
+)
 
 const Version = "8.1.6"
 const RedisCompatibility = "7.2"
@@ -15,11 +19,20 @@ type User struct {
 	NoPassword         bool
 }
 
+// NodeNetwork is the authoritative EC2 reservation for one managed cache node.
+type NodeNetwork struct {
+	InterfaceID string
+	Network     network.Specification
+}
+
 // Specification identifies immutable topology and current effective settings.
 // ID must be a persisted globally unique incarnation, not a resource name.
 type Specification struct {
 	MemoryBytes             int64
 	ID                      string
+	ClusterARN              string
+	Networks                []NodeNetwork
+	RefreshNetwork          func(context.Context, int) (NodeNetwork, error)
 	Shards, Replicas        int32
 	ClusterMode, TLSEnabled bool
 	Users                   []User

@@ -10,6 +10,17 @@ import (
 	"database/sql"
 )
 
+const countMetricFilters = `-- name: CountMetricFilters :one
+SELECT count(*) FROM logs_metric_filters WHERE group_id = ?
+`
+
+func (q *Queries) CountMetricFilters(ctx context.Context, groupID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countMetricFilters, groupID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteMetricFilter = `-- name: DeleteMetricFilter :exec
 DELETE FROM logs_metric_filters WHERE group_id = ? AND name = ?
 `

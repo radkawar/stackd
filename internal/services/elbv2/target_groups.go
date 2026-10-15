@@ -209,6 +209,9 @@ func (s *Service) deleteTargetGroup(ctx context.Context, tx Transaction, in *api
 	if e = tx.DeleteTargetGroup(sc, a); e != nil {
 		return nil, e
 	}
+	if s.runtime != nil {
+		s.runtime.targetRotation.forget(sc, a)
+	}
 	return &api.DeleteTargetGroupOutput{}, nil
 }
 func (s *Service) describeTargetGroups(ctx context.Context, tx Transaction, in *api.DescribeTargetGroupsInput) (*api.DescribeTargetGroupsOutput, error) {
@@ -321,25 +324,34 @@ func (s *Service) modifyTargetGroup(ctx context.Context, tx Transaction, in *api
 	}
 	return &api.ModifyTargetGroupOutput{TargetGroups: api.TargetGroups{g.Data}}, nil
 }
+
+// Fixed attributes describe executable routing policy, not retained settings:
+// selection is cross-zone round robin without cookies, warm-up or weighting;
+// DNS and unhealthy routing use one healthy target and fail open at zero.
+// Non-default policies require their own implementation before admission.
+var fixedTargetGroupAttributes = [...]struct{ key, value string }{
+	{"stickiness.enabled", "false"},
+	{"stickiness.type", "lb_cookie"},
+	{"stickiness.lb_cookie.duration_seconds", "86400"},
+	{"stickiness.app_cookie.duration_seconds", "86400"},
+	{"stickiness.app_cookie.cookie_name", ""},
+	{"slow_start.duration_seconds", "0"},
+	{"load_balancing.algorithm.type", "round_robin"},
+	{"load_balancing.algorithm.anomaly_mitigation", "off"},
+	{"load_balancing.cross_zone.enabled", "use_load_balancer_configuration"},
+	{"target_group_health.dns_failover.minimum_healthy_targets.count", "1"},
+	{"target_group_health.dns_failover.minimum_healthy_targets.percentage", "off"},
+	{"target_group_health.unhealthy_state_routing.minimum_healthy_targets.count", "1"},
+	{"target_group_health.unhealthy_state_routing.minimum_healthy_targets.percentage", "off"},
+}
+
 func targetGroupAttributes(g TargetGroupRecord) api.TargetGroupAttributes {
-	// Readback includes fixed defaults. Non-default settings remain rejected
-	// until their respective routing and health owners implement them.
-	return api.TargetGroupAttributes{
-		{Key: new(api.TargetGroupAttributeKey("deregistration_delay.timeout_seconds")), Value: new(api.TargetGroupAttributeValue(strconv.FormatInt(int64(g.DeregistrationDelay/time.Second), 10)))},
-		{Key: new(api.TargetGroupAttributeKey("stickiness.enabled")), Value: new(api.TargetGroupAttributeValue("false"))},
-		{Key: new(api.TargetGroupAttributeKey("stickiness.type")), Value: new(api.TargetGroupAttributeValue("lb_cookie"))},
-		{Key: new(api.TargetGroupAttributeKey("stickiness.lb_cookie.duration_seconds")), Value: new(api.TargetGroupAttributeValue("86400"))},
-		{Key: new(api.TargetGroupAttributeKey("stickiness.app_cookie.duration_seconds")), Value: new(api.TargetGroupAttributeValue("86400"))},
-		{Key: new(api.TargetGroupAttributeKey("stickiness.app_cookie.cookie_name")), Value: new(api.TargetGroupAttributeValue(""))},
-		{Key: new(api.TargetGroupAttributeKey("slow_start.duration_seconds")), Value: new(api.TargetGroupAttributeValue("0"))},
-		{Key: new(api.TargetGroupAttributeKey("load_balancing.algorithm.type")), Value: new(api.TargetGroupAttributeValue("round_robin"))},
-		{Key: new(api.TargetGroupAttributeKey("load_balancing.algorithm.anomaly_mitigation")), Value: new(api.TargetGroupAttributeValue("off"))},
-		{Key: new(api.TargetGroupAttributeKey("load_balancing.cross_zone.enabled")), Value: new(api.TargetGroupAttributeValue("use_load_balancer_configuration"))},
-		{Key: new(api.TargetGroupAttributeKey("target_group_health.dns_failover.minimum_healthy_targets.count")), Value: new(api.TargetGroupAttributeValue("1"))},
-		{Key: new(api.TargetGroupAttributeKey("target_group_health.dns_failover.minimum_healthy_targets.percentage")), Value: new(api.TargetGroupAttributeValue("off"))},
-		{Key: new(api.TargetGroupAttributeKey("target_group_health.unhealthy_state_routing.minimum_healthy_targets.count")), Value: new(api.TargetGroupAttributeValue("1"))},
-		{Key: new(api.TargetGroupAttributeKey("target_group_health.unhealthy_state_routing.minimum_healthy_targets.percentage")), Value: new(api.TargetGroupAttributeValue("off"))},
+	out := make(api.TargetGroupAttributes, 1, len(fixedTargetGroupAttributes)+1)
+	out[0] = api.TargetGroupAttribute{Key: new(api.TargetGroupAttributeKey("deregistration_delay.timeout_seconds")), Value: new(api.TargetGroupAttributeValue(strconv.FormatInt(int64(g.DeregistrationDelay/time.Second), 10)))}
+	for _, attribute := range fixedTargetGroupAttributes {
+		out = append(out, api.TargetGroupAttribute{Key: new(api.TargetGroupAttributeKey(attribute.key)), Value: new(api.TargetGroupAttributeValue(attribute.value))})
 	}
+	return out
 }
 func (s *Service) describeTargetGroupAttributes(ctx context.Context, tx Transaction, in *api.DescribeTargetGroupAttributesInput) (*api.DescribeTargetGroupAttributesOutput, error) {
 	g, e := targetGroup(tx, scopeFor(ctx), value(in.TargetGroupArn))
@@ -366,14 +378,24 @@ func (s *Service) modifyTargetGroupAttributes(ctx context.Context, tx Transactio
 			return nil, invalid("Duplicate attribute")
 		}
 		seen[k] = true
-		if k != "deregistration_delay.timeout_seconds" {
-			return nil, unsupported("Unsupported target group attribute: " + k)
+		if k == "deregistration_delay.timeout_seconds" {
+			n, e := strconv.Atoi(value(a.Value))
+			if e != nil || n < 0 || n > 3600 {
+				return nil, invalid("Deregistration delay must be between 0 and 3600 seconds")
+			}
+			g.DeregistrationDelay = time.Duration(n) * time.Second
+			continue
 		}
-		n, e := strconv.Atoi(value(a.Value))
-		if e != nil || n < 0 || n > 3600 {
-			return nil, invalid("Deregistration delay must be between 0 and 3600 seconds")
+		supported := false
+		for _, attribute := range fixedTargetGroupAttributes {
+			if k == attribute.key && a.Value != nil && value(a.Value) == attribute.value {
+				supported = true
+				break
+			}
 		}
-		g.DeregistrationDelay = time.Duration(n) * time.Second
+		if !supported {
+			return nil, unsupported("Unsupported target group attribute setting: " + k + "=" + value(a.Value))
+		}
 	}
 	if e = tx.PutTargetGroup(g); e != nil {
 		return nil, e

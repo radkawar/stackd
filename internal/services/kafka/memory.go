@@ -49,6 +49,9 @@ func (r memoryReader) Context() context.Context { return r.t.Context() }
 func cloneCluster(v ClusterRecord) ClusterRecord {
 	v.Tags = maps.Clone(v.Tags)
 	v.Secrets = slices.Clone(v.Secrets)
+	v.ClientSubnets = slices.Clone(v.ClientSubnets)
+	v.SecurityGroups = slices.Clone(v.SecurityGroups)
+	v.BrokerNetworks = slices.Clone(v.BrokerNetworks)
 	v.Policy.PrincipalIDs = maps.Clone(v.Policy.PrincipalIDs)
 	v.Endpoint.Brokers = slices.Clone(v.Endpoint.Brokers)
 	v.Endpoint.CAPEM = slices.Clone(v.Endpoint.CAPEM)

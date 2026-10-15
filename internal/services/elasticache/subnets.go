@@ -127,6 +127,15 @@ func (s *Service) deleteSubnetGroup(ctx context.Context, tx Transaction, in *api
 	if e != nil {
 		return nil, e
 	}
+	clusters, e := tx.Clusters(v.Key.Scope)
+	if e != nil {
+		return nil, e
+	}
+	for _, cluster := range clusters {
+		if cluster.SubnetGroup == v.Key.Name {
+			return nil, failure("CacheSubnetGroupInUse", "Cache subnet group is in use.")
+		}
+	}
 	return &struct{}{}, tx.DeleteSubnetGroup(v.Key)
 }
 func (s *Service) describeSubnetGroups(ctx context.Context, tx Transaction, in *api.DescribeCacheSubnetGroupsMessage) (*api.CacheSubnetGroupMessage, error) {

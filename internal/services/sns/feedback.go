@@ -45,7 +45,7 @@ type FeedbackDelivery struct {
 }
 
 var feedbackProtocols = [...]struct{ prefix, protocol string }{
-	{"HTTP", "http"}, {"SQS", "sqs"}, {"Lambda", "lambda"}, {"Firehose", "firehose"},
+	{"HTTP", "http"}, {"SQS", "sqs"}, {"Lambda", "lambda"}, {"Firehose", "firehose"}, {"Application", "application"},
 }
 
 func feedbackAttribute(name string) (protocol, attribute string) {
@@ -70,6 +70,9 @@ func (s *Service) setFeedbackAttribute(ctx context.Context, topic *TopicRecord, 
 		setting.SuccessSampleRate, setting.SampleRateSet = rate, true
 	} else {
 		if value != "" {
+			if protocol == "application" {
+				return unsupported("Mobile platform feedback roles require a supported mobile delivery endpoint.")
+			}
 			if !validRoleARN(topic.Key.Scope, value) {
 				return failure("InvalidParameter", value+" is not a valid role to allow SNS to write to Cloudwatch Logs")
 			}

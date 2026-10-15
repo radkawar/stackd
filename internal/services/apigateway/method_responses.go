@@ -159,7 +159,7 @@ func (s *Service) responseIntegration(tx Transaction, apiID, resource, method, s
 		return row, err
 	}
 	if row.Mock == nil {
-		return row, unsupported("responses on AWS_PROXY integrations")
+		return row, unsupported("responses on proxy integrations")
 	}
 	return row, nil
 }

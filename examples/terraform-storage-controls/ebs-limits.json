@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "service": "ebs",
+  "default_status": "unverified",
+  "execution_status": "Per-run private reports record actual checks. The declared scenarios are not service parity or proof that an arbitrary host or guest meets the native prerequisites.",
+  "terraform_version": "1.15.9",
+  "aws_provider_version": "6.68.0",
+  "aws_provider_source_revision": "c9b83d813022cdd05fc955480b07e269c6e18023",
+  "module_interface": "run(args, root: Path, endpoint: str, terraform, variables: dict, stages: list) -> (verify(endpoint=None), cleanup(endpoint=None))",
+  "runnable_commands": {
+    "legacy_bios": "python3 examples/terraform-storage-controls/run.py --services ebs --provider-mirror /absolute/prepared/provider-mirror --docker-host unix:///var/run/docker.sock --guest-image /absolute/prepared/linux-x86_64-legacy-bios.raw --guest-boot-mode legacy-bios --ec2-bios /usr/share/seabios/bios-256k.bin --work-parent /var/lib/stackd-fixtures --ebs-vpc-cidr 10.194.29.0/24",
+    "uefi": "python3 examples/terraform-storage-controls/run.py --services ebs --provider-mirror /absolute/prepared/provider-mirror --docker-host unix:///var/run/docker.sock --guest-image /absolute/prepared/linux-x86_64-uefi.raw --guest-boot-mode uefi --ec2-uefi-code /absolute/installed/OVMF_CODE_4M.fd --ec2-uefi-vars /absolute/installed/OVMF_VARS_4M.fd --work-parent /var/lib/stackd-fixtures --ebs-vpc-cidr 10.194.29.0/24",
+    "notes": [
+      "Paths are explicit operator inputs, not download, installation, image creation, firmware discovery or build commands. Select existing matching firmware and a prepared guest; keep the input image unchanged.",
+      "Use an existing short private persistent work-parent owned by the controller identity. The runner uses a shorter ebs-controls root name; the complete vm-<digest>/qmp.sock path must still fit Linux's 107-byte socket-path limit.",
+      "The root runner defaults to s3,dynamodb; EBS is opt-in through --services ebs or a comma-separated list including ebs.",
+      "--guest-instance-type defaults to t3.small and consumes actual host RAM/vCPU. Select an available compatible x86_64 instance type only after provisioning its host capacity.",
+      "No native AWS endpoint or payment is used. API endpoints are explicit loopback; provider account discovery remains enabled. STS, IAM, KMS, EC2 and EBS dependency endpoints are all explicit. No S3 dependency is introduced by the EBS module.",
+      "The native EC2 controller listens on 0.0.0.0 at the exact owned port so its network toolkit can reach it. The SDK, Terraform and readiness endpoints remain explicit 127.0.0.1; the same listener rule applies after controller reopen.",
+      "Provider6.68.0 has no ebs endpoint argument. Terraform EBS volume and snapshot resources use its explicit ec2 endpoint; the real EBS Direct bootstrap and block readers use explicit loopback SDK clients."
+    ]
+  },
+  "required_prerequisites": {
+    "reference": "docs/runtime-vms.md: shared prerequisites and QEMU/KVM EC2, especially raw EBS Direct upload and matching firmware",
+    "controller_flags": ["-database <owned SQLite>", "-docker-host <explicit local rootful Engine>", "-ec2-state-directory <owned short persistent directory>", "-ec2-bios <existing legacy firmware> OR -ec2-uefi-code <existing code> -ec2-uefi-vars <matching existing variable template>"],
+    "no_such_flag": "There is no -ec2-runtime flag; -ec2-state-directory enables QEMU/KVM.",
+    "host": [
+      "Native Linux x86_64; writable /dev/kvm and /dev/net/tun; hardware/nested KVM actually available (no software-emulation fallback)",
+      "Installed qemu-system-x86_64, qemu-img, qemu-nbd, qemu-io, dnsmasq and dhcp_release on the controller PATH",
+      "systemd and cgroup v2 with usable CPU limits; kernel TAP, bridge and packet-filter support",
+      "Local rootful Docker Engine without rootless mode or user-namespace remapping, plus the preinstalled digest-qualified native network toolkit selected by the existing runtime; docs/runtime-vms.md records nicolaka/netshoot@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed283572f47c970c780c03b61",
+      "Installed firmware matching the image boot mode; BIOS path must really be suitable for Q35/NVMe boot, or select a matching UEFI code/variable pair",
+      "An unused host/VPN/Docker/Kubernetes-nonoverlapping private IPv4 /24, with host-to-owned-guest routing. The module creates no Internet gateway, Internet route, public IP or SSH ingress.",
+      "Disk space for original image reads, SQLite snapshot blocks, an independent native root disk, a 2-GiB source disk, a 2-GiB restored disk and temporary immutable snapshot capture; native sparse allocation is workload dependent",
+      "Prebuilt stackd, Terraform 1.15.9, prepared AWS provider 6.68.0 filesystem mirror and Python boto3/botocore client dependencies"
+    ],
+    "guest_image": [
+      "Required existing raw full-disk Linux x86_64 HVM image with the selected firmware bootloader and NVMe root support; QCOW2, a filesystem tarball or an invented AMI ID is rejected/not substituted",
+      "Prepared Python3 at /usr/bin/python3, systemd, cloud-init with EC2 datasource/IMDSv2 support, DHCP, native NVMe hotplug/eject and virtio-net drivers",
+      "All guest packages must already exist; user-data does not install software or fetch anything from the Internet",
+      "User-data starts an authenticated Python HTTP consumer on TCP8765. Only the owned subnet gateway /32 is admitted by its security group. The host initiates HTTP to the exact Terraform-produced private IP; guest-to-controller callback routing is unnecessary."
+    ]
+  },
+  "native_owner_contract": {
+    "sources": ["internal/services/ebs/service.go", "internal/services/ebs/lifecycle.go", "internal/services/ebs/native_jobs.go", "internal/services/ebs/native_jobs_test.go", "internal/services/ebs/native_volumes.go", "internal/services/ebs/native_volumes_lifecycle.go", "internal/services/ebs/volume_hydration.go", "internal/services/ebs/copy_work.go", "internal/services/ebs/instance_volumes_runtime.go", "internal/services/ebs/native_snapshot_images.go", "internal/services/ebs/volume_modification.go", "internal/services/ebs/volume_snapshots.go", "internal/services/ebs/native_snapshots.go", "internal/services/ec2/volumes.go", "compute/ec2/hotplug_linux.go", "compute/ec2/disks_linux.go", "compute/ec2/network_linux.go", "compute/ec2/network_linux_test.go"],
+    "authority": "Authoritative independently hydrated qcow2 disks are owned by EBS. EC2 attachments realize their exact paths via QMP, not a second mutable disk store. NVMe hardware serial is the terminal volume ID with hyphens removed.",
+    "resize": "Existing native owner supports detached qemu-img resize and attached QMP block_resize. This fixture exercises only detached growth 1->2GiB and verifies BLKGETSIZE64 after real reattachment, not filesystem expansion or online guest rescan.",
+    "snapshot": "Existing volume-derived snapshot owner captures the actual native disk at admission and publishes immutable EBS Direct blocks. This fixture takes a cold detached snapshot and asserts both immutable source volume ID and source size.",
+    "network_observation": "Native TAP observation queries only the exact instance-derived device. It does not enumerate all host interfaces. The64KiB helper guard remains in force; a missing kernel sysfs device is normal before create or after remove, and errors reading an existing device remain failures.",
+    "native_effects": "One service-owned native flight copies blocks and runs disk effects outside the shared scheduler drain. Eligible metadata heads still advance in the calling drain. The two existing snapshot and volume queues keep their own head order: a native head can delay later work in the same queue, but does not block the other queue or joined services.",
+    "shutdown_and_recovery": "Shutdown cancels and joins the native flight. Native callers use a private context-cancelable gate, so a canceled EC2 worker does not wait for uncanceled EBS work during consumer-first shutdown. Committed block rows are the resume cursor after reopen. Every hydration write and final publication checks the admitted volume incarnation and source.",
+    "timing": "Module-local ticker advances the persisted shared manual clock by 1s every 0.5s only while EBS operations/provider waits run. Native disk/guest readiness requires actual serial, requested byte capacity and independent nonzero binary reads; API running/completed metadata alone is insufficient."
+  },
+  "implemented_exercises": [
+    "Read-only sparse raw guest upload through owned StartSnapshot/PutSnapshotBlock/CompleteSnapshot, then owned RegisterImage and real Terraform-created native guest",
+    "Actual aws_ebs_volume gp3 1GiB creation and aws_volume_attachment non-root hotplug, exact volume-derived NVMe serial discovery, 4096-byte binary write plus fsync/cache flush and separate descriptor read",
+    "Real detach disappearance, detached virtual-disk growth to 2GiB, reattach, guest kernel byte-capacity check and prior binary persistence",
+    "Cold native aws_ebs_snapshot capture, independent EBS Direct nonzero block bytes/checksum, restored volume attachment and two-way source/restored write isolation",
+    "aws_snapshot_create_volume_permission private account grant, deletion/revocation and regrant; no public share and no implied cross-account native consumer coverage",
+    "All four EBS single/plural data sources select the exact owned volume/snapshot IDs and preserve immutable snapshot/source identity",
+    "Dedicated Terraform IAM reader accepts EBS Direct list/get and EC2 DescribeVolumes, then rejects the already-issued block token and describe call after current policy changes to Deny; restores current Allow",
+    "Private byte-for-byte Terraform state backups before each state-rm/import for both volumes, both attachments and the volume-derived snapshot; failed import restores prior state and backup before normal owned destroy",
+    "Ordinary and refresh-only no-change plans without ignored drift; same independent native bytes, capacity, isolation and immutable source IDs checked again by root after SQLite/controller reopen",
+    "Terraform-owned guest/network/volumes/snapshot/IAM destroy and explicit owned bootstrap AMI deregistration/snapshot deletion; source-image SHA256 remains unchanged"
+  ],
+  "terraform_resources": {
+    "aws_ebs_volume": {
+      "status": "unverified",
+      "configured": ["availability_zone=<region>a", "size=1 then 2 (source), 2 (restored)", "type=gp3", "iops=3000", "throughput=125", "encrypted=false", "snapshot_id=<cold snapshot> for restored", "final_snapshot=false", "tags=Fixture/Role/Revision"],
+      "observed_or_imported": ["arn", "create_time through provider refresh", "size and actual native byte capacity", "snapshot_id immutable source", "tags_all through provider refresh", "volume ID import"],
+      "remaining_unverified_settings": ["encrypted=true", "kms_key_id", "multi_attach_enabled=true", "outpost_arn", "volume_initialization_rate", "final_snapshot=true", "non-gp3 types", "IOPS/throughput mutation or performance enforcement", "online native resize", "cross-zone/region ownership", "shrink rejection", "snapshots of encrypted disks"]
+    },
+    "aws_volume_attachment": {
+      "status": "unverified",
+      "configured": ["device_name=/dev/sdf or /dev/sdg", "volume_id=<owned source/restored>", "instance_id=<real native guest>", "force_detach=false", "skip_destroy=false", "stop_instance_before_detaching=false"],
+      "import_format": "DEVICE_NAME:VOLUME_ID:INSTANCE_ID",
+      "remaining_unverified_settings": ["force_detach=true", "skip_destroy=true", "stop_instance_before_detaching=true", "root hotplug (explicitly unsupported by native adapter)", "multi-attach/shared writers", "non-Linux or non-NVMe guests"]
+    },
+    "aws_ebs_snapshot": {
+      "status": "unverified",
+      "configured": ["volume_id=<detached native source>", "description=<owned ASCII description>", "storage_tier=standard", "tags=Fixture/Role/Revision"],
+      "observed_or_imported": ["arn", "owner_id", "volume_id immutable source", "volume_size=2", "encrypted=false", "completed immutable EBS Direct block bytes", "snapshot ID import"],
+      "remaining_unverified_settings": ["outpost_arn", "storage_tier=archive", "permanent_restore", "temporary_restore_days", "data_encryption_key_id", "kms_key_id", "owner_alias", "encrypted snapshots", "online/crash-consistent snapshot", "multi-volume consistency", "snapshot rate/quota boundaries"]
+    },
+    "aws_snapshot_create_volume_permission": {
+      "status": "unverified",
+      "configured": ["snapshot_id=<cold native snapshot>", "account_id=123456789012 (210987654321 if owner equals first account)"],
+      "remaining_unverified_settings": ["cross-account data-plane consumption and discovery propagation", "encrypted sharing/KMS grants", "public permissions", "import: pinned resource defines no importer"]
+    },
+    "aws_ebs_default_kms_key": {"status": "unverified", "reason": "Not exercised; no account-wide default-key mutation"},
+    "aws_ebs_encryption_by_default": {"status": "unverified", "reason": "Not exercised; no account-wide encryption mutation"},
+    "aws_ebs_fast_snapshot_restore": {"status": "unverified", "reason": "Not exercised; no physical initialization/performance claim"},
+    "aws_ebs_snapshot_block_public_access": {"status": "unverified", "reason": "Not exercised; no account-wide public-access mutation"},
+    "aws_ebs_snapshot_copy": {"status": "unverified", "reason": "Not exercised; cold volume restore is not snapshot copy coverage"},
+    "aws_ebs_snapshot_import": {"status": "unverified", "reason": "Not exercised; SDK EBS Direct bootstrap upload is not this Terraform VM Import/Export resource"},
+    "aws_ebs_volume_copy": {"status": "unverified", "reason": "Not exercised; restore from snapshot is not direct volume-copy coverage"}
+  },
+  "terraform_data_sources": {
+    "aws_ebs_volume": {"status": "unverified", "configured": ["filter name=volume-id, values=[owned source ID]"], "remaining_unverified_settings": ["most_recent=true", "other filters", "encrypted/KMS/multi-attach/Outpost/initialization-rate projections"]},
+    "aws_ebs_volumes": {"status": "unverified", "configured": ["tags.Fixture=<unique owned run name>"], "remaining_unverified_settings": ["filter selectors", "large-result pagination", "cross-account/region discovery"]},
+    "aws_ebs_snapshot": {"status": "unverified", "configured": ["snapshot_ids=[owned cold ID]", "owners=[local account ID]"], "remaining_unverified_settings": ["most_recent=true", "filter", "restorable_by_user_ids", "encrypted/archive/foreign snapshot projections"]},
+    "aws_ebs_snapshot_ids": {"status": "unverified", "configured": ["owners=[local account ID]", "filter name=snapshot-id, values=[owned cold ID]"], "remaining_unverified_settings": ["restorable_by_user_ids", "other filters", "large-result ordering/pagination", "cross-account propagation"]},
+    "aws_ebs_default_kms_key": {"status": "unverified", "reason": "Not exercised"},
+    "aws_ebs_encryption_by_default": {"status": "unverified", "reason": "Not exercised"}
+  },
+  "prerequisite_only_terraform_types": ["aws_vpc", "aws_subnet", "aws_security_group", "aws_instance", "aws_iam_user", "aws_iam_access_key", "aws_iam_user_policy"],
+  "state_and_failure_safety": [
+    "Owned root/module directories mode0700, tfvars and captured Terraform command logs mode0600; sensitive outputs are consumed from captured JSON and never echoed.",
+    "Bootstrap snapshot and AMI IDs are recorded privately as soon as accepted, before later work can fail. Every run failure enters the same owned Terraform destroy and bootstrap cleanup path.",
+    "Before strict plans, each initial/reopen payload phase records actual decoded guest and EBS Direct SHA256, byte lengths, device serials, owned IDs and unchanged input image SHA256 in a private native-evidence receipt.",
+    "Both refresh-only and ordinary strict plans retain their saved binary plan and command logs. Only exit2 with explicit no-change stdout and saved-plan JSON containing no resource/drift/output changes is retained as a typed strict-plan failure; it remains terminal, but permits the independent SQLite/controller reopen payload phase before ordinary cleanup. Any other behavior failure stops immediately.",
+    "Prior Terraform state and prior .backup bytes are saved privately before state removal. Failed import restores both before normal destroy, preventing orphaning caused by a lost state binding.",
+    "Teardown failure is a failure, not success or readiness. Retain the printed owned directory, SQLite database and native EC2 directory together for diagnosis; never remove them to silence a failed destroy.",
+    "The image is opened read-only, never converted/resized/mounted/modified by this fixture; unchanged SHA256 is checked after native lifecycle and controller reopen."
+  ],
+  "coverage_rule": "These entries describe implemented exercises, not observed support. All inventory/default evidence remains unverified until the root runner completes actual independent native consumers and records passed stages. No whole-EC2, whole-IAM, arbitrary image, host installer, metadata-only readiness, zero-block proof or performance support claim."
+}

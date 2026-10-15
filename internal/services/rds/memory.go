@@ -14,14 +14,15 @@ type memoryState struct {
 	snapshots       map[Key]Snapshot
 	parameterGroups map[Key]ParameterGroup
 	subnetGroups    map[Key]SubnetGroup
+	globalClusters  map[GlobalKey]GlobalCluster
 }
 type MemoryRepository struct {
 	store *memory.Store[memoryState]
 }
 
 func NewMemoryRepository(domain *memory.Domain) *MemoryRepository {
-	return &MemoryRepository{memory.New(domain, memoryState{map[Key]Database{}, map[Key]Snapshot{}, map[Key]ParameterGroup{}, map[Key]SubnetGroup{}}, func(v memoryState) memoryState {
-		return memoryState{maps.Clone(v.databases), maps.Clone(v.snapshots), maps.Clone(v.parameterGroups), maps.Clone(v.subnetGroups)}
+	return &MemoryRepository{memory.New(domain, memoryState{map[Key]Database{}, map[Key]Snapshot{}, map[Key]ParameterGroup{}, map[Key]SubnetGroup{}, map[GlobalKey]GlobalCluster{}}, func(v memoryState) memoryState {
+		return memoryState{maps.Clone(v.databases), maps.Clone(v.snapshots), maps.Clone(v.parameterGroups), maps.Clone(v.subnetGroups), maps.Clone(v.globalClusters)}
 	})}
 }
 

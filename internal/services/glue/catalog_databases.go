@@ -6,7 +6,10 @@ import (
 	"slices"
 	"strings"
 
+	"stackd/internal/awsapi"
 	api "stackd/internal/awsapi/glue"
+	"stackd/internal/awscatalog"
+	"stackd/internal/awswire"
 )
 
 func (s *Service) requireCatalog(r Reader, key CatalogKey) error {
@@ -131,7 +134,7 @@ func (s *Service) deleteCatalog(ctx context.Context, tx Transaction, in *api.Del
 		return nil, err
 	}
 	for _, db := range dbs {
-		if err := s.deleteDatabaseRecord(ctx, tx, "DeleteCatalog", db.Key); err != nil {
+		if err := s.deleteDatabaseRecord(ctx, tx, "DeleteCatalog", db.Key, true); err != nil {
 			return nil, err
 		}
 	}
@@ -277,12 +280,27 @@ func (s *Service) updateDatabase(ctx context.Context, tx Transaction, in *api.Up
 }
 func (s *Service) deleteDatabase(ctx context.Context, tx Transaction, in *api.DeleteDatabaseInput) (*api.DeleteDatabaseOutput, error) {
 	key := databaseKey(ctx, in.CatalogId, in.Name)
-	if err := s.deleteDatabaseRecord(ctx, tx, "DeleteDatabase", key); err != nil {
+	if err := s.deleteDatabaseRecord(ctx, tx, "DeleteDatabase", key, true); err != nil {
 		return nil, err
 	}
 	return &api.DeleteDatabaseOutput{}, nil
 }
-func (s *Service) deleteDatabaseRecord(ctx context.Context, tx Transaction, action string, key DatabaseKey) error {
+
+// DropHiveDatabase keeps Athena's RESTRICT check and the metadata deletion in
+// one owner transaction. Public Glue DeleteDatabase remains an unconditional
+// metadata cascade. Both paths use the same current IAM and API-event boundary.
+func (s *Service) DropHiveDatabase(ctx context.Context, in *api.DeleteDatabaseInput, cascade bool) (*api.DeleteDatabaseOutput, *awswire.Error) {
+	model, _ := awscatalog.LookupService("glue")
+	operation, _ := model.Operation("DeleteDatabase")
+	ctx = awsapi.WithDecodedRequest(ctx, awsapi.DecodedRequest{Operation: operation, Protocol: model.Protocol, Input: in})
+	return runCommand(s, ctx, "DeleteDatabase", in, func(ctx context.Context, tx Transaction, in *api.DeleteDatabaseInput) (*api.DeleteDatabaseOutput, error) {
+		if err := s.deleteDatabaseRecord(ctx, tx, "DeleteDatabase", databaseKey(ctx, in.CatalogId, in.Name), cascade); err != nil {
+			return nil, err
+		}
+		return &api.DeleteDatabaseOutput{}, nil
+	})
+}
+func (s *Service) deleteDatabaseRecord(ctx context.Context, tx Transaction, action string, key DatabaseKey, cascade bool) error {
 	if err := s.authorizeDatabase(ctx, tx, action, key); err != nil {
 		return err
 	}
@@ -292,6 +310,9 @@ func (s *Service) deleteDatabaseRecord(ctx context.Context, tx Transaction, acti
 	tables, err := tx.Tables(key)
 	if err != nil {
 		return err
+	}
+	if !cascade && len(tables) != 0 {
+		return failure("InvalidInputException", "Database is not empty; use CASCADE to drop its tables.")
 	}
 	functions, err := tx.Functions(key)
 	if err != nil {

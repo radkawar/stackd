@@ -63,6 +63,10 @@ func (s *Service) putConnectionEncryption(ctx context.Context, tx Transaction, i
 	if err != nil {
 		return nil, err
 	}
+	// Put replaces the settings. An empty settings object is the AWS provider's
+	// delete operation and restores the default-disabled password configuration.
+	row.ReturnEncrypted = false
+	row.KeyID = ""
 	if password := settings.ConnectionPasswordEncryption; password != nil {
 		if password.ReturnConnectionPasswordEncrypted == nil {
 			return nil, failure("InvalidInputException", "ReturnConnectionPasswordEncrypted is required.")

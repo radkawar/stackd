@@ -9,10 +9,10 @@ SELECT * FROM logs_groups WHERE partition = sqlc.arg(partition) AND account_id =
  ORDER BY name LIMIT sqlc.arg(page_limit);
 
 -- name: PutGroup :exec
-INSERT INTO logs_groups (partition, account_id, region, name, id, created, sequence, retention_days, cfn_owner)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO logs_groups (partition, account_id, region, name, id, created, sequence, retention_days, cfn_owner, deletion_protected)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(partition, account_id, region, name) DO UPDATE SET
- sequence=excluded.sequence, retention_days=excluded.retention_days, cfn_owner=excluded.cfn_owner;
+ sequence=excluded.sequence, retention_days=excluded.retention_days, cfn_owner=excluded.cfn_owner, deletion_protected=excluded.deletion_protected;
 
 -- name: DeleteGroup :exec
 DELETE FROM logs_groups WHERE partition = ? AND account_id = ? AND region = ? AND name = ?;

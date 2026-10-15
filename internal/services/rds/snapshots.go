@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -95,8 +96,15 @@ func snapshotDTO(v Snapshot) api.DBSnapshot {
 	return out
 }
 
+func snapshotType(v Snapshot) string {
+	if v.Automated {
+		return "automated"
+	}
+	return "manual"
+}
+
 func clusterSnapshotDTO(v Snapshot) api.DBClusterSnapshot {
-	out := api.DBClusterSnapshot{DBClusterSnapshotIdentifier: new(api.String(v.Key.Name)), DBClusterSnapshotArn: new(api.String(v.Key.ARN())), DBClusterIdentifier: new(api.String(v.Source)), DbClusterResourceId: new(api.String("cluster-" + v.SourceRuntimeID)), Engine: new(api.String(v.Engine)), EngineVersion: new(api.String(v.EngineVersion)), MasterUsername: new(api.String(v.Username)), Status: new(api.String(v.Status)), SnapshotType: new(api.String("manual")), SnapshotCreateTime: new(api.TStamp(v.Created)), StorageEncrypted: new(api.Boolean(false)), TagList: tagList(v.Tags)}
+	out := api.DBClusterSnapshot{DBClusterSnapshotIdentifier: new(api.String(v.Key.Name)), DBClusterSnapshotArn: new(api.String(v.Key.ARN())), DBClusterIdentifier: new(api.String(v.Source)), DbClusterResourceId: new(api.String("cluster-" + v.SourceRuntimeID)), Engine: new(api.String(v.Engine)), EngineVersion: new(api.String(v.EngineVersion)), MasterUsername: new(api.String(v.Username)), Status: new(api.String(v.Status)), SnapshotType: new(api.String(snapshotType(v))), SnapshotCreateTime: new(api.TStamp(v.Created)), StorageEncrypted: new(api.Boolean(false)), TagList: tagList(v.Tags)}
 	if v.Status == "available" {
 		out.PercentProgress = new(api.Integer(100))
 	}
@@ -231,7 +239,7 @@ func (s *Service) listSnapshots(ctx context.Context, tx Reader, kind, name, sour
 	last := ""
 	for _, v := range all {
 
-		if v.Key.Kind != kind || v.Key.Name <= start || name != "" && v.Key.Name != name || source != "" && v.Source != source || !filterMatches(filters, map[string]string{"engine": v.Engine, "snapshot-type": "manual"}) {
+		if v.Key.Kind != kind || v.Key.Name <= start || name != "" && v.Key.Name != name || source != "" && v.Source != source || !filterMatches(filters, map[string]string{"engine": v.Engine, "snapshot-type": snapshotType(v)}) {
 			continue
 		}
 		if len(out) == limit {
@@ -242,6 +250,19 @@ func (s *Service) listSnapshots(ctx context.Context, tx Reader, kind, name, sour
 
 	}
 	return out, nil, nil
+}
+
+// Manual snapshots remain private: no sharing mutation is admitted. Read the
+// actual scoped snapshot before exposing its empty cross-account restore ACL.
+func (s *Service) describeSnapshotAttributes(ctx context.Context, tx Transaction, in *api.DescribeDBSnapshotAttributesMessage) (*api.DescribeDBSnapshotAttributesResult, error) {
+	v, e := s.loadSnapshot(ctx, tx, "DescribeDBSnapshotAttributes", "snapshot", value(in.DBSnapshotIdentifier))
+	if e != nil {
+		return nil, e
+	}
+	return &api.DescribeDBSnapshotAttributesResult{DBSnapshotAttributesResult: &api.DBSnapshotAttributesResult{
+		DBSnapshotIdentifier: new(api.String(v.Key.Name)),
+		DBSnapshotAttributes: api.DBSnapshotAttributeList{{AttributeName: new(api.String("restore")), AttributeValues: api.AttributeValueList{}}},
+	}}, nil
 }
 
 func (s *Service) describeSnapshots(ctx context.Context, tx Transaction, in *api.DescribeDBSnapshotsMessage) (*api.DBSnapshotMessage, error) {
@@ -266,10 +287,15 @@ func (s *Service) describeClusterSnapshots(ctx context.Context, tx Transaction, 
 	if boolean(in.IncludePublic) || boolean(in.IncludeShared) || in.DbClusterResourceId != nil {
 		return nil, unsupported("Public/shared and resource-ID snapshot selectors are not implemented.")
 	}
-	if t := value(in.SnapshotType); t != "" && t != "manual" {
-		return nil, unsupported("Only manual snapshots are implemented.")
+	snapshotKind := value(in.SnapshotType)
+	if snapshotKind != "" && snapshotKind != "manual" && snapshotKind != "automated" {
+		return nil, unsupported("Only manual and owned automated cluster snapshots are implemented.")
 	}
-	items, marker, e := s.listSnapshots(ctx, tx, "cluster-snapshot", value(in.DBClusterSnapshotIdentifier), value(in.DBClusterIdentifier), in.Marker, in.MaxRecords, in.Filters)
+	filters := slices.Clone(in.Filters)
+	if snapshotKind != "" {
+		filters = append(filters, api.Filter{Name: new(api.String("snapshot-type")), Values: api.FilterValueList{api.String(snapshotKind)}})
+	}
+	items, marker, e := s.listSnapshots(ctx, tx, "cluster-snapshot", value(in.DBClusterSnapshotIdentifier), value(in.DBClusterIdentifier), in.Marker, in.MaxRecords, filters)
 	if e != nil {
 		return nil, e
 	}
@@ -355,6 +381,7 @@ func (s *Service) restoreDatabase(ctx context.Context, tx Transaction, kind, nam
 
 	}
 	if kind == "cluster" {
+		v.Status = "available"
 		v.Due = time.Time{}
 	}
 	return v, nil

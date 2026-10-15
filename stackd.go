@@ -20,6 +20,7 @@ import (
 	ecsruntime "stackd/compute/ecs"
 	eksruntime "stackd/compute/eks"
 	elbv2runtime "stackd/compute/elbv2"
+	elbv2desync "stackd/compute/elbv2/desync"
 	glueruntime "stackd/compute/glue"
 	lambdaruntime "stackd/compute/lambda"
 	athenaruntime "stackd/engine/athena"
@@ -287,6 +288,9 @@ type Config struct {
 	// ELBV2Runtime supplies real ALB node sockets. Its Docker/network dependencies
 	// must outlive the Stack; service shutdown detaches, while deletion removes nodes.
 	ELBV2Runtime elbv2runtime.Runtime
+	// ELBV2DesyncClassifier owns the installed native HTTP desync classifier.
+	// Its caller must close it after the Stack and native ALB runtime stop.
+	ELBV2DesyncClassifier *elbv2desync.Classifier
 	// DNSListenAddress binds the owned authoritative UDP/TCP DNS endpoint.
 	// Empty uses loopback with an ephemeral port when ELBV2Runtime is configured.
 	DNSListenAddress string
@@ -585,9 +589,10 @@ func New(config Config) (stack *Stack, err error) {
 	var route53Service *route53.Service
 	elbv2Service := elbv2.New(elbv2.Config{
 		Repository: backends.ELBv2, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, Runtime: config.ELBV2Runtime,
-		DNS:          dnsAuthority,
-		Networks:     &integrations.ELBV2Networks{EC2: ec2Service, Roles: iamService, Sessions: serviceRoles},
-		Certificates: integrations.ELBV2Certificates{IAM: iamService, ACM: acmService}, Metrics: cloudwatchService,
+		DNS:              dnsAuthority,
+		DesyncClassifier: config.ELBV2DesyncClassifier,
+		Networks:         &integrations.ELBV2Networks{EC2: ec2Service, Roles: iamService, Sessions: serviceRoles},
+		Certificates:     integrations.ELBV2Certificates{IAM: iamService, ACM: acmService}, Metrics: cloudwatchService,
 	})
 	certificateUsage.ELBV2 = elbv2Service
 	acmCertificateUsage.ELBV2 = elbv2Service
@@ -689,13 +694,16 @@ func New(config Config) (stack *Stack, err error) {
 	kafkaService := kafka.New(kafka.Config{
 		Repository: backends.Kafka, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock,
 		Runtime: config.MSKRuntime, Secrets: integrations.KafkaSecrets{Secrets: secretsManagerService, KMS: kmsService, Activity: iamService},
+		Networks:           &integrations.KafkaNetworks{EC2: ec2Service, Roles: serviceRoles},
+		ServiceLinkedRoles: iamService, Metrics: integrations.KafkaMetrics{Metrics: cloudwatchService},
 	})
 	lambdaKafka.Clusters, lambdaKafka.Secrets = kafkaService, secretsManagerService
 	mqService := mq.New(mq.Config{Repository: backends.MQ, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, Runtime: config.MQRuntime, Logs: integrations.MQLogs{Logs: logsService, Roles: serviceRoles}, ServiceLinkedRoles: iamService, Metrics: integrations.MQMetrics{Metrics: cloudwatchService}})
 	lambdaMQ.Brokers, lambdaMQ.Secrets = mqService, secretsManagerService
 	elasticacheService := elasticache.New(elasticache.Config{
 		Repository: backends.ElastiCache, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, Runtime: config.ValkeyRuntime,
-		Networks: integrations.ElastiCacheNetworks{EC2: ec2Service}, Metrics: integrations.ElastiCacheMetrics{Metrics: cloudwatchService},
+		Networks: &integrations.ElastiCacheNetworks{EC2: ec2Service, Roles: serviceRoles}, Roles: iamService,
+		Metrics: integrations.ElastiCacheMetrics{Metrics: cloudwatchService},
 	})
 	memorydbService := memorydb.New(memorydb.Config{
 		Repository: backends.MemoryDB, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, Runtime: config.ValkeyRuntime,
@@ -810,6 +818,14 @@ func New(config Config) (stack *Stack, err error) {
 	if err := iamService.RegisterServiceLinkedRole(integrations.MQRoleTemplate(), integrations.MQRoleUsage{Brokers: mqService}); err != nil {
 		_ = closeServices()
 		return nil, fmt.Errorf("register MQ service-linked role: %w", err)
+	}
+	if err := iamService.RegisterServiceLinkedRole(integrations.KafkaRoleTemplate(), integrations.KafkaRoleUsage{Clusters: kafkaService}); err != nil {
+		_ = closeServices()
+		return nil, fmt.Errorf("register Kafka service-linked role: %w", err)
+	}
+	if err := iamService.RegisterServiceLinkedRole(integrations.ElastiCacheRoleTemplate(), integrations.ElastiCacheRoleUsage{Clusters: elasticacheService}); err != nil {
+		_ = closeServices()
+		return nil, fmt.Errorf("register ElastiCache service-linked role: %w", err)
 	}
 	if err := iamService.RegisterServiceLinkedRole(integrations.GuardDutyRoleTemplate(), integrations.GuardDutyRoleUsage{Detectors: guarddutyService}); err != nil {
 		_ = closeServices()
@@ -971,7 +987,7 @@ func New(config Config) (stack *Stack, err error) {
 	ssmMessages = ssmmessages.New(ssmmessages.Config{Backend: ssmCommands, Authenticate: endpoint.Authenticate, Clock: config.Clock})
 	issuer := iamService.OutboundIdentityHandler()
 	functionURLs := lambda.NewFunctionURLHandler(lambdaService, endpoint, iamService, organizationsService)
-	apiExecution := apigatewayexec.New(apigatewayexec.Config{HTTP: apiGatewayV2Service, REST: apiGatewayService, Authentication: endpoint, Authorization: authorizer, Functions: lambdaService, Roles: gatewayInvocationRoles, UsagePlans: apiGatewayService, Metrics: apiGatewayService, Keys: integrations.GatewayKeys{Cognito: cognitoService, Discovery: oidcDiscovery}, Clock: config.Clock, Logs: gatewayLogs, WebACLs: integrations.GatewayWebACLs{WAF: wafService}})
+	apiExecution := apigatewayexec.New(apigatewayexec.Config{HTTPClient: config.OutboundHTTP, HTTP: apiGatewayV2Service, REST: apiGatewayService, Authentication: endpoint, Authorization: authorizer, Functions: lambdaService, Roles: gatewayInvocationRoles, UsagePlans: apiGatewayService, Metrics: apiGatewayService, Keys: integrations.GatewayKeys{Cognito: cognitoService, Discovery: oidcDiscovery}, Clock: config.Clock, Logs: gatewayLogs, WebACLs: integrations.GatewayWebACLs{WAF: wafService}})
 	websocketExecution := apigatewaywebsocket.NewHandler(apiGatewayWebSocketService, endpoint)
 	registryHandler := ecrService.RegistryHandler()
 	buildCredentials := buildService.CredentialsHandler()

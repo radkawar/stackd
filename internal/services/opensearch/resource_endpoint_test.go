@@ -44,7 +44,7 @@ func TestSearchResourceHostnamePreservesSignedPathAndIncarnation(t *testing.T) {
 	if err := registry.Register(gateway.Service{Name: "opensearch", SigningName: "es", Protocol: gateway.RestJSON, Provider: s, Model: &model, Decode: api.DecodeRequest}); err != nil {
 		t.Fatal(err)
 	}
-	g, err := gateway.New(registry, gateway.Config{})
+	g, err := gateway.New(registry, gateway.Config{AccountID: key.Scope.AccountID})
 	if err != nil {
 		t.Fatal(err)
 	}

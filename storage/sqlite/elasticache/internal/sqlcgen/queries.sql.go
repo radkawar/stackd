@@ -10,7 +10,7 @@ import (
 )
 
 const allClusters = `-- name: AllClusters :many
-SELECT "partition", account_id, region, kind, name, engine, engine_version, node_type, description, parameter_group, user_group, runtime_id, status, operation, restore_snapshot, shards, replicas, cluster_mode, tls_enabled, memory_bytes, version, created, due, cloudformation_owner FROM elasticache_cluster ORDER BY partition, account_id, region, kind, name
+SELECT "partition", account_id, region, kind, name, engine, engine_version, node_type, description, parameter_group, user_group, runtime_id, status, operation, restore_snapshot, shards, replicas, cluster_mode, tls_enabled, memory_bytes, version, created, due, cloudformation_owner, subnet_group, client_port FROM elasticache_cluster ORDER BY partition, account_id, region, kind, name
 `
 
 func (q *Queries) AllClusters(ctx context.Context) ([]ElasticacheCluster, error) {
@@ -47,6 +47,8 @@ func (q *Queries) AllClusters(ctx context.Context) ([]ElasticacheCluster, error)
 			&i.Created,
 			&i.Due,
 			&i.CloudformationOwner,
+			&i.SubnetGroup,
+			&i.ClientPort,
 		); err != nil {
 			return nil, err
 		}
@@ -110,6 +112,29 @@ func (q *Queries) AllSnapshots(ctx context.Context) ([]ElasticacheSnapshot, erro
 		return nil, err
 	}
 	return items, nil
+}
+
+const deleteClientSubnets = `-- name: DeleteClientSubnets :exec
+DELETE FROM elasticache_client_subnet WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ?
+`
+
+type DeleteClientSubnetsParams struct {
+	Partition string
+	AccountID string
+	Region    string
+	Kind      string
+	Name      string
+}
+
+func (q *Queries) DeleteClientSubnets(ctx context.Context, arg DeleteClientSubnetsParams) error {
+	_, err := q.db.ExecContext(ctx, deleteClientSubnets,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.Kind,
+		arg.Name,
+	)
+	return err
 }
 
 const deleteCluster = `-- name: DeleteCluster :exec
@@ -181,6 +206,29 @@ func (q *Queries) DeleteMembers(ctx context.Context, arg DeleteMembersParams) er
 	return err
 }
 
+const deleteNodePlacements = `-- name: DeleteNodePlacements :exec
+DELETE FROM elasticache_node_placement WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ?
+`
+
+type DeleteNodePlacementsParams struct {
+	Partition string
+	AccountID string
+	Region    string
+	Kind      string
+	Name      string
+}
+
+func (q *Queries) DeleteNodePlacements(ctx context.Context, arg DeleteNodePlacementsParams) error {
+	_, err := q.db.ExecContext(ctx, deleteNodePlacements,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.Kind,
+		arg.Name,
+	)
+	return err
+}
+
 const deleteNodes = `-- name: DeleteNodes :exec
 DELETE FROM elasticache_node WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ?
 `
@@ -241,6 +289,29 @@ type DeleteParametersParams struct {
 
 func (q *Queries) DeleteParameters(ctx context.Context, arg DeleteParametersParams) error {
 	_, err := q.db.ExecContext(ctx, deleteParameters,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.Kind,
+		arg.Name,
+	)
+	return err
+}
+
+const deleteSecurityGroups = `-- name: DeleteSecurityGroups :exec
+DELETE FROM elasticache_security_group WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ?
+`
+
+type DeleteSecurityGroupsParams struct {
+	Partition string
+	AccountID string
+	Region    string
+	Kind      string
+	Name      string
+}
+
+func (q *Queries) DeleteSecurityGroups(ctx context.Context, arg DeleteSecurityGroupsParams) error {
+	_, err := q.db.ExecContext(ctx, deleteSecurityGroups,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -389,7 +460,7 @@ func (q *Queries) DeleteUserGroup(ctx context.Context, arg DeleteUserGroupParams
 }
 
 const getCluster = `-- name: GetCluster :one
-SELECT "partition", account_id, region, kind, name, engine, engine_version, node_type, description, parameter_group, user_group, runtime_id, status, operation, restore_snapshot, shards, replicas, cluster_mode, tls_enabled, memory_bytes, version, created, due, cloudformation_owner FROM elasticache_cluster WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ?
+SELECT "partition", account_id, region, kind, name, engine, engine_version, node_type, description, parameter_group, user_group, runtime_id, status, operation, restore_snapshot, shards, replicas, cluster_mode, tls_enabled, memory_bytes, version, created, due, cloudformation_owner, subnet_group, client_port FROM elasticache_cluster WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ?
 `
 
 type GetClusterParams struct {
@@ -434,6 +505,8 @@ func (q *Queries) GetCluster(ctx context.Context, arg GetClusterParams) (Elastic
 		&i.Created,
 		&i.Due,
 		&i.CloudformationOwner,
+		&i.SubnetGroup,
+		&i.ClientPort,
 	)
 	return i, err
 }
@@ -626,8 +699,57 @@ func (q *Queries) GetUserGroup(ctx context.Context, arg GetUserGroupParams) (Ela
 	return i, err
 }
 
+const listClientSubnets = `-- name: ListClientSubnets :many
+SELECT "partition", account_id, region, kind, name, ordinal, subnet_id FROM elasticache_client_subnet WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ? ORDER BY ordinal
+`
+
+type ListClientSubnetsParams struct {
+	Partition string
+	AccountID string
+	Region    string
+	Kind      string
+	Name      string
+}
+
+func (q *Queries) ListClientSubnets(ctx context.Context, arg ListClientSubnetsParams) ([]ElasticacheClientSubnet, error) {
+	rows, err := q.db.QueryContext(ctx, listClientSubnets,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.Kind,
+		arg.Name,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ElasticacheClientSubnet{}
+	for rows.Next() {
+		var i ElasticacheClientSubnet
+		if err := rows.Scan(
+			&i.Partition,
+			&i.AccountID,
+			&i.Region,
+			&i.Kind,
+			&i.Name,
+			&i.Ordinal,
+			&i.SubnetID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listClusters = `-- name: ListClusters :many
-SELECT "partition", account_id, region, kind, name, engine, engine_version, node_type, description, parameter_group, user_group, runtime_id, status, operation, restore_snapshot, shards, replicas, cluster_mode, tls_enabled, memory_bytes, version, created, due, cloudformation_owner FROM elasticache_cluster WHERE partition = ? AND account_id = ? AND region = ? ORDER BY kind, name
+SELECT "partition", account_id, region, kind, name, engine, engine_version, node_type, description, parameter_group, user_group, runtime_id, status, operation, restore_snapshot, shards, replicas, cluster_mode, tls_enabled, memory_bytes, version, created, due, cloudformation_owner, subnet_group, client_port FROM elasticache_cluster WHERE partition = ? AND account_id = ? AND region = ? ORDER BY kind, name
 `
 
 type ListClustersParams struct {
@@ -670,6 +792,8 @@ func (q *Queries) ListClusters(ctx context.Context, arg ListClustersParams) ([]E
 			&i.Created,
 			&i.Due,
 			&i.CloudformationOwner,
+			&i.SubnetGroup,
+			&i.ClientPort,
 		); err != nil {
 			return nil, err
 		}
@@ -767,6 +891,63 @@ func (q *Queries) ListMembers(ctx context.Context, arg ListMembersParams) ([]Ela
 			&i.Kind,
 			&i.Name,
 			&i.UserID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listNodePlacements = `-- name: ListNodePlacements :many
+SELECT "partition", account_id, region, kind, name, ordinal, node_index, interface_id, subnet_id, availability_zone, network_id, address, gateway, pool, mac FROM elasticache_node_placement WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ? ORDER BY ordinal
+`
+
+type ListNodePlacementsParams struct {
+	Partition string
+	AccountID string
+	Region    string
+	Kind      string
+	Name      string
+}
+
+func (q *Queries) ListNodePlacements(ctx context.Context, arg ListNodePlacementsParams) ([]ElasticacheNodePlacement, error) {
+	rows, err := q.db.QueryContext(ctx, listNodePlacements,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.Kind,
+		arg.Name,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ElasticacheNodePlacement{}
+	for rows.Next() {
+		var i ElasticacheNodePlacement
+		if err := rows.Scan(
+			&i.Partition,
+			&i.AccountID,
+			&i.Region,
+			&i.Kind,
+			&i.Name,
+			&i.Ordinal,
+			&i.NodeIndex,
+			&i.InterfaceID,
+			&i.SubnetID,
+			&i.AvailabilityZone,
+			&i.NetworkID,
+			&i.Address,
+			&i.Gateway,
+			&i.Pool,
+			&i.Mac,
 		); err != nil {
 			return nil, err
 		}
@@ -911,6 +1092,55 @@ func (q *Queries) ListParameters(ctx context.Context, arg ListParametersParams) 
 			&i.Name,
 			&i.ParameterName,
 			&i.ParameterValue,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSecurityGroups = `-- name: ListSecurityGroups :many
+SELECT "partition", account_id, region, kind, name, ordinal, security_group_id FROM elasticache_security_group WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ? ORDER BY ordinal
+`
+
+type ListSecurityGroupsParams struct {
+	Partition string
+	AccountID string
+	Region    string
+	Kind      string
+	Name      string
+}
+
+func (q *Queries) ListSecurityGroups(ctx context.Context, arg ListSecurityGroupsParams) ([]ElasticacheSecurityGroup, error) {
+	rows, err := q.db.QueryContext(ctx, listSecurityGroups,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.Kind,
+		arg.Name,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ElasticacheSecurityGroup{}
+	for rows.Next() {
+		var i ElasticacheSecurityGroup
+		if err := rows.Scan(
+			&i.Partition,
+			&i.AccountID,
+			&i.Region,
+			&i.Kind,
+			&i.Name,
+			&i.Ordinal,
+			&i.SecurityGroupID,
 		); err != nil {
 			return nil, err
 		}
@@ -1210,6 +1440,33 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]Elastic
 	return items, nil
 }
 
+const putClientSubnet = `-- name: PutClientSubnet :exec
+INSERT INTO elasticache_client_subnet (partition, account_id, region, kind, name, ordinal, subnet_id) VALUES (?, ?, ?, ?, ?, ?, ?)
+`
+
+type PutClientSubnetParams struct {
+	Partition string
+	AccountID string
+	Region    string
+	Kind      string
+	Name      string
+	Ordinal   int64
+	SubnetID  string
+}
+
+func (q *Queries) PutClientSubnet(ctx context.Context, arg PutClientSubnetParams) error {
+	_, err := q.db.ExecContext(ctx, putClientSubnet,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.Kind,
+		arg.Name,
+		arg.Ordinal,
+		arg.SubnetID,
+	)
+	return err
+}
+
 const putCluster = `-- name: PutCluster :exec
 INSERT INTO elasticache_cluster (partition, account_id, region, kind, name, engine, engine_version, node_type, description, parameter_group, user_group, runtime_id, status, operation, restore_snapshot, shards, replicas, cluster_mode, tls_enabled, memory_bytes, version, created, due, cloudformation_owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (partition, account_id, region, kind, name) DO UPDATE SET engine = excluded.engine, engine_version = excluded.engine_version, node_type = excluded.node_type, description = excluded.description, parameter_group = excluded.parameter_group, user_group = excluded.user_group, runtime_id = excluded.runtime_id, status = excluded.status, operation = excluded.operation, restore_snapshot = excluded.restore_snapshot, shards = excluded.shards, replicas = excluded.replicas, cluster_mode = excluded.cluster_mode, tls_enabled = excluded.tls_enabled, memory_bytes = excluded.memory_bytes, version = excluded.version, created = excluded.created, due = excluded.due, cloudformation_owner = excluded.cloudformation_owner
 `
@@ -1267,6 +1524,33 @@ func (q *Queries) PutCluster(ctx context.Context, arg PutClusterParams) error {
 		arg.Created,
 		arg.Due,
 		arg.CloudformationOwner,
+	)
+	return err
+}
+
+const putClusterPlacementIntent = `-- name: PutClusterPlacementIntent :exec
+UPDATE elasticache_cluster SET subnet_group = ?, client_port = ? WHERE partition = ? AND account_id = ? AND region = ? AND kind = ? AND name = ?
+`
+
+type PutClusterPlacementIntentParams struct {
+	SubnetGroup string
+	ClientPort  int64
+	Partition   string
+	AccountID   string
+	Region      string
+	Kind        string
+	Name        string
+}
+
+func (q *Queries) PutClusterPlacementIntent(ctx context.Context, arg PutClusterPlacementIntentParams) error {
+	_, err := q.db.ExecContext(ctx, putClusterPlacementIntent,
+		arg.SubnetGroup,
+		arg.ClientPort,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.Kind,
+		arg.Name,
 	)
 	return err
 }
@@ -1358,6 +1642,49 @@ func (q *Queries) PutNode(ctx context.Context, arg PutNodeParams) error {
 	return err
 }
 
+const putNodePlacement = `-- name: PutNodePlacement :exec
+INSERT INTO elasticache_node_placement (partition, account_id, region, kind, name, ordinal, node_index, interface_id, subnet_id, availability_zone, network_id, address, gateway, pool, mac) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type PutNodePlacementParams struct {
+	Partition        string
+	AccountID        string
+	Region           string
+	Kind             string
+	Name             string
+	Ordinal          int64
+	NodeIndex        int64
+	InterfaceID      string
+	SubnetID         string
+	AvailabilityZone string
+	NetworkID        string
+	Address          string
+	Gateway          string
+	Pool             string
+	Mac              string
+}
+
+func (q *Queries) PutNodePlacement(ctx context.Context, arg PutNodePlacementParams) error {
+	_, err := q.db.ExecContext(ctx, putNodePlacement,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.Kind,
+		arg.Name,
+		arg.Ordinal,
+		arg.NodeIndex,
+		arg.InterfaceID,
+		arg.SubnetID,
+		arg.AvailabilityZone,
+		arg.NetworkID,
+		arg.Address,
+		arg.Gateway,
+		arg.Pool,
+		arg.Mac,
+	)
+	return err
+}
+
 const putParameter = `-- name: PutParameter :exec
 INSERT INTO elasticache_parameter (partition, account_id, region, kind, name, parameter_name, parameter_value) VALUES (?, ?, ?, ?, ?, ?, ?)
 `
@@ -1410,6 +1737,33 @@ func (q *Queries) PutParameterGroup(ctx context.Context, arg PutParameterGroupPa
 		arg.Family,
 		arg.Description,
 		arg.CloudformationOwner,
+	)
+	return err
+}
+
+const putSecurityGroup = `-- name: PutSecurityGroup :exec
+INSERT INTO elasticache_security_group (partition, account_id, region, kind, name, ordinal, security_group_id) VALUES (?, ?, ?, ?, ?, ?, ?)
+`
+
+type PutSecurityGroupParams struct {
+	Partition       string
+	AccountID       string
+	Region          string
+	Kind            string
+	Name            string
+	Ordinal         int64
+	SecurityGroupID string
+}
+
+func (q *Queries) PutSecurityGroup(ctx context.Context, arg PutSecurityGroupParams) error {
+	_, err := q.db.ExecContext(ctx, putSecurityGroup,
+		arg.Partition,
+		arg.AccountID,
+		arg.Region,
+		arg.Kind,
+		arg.Name,
+		arg.Ordinal,
+		arg.SecurityGroupID,
 	)
 	return err
 }

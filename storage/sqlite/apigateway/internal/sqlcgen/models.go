@@ -63,6 +63,7 @@ type ApigatewayAuthorizer struct {
 	CfnStackID           string
 	CfnLogicalID         string
 	CfnIncarnation       string
+	CognitoTtlSeconds    sql.NullInt64
 }
 
 type ApigatewayAuthorizerCache struct {
@@ -221,6 +222,52 @@ type ApigatewayGatewayTemplate struct {
 	Template     string
 }
 
+type ApigatewayHttpProxyIntegration struct {
+	Partition         string
+	AccountID         string
+	Region            string
+	ApiID             string
+	ResourceID        string
+	HttpMethod        string
+	Uri               string
+	IntegrationMethod string
+}
+
+type ApigatewayHttpProxyIntegrationPath struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	ApiID      string
+	ResourceID string
+	HttpMethod string
+	Target     string
+	Source     string
+}
+
+type ApigatewayHttpProxyRoute struct {
+	Partition         string
+	AccountID         string
+	Region            string
+	ApiID             string
+	DeploymentID      string
+	ResourceID        string
+	HttpMethod        string
+	Uri               string
+	IntegrationMethod string
+}
+
+type ApigatewayHttpProxyRoutePath struct {
+	Partition    string
+	AccountID    string
+	Region       string
+	ApiID        string
+	DeploymentID string
+	ResourceID   string
+	HttpMethod   string
+	Target       string
+	Source       string
+}
+
 type ApigatewayIntegration struct {
 	Partition      string
 	AccountID      string
@@ -247,6 +294,17 @@ type ApigatewayMethod struct {
 	CfnStackID        string
 	CfnLogicalID      string
 	CfnIncarnation    string
+}
+
+type ApigatewayMethodRequestParameter struct {
+	Partition  string
+	AccountID  string
+	Region     string
+	ApiID      string
+	ResourceID string
+	HttpMethod string
+	Name       string
+	Required   bool
 }
 
 type ApigatewayMethodResponse struct {

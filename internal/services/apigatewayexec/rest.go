@@ -57,17 +57,29 @@ func (w *gatewayResponseWriter) recordRejection(rejected *rejection) {
 }
 
 func (w *gatewayResponseWriter) writeGatewayRejection(rejected *rejection) bool {
-	key := "DEFAULT_4XX"
-	if rejected.Status >= 500 {
-		key = "DEFAULT_5XX"
+	responseType := ""
+	observation := requestObservationFrom(w.request)
+	if observation != nil {
+		responseType = observation.responseType
 	}
-	config, ok := w.route.GatewayResponses[key]
+	if responseType == "" {
+		responseType = gatewayRejectionType(w.Header().Get("X-Amzn-ErrorType"), rejected.Status)
+	}
+	config, ok := w.route.GatewayResponses[responseType]
+	if !ok {
+		fallback := "DEFAULT_4XX"
+		if rejected.Status >= 500 {
+			fallback = "DEFAULT_5XX"
+		}
+		config, ok = w.route.GatewayResponses[fallback]
+	}
 	if !ok {
 		return false
 	}
-	if recorder, ok := w.ResponseWriter.(interface{ recordRejection(*rejection) }); ok {
-		recorder.recordRejection(rejected)
+	if observation != nil && observation.responseType == "" {
+		observation.responseType = responseType
 	}
+	w.recordRejection(rejected)
 	status := rejected.Status
 	if config.StatusCode != 0 {
 		status = config.StatusCode
@@ -84,7 +96,7 @@ func (w *gatewayResponseWriter) writeGatewayRejection(rejected *rejection) bool 
 	}
 	if found {
 		quoted, _ := json.Marshal(rejected.Message)
-		template = strings.NewReplacer("$context.error.messageString", string(quoted), "$context.error.message", rejected.Message, "$context.error.responseType", key).Replace(template)
+		template = strings.NewReplacer("$context.error.messageString", string(quoted), "$context.error.message", rejected.Message, "$context.error.responseType", responseType).Replace(template)
 		w.Header().Set("Content-Type", media)
 		w.WriteHeader(status)
 		_, _ = w.Write([]byte(template))

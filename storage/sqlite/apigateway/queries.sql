@@ -54,8 +54,8 @@ SELECT * FROM apigateway_authorizers WHERE partition = ? AND account_id = ? AND 
 SELECT * FROM apigateway_authorizers WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? ORDER BY authorizer_id;
 
 -- name: PutAuthorizer :exec
-INSERT INTO apigateway_authorizers (partition, account_id, region, api_id, authorizer_id, name, auth_type, authorizer_type, authorizer_uri, function_arn, validation_expression, ttl_seconds, credentials_arn, cfn_stack_id, cfn_logical_id, cfn_incarnation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, api_id, authorizer_id) DO UPDATE SET name = excluded.name, auth_type = excluded.auth_type, authorizer_type = excluded.authorizer_type, authorizer_uri = excluded.authorizer_uri, function_arn = excluded.function_arn, validation_expression = excluded.validation_expression, ttl_seconds = excluded.ttl_seconds, credentials_arn = excluded.credentials_arn, cfn_stack_id = excluded.cfn_stack_id, cfn_logical_id = excluded.cfn_logical_id, cfn_incarnation = excluded.cfn_incarnation;
+INSERT INTO apigateway_authorizers (partition, account_id, region, api_id, authorizer_id, name, auth_type, authorizer_type, authorizer_uri, function_arn, validation_expression, ttl_seconds, credentials_arn, cfn_stack_id, cfn_logical_id, cfn_incarnation, cognito_ttl_seconds) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, api_id, authorizer_id) DO UPDATE SET name = excluded.name, auth_type = excluded.auth_type, authorizer_type = excluded.authorizer_type, authorizer_uri = excluded.authorizer_uri, function_arn = excluded.function_arn, validation_expression = excluded.validation_expression, ttl_seconds = excluded.ttl_seconds, credentials_arn = excluded.credentials_arn, cfn_stack_id = excluded.cfn_stack_id, cfn_logical_id = excluded.cfn_logical_id, cfn_incarnation = excluded.cfn_incarnation, cognito_ttl_seconds = excluded.cognito_ttl_seconds;
 
 -- name: DeleteAuthorizer :exec
 DELETE FROM apigateway_authorizers WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND authorizer_id = ?;
@@ -203,3 +203,42 @@ INSERT INTO apigateway_stage_sequence (partition, account_id, region, value)
 VALUES (?, ?, ?, 1)
 ON CONFLICT (partition, account_id, region) DO UPDATE SET value = value + 1
 RETURNING value;
+
+-- name: ListMethodRequestParameters :many
+SELECT * FROM apigateway_method_request_parameters WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND resource_id = ? AND http_method = ? ORDER BY name;
+
+-- name: DeleteMethodRequestParameters :exec
+DELETE FROM apigateway_method_request_parameters WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND resource_id = ? AND http_method = ?;
+
+-- name: PutMethodRequestParameters :exec
+INSERT INTO apigateway_method_request_parameters (partition, account_id, region, api_id, resource_id, http_method, name, required) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: ListHTTPProxyIntegrations :many
+SELECT * FROM apigateway_http_proxy_integrations WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND resource_id = ? AND http_method = ?;
+
+-- name: DeleteHTTPProxyIntegrations :exec
+DELETE FROM apigateway_http_proxy_integrations WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND resource_id = ? AND http_method = ?;
+
+-- name: PutHTTPProxyIntegrations :exec
+INSERT INTO apigateway_http_proxy_integrations (partition, account_id, region, api_id, resource_id, http_method, uri, integration_method) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: ListHTTPProxyIntegrationPaths :many
+SELECT * FROM apigateway_http_proxy_integration_paths WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND resource_id = ? AND http_method = ? ORDER BY target;
+
+-- name: PutHTTPProxyIntegrationPaths :exec
+INSERT INTO apigateway_http_proxy_integration_paths (partition, account_id, region, api_id, resource_id, http_method, target, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: ListHTTPProxyRoutes :many
+SELECT * FROM apigateway_http_proxy_routes WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND deployment_id = ? AND resource_id = ? AND http_method = ?;
+
+-- name: DeleteHTTPProxyRoutes :exec
+DELETE FROM apigateway_http_proxy_routes WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND deployment_id = ? AND resource_id = ? AND http_method = ?;
+
+-- name: PutHTTPProxyRoutes :exec
+INSERT INTO apigateway_http_proxy_routes (partition, account_id, region, api_id, deployment_id, resource_id, http_method, uri, integration_method) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: ListHTTPProxyRoutePaths :many
+SELECT * FROM apigateway_http_proxy_route_paths WHERE partition = ? AND account_id = ? AND region = ? AND api_id = ? AND deployment_id = ? AND resource_id = ? AND http_method = ? ORDER BY target;
+
+-- name: PutHTTPProxyRoutePaths :exec
+INSERT INTO apigateway_http_proxy_route_paths (partition, account_id, region, api_id, deployment_id, resource_id, http_method, target, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);

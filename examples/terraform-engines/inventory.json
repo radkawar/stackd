@@ -1,0 +1,1378 @@
+{
+  "schema_version": 1,
+  "provider": {
+    "source": "hashicorp/aws",
+    "version": "6.68.0",
+    "source_commit": "c9b83d813022cdd05fc955480b07e269c6e18023"
+  },
+  "terraform_version": "1.15.9",
+  "source_inventory": "docs/terraform-provider-apis.json:lifecycle_inventory.provider_types",
+  "evidence": "unverified; no post-edit builds, tests, formatting or fixture runs performed by this worker",
+  "safety": [
+    "Use run.py with a private owned workspace, exact pinned installed images and an isolated port/database. Do not use a shared controller.",
+    "Terraform state and tfvars contain native passwords; the runner keeps the run root mode0700 and password/tfvars files mode0600.",
+    "No resource setting is supported merely because a provider API name exists. All inventory rows remain unverified until the complete fixture is exercised.",
+    "Run one heavy engine fixture at a time. The scripts never pull engine images or modify Docker daemon settings. Kafka owns only its exact bridge, attachment and packet-policy resources."
+  ],
+  "run_commands": [
+    "python examples/terraform-engines/run.py cache --provider-mirror /prepared/mirror --docker-host unix:///var/run/docker.sock",
+    "python examples/terraform-engines/run.py memorydb --provider-mirror /prepared/mirror --docker-host unix:///var/run/docker.sock",
+    "python examples/terraform-engines/run.py mq --provider-mirror /prepared/mirror --docker-host unix:///var/run/docker.sock",
+    "python examples/terraform-engines/run.py search --provider-mirror /prepared/mirror --docker-host unix:///var/run/docker.sock",
+    "python examples/terraform-engines/run.py kafka --provider-mirror /prepared/mirror --docker-host unix:///var/run/docker.sock"
+  ],
+  "boundaries": {
+    "elasticache": {
+      "native_fixture": "One Valkey8.1.6 replication group, real verified TLS, password ACL, binary SET/GET, native maxmemory-policy update, retained bytes, forbidden commands/key prefixes, wrong password and no IAM authority.",
+      "remaining": [
+        "Standalone cache cluster, subnet group and separate user-group association Terraform lifecycles are not covered by this fixture.",
+        "Global/serverless/reserved/service-update families are not implemented.",
+        "Replica/shard count changes, cluster mode, managed automatic failover/multi-AZ, managed EC2 network placement, managed EBS/KMS encryption and managed engine upgrades remain unsupported. No fake at-rest encryption is requested."
+      ]
+    },
+    "memorydb": {
+      "native_fixture": "One TLS Valkey8.1.6 cluster and ACL; native binary data, parameter updates, snapshot and independent native restored cluster; wrong-password and no IAM authority checks.",
+      "remaining": [
+        "Subnet group Terraform lifecycle is not covered. A stored subnet group is not proof of native EC2 network attachment.",
+        "Multi-region clusters are not implemented.",
+        "Managed multi-node/replica/AZ topology, EC2 network attachment, managed volume/KMS encryption, engine upgrades and managed automatic maintenance are not implemented. The fixture uses the explicit single-node local boundary."
+      ]
+    },
+    "mq": {
+      "native_fixture": "Terraform ActiveMQ5.18.7 broker and real XML configuration; independent Java TLS/OpenWire JMS byte messages, committed/rolled-back delivery, retained queue bytes, native populateJMSXUserID update and wrong-password/current-IAM denial.",
+      "remaining": [
+        "Provider6.68.0 initial RabbitMQ read invokes DescribeUser, but AWS forbids RabbitMQ DescribeUser. Returning no users would silently discard Terraform credentials and make an update call forbidden CreateUser. No fake users or ignore_changes workaround is used. RabbitMQ Terraform is not supported by this fixture.",
+        "Managed VPC/subnet/SG placement, HA and multi-AZ deployment, KMS/storage controls, CRDR, LDAP/OIDC/console-managed authentication and managed engine upgrades remain unsupported.",
+        "The local native host allocation is not an AWS instance-class capacity claim."
+      ]
+    },
+    "kafka": {
+      "native_fixture": "Terraform cluster/configuration/SCRAM association; two brokers on actual EC2-owned reservations in distinct subnet AZs, native TLS/SCRAM, independent binary Kafka records and offsets, real broker property update, natural SG revoke/restore, current IAM grant/removal, SLR ownership and native JMX PartitionCount publication. Additional checks require retained child IAM/parent Kafka CloudTrail rejections after denied automatic role creation, runtime-only mTLS on ADMIN, and exact-owned broker quarantine/recovery when EC2 observation fails.",
+      "metrics": {
+        "measured_broker_gauges": [
+          "PartitionCount",
+          "LeaderCount",
+          "UnderReplicatedPartitions",
+          "UnderMinIsrPartitionCount"
+        ],
+        "namespace": "AWS/Kafka",
+        "dimensions": [
+          "Cluster Name",
+          "Broker ID"
+        ],
+        "unit": "Count",
+        "period_seconds": 60,
+        "remainder": "This measured subset is not the full AWS DEFAULT catalogue. CPU/EBS/network host statistics, bytes/topic/authentication dimensions and cluster-only gauges are not synthesized."
+      },
+      "remaining": [
+        "Cluster policy and single-secret association Terraform resource lifecycles have source owners but no fixture coverage.",
+        "Serverless clusters, channels, replicators, VPC connections and Kafka managed Topic APIs are not implemented. The fixture native client creates its exact owned topic through the actual auto.create.topics.enable property; it does not claim aws_msk_topic support.",
+        "Managed broker instance classes/EBS/KMS volumes, broker/storage/type/version/security/monitoring/rebalancing/connectivity updates, IAM native authentication, customer-facing mutual TLS and mixed transport/auth listeners remain unsupported. The runtime-only ADMIN listener requires its private native TLS identity as well as SCRAM; ordinary customer SCRAM credentials alone cannot bypass SG policy through its loopback publication.",
+        "Managed placement currently admits only two or three distinct-AZ subnets and up to three real brokers. Interbroker/controller TLS remains on a separate private owned bridge; client listeners advertise actual reserved EC2 addresses. Prepared Linux Docker host reachability and installed network toolkit are required.",
+        "SG changes propagate through natural one-minute runtime reconciliation, not an instantaneous global event bus. The fixture waits at most 90 seconds for both new TCP connections to be denied after revocation and restored after permission restoration; control-plane reads do not force either transition.",
+        "An invalid native prerequisite, such as supported EC2 DHCP configuration containing an IPv6 DNS server that the native adapter cannot use, stops exact-owned managed brokers outside the metadata transaction. The fixture requires natural fresh TCP denial together with observed stopped broker processes, and the same broker identities and records after restoration; packet timeout alone is not proof and no retained data volume is deleted for quarantine.",
+        "Destroy schedules the SCRAM KMS key for the AWS-required seven-day deletion window. PendingDeletion is retained intentionally; all native brokers, their volumes, exact ENIs and role usage must be removed."
+      ]
+    },
+    "opensearch": {
+      "native_fixture": "Terraform OpenSearch_2.19/native2.19.4 domain and policy; real signed indexing/query/aggregation, retained document bytes, native advanced options, unsigned/no-authority denial and same-client IAM grant/removal.",
+      "remaining": [
+        "Applications, managed VPC endpoint access/endpoints, SAML, inbound/outbound connections and package families are not implemented.",
+        "Engine upgrades, instance capacity/topology, EBS/KMS/VPC, managed TLS/custom endpoints, fine-grained/internal-user/JWT/Cognito auth, snapshots, auto-tune/off-peak/software upgrade/logging integrations, Identity Center and AI/vector/deployment settings remain unsupported, except genuinely disabled Cognito/software-update flags.",
+        "Only indices.query.bool.max_clause_count and rest.action.multi.allow_explicit_index have native advanced-option owners. No named TLS security policy is accepted without an actual TLS policy owner."
+      ]
+    },
+    "es": {
+      "native_fixture": "Legacy domain data source reads the same modern native-backed domain. This is not legacy Elasticsearch engine creation evidence.",
+      "remaining": [
+        "Legacy Elasticsearch creation/version upgrades remain unsupported. No newer OpenSearch engine is substituted for an Elasticsearch version.",
+        "Legacy policy API calls have source ownership but their separate Terraform resource is not exercised; provider6.68.0 has no importer for that resource.",
+        "Legacy SAML and managed VPC endpoints remain unsupported."
+      ]
+    }
+  },
+  "totals": {
+    "resources": 43,
+    "data_sources": 26
+  },
+  "provider_types": [
+    {
+      "terraform_type": "aws_elasticache_cluster",
+      "kind": "data_source",
+      "stackd_service": "elasticache",
+      "provider_service": "elasticache",
+      "source_files": [
+        "internal/service/elasticache/cluster_data_source.go"
+      ],
+      "api_disposition": "no-source-file-api-evidence",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "cache",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_elasticache_replication_group",
+      "kind": "data_source",
+      "stackd_service": "elasticache",
+      "provider_service": "elasticache",
+      "source_files": [
+        "internal/service/elasticache/replication_group_data_source.go"
+      ],
+      "api_disposition": "no-source-file-api-evidence",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "cache",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_elasticache_reserved_cache_node_offering",
+      "kind": "data_source",
+      "stackd_service": "elasticache",
+      "provider_service": "elasticache",
+      "source_files": [
+        "internal/service/elasticache/reserved_cache_node_offering_data_source.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "elasticache/DescribeReservedCacheNodesOfferings:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_elasticache_serverless_cache",
+      "kind": "data_source",
+      "stackd_service": "elasticache",
+      "provider_service": "elasticache",
+      "source_files": [
+        "internal/service/elasticache/serverless_cache_data_source.go"
+      ],
+      "api_disposition": "no-source-file-api-evidence",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_elasticache_service_update_actions",
+      "kind": "data_source",
+      "stackd_service": "elasticache",
+      "provider_service": "elasticache",
+      "source_files": [
+        "internal/service/elasticache/service_update_actions_data_source.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "elasticache/DescribeUpdateActions:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_elasticache_service_updates",
+      "kind": "data_source",
+      "stackd_service": "elasticache",
+      "provider_service": "elasticache",
+      "source_files": [
+        "internal/service/elasticache/service_updates_data_source.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "elasticache/DescribeServiceUpdates:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_elasticache_subnet_group",
+      "kind": "data_source",
+      "stackd_service": "elasticache",
+      "provider_service": "elasticache",
+      "source_files": [
+        "internal/service/elasticache/subnet_group_data_source.go"
+      ],
+      "api_disposition": "no-source-file-api-evidence",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "source-owner-present-no-fixture-proof",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_elasticache_user",
+      "kind": "data_source",
+      "stackd_service": "elasticache",
+      "provider_service": "elasticache",
+      "source_files": [
+        "internal/service/elasticache/user_data_source.go"
+      ],
+      "api_disposition": "no-source-file-api-evidence",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "cache",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_elasticache_cluster",
+      "kind": "resource",
+      "stackd_service": "elasticache",
+      "provider_service": "elasticache",
+      "source_files": [
+        "internal/service/elasticache/cluster.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "source-owner-present-no-fixture-proof",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_elasticache_global_replication_group",
+      "kind": "resource",
+      "stackd_service": "elasticache",
+      "provider_service": "elasticache",
+      "source_files": [
+        "internal/service/elasticache/global_replication_group.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "elasticache/CreateGlobalReplicationGroup:unimplemented",
+        "elasticache/DecreaseNodeGroupsInGlobalReplicationGroup:unimplemented",
+        "elasticache/DeleteGlobalReplicationGroup:unimplemented",
+        "elasticache/DescribeGlobalReplicationGroups:unimplemented",
+        "elasticache/IncreaseNodeGroupsInGlobalReplicationGroup:unimplemented",
+        "elasticache/ModifyGlobalReplicationGroup:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_elasticache_parameter_group",
+      "kind": "resource",
+      "stackd_service": "elasticache",
+      "provider_service": "elasticache",
+      "source_files": [
+        "internal/service/elasticache/parameter_group.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "cache",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_elasticache_replication_group",
+      "kind": "resource",
+      "stackd_service": "elasticache",
+      "provider_service": "elasticache",
+      "source_files": [
+        "internal/service/elasticache/replication_group.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "elasticache/DecreaseReplicaCount:unimplemented",
+        "elasticache/DisassociateGlobalReplicationGroup:unimplemented",
+        "elasticache/IncreaseReplicaCount:unimplemented",
+        "elasticache/ModifyReplicationGroupShardConfiguration:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "cache",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_elasticache_reserved_cache_node",
+      "kind": "resource",
+      "stackd_service": "elasticache",
+      "provider_service": "elasticache",
+      "source_files": [
+        "internal/service/elasticache/reserved_cache_node.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "elasticache/DescribeReservedCacheNodes:unimplemented",
+        "elasticache/PurchaseReservedCacheNodesOffering:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_elasticache_serverless_cache",
+      "kind": "resource",
+      "stackd_service": "elasticache",
+      "provider_service": "elasticache",
+      "source_files": [
+        "internal/service/elasticache/serverless_cache.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "elasticache/CreateServerlessCache:unimplemented",
+        "elasticache/DeleteServerlessCache:unimplemented",
+        "elasticache/DescribeServerlessCaches:unimplemented",
+        "elasticache/ModifyServerlessCache:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_elasticache_subnet_group",
+      "kind": "resource",
+      "stackd_service": "elasticache",
+      "provider_service": "elasticache",
+      "source_files": [
+        "internal/service/elasticache/subnet_group.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "source-owner-present-no-fixture-proof",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_elasticache_user",
+      "kind": "resource",
+      "stackd_service": "elasticache",
+      "provider_service": "elasticache",
+      "source_files": [
+        "internal/service/elasticache/user.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "cache",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_elasticache_user_group",
+      "kind": "resource",
+      "stackd_service": "elasticache",
+      "provider_service": "elasticache",
+      "source_files": [
+        "internal/service/elasticache/user_group.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "cache",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_elasticache_user_group_association",
+      "kind": "resource",
+      "stackd_service": "elasticache",
+      "provider_service": "elasticache",
+      "source_files": [
+        "internal/service/elasticache/user_group_association.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "source-owner-present-no-fixture-proof",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_elasticsearch_domain",
+      "kind": "data_source",
+      "stackd_service": "es",
+      "provider_service": "elasticsearch",
+      "source_files": [
+        "internal/service/elasticsearch/domain_data_source.go"
+      ],
+      "api_disposition": "no-source-file-api-evidence",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "search",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_elasticsearch_domain",
+      "kind": "resource",
+      "stackd_service": "es",
+      "provider_service": "elasticsearch",
+      "source_files": [
+        "internal/service/elasticsearch/domain.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "elasticsearchservice/CreateElasticsearchDomain:unimplemented",
+        "elasticsearchservice/GetCompatibleElasticsearchVersions:unimplemented",
+        "elasticsearchservice/GetUpgradeStatus:unimplemented",
+        "elasticsearchservice/UpgradeElasticsearchDomain:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "legacy-engine-create-not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_elasticsearch_domain_policy",
+      "kind": "resource",
+      "stackd_service": "es",
+      "provider_service": "elasticsearch",
+      "source_files": [
+        "internal/service/elasticsearch/domain_policy.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "source-owner-present-no-fixture-proof",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_elasticsearch_domain_saml_options",
+      "kind": "resource",
+      "stackd_service": "es",
+      "provider_service": "elasticsearch",
+      "source_files": [
+        "internal/service/elasticsearch/domain_saml_options.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_elasticsearch_vpc_endpoint",
+      "kind": "resource",
+      "stackd_service": "es",
+      "provider_service": "elasticsearch",
+      "source_files": [
+        "internal/service/elasticsearch/vpc_endpoint.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "elasticsearchservice/CreateVpcEndpoint:unimplemented",
+        "elasticsearchservice/DeleteVpcEndpoint:unimplemented",
+        "elasticsearchservice/DescribeVpcEndpoints:unimplemented",
+        "elasticsearchservice/UpdateVpcEndpoint:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_msk_bootstrap_brokers",
+      "kind": "data_source",
+      "stackd_service": "kafka",
+      "provider_service": "kafka",
+      "source_files": [
+        "internal/service/kafka/bootstrap_brokers_data_source.go"
+      ],
+      "api_disposition": "no-source-file-api-evidence",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "kafka",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_msk_broker_nodes",
+      "kind": "data_source",
+      "stackd_service": "kafka",
+      "provider_service": "kafka",
+      "source_files": [
+        "internal/service/kafka/broker_nodes_data_source.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "kafka",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_msk_cluster",
+      "kind": "data_source",
+      "stackd_service": "kafka",
+      "provider_service": "kafka",
+      "source_files": [
+        "internal/service/kafka/cluster_data_source.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "kafka",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_msk_configuration",
+      "kind": "data_source",
+      "stackd_service": "kafka",
+      "provider_service": "kafka",
+      "source_files": [
+        "internal/service/kafka/configuration_data_source.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "kafka",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_msk_kafka_version",
+      "kind": "data_source",
+      "stackd_service": "kafka",
+      "provider_service": "kafka",
+      "source_files": [
+        "internal/service/kafka/kafka_version_data_source.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "kafka",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_msk_topic",
+      "kind": "data_source",
+      "stackd_service": "kafka",
+      "provider_service": "kafka",
+      "source_files": [
+        "internal/service/kafka/topic_data_source.go"
+      ],
+      "api_disposition": "no-source-file-api-evidence",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_msk_vpc_connection",
+      "kind": "data_source",
+      "stackd_service": "kafka",
+      "provider_service": "kafka",
+      "source_files": [
+        "internal/service/kafka/vpc_connection_data_source.go"
+      ],
+      "api_disposition": "no-source-file-api-evidence",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_msk_channel",
+      "kind": "resource",
+      "stackd_service": "kafka",
+      "provider_service": "kafka",
+      "source_files": [
+        "internal/service/kafka/channel.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "kafka/CreateChannel:unimplemented",
+        "kafka/DeleteChannel:unimplemented",
+        "kafka/DescribeChannel:unimplemented",
+        "kafka/UpdateChannel:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_msk_cluster",
+      "kind": "resource",
+      "stackd_service": "kafka",
+      "provider_service": "kafka",
+      "source_files": [
+        "internal/service/kafka/cluster.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "kafka/UpdateBrokerCount:unimplemented",
+        "kafka/UpdateBrokerStorage:unimplemented",
+        "kafka/UpdateBrokerType:unimplemented",
+        "kafka/UpdateClusterKafkaVersion:unimplemented",
+        "kafka/UpdateConnectivity:unimplemented",
+        "kafka/UpdateMonitoring:unimplemented",
+        "kafka/UpdateRebalancing:unimplemented",
+        "kafka/UpdateSecurity:unimplemented",
+        "kafka/UpdateStorage:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "kafka",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_msk_cluster_policy",
+      "kind": "resource",
+      "stackd_service": "kafka",
+      "provider_service": "kafka",
+      "source_files": [
+        "internal/service/kafka/cluster_policy.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "source-owner-present-no-fixture-proof",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_msk_configuration",
+      "kind": "resource",
+      "stackd_service": "kafka",
+      "provider_service": "kafka",
+      "source_files": [
+        "internal/service/kafka/configuration.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "kafka",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_msk_replicator",
+      "kind": "resource",
+      "stackd_service": "kafka",
+      "provider_service": "kafka",
+      "source_files": [
+        "internal/service/kafka/replicator.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "kafka/CreateReplicator:unimplemented",
+        "kafka/DeleteReplicator:unimplemented",
+        "kafka/DescribeReplicator:unimplemented",
+        "kafka/UpdateReplicationInfo:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_msk_scram_secret_association",
+      "kind": "resource",
+      "stackd_service": "kafka",
+      "provider_service": "kafka",
+      "source_files": [
+        "internal/service/kafka/scram_secret_association.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "kafka",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_msk_serverless_cluster",
+      "kind": "resource",
+      "stackd_service": "kafka",
+      "provider_service": "kafka",
+      "source_files": [
+        "internal/service/kafka/serverless_cluster.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_msk_single_scram_secret_association",
+      "kind": "resource",
+      "stackd_service": "kafka",
+      "provider_service": "kafka",
+      "source_files": [
+        "internal/service/kafka/single_scram_secret_association.go"
+      ],
+      "api_disposition": "no-source-file-api-evidence",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "source-owner-present-no-fixture-proof",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_msk_topic",
+      "kind": "resource",
+      "stackd_service": "kafka",
+      "provider_service": "kafka",
+      "source_files": [
+        "internal/service/kafka/topic.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "kafka/CreateTopic:unimplemented",
+        "kafka/DeleteTopic:unimplemented",
+        "kafka/DescribeTopic:unimplemented",
+        "kafka/UpdateTopic:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_msk_vpc_connection",
+      "kind": "resource",
+      "stackd_service": "kafka",
+      "provider_service": "kafka",
+      "source_files": [
+        "internal/service/kafka/vpc_connection.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "kafka/CreateVpcConnection:unimplemented",
+        "kafka/DeleteVpcConnection:unimplemented",
+        "kafka/DescribeVpcConnection:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_memorydb_acl",
+      "kind": "data_source",
+      "stackd_service": "memorydb",
+      "provider_service": "memorydb",
+      "source_files": [
+        "internal/service/memorydb/acl_data_source.go"
+      ],
+      "api_disposition": "no-source-file-api-evidence",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "memorydb",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_memorydb_cluster",
+      "kind": "data_source",
+      "stackd_service": "memorydb",
+      "provider_service": "memorydb",
+      "source_files": [
+        "internal/service/memorydb/cluster_data_source.go"
+      ],
+      "api_disposition": "no-source-file-api-evidence",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "memorydb",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_memorydb_parameter_group",
+      "kind": "data_source",
+      "stackd_service": "memorydb",
+      "provider_service": "memorydb",
+      "source_files": [
+        "internal/service/memorydb/parameter_group_data_source.go"
+      ],
+      "api_disposition": "no-source-file-api-evidence",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "memorydb",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_memorydb_snapshot",
+      "kind": "data_source",
+      "stackd_service": "memorydb",
+      "provider_service": "memorydb",
+      "source_files": [
+        "internal/service/memorydb/snapshot_data_source.go"
+      ],
+      "api_disposition": "no-source-file-api-evidence",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "memorydb",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_memorydb_subnet_group",
+      "kind": "data_source",
+      "stackd_service": "memorydb",
+      "provider_service": "memorydb",
+      "source_files": [
+        "internal/service/memorydb/subnet_group_data_source.go"
+      ],
+      "api_disposition": "no-source-file-api-evidence",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "source-owner-present-no-fixture-proof",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_memorydb_user",
+      "kind": "data_source",
+      "stackd_service": "memorydb",
+      "provider_service": "memorydb",
+      "source_files": [
+        "internal/service/memorydb/user_data_source.go"
+      ],
+      "api_disposition": "no-source-file-api-evidence",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "memorydb",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_memorydb_acl",
+      "kind": "resource",
+      "stackd_service": "memorydb",
+      "provider_service": "memorydb",
+      "source_files": [
+        "internal/service/memorydb/acl.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "memorydb",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_memorydb_cluster",
+      "kind": "resource",
+      "stackd_service": "memorydb",
+      "provider_service": "memorydb",
+      "source_files": [
+        "internal/service/memorydb/cluster.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "memorydb",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_memorydb_multi_region_cluster",
+      "kind": "resource",
+      "stackd_service": "memorydb",
+      "provider_service": "memorydb",
+      "source_files": [
+        "internal/service/memorydb/multi_region_cluster.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "memorydb/CreateMultiRegionCluster:unimplemented",
+        "memorydb/DeleteMultiRegionCluster:unimplemented",
+        "memorydb/DescribeMultiRegionClusters:unimplemented",
+        "memorydb/UpdateMultiRegionCluster:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_memorydb_parameter_group",
+      "kind": "resource",
+      "stackd_service": "memorydb",
+      "provider_service": "memorydb",
+      "source_files": [
+        "internal/service/memorydb/parameter_group.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "memorydb",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_memorydb_snapshot",
+      "kind": "resource",
+      "stackd_service": "memorydb",
+      "provider_service": "memorydb",
+      "source_files": [
+        "internal/service/memorydb/snapshot.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "memorydb",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_memorydb_subnet_group",
+      "kind": "resource",
+      "stackd_service": "memorydb",
+      "provider_service": "memorydb",
+      "source_files": [
+        "internal/service/memorydb/subnet_group.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "source-owner-present-no-fixture-proof",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_memorydb_user",
+      "kind": "resource",
+      "stackd_service": "memorydb",
+      "provider_service": "memorydb",
+      "source_files": [
+        "internal/service/memorydb/user.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "memorydb",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_mq_broker",
+      "kind": "data_source",
+      "stackd_service": "mq",
+      "provider_service": "mq",
+      "source_files": [
+        "internal/service/mq/broker_data_source.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "mq",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_mq_broker_engine_types",
+      "kind": "data_source",
+      "stackd_service": "mq",
+      "provider_service": "mq",
+      "source_files": [
+        "internal/service/mq/broker_engine_types_data_source.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "mq",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_mq_broker_instance_type_offerings",
+      "kind": "data_source",
+      "stackd_service": "mq",
+      "provider_service": "mq",
+      "source_files": [
+        "internal/service/mq/broker_instance_type_offerings_data_source.go"
+      ],
+      "api_disposition": "no-source-file-api-evidence",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "mq",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_mq_broker",
+      "kind": "resource",
+      "stackd_service": "mq",
+      "provider_service": "mq",
+      "source_files": [
+        "internal/service/mq/broker.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "mq",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_mq_configuration",
+      "kind": "resource",
+      "stackd_service": "mq",
+      "provider_service": "mq",
+      "source_files": [
+        "internal/service/mq/configuration.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "mq",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_opensearch_domain",
+      "kind": "data_source",
+      "stackd_service": "opensearch",
+      "provider_service": "opensearch",
+      "source_files": [
+        "internal/service/opensearch/domain_data_source.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "search",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_opensearch_application",
+      "kind": "resource",
+      "stackd_service": "opensearch",
+      "provider_service": "opensearch",
+      "source_files": [
+        "internal/service/opensearch/application.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "opensearch/CreateApplication:unimplemented",
+        "opensearch/DeleteApplication:unimplemented",
+        "opensearch/GetApplication:unimplemented",
+        "opensearch/UpdateApplication:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_opensearch_authorize_vpc_endpoint_access",
+      "kind": "resource",
+      "stackd_service": "opensearch",
+      "provider_service": "opensearch",
+      "source_files": [
+        "internal/service/opensearch/authorize_vpc_endpoint_access.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "opensearch/AuthorizeVpcEndpointAccess:unimplemented",
+        "opensearch/RevokeVpcEndpointAccess:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_opensearch_domain",
+      "kind": "resource",
+      "stackd_service": "opensearch",
+      "provider_service": "opensearch",
+      "source_files": [
+        "internal/service/opensearch/domain.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "opensearch/GetCompatibleVersions:unimplemented",
+        "opensearch/UpgradeDomain:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "search",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_opensearch_domain_policy",
+      "kind": "resource",
+      "stackd_service": "opensearch",
+      "provider_service": "opensearch",
+      "source_files": [
+        "internal/service/opensearch/domain_policy.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": "search",
+      "fixture_evidence": "unverified",
+      "scope_disposition": "bounded-native-fixture-written-not-run",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_opensearch_domain_saml_options",
+      "kind": "resource",
+      "stackd_service": "opensearch",
+      "provider_service": "opensearch",
+      "source_files": [
+        "internal/service/opensearch/domain_saml_options.go"
+      ],
+      "api_disposition": "source-file-apis-registered-partial-not-lifecycle-proof",
+      "static_api_gaps": [],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_opensearch_inbound_connection_accepter",
+      "kind": "resource",
+      "stackd_service": "opensearch",
+      "provider_service": "opensearch",
+      "source_files": [
+        "internal/service/opensearch/inbound_connection_accepter.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "opensearch/AcceptInboundConnection:unimplemented",
+        "opensearch/DeleteInboundConnection:unimplemented",
+        "opensearch/DescribeInboundConnections:unimplemented",
+        "opensearch/RejectInboundConnection:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_opensearch_outbound_connection",
+      "kind": "resource",
+      "stackd_service": "opensearch",
+      "provider_service": "opensearch",
+      "source_files": [
+        "internal/service/opensearch/outbound_connection.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "opensearch/AcceptInboundConnection:unimplemented",
+        "opensearch/CreateOutboundConnection:unimplemented",
+        "opensearch/DeleteOutboundConnection:unimplemented",
+        "opensearch/DescribeOutboundConnections:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_opensearch_package",
+      "kind": "resource",
+      "stackd_service": "opensearch",
+      "provider_service": "opensearch",
+      "source_files": [
+        "internal/service/opensearch/package.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "opensearch/CreatePackage:unimplemented",
+        "opensearch/DeletePackage:unimplemented",
+        "opensearch/DescribePackages:unimplemented",
+        "opensearch/UpdatePackage:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_opensearch_package_association",
+      "kind": "resource",
+      "stackd_service": "opensearch",
+      "provider_service": "opensearch",
+      "source_files": [
+        "internal/service/opensearch/package_association.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "opensearch/AssociatePackage:unimplemented",
+        "opensearch/DissociatePackage:unimplemented",
+        "opensearch/ListPackagesForDomain:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    },
+    {
+      "terraform_type": "aws_opensearch_vpc_endpoint",
+      "kind": "resource",
+      "stackd_service": "opensearch",
+      "provider_service": "opensearch",
+      "source_files": [
+        "internal/service/opensearch/vpc_endpoint.go"
+      ],
+      "api_disposition": "static-api-gaps",
+      "static_api_gaps": [
+        "opensearch/CreateVpcEndpoint:unimplemented",
+        "opensearch/DeleteVpcEndpoint:unimplemented",
+        "opensearch/DescribeVpcEndpoints:unimplemented",
+        "opensearch/UpdateVpcEndpoint:unimplemented"
+      ],
+      "terraform_lifecycle_evidence": "unverified",
+      "native_engine_evidence": "unverified",
+      "fixture": null,
+      "fixture_evidence": "unverified",
+      "scope_disposition": "not-implemented",
+      "scope_note": "Static API registration is not Terraform lifecycle or native engine proof. Fixture presence covers only the settings in that HCL file."
+    }
+  ]
+}

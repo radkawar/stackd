@@ -65,6 +65,9 @@ func (d *Docker) Reboot(ctx context.Context, spec msk.Specification, brokerID in
 	if err = d.start(ctx, state); err != nil {
 		return endpoint, d.failure(ctx, state.ID, err)
 	}
+	if err = d.configureBrokerNetwork(ctx, spec, int(brokerID)-1, state); err != nil {
+		return endpoint, err
+	}
 	if err = d.ready(ctx, spec, m, properties); err != nil {
 		return endpoint, err
 	}

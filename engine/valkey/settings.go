@@ -117,6 +117,9 @@ func validateSpecification(s Specification) error {
 			return errors.New("maxmemory cannot disable or exceed native node capacity")
 		}
 	}
+	if err := validatePlacement(s); err != nil {
+		return err
+	}
 	if err := ValidateUsers(s.Users); err != nil {
 		return err
 	}

@@ -2,10 +2,12 @@ package integrations
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"stackd/internal/awscommands"
 	"stackd/internal/awsctx"
+	"stackd/internal/awswire"
 	"stackd/internal/services/cloudformation"
 	owner "stackd/internal/services/kafka"
 	"stackd/storage/sqlite"
@@ -94,7 +96,11 @@ func TestCloudFormationMSKConfigurationPlaintextRecoveryAndRevision(t *testing.T
 	if err = h.Delete(ctx, r); err != nil {
 		t.Fatalf("repeated native deletion failed: %v", err)
 	}
-	if _, err = h.Read(ctx, r); !cfnEngineMissing(err) {
-		t.Fatalf("deleted configuration is not NotFound: %v", err)
+	var missing *awswire.Error
+	if _, err = h.Read(ctx, r); !errors.As(err, &missing) || missing.Code != "BadRequestException" {
+		t.Fatalf("deleted configuration did not return its modeled AWS error: %v", err)
+	}
+	if arn, findErr := h.find(ctx, cfnComputeString(r.Properties, "Name")); findErr != nil || arn != "" {
+		t.Fatalf("deleted configuration remains in the native owner's inventory: %q %v", arn, findErr)
 	}
 }

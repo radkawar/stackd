@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"stackd/clock"
+	engine "stackd/engine/valkey"
 	"stackd/internal/authorization"
 	"stackd/internal/awsapi"
 	api "stackd/internal/awsapi/elasticache"
@@ -81,6 +82,24 @@ func TestParameterMutationRollsBackAllAttachedIntent(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+func TestAuthenticationModeWithProviderPasswordDefault(t *testing.T) {
+	password := "terraform-local-password"
+	var user User
+	mode := &api.AuthenticationMode{Type: new(api.InputAuthenticationType("password")), Passwords: api.PasswordListInput{api.String(password)}}
+	if err := authentication(&user, mode, new(api.BooleanOptional(false)), nil, true); err != nil {
+		t.Fatal(err)
+	}
+	if user.NoPassword || len(user.PasswordHashes) != 1 || user.PasswordHashes[0] != hashPassword(password) {
+		t.Fatalf("provider password mode did not retain the effective credential: %#v", user)
+	}
+	if err := authentication(&User{}, mode, new(api.BooleanOptional(true)), nil, true); err == nil {
+		t.Fatal("contradictory password and passwordless controls were accepted")
+	}
+	if err := authentication(&User{}, mode, nil, api.PasswordListInput{api.String(password)}, true); err == nil {
+		t.Fatal("duplicate password mechanisms were accepted")
+	}
+}
+
 func TestCurrentAuthorityAndCredentialRedaction(t *testing.T) {
 	ctx := cacheContext(t.Context())
 	authority := &testAuthority{}
@@ -510,6 +529,160 @@ func TestModifyPreservesDisabledSnapshotAdmission(t *testing.T) {
 					t.Fatal(err)
 				}
 			})
+		}
+	}
+}
+
+func TestReplicationReaderEndpointUsesActualNativeReplica(t *testing.T) {
+	primary := engine.Node{Shard: 0, Replica: 0, Endpoint: engine.Endpoint{Address: "127.0.0.1", Port: 16379}}
+	replica := engine.Node{Shard: 0, Replica: 1, Endpoint: engine.Endpoint{Address: "127.0.0.1", Port: 26379}}
+	cluster := Cluster{Key: Key{Kind: "replicationgroup", Name: "owned"}, Shards: 1, Nodes: []engine.Node{primary}}
+	if reader := replicationOutput(cluster).NodeGroups[0].ReaderEndpoint; reader != nil {
+		t.Fatalf("absent replica gained a fictional reader: %#v", reader)
+	}
+	cluster.Replicas = 1
+	cluster.Nodes = append(cluster.Nodes, replica)
+	output := replicationOutput(cluster).NodeGroups[0]
+	if output.ReaderEndpoint == nil || value(output.ReaderEndpoint.Address) != replica.Endpoint.Address || int32(*output.ReaderEndpoint.Port) != replica.Endpoint.Port {
+		t.Fatal("reader endpoint is not the actual native replica")
+	}
+	if output.PrimaryEndpoint == nil || int32(*output.PrimaryEndpoint.Port) != primary.Endpoint.Port {
+		t.Fatal("reader projection replaced the primary identity")
+	}
+}
+
+type memberTagAuthority struct {
+	denied   bool
+	resource string
+}
+
+func (a *memberTagAuthority) Authorize(_ context.Context, request authorization.Request) *awswire.Error {
+	a.resource = request.ResourceARN
+	if a.denied {
+		return failure("AccessDenied", "Denied by current authority.")
+	}
+	return nil
+}
+
+func TestReplicationMemberTagsFollowExactLiveGroupIdentity(t *testing.T) {
+	ctx := cacheContext(t.Context())
+	repository := NewMemoryRepository(nil)
+	authority := &memberTagAuthority{}
+	service := New(Config{Repository: repository, Authorizer: authority})
+	t.Cleanup(func() { _ = service.Close() })
+	group := Cluster{Key: Key{Scope: scopeFor(ctx), Kind: "replicationgroup", Name: "real-group"},
+		Tags: map[string]string{"Revision": "v1"}, Shards: 1, Replicas: 1,
+		Nodes: []engine.Node{{ID: "0001", Shard: 0, Replica: 0}, {ID: "0002", Shard: 0, Replica: 1}}}
+	if err := repository.Update(ctx, func(tx Transaction) error { return tx.PutCluster(group) }); err != nil {
+		t.Fatal(err)
+	}
+	member := Key{Scope: group.Key.Scope, Kind: "cluster", Name: memberName(group, group.Nodes[0])}
+	list := func(key Key, expected string) {
+		t.Helper()
+		err := repository.Attempt(ctx, func(tx Transaction) error {
+			output, err := service.listTags(ctx, tx, &api.ListTagsForResourceMessage{ResourceName: new(api.String(key.ARN()))})
+			if err != nil {
+				return err
+			}
+			if expected == "" {
+				if len(output.TagList) != 0 {
+					t.Fatalf("removed parent tags remain on actual member: %+v", output.TagList)
+				}
+			} else if len(output.TagList) != 1 || value(output.TagList[0].Key) != "Revision" || value(output.TagList[0].Value) != expected {
+				t.Fatalf("actual propagated member tags differ: %+v", output.TagList)
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if authority.resource != key.ARN() {
+			t.Fatalf("member tag read authorized parent or different scope: %s", authority.resource)
+		}
+	}
+	list(member, "v1")
+	for _, revision := range []string{"v2", ""} {
+		if err := repository.Attempt(ctx, func(tx Transaction) error {
+			if revision == "" {
+				_, err := service.removeTags(ctx, tx, &api.RemoveTagsFromResourceMessage{ResourceName: new(api.String(group.Key.ARN())), TagKeys: api.KeyList{"Revision"}})
+				return err
+			}
+			_, err := service.addTags(ctx, tx, &api.AddTagsToResourceMessage{ResourceName: new(api.String(group.Key.ARN())), Tags: api.TagList{{Key: new(api.String("Revision")), Value: new(api.String(revision))}}})
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+		for _, node := range group.Nodes {
+			list(Key{Scope: group.Key.Scope, Kind: "cluster", Name: memberName(group, node)}, revision)
+		}
+	}
+	for _, denied := range []bool{true, false} {
+		authority.denied = denied
+		err := repository.Attempt(ctx, func(tx Transaction) error {
+			_, err := service.addTags(ctx, tx, &api.AddTagsToResourceMessage{ResourceName: new(api.String(member.ARN())), Tags: api.TagList{{Key: new(api.String("Unimplemented")), Value: new(api.String("must-not-mutate-parent"))}}})
+			return err
+		})
+		var modeled *awswire.Error
+		if !errors.As(err, &modeled) || (denied && modeled.Code != "AccessDenied") ||
+			(!denied && !strings.Contains(modeled.Message, "member tag mutations")) {
+			t.Fatalf("member mutation failed to preserve IAM precedence or explicit gap: %v", err)
+		}
+		if authority.resource != member.ARN() {
+			t.Fatal("member mutation authorized a different ARN")
+		}
+	}
+	authority.denied = false
+	for _, key := range []Key{
+		{Scope: group.Key.Scope, Kind: "cluster", Name: member.Name + "-not-a-member"},
+		{Scope: Scope{Partition: "aws", AccountID: "222222222222", Region: "us-east-1"}, Kind: "cluster", Name: member.Name},
+	} {
+		err := repository.Attempt(ctx, func(tx Transaction) error {
+			_, err := service.listTags(ctx, tx, &api.ListTagsForResourceMessage{ResourceName: new(api.String(key.ARN()))})
+			return err
+		})
+		var modeled *awswire.Error
+		if !errors.As(err, &modeled) || modeled.Code != "CacheClusterNotFound" {
+			t.Fatalf("missing/foreign member invented tags: %v", err)
+		}
+	}
+	if err := repository.Update(ctx, func(tx Transaction) error {
+		current, err := tx.Cluster(group.Key)
+		if err != nil {
+			return err
+		}
+		if len(current.Tags) != 0 {
+			t.Fatal("unsupported child write mutated parent")
+		}
+		current.Nodes = nil
+		return tx.PutCluster(current)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	err := repository.Attempt(ctx, func(tx Transaction) error {
+		_, err := service.listTags(ctx, tx, &api.ListTagsForResourceMessage{ResourceName: new(api.String(member.ARN()))})
+		return err
+	})
+	var modeled *awswire.Error
+	if !errors.As(err, &modeled) || modeled.Code != "CacheClusterNotFound" {
+		t.Fatalf("deleted live member invented tags: %v", err)
+	}
+}
+
+func TestNativeClusterAndGroupTransitModeReflectActualTLSOnlyListener(t *testing.T) {
+	for _, tls := range []bool{false, true} {
+		cluster := Cluster{Key: Key{Scope: Scope{"aws", "123456789012", "us-east-1"}, Kind: "cluster", Name: "native"}, Engine: "valkey", Shards: 1, TLSEnabled: tls}
+		member := clusterOutput(cluster, true)
+		group := replicationOutput(cluster)
+		if !tls {
+			if member.TransitEncryptionMode != nil || group.TransitEncryptionMode != nil {
+				t.Fatal("plaintext listener invented a transit encryption mode")
+			}
+			continue
+		}
+		if member.TransitEncryptionMode == nil || group.TransitEncryptionMode == nil ||
+			*member.TransitEncryptionMode != api.TransitEncryptionModeREQUIRED ||
+			*group.TransitEncryptionMode != api.TransitEncryptionModeREQUIRED {
+			t.Fatal("TLS-only node and group disagree about their actual required mode")
 		}
 	}
 }
