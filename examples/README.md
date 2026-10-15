@@ -15,10 +15,41 @@ These are executable, assertion-bearing examples, not claims of AWS parity:
   runtime, edit its read-only host-mounted source, observe different subsequent
   output and a new Init, while retaining function/deployment identity and `/tmp`.
 
+## Service-specific Terraform workflows
+
+These runners cover larger service groups. Read each runner's options and its
+adjacent configuration before starting it; the basic example's prerequisites
+are not sufficient for every group. They create real runtime resources and
+perform destructive cleanup of their own resources.
+
+| Runner | Scope |
+| --- | --- |
+| [Identity](terraform-identity/run.py) | IAM, account and credential lifecycles |
+| [Identity extensions](terraform-identity-extensions/README.md) | Federation, keys, secret rotation and TLS consumers |
+| [API](terraform-api/run.py) | API deployment and request consumers |
+| [API controls](terraform-api-controls/README.md) | REST/WebSocket/GraphQL requests, authorizers and DNS |
+| [Messaging](terraform-messaging/run.py) | Queues, topics, routing, scheduling and configuration consumers |
+| [Storage](terraform-storage/run.py) | Object, table, block and native database consumers |
+| [Storage controls](terraform-storage-controls/run.py) | S3, DynamoDB and guest-backed EBS controls |
+| [Engines](terraform-engines/run.py) | Native cache, broker and search consumers |
+| [Compute](terraform-compute/compute.py) | Native function, container, Kubernetes and guest workflows |
+| [Analytics](terraform-analytics/run.py) | Real query, streaming and job execution |
+| [Analytics catalog](terraform-analytics-catalog/run.py) | Catalog and query configuration lifecycles |
+| [Governance](terraform-governance/run.py) | Organizations, sharing, SSO and resource groups |
+| [Observability](terraform-observability/run.py) | Logs, metrics, audit, security and delivery workflows |
+
+Presence here is not a passing coverage claim. The runners keep strict plan and
+native-consumer assertions; some workflows still fail on documented service or
+Terraform gaps. Retained lifecycle reports and service guides define the tested
+boundaries. Do not disable protection defaults or ignore drift to obtain a pass.
+
 ## Prepare once
 
-Run from the repository root. Install Python 3.10+, Go as required by `go.mod`,
-Terraform >= 1.5 and < 2 for its example, and Docker only for Lambda. An AWS CLI
+Run from the repository root. Install Python 3.10+ and Go as required by `go.mod`.
+The basic Terraform example requires Terraform >= 1.5 and < 2; service-specific
+fixtures may require a newer version and a pinned AWS provider. Docker is required
+for Lambda and container-backed engine workflows. Guest-backed workflows also
+need their documented host, image and firmware prerequisites. An AWS CLI
 installation is optional: the runners use signed boto3 requests, not unsigned
 HTTP health checks. Use a disposable virtual environment outside the checkout:
 
