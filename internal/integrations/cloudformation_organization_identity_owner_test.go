@@ -483,20 +483,24 @@ func TestCFNSSOInstanceAndPermissionSetPrivateClaimsRejectCounterfeitAndForeignR
 			set := cfnSSOPermissionSet{f.commands}
 			pr := cfnWorkflowOwnerRequest("AWS::SSO::PermissionSet", "Operators", cloudformation.Properties{"Name": "Operators", "InstanceArn": arn, "SessionDuration": "PT2H", "Tags": []any{map[string]any{"Key": "team", "Value": "a"}}})
 			direct := nativeSet("Operators", cfnOrgSSOCounterfeit(pr))
+			staleSet := pr
+			staleSet.PhysicalID = cfnOrgIdentityID(direct, arn)
+			before, err := set.Read(f.ctx, staleSet)
+			if err != nil {
+				t.Fatal(err)
+			}
 			result, err = set.RecoverCreation(f.ctx, pr)
 			cfnOrgSSONotAdmitted(t, "counterfeit permission set", result, err)
 			if result, err = set.Create(f.ctx, pr); err == nil || result.PhysicalID != "" {
 				t.Fatalf("create adopted a counterfeit permission set: %+v %v", result, err)
 			}
-			staleSet := pr
-			staleSet.PhysicalID = cfnOrgIdentityID(direct, arn)
 			if _, err = set.Update(f.ctx, staleSet); err == nil {
 				t.Fatal("marker-matching incarnation mutated a direct permission set")
 			}
 			if err = set.Delete(f.ctx, staleSet); err == nil {
 				t.Fatal("marker-matching incarnation deleted a direct permission set")
 			}
-			if p, err := set.Read(f.ctx, staleSet); err != nil || p["SessionDuration"] != "PT3600S" {
+			if p, err := set.Read(f.ctx, staleSet); err != nil || p["SessionDuration"] != before["SessionDuration"] {
 				t.Fatalf("direct permission set was damaged: %#v %v", p, err)
 			}
 			f.run(t, "ssoadmin", "DeletePermissionSet", map[string]any{"InstanceArn": arn, "PermissionSetArn": direct})
@@ -637,12 +641,16 @@ func TestCFNSSOPermissionSetUpdateOmitsAbsentNativeOptionalFields(t *testing.T) 
 				t.Fatal(err)
 			}
 			pr.PhysicalID = created.PhysicalID
+			before, err := set.Read(f.ctx, pr)
+			if err != nil {
+				t.Fatal(err)
+			}
 			pr.Previous, pr.Properties = pr.Properties, cloudformation.Properties{"Name": "OptionalSet", "InstanceArn": pr.Properties["InstanceArn"]}
 			if _, err := set.Update(f.ctx, pr); err != nil {
 				t.Fatalf("omitted optional fields rejected: %v", err)
 			}
 			model, err := set.Read(f.ctx, pr)
-			if err != nil || model["Description"] != "operators" || model["RelayStateType"] != "https://example.com/console" || model["SessionDuration"] != "PT7200S" {
+			if err != nil || model["Description"] != before["Description"] || model["RelayStateType"] != before["RelayStateType"] || model["SessionDuration"] != before["SessionDuration"] {
 				t.Fatalf("omission reset native optional configuration: %#v %v", model, err)
 			}
 			pr.Properties["Description"] = "must-not-commit"

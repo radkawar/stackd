@@ -19,6 +19,11 @@ callers need them. Detailed fleet behavior and quota tuning do not block the nex
 service. [The shared design policy](docs/verification-kernel.md#iam-evaluation-and-strict-behavior)
 keeps service-specific accounting and error semantics authoritative.
 
+- [x] Correct Identity Center ownership and omitted-update regressions to compare
+  retained state instead of obsolete seconds-only duration strings. A local
+  CloudFormation/SSO API smoke verifies optional-field preservation and atomic
+  rejection of an empty relay state. See [Identity Center](docs/identity-center.md).
+
 - [ ] Implement genuine DynamoDB managed-key encryption across native table/index
   storage, Streams, backups and regional replicas. Pinned DynamoDB Local ignores
   SSE selection and stores readable SQLite bytes; an alias or key-generation

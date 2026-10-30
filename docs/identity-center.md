@@ -100,6 +100,11 @@ The default remains one hour. The
 [native duration capture](../testdata/aws/identitycenter_duration.json) records
 create/update/read behavior and confirmed deletion of two unique, unassigned
 probe permission sets. Existing assignments and provisioned roles were not changed.
+Ownership and omitted-update regressions compare state before and after the
+operation, rather than assuming a seconds-only duration string. A local
+CloudFormation/boto3 smoke also verified that removing optional template fields
+preserves the permission set and that an invalid empty relay-state request
+leaves its description and other configuration unchanged.
 
 `ListAccounts`, `ListAccountRoles`, and `GetRoleCredentials` resolve the current directory user, direct assignments, group memberships, Organizations eligibility, and current provisioning. Removing membership/assignment or deleting the user prevents new exchanges. Already-issued IAM sessions remain subject to current IAM policy, trust, role incarnation, and expiry. Portal account records currently contain account IDs, not optional display names/email addresses.
 
