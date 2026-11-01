@@ -63,7 +63,8 @@ func flowRecords(scope domain.Scope) (domain.FlowLogRecord, domain.FlowLogTokenR
 	record := domain.FlowLogRecord{
 		Key: key, Incarnation: "subscription-incarnation", ResourceID: "vpc-source", ResourceType: "VPC", TrafficType: "ALL",
 		DestinationType: "s3", Destination: "arn:aws:s3:::flow-destination/prefix", LogGroupName: "retained-group", PermissionARN: "arn:aws:iam::111111111111:role/flow-delivery",
-		LogFormat: "${version} ${interface-id} ${packets}", FormatVersion: 7, AggregationSeconds: 600, HivePartitions: true, HourPartitions: true,
+		FileFormat: "parquet",
+		LogFormat:  "${version} ${interface-id} ${packets}", FormatVersion: 7, AggregationSeconds: 600, HivePartitions: true, HourPartitions: true,
 		Tags:      api.TagList{{Key: new(api.String("second")), Value: new(api.String("2"))}, {Key: new(api.String("first"))}},
 		CreatedAt: start, Status: "ACTIVE", DeliveryStatus: "FAILED", DeliveryError: "access denied", CaptureError: "native capture unavailable", Version: ^uint64(0),
 	}
@@ -81,6 +82,7 @@ func flowRecords(scope domain.Scope) (domain.FlowLogRecord, domain.FlowLogTokenR
 	delivery := domain.FlowLogDeliveryRecord{
 		Key: domain.ResourceKey{Scope: scope, ID: "batch-stable"}, FlowLogKey: key, Incarnation: record.Incarnation,
 		DestinationType: record.DestinationType, Destination: record.Destination, LogGroupName: record.LogGroupName, PermissionARN: record.PermissionARN,
+		FileFormat:     record.FileFormat,
 		HivePartitions: true, HourPartitions: true, Header: "version interface-id packets", WindowStart: aggregate.End.UTC().Truncate(5 * time.Minute),
 		Lines: []domain.FlowLogLine{{Start: start.Add(time.Second), InterfaceID: "eni-b", Message: "7 eni-b 17"}, {Start: start, InterfaceID: "eni-a", Message: "7 eni-a 19"}}, Due: start.Add(5 * time.Minute), Version: ^uint64(0),
 	}
@@ -193,6 +195,7 @@ func TestFlowLogDurableRoundtripScopingAndRetainedCursor(t *testing.T) {
 			retry := delivery
 			retry.Due, retry.Version = retry.Due.Add(time.Minute), 3
 			retry.Destination, retry.Header, retry.Lines = "changed", "changed", nil
+			retry.FileFormat = "plain-text"
 			retry.WindowStart = retry.WindowStart.Add(time.Hour)
 			if err := stores.repo.Update(t.Context(), func(tx domain.Transaction) error { return tx.PutFlowLogDelivery(retry) }); err != nil {
 				t.Fatal(err)
@@ -425,6 +428,143 @@ func TestFlowLogMigrationPreservesRetainedEC2State(t *testing.T) {
 		return nil
 	}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestFlowLogFileFormatMigrationPreservesLegacyPendingDeliveries(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "legacy-flow-logs.sqlite")
+	migrations, err := filepath.Glob("../schema/*.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	version := 0
+	for i, migration := range migrations {
+		if filepath.Base(migration) == "424_ec2_flow_logs.sql" {
+			version = i + 1
+			break
+		}
+	}
+	if version == 0 {
+		t.Fatal("flow-log schema migration is missing")
+	}
+	db := awstest.HistoricalSQLite(t, path, "../schema", version, "", nil)
+	scope := domain.Scope{Partition: "aws", AccountID: "111111111111", Region: "us-east-1"}
+	record, _, _, delivery, capture := flowRecords(scope)
+	record.FileFormat, delivery.FileFormat, record.Tags = "plain-text", "plain-text", nil
+	if _, err := db.ExecContext(t.Context(), `INSERT INTO ec2_flow_logs
+		(partition, account_id, region, resource_id, incarnation, selector_resource_id, resource_type, traffic_type,
+		 destination_type, destination, log_group_name, permission_arn, log_format, format_version, aggregation_seconds,
+		 hive_partitions, hour_partitions, tags_present, created_at, status, delivery_status, delivery_error, capture_error, version)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		scope.Partition, scope.AccountID, scope.Region, record.Key.ID, record.Incarnation, record.ResourceID, record.ResourceType, record.TrafficType,
+		record.DestinationType, record.Destination, record.LogGroupName, record.PermissionARN, record.LogFormat, record.FormatVersion, record.AggregationSeconds,
+		record.HivePartitions, record.HourPartitions, false, record.CreatedAt, record.Status, record.DeliveryStatus, record.DeliveryError, record.CaptureError, sqlite.Uint64(record.Version)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(t.Context(), `INSERT INTO ec2_flow_log_deliveries
+		(partition, account_id, region, resource_id, flow_log_id, incarnation, destination_type, destination, log_group_name,
+		 permission_arn, hive_partitions, hour_partitions, header, lines_present, window_start, due, version)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		scope.Partition, scope.AccountID, scope.Region, delivery.Key.ID, record.Key.ID, delivery.Incarnation, delivery.DestinationType, delivery.Destination,
+		delivery.LogGroupName, delivery.PermissionARN, delivery.HivePartitions, delivery.HourPartitions, delivery.Header, true, delivery.WindowStart, delivery.Due, sqlite.Uint64(delivery.Version)); err != nil {
+		t.Fatal(err)
+	}
+	for i, line := range delivery.Lines {
+		if _, err := db.ExecContext(t.Context(), `INSERT INTO ec2_flow_log_delivery_lines
+			(partition, account_id, region, resource_id, position, start, interface_id, message) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			scope.Partition, scope.AccountID, scope.Region, delivery.Key.ID, i, line.Start, line.InterfaceID, line.Message); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := db.ExecContext(t.Context(), `INSERT INTO ec2_flow_log_capture (singleton, cursor, due, version) VALUES (1, ?, ?, ?)`, capture.Cursor, capture.Due, sqlite.Uint64(capture.Version)); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	db, err = sqlite.Open(t.Context(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	repository := sqlec2.New(db)
+	if err := repository.View(t.Context(), func(r domain.Reader) error {
+		got, err := r.FlowLog(record.Key)
+		if err != nil {
+			return err
+		}
+		if !reflect.DeepEqual(got, record) {
+			t.Fatalf("upgrade changed legacy subscription: %+v, want %+v", got, record)
+		}
+		rows, err := r.FlowLogDeliveries()
+		if err != nil {
+			return err
+		}
+		if !reflect.DeepEqual(rows, []domain.FlowLogDeliveryRecord{delivery}) {
+			t.Fatalf("upgrade changed legacy pending payload/format: %+v", rows)
+		}
+		gotCapture, err := r.FlowLogCaptureState()
+		if err != nil {
+			return err
+		}
+		if !reflect.DeepEqual(gotCapture, capture) {
+			t.Fatalf("upgrade changed retained checkpoint: %+v", gotCapture)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	retry := delivery
+	retry.FileFormat, retry.Version, retry.Due = "parquet", 2, retry.Due.Add(time.Minute)
+	if err := repository.Update(t.Context(), func(tx domain.Transaction) error { return tx.PutFlowLogDelivery(retry) }); err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.View(t.Context(), func(r domain.Reader) error {
+		rows, err := r.FlowLogDeliveries()
+		delivery.Version, delivery.Due = retry.Version, retry.Due
+		if !reflect.DeepEqual(rows, []domain.FlowLogDeliveryRecord{delivery}) {
+			t.Fatalf("retry changed upgraded text batch: %+v", rows)
+		}
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestFlowLogLegacyEmptyFileFormatNormalizesOnPersistence(t *testing.T) {
+	for _, backend := range []string{"memory", "sqlite"} {
+		t.Run(backend, func(t *testing.T) {
+			stores := openFlowStores(t, backend)
+			scope := domain.Scope{Partition: "aws", AccountID: "111111111111", Region: "us-east-1"}
+			record, token, aggregate, delivery, capture := flowRecords(scope)
+			record.FileFormat, delivery.FileFormat = "", ""
+			if err := stores.repo.Update(t.Context(), func(tx domain.Transaction) error {
+				return putFlowRecords(tx, record, token, aggregate, delivery, capture)
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if backend == "sqlite" {
+				stores.reopen(t)
+			}
+			if err := stores.repo.View(t.Context(), func(r domain.Reader) error {
+				got, err := r.FlowLog(record.Key)
+				if err != nil {
+					return err
+				}
+				record.FileFormat = "plain-text"
+				if !reflect.DeepEqual(got, record) {
+					t.Fatalf("legacy empty subscription format changed behavior: %+v", got)
+				}
+				rows, err := r.FlowLogDeliveries()
+				delivery.FileFormat = "plain-text"
+				if !reflect.DeepEqual(rows, []domain.FlowLogDeliveryRecord{delivery}) {
+					t.Fatalf("legacy empty delivery format changed behavior: %+v", rows)
+				}
+				return err
+			}); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
 

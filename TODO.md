@@ -348,11 +348,16 @@ keeps service-specific accounting and error semantics authoritative.
   real allowed/denied traffic, S3/CloudWatch reads, retained controller restart,
   tag updates, no-change plans and verified teardown of all 14 fixture resources.
   See [Flow Logs evidence and limits](docs/ec2.md#vpc-flow-logs).
+- [x] Add immutable Parquet Flow Logs selection and typed S3 output with GZIP
+  column compression. Migration 425 preserves old text subscriptions and batches.
+  Native Terraform proof with AWS provider 6.68.0 checks both text and Parquet,
+  PyArrow 23.0.1 decoding, controller restart, strict plans and all 15 deletions.
+  See [retained Parquet evidence](testdata/integration/ec2_flow_logs_parquet_native.json).
 - [ ] Complete Flow Logs IPv6, TCP payload/fragment/offload segment accounting,
   continuous idle-window evidence for `NODATA`, additional enrichment fields,
-  Transit Gateway/regional NAT sources, Firehose, Parquet and cross-account role/
-  cross-region CloudWatch destinations. Current unsupported modes are errors;
-  uncertain packet counts are `SKIPDATA`, not fabricated metrics.
+  Transit Gateway/regional NAT sources, Firehose, duplicate-column Parquet layouts
+  and cross-account role/cross-region CloudWatch destinations. Current unsupported
+  modes are errors; uncertain packet counts are `SKIPDATA`, not fabricated metrics.
 - [x] Establish the ECR/CodeBuild application path: authenticated image push/pull,
   actual build commands, logs and artifacts, current IAM and runtime readiness.
   Retained proof is `testdata/integration/ecr_codebuild_completion.json`;

@@ -21,15 +21,30 @@ DryRun, tags, filters and deterministic local pagination. Create accepts up to
 Logging configuration is immutable; tags can change. SQLite schema 424 retains
 subscriptions, admission groups, capture checkpoints, aggregates and delivery
 batches. State changes and their journal events commit together.
+Migration 425 retains the S3 file format on subscriptions and sealed batches.
+Existing subscriptions and pending deliveries remain plain text after upgrade.
 
-Destinations are CloudWatch Logs and gzip plain-text S3 objects. Records support
-the default fourteen-field version-2 format and these additional fields:
+Destinations are CloudWatch Logs and plain-text gzip or Parquet S3 objects.
+Records support the default fourteen-field version-2 format and these additional fields:
 `vpc-id`, `subnet-id`, `instance-id`, `tcp-flags`, `type`, `pkt-srcaddr`,
 `pkt-dstaddr`, `region`, `az-id` and `flow-direction`. The selected fields set the
 record version. Aggregation uses 60 or 600 seconds; S3 publication has a separate
 five-minute cadence. S3 supports custom prefixes, Hive-compatible partitions and
-hour partitions. Its gzip files contain a field-name header. CloudWatch uses
+hour partitions. Plain-text gzip files contain a field-name header. CloudWatch uses
 the ENI ID as the stream name and the flow start as the event timestamp.
+
+Set `DestinationOptions.FileFormat` to `parquet` for typed `.log.parquet` objects.
+They retain selected column order, use underscore column names and the documented
+INT32, INT64 and STRING field types, and compress column chunks with GZIP.
+They are directly readable Parquet files, not gzip-wrapped text. Retries retain
+the original format, object key and publication-window partitions. Current S3
+policy, ACL and inherited encryption checks still apply.
+
+Missing numeric values use null; missing string values retain `-`. Objects use
+`application/octet-stream` without HTTP `Content-Encoding`. These are tested
+interoperability choices, not captured AWS payload/MIME parity. Repeated fields
+in a custom Parquet format return `UnsupportedOperation` until native duplicate-
+column layouts are calibrated; repeated text fields remain supported.
 
 CloudWatch admission checks `iam:PassRole` and the role's current trust for
 `vpc-flow-logs.amazonaws.com`, the source account and the allocated flow-log ARN.
@@ -103,11 +118,12 @@ python3 scripts/native/vpc_flow_logs.py --binary bin/stackd \
   --state-directory /tmp/stackd-flow-logs-UNIQUE --remove-owned-capture
 ```
 
-Prepare Terraform, boto3, the toolkit and an installed Python application image
-first. `--image` selects that image without pulling it. `--provider-mirror`
+Prepare Terraform, boto3, PyArrow with GZIP support, the toolkit and an installed
+Python application image first. Python pins are in `examples/requirements.txt`.
+`--image` selects that image without pulling it. `--provider-mirror`
 selects an offline AWS 6.68.0 mirror; the retained lock checks its contents.
 The run uses real aggregation/publication time. Its report retains assertions,
-native identities, CloudWatch events, gzip objects and cleanup results.
+native identities, CloudWatch events, gzip/Parquet objects and cleanup results.
 
 The [retained local run](../testdata/integration/ec2_flow_logs_native.json)
 passed on 2026-10-15 with official Terraform 1.15.9 and AWS provider 6.68.0.
@@ -120,13 +136,22 @@ the native collector was then removed after an idle proof. The receipt retains
 `SKIPDATA` records as well as packet records; this is not gap-free capture.
 The [focused CI workflow](../.github/workflows/checks.yml) runs the flow contract
 and race checks, real receiver/policy tests and this Terraform consumer on a
-Linux Docker runner. It retains the consumer report, controller logs and gzip
-objects as the `native-flow-logs` artifact.
+Linux Docker runner. It retains the consumer report, controller logs and gzip/
+Parquet objects as the `native-flow-logs` artifact.
+
+The [Parquet extension run](../testdata/integration/ec2_flow_logs_parquet_native.json)
+passed on 2026-11-01 with Terraform 1.15.9, AWS provider 6.68.0 and PyArrow 23.0.1.
+It retained both text and Parquet subscriptions. PyArrow checked selected columns,
+physical types, GZIP chunks, actual accepted UDP records and numeric nulls in
+observed `SKIPDATA` records. Controller restart retained subscription identities
+and formats; strict refresh/no-change plans and all 15 resource deletions passed.
+The collector was removed only after an idle proof.
 
 Remaining `TODO: Comeback` boundaries are IPv6 capture, reliable segment counts
 for TCP payloads/fragments/offloaded packets, continuously proven idle windows
 for `NODATA`, further enrichment fields, Transit Gateway/regional NAT sources,
-Firehose, Parquet and cross-account role/cross-region CloudWatch delivery.
+Firehose, duplicate-column Parquet layouts and cross-account role/cross-region
+CloudWatch delivery.
 Ambiguous native packet counts produce gaps. Unsupported controls return errors.
 These tests do not establish complete VPC Flow Logs or EC2 conformance.
 
@@ -136,6 +161,8 @@ Primary contracts: [CreateFlowLogs](https://docs.aws.amazon.com/AWSEC2/latest/AP
 [CloudWatch role](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-iam-role.html),
 [S3 permissions](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-s3-permissions.html)
 and [S3 paths](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-s3-path.html).
+Parquet details follow the [Athena schema](https://docs.aws.amazon.com/athena/latest/ug/vpc-flow-logs-parquet.html)
+and [AWS publication examples](https://aws.amazon.com/blogs/big-data/optimize-performance-and-reduce-costs-for-network-analytics-with-vpc-flow-logs-in-apache-parquet-format/).
 
 The current-provider fixture also exposed an existing NACL compatibility gap.
 Create/ReplaceNetworkAclEntry now ignore ports and ICMP selectors outside their

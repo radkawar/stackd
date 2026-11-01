@@ -19,7 +19,8 @@ func (r reader) flowLog(row sqlcgen.Ec2FlowLog) (domain.FlowLogRecord, error) {
 		Key:         flowLogKey(row.Partition, row.AccountID, row.Region, row.ResourceID),
 		Incarnation: row.Incarnation, ResourceID: row.SelectorResourceID, ResourceType: row.ResourceType, TrafficType: row.TrafficType,
 		DestinationType: row.DestinationType, Destination: row.Destination, LogGroupName: row.LogGroupName, PermissionARN: row.PermissionArn,
-		LogFormat: row.LogFormat, FormatVersion: int(row.FormatVersion), AggregationSeconds: int(row.AggregationSeconds),
+		FileFormat: row.FileFormat,
+		LogFormat:  row.LogFormat, FormatVersion: int(row.FormatVersion), AggregationSeconds: int(row.AggregationSeconds),
 		HivePartitions: row.HivePartitions, HourPartitions: row.HourPartitions, CreatedAt: row.CreatedAt,
 		Status: row.Status, DeliveryStatus: row.DeliveryStatus, DeliveryError: row.DeliveryError, CaptureError: row.CaptureError, Version: uint64(row.Version),
 	}
@@ -73,12 +74,16 @@ func (r reader) flowLogs(rows []sqlcgen.Ec2FlowLog) ([]domain.FlowLogRecord, err
 }
 
 func (w writer) PutFlowLog(record domain.FlowLogRecord) error {
+	if record.FileFormat == "" {
+		record.FileFormat = "plain-text"
+	}
 	key := record.Key
 	if err := w.q.PutFlowLog(w.ctx, sqlcgen.PutFlowLogParams{
 		Partition: key.Scope.Partition, AccountID: key.Scope.AccountID, Region: key.Scope.Region, ResourceID: key.ID,
 		Incarnation: record.Incarnation, SelectorResourceID: record.ResourceID, ResourceType: record.ResourceType, TrafficType: record.TrafficType,
 		DestinationType: record.DestinationType, Destination: record.Destination, LogGroupName: record.LogGroupName, PermissionArn: record.PermissionARN,
-		LogFormat: record.LogFormat, FormatVersion: int64(record.FormatVersion), AggregationSeconds: int64(record.AggregationSeconds),
+		FileFormat: record.FileFormat,
+		LogFormat:  record.LogFormat, FormatVersion: int64(record.FormatVersion), AggregationSeconds: int64(record.AggregationSeconds),
 		HivePartitions: record.HivePartitions, HourPartitions: record.HourPartitions, TagsPresent: record.Tags != nil, CreatedAt: record.CreatedAt,
 		Status: record.Status, DeliveryStatus: record.DeliveryStatus, DeliveryError: record.DeliveryError, CaptureError: record.CaptureError, Version: sqlite.Uint64(record.Version),
 	}); err != nil {
@@ -189,6 +194,7 @@ func (r reader) FlowLogDeliveries() ([]domain.FlowLogDeliveryRecord, error) {
 		record := domain.FlowLogDeliveryRecord{
 			Key: flowLogKey(row.Partition, row.AccountID, row.Region, row.ResourceID), FlowLogKey: flowLogKey(row.Partition, row.AccountID, row.Region, row.FlowLogID),
 			Incarnation: row.Incarnation, DestinationType: row.DestinationType, Destination: row.Destination, LogGroupName: row.LogGroupName, PermissionARN: row.PermissionArn,
+			FileFormat:     row.FileFormat,
 			HivePartitions: row.HivePartitions, HourPartitions: row.HourPartitions, Header: row.Header, WindowStart: row.WindowStart, Due: row.Due, Version: uint64(row.Version),
 		}
 		if row.LinesPresent {
@@ -207,6 +213,9 @@ func (r reader) FlowLogDeliveries() ([]domain.FlowLogDeliveryRecord, error) {
 }
 
 func (w writer) PutFlowLogDelivery(record domain.FlowLogDeliveryRecord) error {
+	if record.FileFormat == "" {
+		record.FileFormat = "plain-text"
+	}
 	if record.Key.Scope != record.FlowLogKey.Scope {
 		return errors.New("ec2: flow log delivery scope differs from subscription scope")
 	}
@@ -219,6 +228,7 @@ func (w writer) PutFlowLogDelivery(record domain.FlowLogDeliveryRecord) error {
 	if err := w.q.PutFlowLogDelivery(w.ctx, sqlcgen.PutFlowLogDeliveryParams{
 		Partition: key.Scope.Partition, AccountID: key.Scope.AccountID, Region: key.Scope.Region, ResourceID: key.ID, FlowLogID: record.FlowLogKey.ID,
 		Incarnation: record.Incarnation, DestinationType: record.DestinationType, Destination: record.Destination, LogGroupName: record.LogGroupName, PermissionArn: record.PermissionARN,
+		FileFormat:     record.FileFormat,
 		HivePartitions: record.HivePartitions, HourPartitions: record.HourPartitions, Header: record.Header, LinesPresent: record.Lines != nil, WindowStart: record.WindowStart, Due: record.Due, Version: sqlite.Uint64(record.Version),
 	}); err != nil {
 		return err

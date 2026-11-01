@@ -229,7 +229,11 @@ func flowLogObjectKey(batch ec2.FlowLogDeliveryRecord, prefix string) string {
 		}
 	}
 	digest := sha256.Sum256([]byte(batch.Key.ID))
-	return key + batch.FlowLogKey.Scope.AccountID + "_vpcflowlogs_" + batch.FlowLogKey.Scope.Region + "_" + batch.FlowLogKey.ID + "_" + stamp.Format("20060102T1504Z") + "_" + hex.EncodeToString(digest[:8]) + ".log.gz"
+	suffix := ".log.gz"
+	if batch.FileFormat == "parquet" {
+		suffix = ".log.parquet"
+	}
+	return key + batch.FlowLogKey.Scope.AccountID + "_vpcflowlogs_" + batch.FlowLogKey.Scope.Region + "_" + batch.FlowLogKey.ID + "_" + stamp.Format("20060102T1504Z") + "_" + hex.EncodeToString(digest[:8]) + suffix
 }
 
 func (a *EC2FlowLogs) writeS3(ctx context.Context, batch ec2.FlowLogDeliveryRecord, lines []ec2.FlowLogLine) *awswire.Error {
@@ -244,22 +248,39 @@ func (a *EC2FlowLogs) writeS3(ctx context.Context, batch ec2.FlowLogDeliveryReco
 		return flowLogDeliveryError("A flow log batch has no retained format or capture window.")
 	}
 	var body bytes.Buffer
-	compressed := gzip.NewWriter(&body)
-	if _, err := fmt.Fprintln(compressed, batch.Header); err != nil {
-		return serviceRoleFailure(err)
-	}
-	for _, line := range lines {
-		if _, err := fmt.Fprintln(compressed, line.Message); err != nil {
+	var payload []byte
+	contentType := s3api.ContentType("text/plain")
+	var contentEncoding *s3api.ContentEncoding
+	switch batch.FileFormat {
+	case "", "plain-text":
+		compressed := gzip.NewWriter(&body)
+		if _, err := fmt.Fprintln(compressed, batch.Header); err != nil {
 			return serviceRoleFailure(err)
 		}
-	}
-	if err := compressed.Close(); err != nil {
-		return serviceRoleFailure(err)
+		for _, line := range lines {
+			if _, err := fmt.Fprintln(compressed, line.Message); err != nil {
+				return serviceRoleFailure(err)
+			}
+		}
+		if err := compressed.Close(); err != nil {
+			return serviceRoleFailure(err)
+		}
+		payload = body.Bytes()
+		contentEncoding = new(s3api.ContentEncoding("gzip"))
+	case "parquet":
+		var err error
+		payload, err = encodeFlowLogParquet(batch.Header, lines)
+		if err != nil {
+			return flowLogDeliveryError(err.Error())
+		}
+		contentType = "application/octet-stream"
+	default:
+		return flowLogDeliveryError("The flow log S3 file format is not supported.")
 	}
 	ctx = flowLogS3Context(ctx, batch.FlowLogKey)
 	if _, wire := a.S3.GetBucketACL(ctx, &s3api.GetBucketAclInput{Bucket: new(s3api.BucketName(bucket))}); wire != nil {
 		return wire
 	}
-	_, wire = a.S3.PutObject(flowLogCommand(ctx), &s3api.PutObjectInput{Bucket: new(s3api.BucketName(bucket)), Key: new(s3api.ObjectKey(flowLogObjectKey(batch, prefix))), Body: body.Bytes(), ACL: new(s3api.ObjectCannedACL("bucket-owner-full-control")), ContentType: new(s3api.ContentType("text/plain")), ContentEncoding: new(s3api.ContentEncoding("gzip"))})
+	_, wire = a.S3.PutObject(flowLogCommand(ctx), &s3api.PutObjectInput{Bucket: new(s3api.BucketName(bucket)), Key: new(s3api.ObjectKey(flowLogObjectKey(batch, prefix))), Body: payload, ACL: new(s3api.ObjectCannedACL("bucket-owner-full-control")), ContentType: new(contentType), ContentEncoding: contentEncoding})
 	return wire
 }

@@ -47,8 +47,9 @@ provider "aws" {
 }
 
 locals {
-  fields = "$${version} $${account-id} $${interface-id} $${srcaddr} $${dstaddr} $${srcport} $${dstport} $${protocol} $${packets} $${bytes} $${start} $${end} $${action} $${log-status} $${vpc-id} $${subnet-id} $${flow-direction}"
-  tags   = { Name = var.name, Fixture = "vpc-flow-logs", Revision = var.revision }
+  fields         = "$${version} $${account-id} $${interface-id} $${srcaddr} $${dstaddr} $${srcport} $${dstport} $${protocol} $${packets} $${bytes} $${start} $${end} $${action} $${log-status} $${vpc-id} $${subnet-id} $${flow-direction}"
+  parquet_fields = "${local.fields} $${instance-id} $${tcp-flags}"
+  tags           = { Name = var.name, Fixture = "vpc-flow-logs", Revision = var.revision }
 }
 resource "aws_vpc" "owned" {
   cidr_block = var.cidr
@@ -186,6 +187,20 @@ resource "aws_flow_log" "accept" {
   }
   tags = local.tags
 }
+resource "aws_flow_log" "parquet" {
+  subnet_id                = aws_subnet.destination.id
+  traffic_type             = "ACCEPT"
+  log_destination_type     = "s3"
+  log_destination          = "${aws_s3_bucket.delivery.arn}/parquet-records"
+  max_aggregation_interval = 60
+  log_format               = local.parquet_fields
+  destination_options {
+    file_format                = "parquet"
+    hive_compatible_partitions = true
+    per_hour_partition         = true
+  }
+  tags = local.tags
+}
 resource "aws_flow_log" "reject" {
   count                    = var.eni_id == "" ? 0 : 1
   eni_id                   = var.eni_id
@@ -209,7 +224,10 @@ output "fixture" {
     all_group          = aws_cloudwatch_log_group.all.name
     reject_group       = aws_cloudwatch_log_group.reject.name
     role               = aws_iam_role.delivery.name
-    flow_logs          = concat([aws_flow_log.all.id, aws_flow_log.accept.id], aws_flow_log.reject[*].id)
+    flow_logs          = concat([aws_flow_log.all.id, aws_flow_log.accept.id, aws_flow_log.parquet.id], aws_flow_log.reject[*].id)
+    accept_flow_log    = aws_flow_log.accept.id
+    parquet_flow_log   = aws_flow_log.parquet.id
     log_format         = local.fields
+    parquet_log_format = local.parquet_fields
   }
 }

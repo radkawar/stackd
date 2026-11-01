@@ -178,8 +178,6 @@ func TestFlowLogAdmissionTokenDryRunAndExplicitUnsupported(t *testing.T) {
 	}
 	for name, change := range map[string]func(*api.CreateFlowLogsRequest){"firehose": func(i *api.CreateFlowLogsRequest) {
 		i.LogDestinationType = new(api.LogDestinationType("kinesis-data-firehose"))
-	}, "parquet": func(i *api.CreateFlowLogsRequest) {
-		i.DestinationOptions = &api.DestinationOptionsRequest{FileFormat: new(api.DestinationFileFormat("parquet"))}
 	}, "transit": func(i *api.CreateFlowLogsRequest) { i.ResourceType = new(api.FlowLogsResourceType("TransitGateway")) }, "invented metric": func(i *api.CreateFlowLogsRequest) { i.LogFormat = new(api.String("${pkt-src-aws-service}")) }} {
 		t.Run(name, func(t *testing.T) {
 			request := f.input()
@@ -192,9 +190,88 @@ func TestFlowLogAdmissionTokenDryRunAndExplicitUnsupported(t *testing.T) {
 	}
 }
 
+func TestFlowLogFileFormatAdmissionAndImmutableTokenReplay(t *testing.T) {
+	f := newFlowTest(t)
+	request := f.input()
+	request.DestinationOptions = &api.DestinationOptionsRequest{FileFormat: new(api.DestinationFileFormat("parquet")), HiveCompatiblePartitions: new(api.Boolean(true)), PerHourPartition: new(api.Boolean(true))}
+	parquet := f.create(t, request)
+	if parquet.FileFormat != "parquet" || len(f.destination.validated) != 1 || f.destination.validated[0].FileFormat != "parquet" {
+		t.Fatal("admission did not retain and validate the selected file format")
+	}
+	request.DestinationOptions = &api.DestinationOptionsRequest{FileFormat: new(api.DestinationFileFormat("plain-text"))}
+	replayed := f.create(t, request)
+	if replayed.Key != parquet.Key || replayed.FileFormat != "parquet" || !replayed.HivePartitions || !replayed.HourPartitions || len(f.destination.validated) != 1 {
+		t.Fatal("token replay changed immutable destination options")
+	}
+	if err := f.repo.Update(f.ctx, func(tx Transaction) error {
+		out, err := f.service.describeFlowLogs(f.ctx, tx, &api.DescribeFlowLogsRequest{})
+		if err != nil {
+			return err
+		}
+		if len(out.FlowLogs) != 1 || out.FlowLogs[0].DestinationOptions == nil || str(out.FlowLogs[0].DestinationOptions.FileFormat) != "parquet" || !boolValue(out.FlowLogs[0].DestinationOptions.HiveCompatiblePartitions) || !boolValue(out.FlowLogs[0].DestinationOptions.PerHourPartition) {
+			t.Fatalf("Describe lost retained destination options: %+v", out)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	request.ClientToken = new(api.String("text-subscription"))
+	text := f.create(t, request)
+	if text.Key == parquet.Key || text.FileFormat != "plain-text" {
+		t.Fatal("different file format was treated as a duplicate subscription")
+	}
+	request.ClientToken = new(api.String("duplicate-parquet"))
+	request.DestinationOptions = &api.DestinationOptionsRequest{FileFormat: new(api.DestinationFileFormat("parquet")), HiveCompatiblePartitions: new(api.Boolean(true)), PerHourPartition: new(api.Boolean(true))}
+	if out, err := f.service.createFlowLogs(f.ctx, request); err == nil || out != nil || wireError(err).Code != "FlowLogAlreadyExists" {
+		t.Fatalf("duplicate format falsely succeeded: %+v %v", out, err)
+	}
+	before := len(f.destination.validated)
+	for _, format := range []string{"json", "Parquet", " parquet", "plain_text"} {
+		t.Run(format, func(t *testing.T) {
+			request := f.input()
+			request.DestinationOptions = &api.DestinationOptionsRequest{FileFormat: new(api.DestinationFileFormat(format))}
+			if out, err := f.service.createFlowLogs(f.ctx, request); err == nil || out != nil || wireError(err).Code != "InvalidParameterValue" {
+				t.Fatalf("invalid file format falsely succeeded: %+v %v", out, err)
+			}
+		})
+	}
+	if len(f.destination.validated) != before {
+		t.Fatal("invalid format reached destination setup")
+	}
+	if err := f.repo.View(f.ctx, func(tx Reader) error {
+		rows, err := tx.FlowLogs(scopeFor(f.ctx))
+		if len(rows) != 2 {
+			t.Fatalf("failed API call changed subscriptions: %+v", rows)
+		}
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestFlowLogParquetRepeatedFieldsAreExplicitlyUnsupported(t *testing.T) {
+	f := newFlowTest(t)
+	request := f.input()
+	request.LogFormat = new(api.String("${interface-id} ${packets} ${interface-id}"))
+	request.DestinationOptions = &api.DestinationOptionsRequest{FileFormat: new(api.DestinationFileFormat("parquet"))}
+	if out, err := f.service.createFlowLogs(f.ctx, request); err == nil || out != nil || wireError(err).Code != "UnsupportedOperation" {
+		t.Fatalf("ambiguous Parquet columns falsely admitted: %+v %v", out, err)
+	}
+	if len(f.destination.validated) != 0 {
+		t.Fatal("unsupported column layout reached destination setup")
+	}
+	request.DestinationOptions = nil
+	text := f.create(t, request)
+	if text.LogFormat != str(request.LogFormat) {
+		t.Fatal("text delivery lost repeated selected fields")
+	}
+}
+
 func TestFlowLogCaptureCheckpointSealingRetryAndRestart(t *testing.T) {
 	f := newFlowTest(t)
-	r := f.create(t, f.input())
+	request := f.input()
+	request.DestinationOptions = &api.DestinationOptionsRequest{FileFormat: new(api.DestinationFileFormat("parquet"))}
+	r := f.create(t, request)
 	f.capture.batch = FlowLogCaptureBatch{Cursor: "native-1", Observations: []FlowLogObservation{f.observation()}}
 	f.capture.ack = func(cursor string) error {
 		return f.repo.View(f.ctx, func(tx Reader) error {
@@ -238,7 +315,7 @@ func TestFlowLogCaptureCheckpointSealingRetryAndRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	sealed := f.deliveries(t)
-	if len(sealed) != 1 || !sealed[0].Due.Equal(time.Date(2026, 1, 1, 0, 5, 0, 0, time.UTC)) {
+	if len(sealed) != 1 || sealed[0].FileFormat != "parquet" || !sealed[0].Due.Equal(time.Date(2026, 1, 1, 0, 5, 0, 0, time.UTC)) {
 		t.Fatalf("S3 cadence replaced aggregation: %#v", sealed)
 	}
 	d := sealed[0]
@@ -254,7 +331,7 @@ func TestFlowLogCaptureCheckpointSealingRetryAndRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	retry := f.deliveries(t)[0]
-	if retry.Key != d.Key || !retry.WindowStart.Equal(d.WindowStart) || retry.Lines[0] != d.Lines[0] || retry.Version != 2 {
+	if retry.Key != d.Key || retry.FileFormat != "parquet" || !retry.WindowStart.Equal(d.WindowStart) || retry.Lines[0] != d.Lines[0] || retry.Version != 2 {
 		t.Fatal("retry mutated sealed delivery")
 	}
 	f.destination.reject = nil
@@ -268,6 +345,11 @@ func TestFlowLogCaptureCheckpointSealingRetryAndRestart(t *testing.T) {
 	}
 	if len(f.deliveries(t)) != 0 || len(f.destination.writes) != 2 {
 		t.Fatal("restart did not recover immutable delivery")
+	}
+	for _, written := range f.destination.writes {
+		if written.FileFormat != "parquet" {
+			t.Fatal("retry or restart changed sealed file format")
+		}
 	}
 }
 

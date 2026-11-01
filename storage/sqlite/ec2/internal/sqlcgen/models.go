@@ -86,6 +86,7 @@ type Ec2FlowLog struct {
 	DeliveryError      string
 	CaptureError       string
 	Version            sqlite.Uint64
+	FileFormat         string
 }
 
 type Ec2FlowLogAggregate struct {
@@ -147,6 +148,7 @@ type Ec2FlowLogDelivery struct {
 	WindowStart     time.Time
 	Due             time.Time
 	Version         sqlite.Uint64
+	FileFormat      string
 }
 
 type Ec2FlowLogDeliveryLine struct {

@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Run the pinned Terraform provider, SDK, and real native VPC Flow Logs path.
 
-Prepare bin/stackd, Terraform >=1.5,<2, boto3, Docker, the pinned stackd toolkit,
-and python:3.12-alpine. Use rootful Linux Docker with systemd and cgroup v2.
+Prepare bin/stackd, Terraform >=1.5,<2, boto3, pyarrow (including GZIP support),
+Docker, the pinned stackd toolkit, and python:3.12-alpine.
 No image is pulled. No AWS endpoint or ambient AWS credentials are used.
 
   python3 scripts/native/vpc_flow_logs.py --binary bin/stackd \
     --state-directory /tmp/flow-logs-UNIQUE
 
-The fixture uses real 60-second aggregation and five-minute S3 publication.
+The fixture checks plain-text gzip and typed, GZIP-compressed Parquet together,
+using real 60-second aggregation and five-minute S3 publication.
 It does not advance service time or change packet timestamps. The retained
 report and SQLite file give ordinary graceful-restart evidence, not crash
 exactly-once claims. Capture uses one unique namespace across restart.
@@ -23,6 +24,7 @@ import ipaddress
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import socket
 import sqlite3
@@ -40,6 +42,9 @@ from stackd_process import StackdProcess
 
 TOOLKIT = "nicolaka/netshoot@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed283572f47c970c780c03b61"
 FIELDS = "version account-id interface-id srcaddr dstaddr srcport dstport protocol packets bytes start end action log-status vpc-id subnet-id flow-direction".split()
+PARQUET_FIELDS = FIELDS + ["instance-id", "tcp-flags"]
+PARQUET_INT32 = {"version", "srcport", "dstport", "protocol", "tcp-flags"}
+PARQUET_INT64 = {"packets", "bytes", "start", "end"}
 SERVER = '''import json,select,socket
 sockets=[]
 for port in (33000,33001,33002):
@@ -133,6 +138,16 @@ class Consumer:
         return result
 
     def prepare(self):
+        try:
+            import pyarrow
+            import pyarrow.parquet
+        except ImportError as error:
+            raise RuntimeError("Install the pinned native-consumer pyarrow dependency with Parquet/GZIP support") from error
+        require(pyarrow.Codec.is_available("gzip"), "pyarrow must include the GZIP codec; no Parquet checks may be skipped")
+        self.arrow = pyarrow
+        self.parquet = pyarrow.parquet
+        self.report["parquet_reader"] = {"library": "pyarrow", "version": pyarrow.__version__, "gzip_available": True}
+        self.save()
         require(self.args.binary.is_file(), "Build bin/stackd first; --binary must name the assembled executable")
         require(shutil.which("terraform") and shutil.which("docker"), "Install Terraform and Docker CLI first")
         for image in (TOOLKIT, self.args.image):
@@ -220,16 +235,8 @@ class Consumer:
         self.variables.update(eni_id=self.destination["eni"], revision="refreshed")
         self.apply()
         self.wait("native flow log binding readiness", self.active)
-        self.terraform("apply", "-refresh-only", "-input=false", "-auto-approve")
-        plan = self.terraform("plan", "-input=false", "-detailed-exitcode", "-out=noop.tfplan", check=False)
-        require(plan.returncode == 0, f"Provider refresh has drift: exit {plan.returncode}")
-        self.terraform("apply", "-input=false", "-auto-approve", "noop.tfplan")
-        rows = self.clients["ec2"].describe_flow_logs(FlowLogIds=self.outputs["flow_logs"])["FlowLogs"]
-        expected = {self.outputs["vpc_id"], self.outputs["destination_subnet"], self.destination["eni"]}
-        require({r["ResourceId"] for r in rows} == expected, "VPC/subnet/ENI selectors differ")
-        for row in rows:
-            require({t["Key"]: t["Value"] for t in row.get("Tags", [])}.get("Revision") == "refreshed",
-                    f"Provider did not refresh flow log tags: {row}")
+        self.refresh_noop()
+        rows = self.flow_log_configuration()
         self.report["flow_logs"] = rows
         policy = json.loads(self.clients["s3"].get_bucket_policy(Bucket=self.outputs["bucket"])["Policy"])
         statements = policy.get("Statement", [])
@@ -243,9 +250,47 @@ class Consumer:
             RoleName=self.outputs["role"], PolicyName="delivery")["PolicyDocument"]
         self.save()
 
+    def refresh_noop(self):
+        self.terraform("apply", "-refresh-only", "-input=false", "-auto-approve")
+        plan = self.terraform("plan", "-input=false", "-detailed-exitcode", "-out=noop.tfplan", check=False)
+        require(plan.returncode == 0, f"Provider refresh has drift: exit {plan.returncode}")
+        self.terraform("apply", "-input=false", "-auto-approve", "noop.tfplan")
+
+    def flow_log_configuration(self):
+        rows = self.clients["ec2"].describe_flow_logs(FlowLogIds=self.outputs["flow_logs"])["FlowLogs"]
+        require(len(rows) == 4 and {row["FlowLogId"] for row in rows} == set(self.outputs["flow_logs"]),
+                "Owned flow log identities differ")
+        expected = {self.outputs["vpc_id"], self.outputs["destination_subnet"], self.destination["eni"]}
+        require({row["ResourceId"] for row in rows} == expected, "VPC/subnet/ENI selectors differ")
+        for row in rows:
+            require({tag["Key"]: tag["Value"] for tag in row.get("Tags", [])}.get("Revision") == "refreshed",
+                    f"Provider did not refresh flow log tags: {row}")
+            parquet = row["FlowLogId"] == self.outputs["parquet_flow_log"]
+            require(row["LogFormat"] == self.outputs["parquet_log_format" if parquet else "log_format"],
+                    f"Selected field format changed: {row}")
+            if row["LogDestinationType"] == "s3":
+                require(row["FlowLogId"] in (self.outputs["accept_flow_log"], self.outputs["parquet_flow_log"])
+                        and row["TrafficType"] == "ACCEPT", f"Unexpected S3 subscription: {row}")
+                require(row.get("DestinationOptions") == {
+                    "FileFormat": "parquet" if parquet else "plain-text",
+                    "HiveCompatiblePartitions": True, "PerHourPartition": True},
+                    f"Provider changed S3 format/partition options: {row}")
+                prefix = "parquet-records" if parquet else "records"
+                require(row["LogDestination"] == f"arn:aws:s3:::{self.outputs['bucket']}/{prefix}",
+                        f"S3 destination changed: {row}")
+        return rows
+
+    @staticmethod
+    def subscription_identity(rows):
+        fields = ("FlowLogId", "ResourceId", "TrafficType", "LogDestinationType", "LogDestination",
+                  "DeliverLogsPermissionArn", "LogFormat", "MaxAggregationInterval", "DestinationOptions")
+        return {row["FlowLogId"]: {**{field: row.get(field) for field in fields},
+                                  "Tags": sorted((tag["Key"], tag["Value"]) for tag in row.get("Tags", []))}
+                for row in rows}
+
     def active(self):
         rows = self.clients["ec2"].describe_flow_logs(FlowLogIds=self.outputs["flow_logs"])["FlowLogs"]
-        return len(rows) == 3 and all(row.get("FlowLogStatus") == "ACTIVE" for row in rows)
+        return len(rows) == 4 and all(row.get("FlowLogStatus") == "ACTIVE" for row in rows)
 
     def checkpoint(self):
         with sqlite3.connect(f"file:{self.database}?mode=ro", uri=True) as db:
@@ -316,8 +361,14 @@ class Consumer:
         after = json.loads(self.docker("inspect", self.capture_name))[0]
         require(after["Id"] == collector["Id"] and after["State"]["Pid"] == collector["State"]["Pid"],
                 "Restart replaced the retained native receiver")
+        self.refresh_noop()
+        flow_logs = self.flow_log_configuration()
+        require(self.subscription_identity(flow_logs) == self.subscription_identity(self.report["flow_logs"]),
+                "Controller restart or no-drift refresh changed subscription identity/format")
         self.report["restart"] = {"retained_checkpoint": retained, "resumed_checkpoint": resumed,
                                   "same_task_pids": True, "same_collector_pid": True,
+                                  "flow_logs_before": self.report["flow_logs"], "flow_logs_after": flow_logs,
+                                  "same_subscription_identity_and_format": True, "refresh_no_drift": True,
                                   "contract": "Ordinary graceful restart with commit-before-ack; not crash exactly-once"}
         self.save()
 
@@ -339,46 +390,121 @@ class Consumer:
                     break
                 token = following
         objects = []
-        for page in self.clients["s3"].get_paginator("list_objects_v2").paginate(Bucket=self.outputs["bucket"], Prefix="records/"):
-            for item in page.get("Contents", []):
-                key = item["Key"]
-                marker = f"records/AWSLogs/aws-account-id={ACCOUNT}/"
-                if key == marker:
+        parquet_rows = []
+        markers = {}
+        for kind, prefix, suffix in (("accept", "records", ".log.gz"), ("parquet", "parquet-records", ".log.parquet")):
+            for page in self.clients["s3"].get_paginator("list_objects_v2").paginate(
+                    Bucket=self.outputs["bucket"], Prefix=prefix + "/"):
+                for item in page.get("Contents", []):
+                    key = item["Key"]
                     obj = self.clients["s3"].get_object(Bucket=self.outputs["bucket"], Key=key)
                     try:
-                        require(obj["Body"].read() == b"" and obj["ContentLength"] == 0
-                                and obj.get("ContentType") == "application/octet-stream",
-                                "Native S3 admission marker is not the expected empty object")
+                        body = obj["Body"].read()
                     finally:
                         obj["Body"].close()
-                    self.report["admission_marker"] = {"key": key, "bytes": 0,
-                        "content_type": obj["ContentType"], "encryption": obj.get("ServerSideEncryption"),
-                        "etag": obj.get("ETag")}
-                    continue
-                require(key.endswith(".log.gz") and "/aws-account-id=" in key and "/hour=" in key,
-                        f"Wrong gzip/Hive/hour object key: {key}")
-                obj = self.clients["s3"].get_object(Bucket=self.outputs["bucket"], Key=key)
-                try:
-                    body = obj["Body"].read()
-                finally:
-                    obj["Body"].close()
-                require(body[:2] == b"\x1f\x8b" and obj.get("ContentEncoding") == "gzip"
-                        and obj.get("ContentType") == "text/plain", f"Wrong gzip metadata: {key}")
-                lines = gzip.decompress(body).decode().splitlines()
-                require(lines and lines[0].split() == FIELDS, f"Custom S3 field header differs: {key}")
-                result["accept"].extend(lines[1:])
-                digest = hashlib.sha256(body).hexdigest()
-                artifact = self.work / "s3" / (digest + ".log.gz")
-                if not artifact.exists():
-                    artifact.parent.mkdir(exist_ok=True)
-                    artifact.write_bytes(body)
-                objects.append({"key": key, "sha256": digest, "bytes": len(body), "lines": lines,
-                                "artifact": str(artifact), "content_type": obj["ContentType"],
-                                "content_encoding": obj["ContentEncoding"], "etag": obj.get("ETag")})
-        self.report.update(records=result, objects=objects, cloudwatch_events=events)
+                    if key == f"{prefix}/AWSLogs/aws-account-id={ACCOUNT}/":
+                        require(body == b"" and obj["ContentLength"] == 0
+                                and obj.get("ContentType") == "application/octet-stream",
+                                "Native S3 admission marker is not the expected empty object")
+                        markers[kind] = {"key": key, "bytes": 0, "content_type": obj["ContentType"],
+                                         "encryption": obj.get("ServerSideEncryption"), "etag": obj.get("ETag")}
+                        continue
+                    digest = hashlib.sha256(body).hexdigest()
+                    artifact = self.work / "s3" / (digest + suffix)
+                    if not artifact.exists():
+                        artifact.parent.mkdir(exist_ok=True)
+                        artifact.write_bytes(body)
+                    self.valid_s3_key(kind, prefix, suffix, key)
+                    if kind == "accept":
+                        require(body[:2] == b"\x1f\x8b" and obj.get("ContentEncoding") == "gzip"
+                                and obj.get("ContentType") == "text/plain", f"Wrong gzip metadata: {key}")
+                        lines = gzip.decompress(body).decode().splitlines()
+                        require(lines and lines[0].split() == FIELDS, f"Custom S3 field header differs: {key}")
+                        result["accept"].extend(lines[1:])
+                        decoded = {"lines": lines}
+                    else:
+                        rows, metadata = self.read_parquet(body, key)
+                        parquet_rows.extend(rows)
+                        decoded = {"rows": rows, "parquet": metadata}
+                    objects.append({"key": key, "format": "parquet" if kind == "parquet" else "plain-text",
+                                    "sha256": digest, "bytes": len(body), **decoded, "artifact": str(artifact),
+                                    "content_type": obj.get("ContentType"),
+                                    "content_encoding": obj.get("ContentEncoding"), "etag": obj.get("ETag")})
+        self.report.update(records={**result, "parquet": parquet_rows}, objects=objects,
+                           cloudwatch_events=events, admission_markers=markers)
+        if "accept" in markers:
+            self.report["admission_marker"] = markers["accept"]
         self.save()
-        return {kind: [dict(zip(FIELDS, line.split())) for line in lines if self.valid_line(line)]
-                for kind, lines in result.items()}
+        return {**{kind: [dict(zip(FIELDS, line.split())) for line in lines if self.valid_line(line)]
+                   for kind, lines in result.items()}, "parquet": parquet_rows}
+
+    def valid_s3_key(self, kind, prefix, suffix, key):
+        flow_id = self.outputs["parquet_flow_log" if kind == "parquet" else "accept_flow_log"]
+        match = re.fullmatch(
+            rf"{prefix}/AWSLogs/aws-account-id={ACCOUNT}/aws-service=vpcflowlogs/aws-region=us-east-1/"
+            rf"year=(\d{{4}})/month=(\d{{2}})/day=(\d{{2}})/hour=(\d{{2}})/"
+            rf"{ACCOUNT}_vpcflowlogs_us-east-1_{re.escape(flow_id)}_(\d{{8}}T\d{{4}}Z)_[0-9a-f]+{re.escape(suffix)}",
+            key)
+        require(match is not None, f"Wrong {kind} format/Hive/hour/flow-log object key: {key}")
+        year, month, day, hour, stamp = match.groups()
+        require(stamp[:8] == year + month + day and stamp[9:11] == hour,
+                f"Object name and Hive/hour partition disagree: {key}")
+
+    def read_parquet(self, body, key):
+        require(body[:4] == b"PAR1" and body[-4:] == b"PAR1",
+                f"Parquet delivery is not a directly readable Parquet file: {key}")
+        parquet = self.parquet.ParquetFile(self.arrow.BufferReader(body))
+        names = [field.replace("-", "_") for field in PARQUET_FIELDS]
+        require(parquet.schema.names == names and parquet.schema_arrow.names == names,
+                f"Selected Parquet columns/order differ: {key}: {parquet.schema}")
+        schema = []
+        for index, field in enumerate(PARQUET_FIELDS):
+            column = parquet.schema.column(index)
+            physical = "INT32" if field in PARQUET_INT32 else "INT64" if field in PARQUET_INT64 else "BYTE_ARRAY"
+            arrow_type = self.arrow.int32() if field in PARQUET_INT32 else (
+                self.arrow.int64() if field in PARQUET_INT64 else self.arrow.string())
+            require(column.physical_type == physical and parquet.schema_arrow.field(index).type == arrow_type,
+                    f"Wrong physical/logical Parquet type for {field}: {key}: {column}")
+            if physical == "BYTE_ARRAY":
+                require(str(column.logical_type) == "String", f"Missing Parquet STRING annotation for {field}: {key}")
+            schema.append({"name": column.name, "physical_type": column.physical_type,
+                           "logical_type": str(column.logical_type), "arrow_type": str(arrow_type)})
+        chunks = []
+        for group_index in range(parquet.metadata.num_row_groups):
+            group = parquet.metadata.row_group(group_index)
+            require(group.num_columns == len(names), f"Wrong row-group column count: {key}")
+            for column_index in range(group.num_columns):
+                column = group.column(column_index)
+                require(column.compression == "GZIP", f"Parquet column is not GZIP-compressed: {key}: {column.path_in_schema}")
+                chunks.append({"row_group": group_index, "column": column.path_in_schema,
+                               "compression": column.compression, "values": column.num_values})
+        table = parquet.read()
+        require(table.num_rows > 0 and table.num_rows == parquet.metadata.num_rows,
+                f"Parquet object has no real records: {key}")
+        rows = [{field: row[name] for field, name in zip(PARQUET_FIELDS, names)} for row in table.to_pylist()]
+        numeric_gap_rows = 0
+        for row in rows:
+            require(row["interface-id"] == self.destination["eni"] and row["account-id"] == ACCOUNT
+                    and row["vpc-id"] == self.outputs["vpc_id"]
+                    and row["subnet-id"] == self.outputs["destination_subnet"],
+                    f"Parquet contains fake admission or unrelated interface rows: {key}: {row}")
+            require(row["log-status"] in ("OK", "SKIPDATA"),
+                    f"Parquet contains a fabricated admission/status row: {key}: {row}")
+            require(row["instance-id"] == "-", f"Parquet fabricated instance enrichment for a Fargate ENI: {key}: {row}")
+            if row["log-status"] == "OK":
+                require(row["action"] == "ACCEPT", f"Parquet traffic filter differs: {key}: {row}")
+                if row["protocol"] == 17:
+                    require(row["tcp-flags"] == 0, f"Parquet fabricated UDP TCP flags: {key}: {row}")
+                require(all(row[field] is not None for field in PARQUET_INT32 | PARQUET_INT64),
+                        f"Parquet discarded captured numeric values: {key}: {row}")
+            else:
+                require(all(row[field] is None for field in
+                            (PARQUET_INT32 | PARQUET_INT64) - {"version", "start", "end"}),
+                        f"Parquet fabricated numeric values for a capture gap: {key}: {row}")
+                numeric_gap_rows += 1
+        return rows, {"schema": schema, "row_groups": parquet.metadata.num_row_groups,
+                      "rows": table.num_rows, "column_chunks": chunks,
+                      "string_gap_rows": len(rows), "numeric_gap_rows_observed": numeric_gap_rows}
 
     @staticmethod
     def valid_line(line):
@@ -387,30 +513,32 @@ class Consumer:
 
     def verify_records(self):
         rows = self.read_records()
-        for kind, action in (("accept", "ACCEPT"), ("reject", "REJECT")):
+        for kind, action in (("accept", "ACCEPT"), ("parquet", "ACCEPT"), ("reject", "REJECT")):
             require(all(row["action"] == action for row in rows[kind] if row["log-status"] == "OK"),
                     f"Traffic filter admitted the wrong action into {kind}")
         for packet in self.report["packets"]:
             def matches(row):
                 return (row["interface-id"] == self.destination["eni"] and row["srcaddr"] == self.source["address"]
-                        and row["dstaddr"] == self.destination["address"] and row["srcport"] == str(packet["source_port"])
-                        and row["dstport"] == str(packet["destination_port"]) and row["protocol"] == "17"
+                        and row["dstaddr"] == self.destination["address"] and str(row["srcport"]) == str(packet["source_port"])
+                        and str(row["dstport"]) == str(packet["destination_port"]) and str(row["protocol"]) == "17"
                         and row["flow-direction"] == "ingress")
-            for kind in ("all", "accept" if packet["expected_action"] == "ACCEPT" else "reject"):
+            destinations = ("all", "accept", "parquet") if packet["expected_action"] == "ACCEPT" else ("all", "reject")
+            for kind in destinations:
                 found = [r for r in rows[kind] if matches(r)]
                 if not found:
                     return False
                 require(len(found) == 1, f"Duplicate tuple after ordinary restart in {kind}: {found}")
                 row = found[0]
-                require(row["version"] == "5" and row["log-status"] == "OK"
+                require(str(row["version"]) == "5" and row["log-status"] == "OK"
                         and row["action"] == packet["expected_action"], f"False packet evidence: {row}")
                 require(int(row["packets"]) == 1 and int(row["bytes"]) == packet["expected_ip_bytes"], f"Native UDP counters differ: {row}")
                 require(row["account-id"] == ACCOUNT and row["vpc-id"] == self.outputs["vpc_id"]
                         and row["subnet-id"] == self.outputs["destination_subnet"], f"Authoritative ENI scope differs: {row}")
                 require(int(packet["started"]) - 1 <= int(row["start"]) <= int(row["end"]) <= int(packet["finished"]) + 1,
                         f"Record has fabricated or unrelated packet time: {row}")
-            excluded = "reject" if packet["expected_action"] == "ACCEPT" else "accept"
-            require(not any(matches(r) for r in rows[excluded]), f"Traffic filter leaked a tuple into {excluded}")
+            excluded = ("reject",) if packet["expected_action"] == "ACCEPT" else ("accept", "parquet")
+            for kind in excluded:
+                require(not any(matches(row) for row in rows[kind]), f"Traffic filter leaked a tuple into {kind}")
         return True
 
     def cleanup(self):

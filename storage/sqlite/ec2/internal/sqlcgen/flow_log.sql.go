@@ -130,7 +130,7 @@ func (q *Queries) DeleteFlowLogTokenResults(ctx context.Context, arg DeleteFlowL
 }
 
 const getFlowLog = `-- name: GetFlowLog :one
-SELECT "partition", account_id, region, resource_id, incarnation, selector_resource_id, resource_type, traffic_type, destination_type, destination, log_group_name, permission_arn, log_format, format_version, aggregation_seconds, hive_partitions, hour_partitions, tags_present, created_at, status, delivery_status, delivery_error, capture_error, version FROM ec2_flow_logs WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
+SELECT "partition", account_id, region, resource_id, incarnation, selector_resource_id, resource_type, traffic_type, destination_type, destination, log_group_name, permission_arn, log_format, format_version, aggregation_seconds, hive_partitions, hour_partitions, tags_present, created_at, status, delivery_status, delivery_error, capture_error, version, file_format FROM ec2_flow_logs WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
 `
 
 type GetFlowLogParams struct {
@@ -173,6 +173,7 @@ func (q *Queries) GetFlowLog(ctx context.Context, arg GetFlowLogParams) (Ec2Flow
 		&i.DeliveryError,
 		&i.CaptureError,
 		&i.Version,
+		&i.FileFormat,
 	)
 	return i, err
 }
@@ -194,7 +195,7 @@ func (q *Queries) GetFlowLogCaptureState(ctx context.Context) (Ec2FlowLogCapture
 }
 
 const getFlowLogDelivery = `-- name: GetFlowLogDelivery :one
-SELECT "partition", account_id, region, resource_id, flow_log_id, incarnation, destination_type, destination, log_group_name, permission_arn, hive_partitions, hour_partitions, header, lines_present, window_start, due, version FROM ec2_flow_log_deliveries WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
+SELECT "partition", account_id, region, resource_id, flow_log_id, incarnation, destination_type, destination, log_group_name, permission_arn, hive_partitions, hour_partitions, header, lines_present, window_start, due, version, file_format FROM ec2_flow_log_deliveries WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND resource_id = ?4
 `
 
 type GetFlowLogDeliveryParams struct {
@@ -230,6 +231,7 @@ func (q *Queries) GetFlowLogDelivery(ctx context.Context, arg GetFlowLogDelivery
 		&i.WindowStart,
 		&i.Due,
 		&i.Version,
+		&i.FileFormat,
 	)
 	return i, err
 }
@@ -336,7 +338,7 @@ func (q *Queries) ListFlowLogAggregates(ctx context.Context, arg ListFlowLogAggr
 }
 
 const listFlowLogDeliveries = `-- name: ListFlowLogDeliveries :many
-SELECT "partition", account_id, region, resource_id, flow_log_id, incarnation, destination_type, destination, log_group_name, permission_arn, hive_partitions, hour_partitions, header, lines_present, window_start, due, version FROM ec2_flow_log_deliveries ORDER BY partition, account_id, region, resource_id
+SELECT "partition", account_id, region, resource_id, flow_log_id, incarnation, destination_type, destination, log_group_name, permission_arn, hive_partitions, hour_partitions, header, lines_present, window_start, due, version, file_format FROM ec2_flow_log_deliveries ORDER BY partition, account_id, region, resource_id
 `
 
 func (q *Queries) ListFlowLogDeliveries(ctx context.Context) ([]Ec2FlowLogDelivery, error) {
@@ -366,6 +368,7 @@ func (q *Queries) ListFlowLogDeliveries(ctx context.Context) ([]Ec2FlowLogDelive
 			&i.WindowStart,
 			&i.Due,
 			&i.Version,
+			&i.FileFormat,
 		); err != nil {
 			return nil, err
 		}
@@ -525,7 +528,7 @@ func (q *Queries) ListFlowLogTokenResults(ctx context.Context, arg ListFlowLogTo
 }
 
 const listFlowLogs = `-- name: ListFlowLogs :many
-SELECT "partition", account_id, region, resource_id, incarnation, selector_resource_id, resource_type, traffic_type, destination_type, destination, log_group_name, permission_arn, log_format, format_version, aggregation_seconds, hive_partitions, hour_partitions, tags_present, created_at, status, delivery_status, delivery_error, capture_error, version FROM ec2_flow_logs WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
+SELECT "partition", account_id, region, resource_id, incarnation, selector_resource_id, resource_type, traffic_type, destination_type, destination, log_group_name, permission_arn, log_format, format_version, aggregation_seconds, hive_partitions, hour_partitions, tags_present, created_at, status, delivery_status, delivery_error, capture_error, version, file_format FROM ec2_flow_logs WHERE partition = ?1 AND account_id = ?2 AND region = ?3 ORDER BY resource_id
 `
 
 type ListFlowLogsParams struct {
@@ -568,6 +571,7 @@ func (q *Queries) ListFlowLogs(ctx context.Context, arg ListFlowLogsParams) ([]E
 			&i.DeliveryError,
 			&i.CaptureError,
 			&i.Version,
+			&i.FileFormat,
 		); err != nil {
 			return nil, err
 		}
@@ -583,7 +587,7 @@ func (q *Queries) ListFlowLogs(ctx context.Context, arg ListFlowLogsParams) ([]E
 }
 
 const listInternalFlowLogs = `-- name: ListInternalFlowLogs :many
-SELECT "partition", account_id, region, resource_id, incarnation, selector_resource_id, resource_type, traffic_type, destination_type, destination, log_group_name, permission_arn, log_format, format_version, aggregation_seconds, hive_partitions, hour_partitions, tags_present, created_at, status, delivery_status, delivery_error, capture_error, version FROM ec2_flow_logs ORDER BY partition, account_id, region, resource_id
+SELECT "partition", account_id, region, resource_id, incarnation, selector_resource_id, resource_type, traffic_type, destination_type, destination, log_group_name, permission_arn, log_format, format_version, aggregation_seconds, hive_partitions, hour_partitions, tags_present, created_at, status, delivery_status, delivery_error, capture_error, version, file_format FROM ec2_flow_logs ORDER BY partition, account_id, region, resource_id
 `
 
 func (q *Queries) ListInternalFlowLogs(ctx context.Context) ([]Ec2FlowLog, error) {
@@ -620,6 +624,7 @@ func (q *Queries) ListInternalFlowLogs(ctx context.Context) ([]Ec2FlowLog, error
 			&i.DeliveryError,
 			&i.CaptureError,
 			&i.Version,
+			&i.FileFormat,
 		); err != nil {
 			return nil, err
 		}
@@ -635,9 +640,9 @@ func (q *Queries) ListInternalFlowLogs(ctx context.Context) ([]Ec2FlowLog, error
 }
 
 const putFlowLog = `-- name: PutFlowLog :exec
-INSERT INTO ec2_flow_logs (partition, account_id, region, resource_id, incarnation, selector_resource_id, resource_type, traffic_type, destination_type, destination, log_group_name, permission_arn, log_format, format_version, aggregation_seconds, hive_partitions, hour_partitions, tags_present, created_at, status, delivery_status, delivery_error, capture_error, version)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)
-ON CONFLICT (partition, account_id, region, resource_id) DO UPDATE SET incarnation = excluded.incarnation, selector_resource_id = excluded.selector_resource_id, resource_type = excluded.resource_type, traffic_type = excluded.traffic_type, destination_type = excluded.destination_type, destination = excluded.destination, log_group_name = excluded.log_group_name, permission_arn = excluded.permission_arn, log_format = excluded.log_format, format_version = excluded.format_version, aggregation_seconds = excluded.aggregation_seconds, hive_partitions = excluded.hive_partitions, hour_partitions = excluded.hour_partitions, tags_present = excluded.tags_present, created_at = excluded.created_at, status = excluded.status, delivery_status = excluded.delivery_status, delivery_error = excluded.delivery_error, capture_error = excluded.capture_error, version = excluded.version
+INSERT INTO ec2_flow_logs (partition, account_id, region, resource_id, incarnation, selector_resource_id, resource_type, traffic_type, destination_type, destination, log_group_name, permission_arn, file_format, log_format, format_version, aggregation_seconds, hive_partitions, hour_partitions, tags_present, created_at, status, delivery_status, delivery_error, capture_error, version)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)
+ON CONFLICT (partition, account_id, region, resource_id) DO UPDATE SET incarnation = excluded.incarnation, selector_resource_id = excluded.selector_resource_id, resource_type = excluded.resource_type, traffic_type = excluded.traffic_type, destination_type = excluded.destination_type, destination = excluded.destination, log_group_name = excluded.log_group_name, permission_arn = excluded.permission_arn, file_format = excluded.file_format, log_format = excluded.log_format, format_version = excluded.format_version, aggregation_seconds = excluded.aggregation_seconds, hive_partitions = excluded.hive_partitions, hour_partitions = excluded.hour_partitions, tags_present = excluded.tags_present, created_at = excluded.created_at, status = excluded.status, delivery_status = excluded.delivery_status, delivery_error = excluded.delivery_error, capture_error = excluded.capture_error, version = excluded.version
 `
 
 type PutFlowLogParams struct {
@@ -653,6 +658,7 @@ type PutFlowLogParams struct {
 	Destination        string
 	LogGroupName       string
 	PermissionArn      string
+	FileFormat         string
 	LogFormat          string
 	FormatVersion      int64
 	AggregationSeconds int64
@@ -681,6 +687,7 @@ func (q *Queries) PutFlowLog(ctx context.Context, arg PutFlowLogParams) error {
 		arg.Destination,
 		arg.LogGroupName,
 		arg.PermissionArn,
+		arg.FileFormat,
 		arg.LogFormat,
 		arg.FormatVersion,
 		arg.AggregationSeconds,
@@ -792,8 +799,8 @@ func (q *Queries) PutFlowLogCaptureState(ctx context.Context, arg PutFlowLogCapt
 }
 
 const putFlowLogDelivery = `-- name: PutFlowLogDelivery :exec
-INSERT INTO ec2_flow_log_deliveries (partition, account_id, region, resource_id, flow_log_id, incarnation, destination_type, destination, log_group_name, permission_arn, hive_partitions, hour_partitions, header, lines_present, window_start, due, version)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
+INSERT INTO ec2_flow_log_deliveries (partition, account_id, region, resource_id, flow_log_id, incarnation, destination_type, destination, log_group_name, permission_arn, file_format, hive_partitions, hour_partitions, header, lines_present, window_start, due, version)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)
 ON CONFLICT (partition, account_id, region, resource_id) DO UPDATE SET due = excluded.due, version = excluded.version
 `
 
@@ -808,6 +815,7 @@ type PutFlowLogDeliveryParams struct {
 	Destination     string
 	LogGroupName    string
 	PermissionArn   string
+	FileFormat      string
 	HivePartitions  bool
 	HourPartitions  bool
 	Header          string
@@ -829,6 +837,7 @@ func (q *Queries) PutFlowLogDelivery(ctx context.Context, arg PutFlowLogDelivery
 		arg.Destination,
 		arg.LogGroupName,
 		arg.PermissionArn,
+		arg.FileFormat,
 		arg.HivePartitions,
 		arg.HourPartitions,
 		arg.Header,

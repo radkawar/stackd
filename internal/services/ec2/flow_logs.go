@@ -15,6 +15,13 @@ import (
 
 const defaultFlowLogFormat = "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}"
 
+func flowLogFileFormat(format string) string {
+	if format == "" {
+		return "plain-text"
+	}
+	return format
+}
+
 func registerFlowLogs(s *Service) {
 	registerExternalOwnedCommand(s, "CreateFlowLogs", s.createFlowLogs)
 	register(s, "DescribeFlowLogs", s.describeFlowLogs)
@@ -23,6 +30,7 @@ func registerFlowLogs(s *Service) {
 
 func flowLogRequest(in *api.CreateFlowLogsRequest) (FlowLogRecord, string, error) {
 	r := FlowLogRecord{ResourceType: str(in.ResourceType), TrafficType: str(in.TrafficType), DestinationType: str(in.LogDestinationType), Destination: str(in.LogDestination), LogGroupName: str(in.LogGroupName), PermissionARN: str(in.DeliverLogsPermissionArn), LogFormat: str(in.LogFormat), AggregationSeconds: 600, Status: "ACTIVE", DeliveryStatus: "SUCCESS", Version: 1}
+	r.FileFormat = "plain-text"
 	if len(in.ResourceIds) == 0 {
 		return r, "", failure("MissingParameter", "ResourceIds is required.")
 	}
@@ -62,9 +70,9 @@ func flowLogRequest(in *api.CreateFlowLogsRequest) (FlowLogRecord, string, error
 		if r.DestinationType != "s3" {
 			return r, "", failure("InvalidParameterCombination", "DestinationOptions requires S3.")
 		}
-		if str(o.FileFormat) != "" && str(o.FileFormat) != "plain-text" {
-			// TODO: Comeback implement Parquet flow-log delivery.
-			return r, "", unsupported("Parquet flow-log delivery is not supported.")
+		r.FileFormat = flowLogFileFormat(str(o.FileFormat))
+		if r.FileFormat != "plain-text" && r.FileFormat != "parquet" {
+			return r, "", failure("InvalidParameterValue", "FileFormat must be plain-text or parquet.")
 		}
 		r.HivePartitions, r.HourPartitions = boolValue(o.HiveCompatiblePartitions), boolValue(o.PerHourPartition)
 	}
@@ -92,6 +100,16 @@ func flowLogRequest(in *api.CreateFlowLogsRequest) (FlowLogRecord, string, error
 		return r, "", err
 	}
 	r.FormatVersion = version
+	if r.FileFormat == "parquet" {
+		seen := make(map[string]bool)
+		for _, field := range strings.Fields(flowLogHeader(r.LogFormat)) {
+			if seen[field] {
+				// TODO: Comeback calibrate native duplicate-column layouts before supporting repeated Parquet fields.
+				return r, "", unsupported("Repeated fields in Parquet flow-log records are not supported.")
+			}
+			seen[field] = true
+		}
+	}
 	r.Tags, err = CreationTags(in.TagSpecifications, "vpc-flow-log")
 	if err != nil {
 		return r, "", err
@@ -148,6 +166,7 @@ func flowLogDuplicate(a, b FlowLogRecord) bool {
 		a.TrafficType == b.TrafficType && a.DestinationType == b.DestinationType &&
 		a.Destination == b.Destination && a.LogGroupName == b.LogGroupName &&
 		a.PermissionARN == b.PermissionARN && a.LogFormat == b.LogFormat &&
+		flowLogFileFormat(a.FileFormat) == flowLogFileFormat(b.FileFormat) &&
 		a.AggregationSeconds == b.AggregationSeconds &&
 		a.HivePartitions == b.HivePartitions && a.HourPartitions == b.HourPartitions
 }
@@ -427,7 +446,7 @@ func flowLogAPI(v FlowLogRecord) api.FlowLog {
 		out.DeliverLogsErrorMessage = new(api.String(v.DeliveryError))
 	}
 	if v.DestinationType == "s3" {
-		out.DestinationOptions = &api.DestinationOptionsResponse{FileFormat: new(api.DestinationFileFormat("plain-text")), HiveCompatiblePartitions: new(api.Boolean(v.HivePartitions)), PerHourPartition: new(api.Boolean(v.HourPartitions))}
+		out.DestinationOptions = &api.DestinationOptionsResponse{FileFormat: new(api.DestinationFileFormat(flowLogFileFormat(v.FileFormat))), HiveCompatiblePartitions: new(api.Boolean(v.HivePartitions)), PerHourPartition: new(api.Boolean(v.HourPartitions))}
 	}
 	return out
 }

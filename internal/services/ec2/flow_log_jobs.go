@@ -525,6 +525,7 @@ func sealFlowLogBatches(tx Transaction, record FlowLogRecord, rows []FlowLogAggr
 			batch := FlowLogDeliveryRecord{
 				Key: ResourceKey{Scope: record.Key.Scope, ID: id}, FlowLogKey: record.Key, Incarnation: record.Incarnation,
 				DestinationType: record.DestinationType, Destination: record.Destination, LogGroupName: record.LogGroupName, PermissionARN: record.PermissionARN,
+				FileFormat:     flowLogFileFormat(record.FileFormat),
 				HivePartitions: record.HivePartitions, HourPartitions: record.HourPartitions,
 				Header: header, Lines: lines, WindowStart: window, Due: due, Version: 1,
 			}

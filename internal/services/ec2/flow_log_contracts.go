@@ -16,6 +16,7 @@ type FlowLogRecord struct {
 	ResourceID, ResourceType, TrafficType                     string
 	DestinationType, Destination, LogGroupName, PermissionARN string
 	LogFormat                                                 string
+	FileFormat                                                string
 	FormatVersion                                             int
 	AggregationSeconds                                        int
 	HivePartitions, HourPartitions                            bool
@@ -113,6 +114,7 @@ type FlowLogDeliveryRecord struct {
 	FlowLogKey                                                ResourceKey
 	Incarnation                                               string
 	DestinationType, Destination, LogGroupName, PermissionARN string
+	FileFormat                                                string
 	HivePartitions, HourPartitions                            bool
 	Header                                                    string
 	Lines                                                     []FlowLogLine

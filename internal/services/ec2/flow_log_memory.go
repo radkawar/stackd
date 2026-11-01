@@ -7,12 +7,17 @@ import (
 	"strings"
 )
 
-func cloneFlowLog(v FlowLogRecord) FlowLogRecord { v.Tags = api.CloneTagList(v.Tags); return v }
+func cloneFlowLog(v FlowLogRecord) FlowLogRecord {
+	v.FileFormat = flowLogFileFormat(v.FileFormat)
+	v.Tags = api.CloneTagList(v.Tags)
+	return v
+}
 func cloneFlowLogToken(v FlowLogTokenRecord) FlowLogTokenRecord {
 	v.Results = slices.Clone(v.Results)
 	return v
 }
 func cloneFlowLogDelivery(v FlowLogDeliveryRecord) FlowLogDeliveryRecord {
+	v.FileFormat = flowLogFileFormat(v.FileFormat)
 	v.Lines = slices.Clone(v.Lines)
 	return v
 }
