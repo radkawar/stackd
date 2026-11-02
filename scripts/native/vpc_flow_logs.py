@@ -39,19 +39,29 @@ sys.path.insert(0, str(ROOT / "examples"))
 sys.path.insert(0, str(ROOT / "scripts/aws"))
 from local import ACCOUNT, client, environment, expect_missing, require
 from stackd_process import StackdProcess
+from vpc_flow_logs_tcp import TCPProof
 
 TOOLKIT = "nicolaka/netshoot@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed283572f47c970c780c03b61"
-FIELDS = "version account-id interface-id srcaddr dstaddr srcport dstport protocol packets bytes start end action log-status vpc-id subnet-id flow-direction".split()
-PARQUET_FIELDS = FIELDS + ["instance-id", "tcp-flags"]
+FIELDS = "version account-id interface-id srcaddr dstaddr srcport dstport protocol packets bytes start end action log-status vpc-id subnet-id flow-direction tcp-flags".split()
+PARQUET_FIELDS = FIELDS + ["instance-id"]
 PARQUET_INT32 = {"version", "srcport", "dstport", "protocol", "tcp-flags"}
 PARQUET_INT64 = {"packets", "bytes", "start", "end"}
-SERVER = '''import json,select,socket
+SERVER = '''import json,select,socket,time
 sockets=[]
 for port in (33000,33001,33002):
  s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.bind(('0.0.0.0',port));sockets.append(s)
+tcp=socket.socket(socket.AF_INET,socket.SOCK_STREAM);tcp.bind(('0.0.0.0',33003));tcp.listen(4);sockets.append(tcp)
 print('READY',flush=True)
 while True:
  for s in select.select(sockets,[],[],1)[0]:
+  if s is tcp:
+   connection,peer=s.accept();connection.settimeout(8);started=time.time();local=connection.getsockname()
+   print(json.dumps({'event':'TCP_ACCEPTED','local':local,'peer':peer,'started':started}),flush=True)
+   assert connection.recv(1)==b'', 'TCP client sent application payload'
+   connection.shutdown(socket.SHUT_WR);connection.close()
+   print(json.dumps({'event':'TCP_CLOSED','local':local,'peer':peer,'started':started,
+                    'finished':time.time(),'application_bytes':0,'orderly_eof':True}),flush=True)
+   continue
   data,peer=s.recvfrom(4096)
   print(json.dumps({'port':s.getsockname()[1],'peer':peer,'payload':data.hex()}),flush=True)
   s.sendto(data,peer)
@@ -94,6 +104,8 @@ class Consumer:
                        "controllers": self.controller.runs, "packets": [], "records": {},
                        "capture": {"namespace": self.namespace, "container": self.capture_name,
                                    "volume": self.capture_name, "retained": None}, "cleanup": {}}
+        self.toolkit = TOOLKIT
+        self.tcp = TCPProof(self, FIELDS)
         self.save()
 
     def save(self):
@@ -214,9 +226,29 @@ class Consumer:
         require(len(ids) == 1, f"Expected one owned application container: {ids}")
         container = json.loads(self.docker("inspect", ids[0]))[0]
         require(container["Config"]["Labels"]["stackd.ecs.task"] == arn, "Container ownership differs")
-        self.wait("UDP listener readiness", lambda: "READY" in self.docker("logs", container["Id"]))
+        mode = container["HostConfig"]["NetworkMode"]
+        require(mode.startswith("container:"), "Application does not share its metadata anchor namespace")
+        anchor = json.loads(self.docker("inspect", mode.split(":", 1)[1]))[0]
+        labels = anchor["Config"]["Labels"]
+        require(anchor["State"]["Running"] and labels.get("stackd.ecs.task") == arn
+                and labels.get("stackd.ecs.metadata.callback.source") == eni["PrivateIpAddress"],
+                "Task namespace anchor has different native ownership")
+        endpoints = list(anchor["NetworkSettings"]["Networks"].values())
+        require(len(endpoints) == 1 and endpoints[0]["IPAddress"] == eni["PrivateIpAddress"]
+                and endpoints[0]["MacAddress"].lower() == eni["MacAddress"].lower(),
+                "Authoritative task ENI differs from metadata anchor endpoint")
+        native = json.loads(self.docker("exec", container["Id"], "python3", "-c",
+            "import json,os,socket;print(json.dumps(dict(namespace=os.readlink('/proc/self/ns/net'),"
+            "ifindex=socket.if_nametoindex('eth0'),iflink=int(open('/sys/class/net/eth0/iflink').read()))))"))
+        network = json.loads(self.docker("network", "inspect", endpoints[0]["NetworkID"]))[0]
+        require(network["Driver"] == "bridge" and any(
+            pool.get("Subnet") == self.variables["cidr"] for pool in network["IPAM"]["Config"]),
+            "Task namespace does not use the exact-owned VPC bridge")
+        self.wait("UDP and TCP listener readiness", lambda: "READY" in self.docker("logs", container["Id"]))
         return {"task": arn, "eni": enis[0], "address": eni["PrivateIpAddress"], "container": container["Id"],
-                "pid": container["State"]["Pid"], "subnet": subnet}
+                "pid": container["State"]["Pid"], "subnet": subnet, "anchor": anchor["Id"],
+                "anchor_pid": anchor["State"]["Pid"], "native": native, "endpoint": endpoints[0],
+                "network": {"id": network["Id"], "name": network["Name"], "options": network["Options"]}}
 
     def provision_tasks(self):
         ecs = self.clients["ecs"]
@@ -317,11 +349,12 @@ class Consumer:
                     if (row["interface-id"] == self.destination["eni"] and row["log-status"] == "OK"
                             and row["flow-direction"] == "ingress"):
                         ports.add(int(row["srcport"]))
-            return self.checkpoint() if expected <= ports else None
+            return self.checkpoint() if expected <= ports and self.tcp.checkpoint() else None
         checkpoint = self.wait("real packet tuples committed with native cursor", committed, timeout=45, interval=2)
         require(checkpoint.get("cursor"), "Packet aggregates have no committed native cursor")
         self.report.setdefault("durable_packet_checkpoints", []).append(
-            {"source_ports": sorted(expected), "checkpoint": checkpoint})
+            {"source_ports": sorted(expected), "tcp": self.report.get("tcp_checkpoint_proof", []),
+             "checkpoint": checkpoint})
         self.save()
 
     def packets(self, phase):
@@ -343,6 +376,7 @@ class Consumer:
                     f"Listener receipt differs from native admission: {packet['label']}")
         self.report["listener_log"] = logs
         self.save()
+        self.tcp.connect(phase)
 
     def restart(self):
         self.await_packet_checkpoint()
@@ -358,6 +392,9 @@ class Consumer:
         for endpoint in (self.source, self.destination):
             row = json.loads(self.docker("inspect", endpoint["container"]))[0]
             require(row["State"]["Pid"] == endpoint["pid"] and row["State"]["Running"], "Restart replaced the native task")
+            anchor = json.loads(self.docker("inspect", endpoint["anchor"]))[0]
+            require(anchor["State"]["Running"] and anchor["State"]["Pid"] == endpoint["anchor_pid"],
+                    "Restart replaced the retained native namespace owner")
         after = json.loads(self.docker("inspect", self.capture_name))[0]
         require(after["Id"] == collector["Id"] and after["State"]["Pid"] == collector["State"]["Pid"],
                 "Restart replaced the retained native receiver")
@@ -539,7 +576,7 @@ class Consumer:
             excluded = ("reject",) if packet["expected_action"] == "ACCEPT" else ("accept", "parquet")
             for kind in excluded:
                 require(not any(matches(row) for row in rows[kind]), f"Traffic filter leaked a tuple into {kind}")
-        return True
+        return self.tcp.verify(rows)
 
     def cleanup(self):
         errors = []
@@ -548,6 +585,9 @@ class Consumer:
                 return fn()
             except Exception as error:
                 errors.append(label + ": " + str(error))
+        for helper in self.tcp.helpers:
+            if not helper["removed"]:
+                attempt("remove exact-owned TCP witness", lambda helper=helper: self.tcp.remove(helper))
         live = self.controller.process is not None and self.controller.process.poll() is None
         if not live and (self.tasks or self.cluster or (self.work / "terraform.tfstate").exists()):
             errors.append("Controller unavailable; owned API cleanup is not verified. Retain the state and report.")
@@ -589,7 +629,8 @@ class Consumer:
                 # The later native handshake still rejects any unread evidence.
                 time.sleep(12)
         attempt("stop controller", lambda: self.controller.stop(timeout=90))
-        self.report["cleanup"] = {"errors": errors, "verified": not errors, "state_retained": str(self.database)}
+        self.report["cleanup"] = {"errors": errors, "verified": not errors, "state_retained": str(self.database),
+                                  "tcp_helpers_removed": all(helper["removed"] for helper in self.tcp.helpers)}
         if self.args.remove_owned_capture and self.report["capture"]["retained"] and not errors:
             attempt("remove idle owned capture", self.remove_capture)
         self.report["cleanup"]["errors"] = errors

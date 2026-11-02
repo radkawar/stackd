@@ -101,8 +101,11 @@ Delivery is not a crash-exactly-once claim.
 
 ### Verification and remaining boundaries
 
-The native receiver smoke exercised real UDP capture, retained replay,
-acknowledgement and receiver-restart loss. The native policy smoke exercised
+The native receiver smoke exercised real UDP and header-only TCP capture,
+retained replay, acknowledgement and receiver-restart loss. Explicit TCP frames
+include SYN, SYN-ACK, ACK, FIN, RST and ECN flags with IP/TCP options and exact
+IP-byte counts. These injected frames are not a socket-handshake proof.
+The native policy smoke exercised
 source and destination SG rejection, ordered NACL rejection, private-route
 blackholes, ordinary gateway-address application traffic and acceptance without
 a remote listener. SDK checks cover caller bucket-policy authority, concurrent
@@ -110,8 +113,14 @@ policy preservation, concrete role trust and absence of fictitious ENI streams.
 
 The [Terraform configuration](../examples/terraform/vpc-flow-logs/main.tf) pins
 AWS provider **6.68.0**. The [consumer](../scripts/native/vpc_flow_logs.py) runs
-real ECS UDP traffic, reads CloudWatch and S3 records, checks retained restart,
-updates tags, checks no-change plans and destroys its owned resources:
+real ECS UDP traffic and payload-free TCP connections, reads CloudWatch and S3
+records, checks retained restart, updates tags, checks no-change plans and destroys
+its owned resources. A temporary `NET_RAW`-only helper shares the exact source
+task namespace. A kernel socket filter retains only the selected connection's
+IP/TCP headers. Its independent packet counts, IP lengths and flags must match
+both ENIs in CloudWatch and the destination ENI in text and Parquet S3 output.
+Socket calls alone are not packet-count evidence. Helper loss or incomplete
+capture fails the run; the fixture does not change host offload settings.
 
 ```sh
 python3 scripts/native/vpc_flow_logs.py --binary bin/stackd \
@@ -146,6 +155,18 @@ physical types, GZIP chunks, actual accepted UDP records and numeric nulls in
 observed `SKIPDATA` records. Controller restart retained subscription identities
 and formats; strict refresh/no-change plans and all 15 resource deletions passed.
 The collector was removed only after an idle proof.
+
+The [TCP-control extension run](../testdata/integration/ec2_flow_logs_tcp_native.json)
+passed on 2026-11-02 with the same pinned provider and independent Parquet reader.
+Each of two real connections opened and closed without application data, before
+and after controller restart. Each independent witness recorded six packets and
+328 IP bytes, including TCP options and pure ACKs. Sixteen publication checks
+matched both directions and the relevant ENI/destination combinations. The
+consumer derives expectations from captured headers, not fixed packet counts.
+Durable counters, normalized flags, no-drift plans, all 15 Terraform deletions,
+both witness removals and idle collector removal passed. This adds evidence for
+existing TCP-control behavior; TCP payload/fragment/offload accounting remains
+unsupported.
 
 Remaining `TODO: Comeback` boundaries are IPv6 capture, reliable segment counts
 for TCP payloads/fragments/offloaded packets, continuously proven idle windows

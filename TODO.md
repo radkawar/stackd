@@ -353,6 +353,12 @@ keeps service-specific accounting and error semantics authoritative.
   Native Terraform proof with AWS provider 6.68.0 checks both text and Parquet,
   PyArrow 23.0.1 decoding, controller restart, strict plans and all 15 deletions.
   See [retained Parquet evidence](testdata/integration/ec2_flow_logs_parquet_native.json).
+- [x] Verify real TCP-control Flow Logs before and after controller restart.
+  Independent header-only packet capture checks actual counts, IP/TCP options,
+  pure ACKs and normalized flags against both ENIs and CloudWatch/text/Parquet
+  output. Native receiver replay also covers injected RST/ECN controls.
+  This proves existing control-only capture, not TCP payload support.
+  See [retained TCP evidence](testdata/integration/ec2_flow_logs_tcp_native.json).
 - [ ] Complete Flow Logs IPv6, TCP payload/fragment/offload segment accounting,
   continuous idle-window evidence for `NODATA`, additional enrichment fields,
   Transit Gateway/regional NAT sources, Firehose, duplicate-column Parquet layouts

@@ -17,6 +17,16 @@ def ipv4_udp(payload=b'customer-body-must-never-be-retained', options=b'', fragm
     return ip + options + udp
 
 
+def ipv4_tcp(flags, ip_options=b'', tcp_options=b'', payload=b'', fragment=0):
+    ihl = 20 + len(ip_options)
+    tcp_length = 20 + len(tcp_options)
+    tcp = struct.pack('!HHIIBBHHH', 40001, 40002, 1, 2, (tcp_length // 4) << 4, flags, 65535, 0, 0)
+    tcp += tcp_options + payload
+    ip = struct.pack('!BBHHHBBH4s4s', 0x40 | (ihl // 4), 0, ihl + len(tcp), 1, fragment, 64, 6, 0,
+                     b'\x0a\x01\x00\x0a', b'\x0a\x01\x00\x0b')
+    return ip + ip_options + tcp
+
+
 def attr(kind, value):
     data = struct.pack('=HH', len(value) + 4, kind) + value
     return data + b'\0' * ((-len(data)) % 4)
@@ -33,6 +43,78 @@ class DecoderTests(unittest.TestCase):
         self.assertNotIn(b'customer-body', receiver.encoded(decoded))
         ethernet = b'\x02' + b'\x00' * 11 + b'\x08\x00' + packet
         self.assertEqual(receiver.packet_header(ethernet), decoded)
+
+    def test_tcp_controls_options_raw_flags_and_exact_ip_bytes(self):
+        # Normalization belongs to the consumer: retain raw ACK/ECN/PSH bits here.
+        cases = ((0x02, b'', b''), (0xd2, b'\x01\x01\x00\x00', b'\x01' * 12),
+                 (0x10, b'\x01' * 40, b'\x01' * 40))
+        for flags, ip_options, tcp_options in cases:
+            with self.subTest(flags=flags, ihl=20 + len(ip_options), tcp_length=20 + len(tcp_options)):
+                packet = ipv4_tcp(flags, ip_options, tcp_options)
+                decoded = receiver.packet_header(packet)
+                self.assertEqual(decoded, {
+                    'source_address': '10.1.0.10', 'destination_address': '10.1.0.11',
+                    'protocol': 6, 'source_port': 40001, 'destination_port': 40002,
+                    'ip_bytes': len(packet), 'packets': 1, 'tcp_flags': flags})
+                ethernet = b'\x02' + b'\x00' * 11 + b'\x08\x00' + packet
+                self.assertEqual(receiver.packet_header(ethernet), decoded)
+
+    def test_tcp_real_headers_preserve_ambiguity_and_length_failures(self):
+        with self.assertRaisesRegex(ValueError, 'tcp-segmentation-ambiguity'):
+            receiver.packet_header(ipv4_tcp(0x18, tcp_options=b'\x01' * 12, payload=b'customer-body'))
+        for fragment in (0x2000, 1):
+            with self.assertRaisesRegex(ValueError, 'fragment-count-ambiguity'):
+                receiver.packet_header(ipv4_tcp(0x02, fragment=fragment))
+        with self.assertRaisesRegex(ValueError, 'truncated-transport-header'):
+            receiver.packet_header(ipv4_tcp(0x02)[:39])
+        for offset in (0x40, 0xf0):
+            packet = bytearray(ipv4_tcp(0x02))
+            packet[32] = offset
+            with self.assertRaisesRegex(ValueError, 'invalid-tcp-header'):
+                receiver.packet_header(packet)
+
+    def test_tcp_native_attributes_journal_replay_and_mtu_gap(self):
+        with tempfile.TemporaryDirectory() as root:
+            owner = {'test': 'tcp-control-owner'}
+            instance = receiver.Receiver.__new__(receiver.Receiver)
+            instance.journal = receiver.Journal(root, owner)
+            instance.journal.state['group'] = 12123
+            instance.generation = 'tcp-generation'
+            instance.boot = 'tcp-boot'
+            instance.last_sequence = None
+            instance.received = {}
+            token = '2' * 32
+            binding = {'peer_ifindex': 321, 'boot_id': instance.boot, 'generation': 'tcp-policy',
+                       'mtu': 60, 'identity': {'interface_id': 'eni-tcp'}}
+            instance.journal.state['bindings'][token] = {'binding': binding}
+            instance.journal.save()
+            controls = (0x02, 0x12, 0x10, 0x01, 0x11, 0x04, 0x14, 0xd2)
+            packets = [ipv4_tcp(flags, b'\x01' * 4, b'\x01' * 12) for flags in controls]
+            packets += [ipv4_tcp(0x10, payload=b'customer-body-must-never-be-retained'),
+                        ipv4_tcp(0x02, fragment=0x2000), ipv4_tcp(0x02, tcp_options=b'\x01' * 24)]
+            for sequence, packet in enumerate(packets, 1):
+                frame = (struct.pack('!BBH', 7, 0, 12123) + attr(12, struct.pack('!I', sequence))
+                         + attr(6, struct.pack('!I', 321))
+                         + attr(10, ('sf:' + token + ':egress:ACCEPT').encode() + b'\0')
+                         + attr(9, packet))
+                instance.decode(frame)
+            records, cursor = instance.journal.read(0, 100, 65536)
+            observations = [row['observation'] for row in records if 'observation' in row]
+            self.assertEqual([row['tcp_flags'] for row in observations], list(controls))
+            self.assertEqual(sum(row['packets'] for row in observations), len(controls))
+            self.assertEqual(sum(row['ip_bytes'] for row in observations), 56 * len(controls))
+            self.assertTrue(all(row['binding']['identity']['interface_id'] == 'eni-tcp' for row in observations))
+            reasons = [row['gap']['reason'] for row in records if 'gap' in row]
+            for reason in ('tcp-segmentation-ambiguity', 'fragment-count-ambiguity', 'skb-segmentation-mtu-ambiguity'):
+                self.assertIn(reason, reasons)
+            successor = receiver.Journal(root, owner)
+            self.assertEqual(successor.read(0, 100, 65536), (records, cursor))
+            for directory, _, files in os.walk(root):
+                for filename in files:
+                    with open(os.path.join(directory, filename), 'rb') as stream:
+                        self.assertNotIn(b'customer-body', stream.read())
+            successor.ack(cursor)
+            self.assertEqual(receiver.Journal(root, owner).read(cursor, 100, 65536), ([], cursor))
 
     def test_fragments_truncation_and_segmentation_are_gaps(self):
         for packet in (ipv4_udp(fragment=0x2000), ipv4_udp(fragment=1), ipv4_udp()[:24]):

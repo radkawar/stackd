@@ -47,8 +47,8 @@ provider "aws" {
 }
 
 locals {
-  fields         = "$${version} $${account-id} $${interface-id} $${srcaddr} $${dstaddr} $${srcport} $${dstport} $${protocol} $${packets} $${bytes} $${start} $${end} $${action} $${log-status} $${vpc-id} $${subnet-id} $${flow-direction}"
-  parquet_fields = "${local.fields} $${instance-id} $${tcp-flags}"
+  fields         = "$${version} $${account-id} $${interface-id} $${srcaddr} $${dstaddr} $${srcport} $${dstport} $${protocol} $${packets} $${bytes} $${start} $${end} $${action} $${log-status} $${vpc-id} $${subnet-id} $${flow-direction} $${tcp-flags}"
+  parquet_fields = "${local.fields} $${instance-id}"
   tags           = { Name = var.name, Fixture = "vpc-flow-logs", Revision = var.revision }
 }
 resource "aws_vpc" "owned" {
@@ -92,6 +92,12 @@ resource "aws_security_group" "destination" {
     protocol    = "udp"
     from_port   = 33002
     to_port     = 33002
+    cidr_blocks = [var.source_cidr]
+  }
+  ingress {
+    protocol    = "tcp"
+    from_port   = 33003
+    to_port     = 33003
     cidr_blocks = [var.source_cidr]
   }
   egress {
