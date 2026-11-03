@@ -121,6 +121,7 @@ type Ec2FlowLogAggregate struct {
 	Due                  time.Time
 	TcpFlags             int64
 	Lost                 bool
+	TrafficPath          int64
 }
 
 type Ec2FlowLogCapture struct {

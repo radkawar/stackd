@@ -359,9 +359,17 @@ keeps service-specific accounting and error semantics authoritative.
   output. Native receiver replay also covers injected RST/ECN controls.
   This proves existing control-only capture, not TCP payload support.
   See [retained TCP evidence](testdata/integration/ec2_flow_logs_tcp_native.json).
+- [x] Retain direct same-VPC egress traffic-path evidence from native bridge
+  forwarding, with timestamp/attachment lifetime fences and conservative unknown
+  aggregation. Migration 426 preserves legacy unknowns and immutable deliveries.
+  Native checks cover receiver revision upgrade, retained packets and refusal
+  to replace unknown receiver code. Real Terraform UDP/TCP publication, restart,
+  no-drift plans and all 15 deletions passed. See
+  [retained traffic-path evidence](testdata/integration/ec2_flow_logs_traffic_path_native.json).
 - [ ] Complete Flow Logs IPv6, TCP payload/fragment/offload segment accounting,
-  continuous idle-window evidence for `NODATA`, additional enrichment fields,
-  Transit Gateway/regional NAT sources, Firehose, duplicate-column Parquet layouts
+  continuous idle-window evidence for `NODATA`, traffic-path values 2–8 and
+  non-direct same-VPC paths, additional enrichment fields, Transit Gateway/regional
+  NAT sources, Firehose, duplicate-column Parquet layouts
   and cross-account role/cross-region CloudWatch destinations. Current unsupported
   modes are errors; uncertain packet counts are `SKIPDATA`, not fabricated metrics.
 - [x] Establish the ECR/CodeBuild application path: authenticated image push/pull,

@@ -288,6 +288,11 @@ class TCPProof:
         counts = sum(int(row['packets']) for row in rows)
         size = sum(int(row['bytes']) for row in rows)
         expected_size = sum(p['ip_bytes'] for p in packets)
+        for row in rows:
+            path = row.get('traffic-path')
+            expected_path = '1' if expected['flow-direction'] == 'egress' else '-'
+            actual_path = '-' if path is None or (pending and path == 0) else str(path)
+            require(actual_path == expected_path, f'TCP native traffic path differs in {label}: {expected}: {row}')
         if pending:
             return counts == len(packets) and size == expected_size and all(
                 row.get('action') == 'ACCEPT' and row.get('log-status') == 'OK' for row in rows)
@@ -323,7 +328,7 @@ class TCPProof:
                              bytes=int.from_bytes(row['bytes'], 'big')) for row in db.execute(
                 'SELECT interface_id AS \"interface-id\", source_address AS srcaddr, '
                 'destination_address AS dstaddr, source_port AS srcport, destination_port AS dstport, '
-                'protocol, direction AS \"flow-direction\", packets, bytes, tcp_flags AS \"tcp-flags\", '
+                'protocol, direction AS \"flow-direction\", packets, bytes, tcp_flags AS \"tcp-flags\", traffic_path AS \"traffic-path\", '
                 "action, 'OK' AS \"log-status\" FROM ec2_flow_log_aggregates "
                 'WHERE flow_log_id=? AND protocol=6 AND lost=0', (flow_ids[0],)))
             rows.extend(dict(zip(self.fields, row['message'].split())) for row in db.execute(

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/netip"
 	"strconv"
+	"strings"
 
 	"stackd/compute/network"
 	"stackd/internal/services/ec2"
@@ -92,6 +93,7 @@ func (a EC2FlowCapture) Read(ctx context.Context, desired []ec2.FlowLogInterface
 			Protocol: native.Protocol, Action: native.Action, Direction: native.Direction,
 			Packets: uint64(native.Packets), Bytes: uint64(native.IPBytes),
 			Start: native.ObservedAt, End: native.ObservedAt, TCPFlags: native.TCPFlags,
+			TrafficPath: ec2FlowCaptureTrafficPath(native),
 		})
 	}
 
@@ -156,6 +158,59 @@ func ec2FlowCaptureObservationValid(observation *network.FlowObservation) bool {
 		(observation.Action == "ACCEPT" || observation.Action == "REJECT") &&
 		(observation.Direction == "ingress" || observation.Direction == "egress") &&
 		observation.Packets > 0 && observation.IPBytes > 0 && !observation.ObservedAt.IsZero()
+}
+
+func ec2FlowCaptureTrafficPath(observation *network.FlowObservation) uint8 {
+	witness := observation.PeerWitness
+	if witness == nil || observation.Action != "ACCEPT" || observation.Direction != "egress" ||
+		observation.TimestampSource != "kernel" || !observation.SourceAddress.Is4() || !observation.DestinationAddress.Is4() ||
+		witness.Family != 7 || witness.Hook != 2 || witness.EtherType != 0x0800 ||
+		witness.SourceRegisteredAt.IsZero() || witness.TargetRegisteredAt.IsZero() ||
+		observation.ObservedAt.Before(witness.SourceRegisteredAt) || observation.ObservedAt.Before(witness.TargetRegisteredAt) {
+		return 0
+	}
+	source, target := &observation.Binding, &witness.Target
+	if target.Identity.Validate(target.NetworkID) != nil ||
+		ec2FlowCaptureKey(source.Identity) == ec2FlowCaptureKey(target.Identity) ||
+		source.NetworkID != target.NetworkID || source.Bridge == "" || source.Bridge != target.Bridge ||
+		source.BridgeIfIndex <= 0 || source.BridgeIfIndex != target.BridgeIfIndex ||
+		source.EngineID == "" || source.EngineID != target.EngineID || source.BootID == "" || source.BootID != target.BootID ||
+		source.PeerName == "" || target.PeerName == "" || source.PeerName == target.PeerName ||
+		source.PeerIfIndex <= 0 || target.PeerIfIndex <= 0 || source.PeerIfIndex == target.PeerIfIndex ||
+		witness.PhysicalInput != source.PeerIfIndex || witness.PhysicalOutput != target.PeerIfIndex ||
+		observation.SourceAddress != source.Address || observation.DestinationAddress != target.Address ||
+		target.Generation == "" || witness.TargetToken == "" || witness.TargetToken == observation.Token ||
+		!ec2FlowCaptureMACValid(source.MAC) || !ec2FlowCaptureMACValid(target.MAC) ||
+		!strings.EqualFold(witness.SourceMAC, source.MAC) || !strings.EqualFold(witness.DestinationMAC, target.MAC) {
+		return 0
+	}
+	if ct := witness.Conntrack; ct != nil {
+		const translated = (1 << 4) | (1 << 5)
+		if ct.Status&translated != 0 || !ct.OriginalSource.Is4() || !ct.OriginalDestination.Is4() ||
+			ct.OriginalSource != ct.ReplyDestination || ct.OriginalDestination != ct.ReplySource ||
+			!((observation.SourceAddress == ct.OriginalSource && observation.DestinationAddress == ct.OriginalDestination) ||
+				(observation.SourceAddress == ct.ReplySource && observation.DestinationAddress == ct.ReplyDestination)) {
+			return 0
+		}
+	}
+	return 1
+}
+
+func ec2FlowCaptureMACValid(mac string) bool {
+	if len(mac) != 17 {
+		return false
+	}
+	for index := range mac {
+		if index%3 == 2 {
+			if mac[index] != ':' {
+				return false
+			}
+		} else if !((mac[index] >= '0' && mac[index] <= '9') || (mac[index] >= 'a' && mac[index] <= 'f') || (mac[index] >= 'A' && mac[index] <= 'F')) {
+			return false
+		}
+	}
+	first, _ := strconv.ParseUint(mac[:2], 16, 8)
+	return first&1 == 0 && mac != "00:00:00:00:00:00"
 }
 
 func ec2FlowCaptureCovered(batch network.FlowBatch, desired map[ec2.ResourceKey]ec2.FlowLogInterface) bool {

@@ -12,7 +12,8 @@ These are executable, assertion-bearing examples, not claims of AWS parity:
   capture real allowed and denied UDP traffic and payload-free TCP connections.
   An independent header-only witness checks TCP counts and flags against
   CloudWatch Logs, gzip text and typed Parquet S3 records read with PyArrow.
-  Restart the controller, verify Terraform refresh, and remove owned resources.
+  Check direct same-VPC egress paths and absent ingress paths. Restart the
+  controller, verify Terraform refresh, and remove owned resources.
 - [CloudFormation](cloudformation/README.md): create the same application, consume
   stack outputs, exercise its data plane, update SSM in place, reject an identical
   update as a no-op, delete the stack, and verify resource absence.

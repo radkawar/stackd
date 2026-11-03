@@ -66,7 +66,10 @@ type FlowLogObservation struct {
 	Packets, Bytes                    uint64
 	Start, End                        time.Time
 	TCPFlags                          uint8
-	Lost                              bool
+	// TrafficPath is 1 only for proven same-VPC native egress forwarding;
+	// zero means unavailable, including historical observations without evidence.
+	TrafficPath uint8
+	Lost        bool
 }
 type FlowLogCaptureBatch struct {
 	Cursor       string
@@ -99,7 +102,10 @@ type FlowLogAggregateRecord struct {
 	Packets, Bytes                    uint64
 	Start, End, Due                   time.Time
 	TCPFlags                          uint8
-	Lost                              bool
+	// TrafficPath is retained observation evidence, not current route state.
+	// Any unavailable or conflicting observation makes it permanently zero.
+	TrafficPath uint8
+	Lost        bool
 }
 
 type FlowLogLine struct {

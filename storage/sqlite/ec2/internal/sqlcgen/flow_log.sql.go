@@ -267,7 +267,7 @@ func (q *Queries) GetFlowLogToken(ctx context.Context, arg GetFlowLogTokenParams
 }
 
 const listFlowLogAggregates = `-- name: ListFlowLogAggregates :many
-SELECT "partition", account_id, region, flow_log_id, aggregate_id, incarnation, interface_partition, interface_account_id, interface_region, interface_id, interface_incarnation, network_id, address, vpc_id, subnet_id, instance_id, availability_zone_id, source_address, destination_address, source_port, destination_port, protocol, "action", direction, packets, bytes, start, "end", due, tcp_flags, lost FROM ec2_flow_log_aggregates WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND flow_log_id = ?4 ORDER BY aggregate_id
+SELECT "partition", account_id, region, flow_log_id, aggregate_id, incarnation, interface_partition, interface_account_id, interface_region, interface_id, interface_incarnation, network_id, address, vpc_id, subnet_id, instance_id, availability_zone_id, source_address, destination_address, source_port, destination_port, protocol, "action", direction, packets, bytes, start, "end", due, tcp_flags, lost, traffic_path FROM ec2_flow_log_aggregates WHERE partition = ?1 AND account_id = ?2 AND region = ?3 AND flow_log_id = ?4 ORDER BY aggregate_id
 `
 
 type ListFlowLogAggregatesParams struct {
@@ -323,6 +323,7 @@ func (q *Queries) ListFlowLogAggregates(ctx context.Context, arg ListFlowLogAggr
 			&i.Due,
 			&i.TcpFlags,
 			&i.Lost,
+			&i.TrafficPath,
 		); err != nil {
 			return nil, err
 		}
@@ -705,9 +706,9 @@ func (q *Queries) PutFlowLog(ctx context.Context, arg PutFlowLogParams) error {
 }
 
 const putFlowLogAggregate = `-- name: PutFlowLogAggregate :exec
-INSERT INTO ec2_flow_log_aggregates (partition, account_id, region, flow_log_id, aggregate_id, incarnation, interface_partition, interface_account_id, interface_region, interface_id, interface_incarnation, network_id, address, vpc_id, subnet_id, instance_id, availability_zone_id, source_address, destination_address, source_port, destination_port, protocol, action, direction, packets, bytes, start, end, due, tcp_flags, lost)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31)
-ON CONFLICT (partition, account_id, region, flow_log_id, aggregate_id) DO UPDATE SET incarnation = excluded.incarnation, interface_partition = excluded.interface_partition, interface_account_id = excluded.interface_account_id, interface_region = excluded.interface_region, interface_id = excluded.interface_id, interface_incarnation = excluded.interface_incarnation, network_id = excluded.network_id, address = excluded.address, vpc_id = excluded.vpc_id, subnet_id = excluded.subnet_id, instance_id = excluded.instance_id, availability_zone_id = excluded.availability_zone_id, source_address = excluded.source_address, destination_address = excluded.destination_address, source_port = excluded.source_port, destination_port = excluded.destination_port, protocol = excluded.protocol, action = excluded.action, direction = excluded.direction, packets = excluded.packets, bytes = excluded.bytes, start = excluded.start, end = excluded.end, due = excluded.due, tcp_flags = excluded.tcp_flags, lost = excluded.lost
+INSERT INTO ec2_flow_log_aggregates (partition, account_id, region, flow_log_id, aggregate_id, incarnation, interface_partition, interface_account_id, interface_region, interface_id, interface_incarnation, network_id, address, vpc_id, subnet_id, instance_id, availability_zone_id, source_address, destination_address, source_port, destination_port, protocol, action, direction, packets, bytes, start, end, due, tcp_flags, lost, traffic_path)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32)
+ON CONFLICT (partition, account_id, region, flow_log_id, aggregate_id) DO UPDATE SET incarnation = excluded.incarnation, interface_partition = excluded.interface_partition, interface_account_id = excluded.interface_account_id, interface_region = excluded.interface_region, interface_id = excluded.interface_id, interface_incarnation = excluded.interface_incarnation, network_id = excluded.network_id, address = excluded.address, vpc_id = excluded.vpc_id, subnet_id = excluded.subnet_id, instance_id = excluded.instance_id, availability_zone_id = excluded.availability_zone_id, source_address = excluded.source_address, destination_address = excluded.destination_address, source_port = excluded.source_port, destination_port = excluded.destination_port, protocol = excluded.protocol, action = excluded.action, direction = excluded.direction, packets = excluded.packets, bytes = excluded.bytes, start = excluded.start, end = excluded.end, due = excluded.due, tcp_flags = excluded.tcp_flags, lost = excluded.lost, traffic_path = excluded.traffic_path
 `
 
 type PutFlowLogAggregateParams struct {
@@ -742,6 +743,7 @@ type PutFlowLogAggregateParams struct {
 	Due                  time.Time
 	TcpFlags             int64
 	Lost                 bool
+	TrafficPath          int64
 }
 
 func (q *Queries) PutFlowLogAggregate(ctx context.Context, arg PutFlowLogAggregateParams) error {
@@ -777,6 +779,7 @@ func (q *Queries) PutFlowLogAggregate(ctx context.Context, arg PutFlowLogAggrega
 		arg.Due,
 		arg.TcpFlags,
 		arg.Lost,
+		arg.TrafficPath,
 	)
 	return err
 }

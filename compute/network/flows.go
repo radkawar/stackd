@@ -52,19 +52,20 @@ var flowIdentityPart = regexp.MustCompile(`^[a-zA-Z0-9-]{1,128}$`)
 // Generation is an opaque policy epoch supplied by the renderer; each policy
 // replacement must use a fresh epoch and retire the previous registration.
 type FlowBinding struct {
-	Identity    FlowIdentity `json:"identity"`
-	NetworkID   string       `json:"network_id"`
-	PolicyTable string       `json:"policy_table"`
-	PublicOwner string       `json:"public_owner"`
-	Bridge      string       `json:"bridge"`
-	PeerName    string       `json:"peer_name"`
-	PeerIfIndex int          `json:"peer_ifindex"`
-	MTU         int          `json:"mtu"`
-	Address     netip.Addr   `json:"address"`
-	MAC         string       `json:"mac"`
-	EngineID    string       `json:"engine_id"`
-	BootID      string       `json:"boot_id"`
-	Generation  string       `json:"generation"`
+	Identity      FlowIdentity `json:"identity"`
+	NetworkID     string       `json:"network_id"`
+	PolicyTable   string       `json:"policy_table"`
+	PublicOwner   string       `json:"public_owner"`
+	Bridge        string       `json:"bridge"`
+	PeerName      string       `json:"peer_name"`
+	BridgeIfIndex int          `json:"bridge_ifindex,omitempty"`
+	PeerIfIndex   int          `json:"peer_ifindex"`
+	MTU           int          `json:"mtu"`
+	Address       netip.Addr   `json:"address"`
+	MAC           string       `json:"mac"`
+	EngineID      string       `json:"engine_id"`
+	BootID        string       `json:"boot_id"`
+	Generation    string       `json:"generation"`
 }
 
 type FlowRegistration struct {
@@ -81,21 +82,51 @@ func (r FlowRegistration) Prefix(direction, action string) string {
 
 // TODO: Comeback add native IPv6 capture and segment-count witnesses for TCP payloads, fragments and offloaded packets; report gaps until those counts are provable.
 type FlowObservation struct {
-	Binding            FlowBinding `json:"binding"`
-	Token              string      `json:"token"`
-	Generation         string      `json:"generation"`
-	Direction          string      `json:"direction"`
-	Action             string      `json:"action"`
-	Protocol           uint8       `json:"protocol"`
-	SourceAddress      netip.Addr  `json:"source_address"`
-	DestinationAddress netip.Addr  `json:"destination_address"`
-	SourcePort         uint16      `json:"source_port"`
-	DestinationPort    uint16      `json:"destination_port"`
-	IPBytes            uint32      `json:"ip_bytes"`
-	Packets            uint32      `json:"packets"`
-	TCPFlags           uint8       `json:"tcp_flags"`
-	ObservedAt         time.Time   `json:"observed_at"`
-	TimestampSource    string      `json:"timestamp_source"`
+	Binding            FlowBinding      `json:"binding"`
+	Token              string           `json:"token"`
+	Generation         string           `json:"generation"`
+	Direction          string           `json:"direction"`
+	Action             string           `json:"action"`
+	Protocol           uint8            `json:"protocol"`
+	SourceAddress      netip.Addr       `json:"source_address"`
+	DestinationAddress netip.Addr       `json:"destination_address"`
+	SourcePort         uint16           `json:"source_port"`
+	DestinationPort    uint16           `json:"destination_port"`
+	IPBytes            uint32           `json:"ip_bytes"`
+	Packets            uint32           `json:"packets"`
+	TCPFlags           uint8            `json:"tcp_flags"`
+	ObservedAt         time.Time        `json:"observed_at"`
+	TimestampSource    string           `json:"timestamp_source"`
+	PeerWitness        *FlowPeerWitness `json:"peer_witness,omitempty"`
+}
+
+// FlowPeerWitness freezes a direct bridge-FORWARD attachment proof at capture.
+// Family is NFPROTO_BRIDGE (7); EtherType must be IPv4 (0x0800). Neither a
+// current route nor a replay-time peer lookup can create this evidence.
+//
+// TODO: Comeback prove traffic-path values 2–8 and non-direct same-VPC paths from actual native forwarding.
+type FlowPeerWitness struct {
+	Target             FlowBinding        `json:"target"`
+	TargetToken        string             `json:"target_token"`
+	SourceRegisteredAt time.Time          `json:"source_registered_at"`
+	TargetRegisteredAt time.Time          `json:"target_registered_at"`
+	Family             uint8              `json:"family"`
+	Hook               uint8              `json:"hook"`
+	EtherType          uint16             `json:"ether_type"`
+	PhysicalInput      int                `json:"physical_input"`
+	PhysicalOutput     int                `json:"physical_output"`
+	SourceMAC          string             `json:"source_mac"`
+	DestinationMAC     string             `json:"destination_mac"`
+	Conntrack          *FlowPeerConntrack `json:"conntrack,omitempty"`
+}
+
+// FlowPeerConntrack retains only translation-relevant kernel metadata, not body.
+type FlowPeerConntrack struct {
+	Status              uint32     `json:"status"`
+	OriginalSource      netip.Addr `json:"original_source"`
+	OriginalDestination netip.Addr `json:"original_destination"`
+	ReplySource         netip.Addr `json:"reply_source"`
+	ReplyDestination    netip.Addr `json:"reply_destination"`
 }
 
 // Gaps are evidence of incomplete coverage, not fabricated packet observations.

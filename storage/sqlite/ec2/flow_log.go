@@ -164,6 +164,7 @@ func (r reader) FlowLogAggregates(key domain.ResourceKey) ([]domain.FlowLogAggre
 			SourceAddress: row.SourceAddress, DestinationAddress: row.DestinationAddress,
 			SourcePort: uint16(row.SourcePort), DestinationPort: uint16(row.DestinationPort), Protocol: uint8(row.Protocol), Action: row.Action, Direction: row.Direction,
 			Packets: uint64(row.Packets), Bytes: uint64(row.Bytes), Start: row.Start, End: row.End, Due: row.Due, TCPFlags: uint8(row.TcpFlags), Lost: row.Lost,
+			TrafficPath: uint8(row.TrafficPath),
 		}
 	}
 	return out, nil
@@ -177,6 +178,7 @@ func (w writer) PutFlowLogAggregate(record domain.FlowLogAggregateRecord) error 
 		InterfaceIncarnation: iface.Incarnation, NetworkID: iface.NetworkID, Address: iface.Address, VpcID: iface.VPCID, SubnetID: iface.SubnetID, InstanceID: iface.InstanceID, AvailabilityZoneID: iface.AvailabilityZoneID,
 		SourceAddress: record.SourceAddress, DestinationAddress: record.DestinationAddress, SourcePort: int64(record.SourcePort), DestinationPort: int64(record.DestinationPort), Protocol: int64(record.Protocol),
 		Action: record.Action, Direction: record.Direction, Packets: sqlite.Uint64(record.Packets), Bytes: sqlite.Uint64(record.Bytes), Start: record.Start, End: record.End, Due: record.Due, TcpFlags: int64(record.TCPFlags), Lost: record.Lost,
+		TrafficPath: int64(record.TrafficPath),
 	})
 }
 

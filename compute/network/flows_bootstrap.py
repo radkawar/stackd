@@ -1,5 +1,6 @@
 # Executed with fd 9 holding the existing daemon-host native network lock.
 import base64
+import hashlib
 import http.client
 import json
 import os
@@ -111,7 +112,17 @@ observed = existing['Config']
 host = existing['HostConfig']
 if existing.get('Image') != image['Id']:
     raise ValueError('retained flow collector pinned image ID mismatch')
-for field in ('Image', 'Entrypoint', 'Cmd', 'User'):
+# This predecessor uses the same journal/ownership protocol. Only its exact
+# published source may be replaced; arbitrary entrypoints remain untrusted.
+entrypoint = observed.get('Entrypoint')
+upgrade = entrypoint != config.get('Entrypoint')
+if upgrade and not (
+        isinstance(entrypoint, list) and len(entrypoint) == 3
+        and entrypoint[:2] == ['python3', '-c'] and isinstance(entrypoint[2], str)
+        and hashlib.sha256(entrypoint[2].encode()).hexdigest()
+        == '0903998b8f8855fb4401000db60d2e89424e73096af8b5b948e33ce1afafbc40'):
+    raise ValueError('retained flow collector unrecognized receiver revision')
+for field in ('Image', 'Cmd', 'User'):
     if observed.get(field) != config.get(field):
         raise ValueError('retained flow collector immutable %s mismatch' % field)
 if dict(item.split('=', 1) for item in observed.get('Env', [])) != expected_env or observed.get('Labels') != expected_labels:
@@ -138,6 +149,17 @@ if cleanup:
     request('DELETE', '/volumes/' + urllib.parse.quote(volume, safe=''))
     print('STACKD_FLOW_COLLECTOR_IDLE_REMOVED')
     raise SystemExit(0)
+if upgrade:
+    # All ownership checks above precede mutation. Keep the volume, group,
+    # registrations and unacknowledged journal. Startup adds a restart gap;
+    # neither the stop interval nor in-flight packets are claimed as captured.
+    if existing.get('State', {}).get('Running'):
+        control_operation('gap', {'gap': {'reason': 'receiver-software-upgrade-uncertain-coverage'}})
+        request('POST', path + '/stop?t=2')
+    request('DELETE', path)
+    created = request('POST', '/containers/create?name=' + urllib.parse.quote(name, safe=''), config)
+    path = '/containers/' + created['Id']
+    existing = request('GET', path + '/json')
 if not existing.get('State', {}).get('Running'):
     request('POST', path + '/start')
 # Resume is serialized with the whole quiesce/stop/remove transaction. Never

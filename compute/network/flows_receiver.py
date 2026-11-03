@@ -298,6 +298,38 @@ def command_json(arguments):
     return json.loads(result.stdout)
 
 
+def same_attachment(left, right):
+    # Policy epochs may overlap, but every attachment/lifetime attribute must
+    # agree. Never collapse different ENIs merely because their addresses match.
+    return {key: value for key, value in left.items() if key != 'generation'} == {
+        key: value for key, value in right.items() if key != 'generation'}
+
+
+def attachment_key(binding):
+    identity = binding['identity']
+    return tuple(identity[key] for key in ('partition', 'account_id', 'region', 'interface_id'))
+
+
+def peer_conntrack(data, observation):
+    attrs = attributes(data)
+    if len(attrs.get(3, b'')) != 4:
+        raise ValueError('missing conntrack translation status')
+    status = struct.unpack('!I', attrs[3])[0]
+    if status & ((1 << 4) | (1 << 5)):
+        raise ValueError('translated packet')
+    def addresses(kind):
+        ip = attributes(attributes(attrs[kind])[1])
+        return str(ipaddress.IPv4Address(ip[1])), str(ipaddress.IPv4Address(ip[2]))
+    original_source, original_destination = addresses(1)
+    reply_source, reply_destination = addresses(2)
+    if (original_source, original_destination) != (reply_destination, reply_source):
+        raise ValueError('translated conntrack tuple')
+    actual = (observation['source_address'], observation['destination_address'])
+    if actual not in ((original_source, original_destination), (reply_source, reply_destination)):
+        raise ValueError('conntrack packet mismatch')
+    return {'status': status, 'original_source': original_source, 'original_destination': original_destination,
+            'reply_source': reply_source, 'reply_destination': reply_destination}
+
 class Receiver:
     def __init__(self):
         os.umask(0o077)
@@ -322,6 +354,14 @@ class Receiver:
         self.journal.state['boot_id'] = self.boot
         self.journal.state['generation'] = self.generation
         self.journal.save()
+        # A retained registration alone cannot prove an uninterrupted link
+        # lifetime across receiver downtime. Re-registration must reverify it.
+        self.peer_lifetimes = {}
+        self.link_revision = 0
+        self.links = socket.socket(socket.AF_NETLINK, socket.SOCK_RAW, 0)
+        self.links.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024 * 1024)
+        self.links.bind((0, 1))  # RTMGRP_LINK, before any NFLOG decode.
+        self.links.setblocking(False)
         self.netlink = socket.socket(socket.AF_NETLINK, socket.SOCK_RAW, 12)
         self.netlink.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4 * 1024 * 1024)
         self.netlink.bind((0, 0))
@@ -402,6 +442,127 @@ class Receiver:
                 'generation': self.generation, 'acked': self.journal.state['acked'], 'head': self.journal.state['head'],
                 'watermark': self.watermark, 'incomplete': self.journal.loss is not None or not self.coverages or any(not item['ready'] for item in self.coverages)}
 
+    def invalidate_links(self, indices=None):
+        self.link_revision += 1
+        for token in list(self.peer_lifetimes):
+            binding = self.journal.state['bindings'].get(token, {}).get('binding', {})
+            if indices is None or binding.get('peer_ifindex') in indices or binding.get('bridge_ifindex') in indices:
+                del self.peer_lifetimes[token]
+
+    def link_identity_matches(self, data):
+        # NEWLINK also reports benign updates (for example aliases and IPv6
+        # address state). These do not end an attachment's kernel lifetime.
+        # Never restore an invalidated lifetime from a notification.
+        try:
+            _, _, _, index, flags, _ = struct.unpack_from('=BBHiII', data)
+            attrs = attributes(data[16:])
+            name = attrs[3].rstrip(b'\0').decode('ascii')
+            master = struct.unpack('=I', attrs.get(10, b'\0' * 4))[0]
+            if not flags & 1:  # IFF_UP
+                return False
+            matched = False
+            for token in self.peer_lifetimes:
+                binding = self.journal.state['bindings'][token]['binding']
+                if binding['peer_ifindex'] == index:
+                    matched = True
+                    if name != binding['peer_name'] or master != binding['bridge_ifindex']:
+                        return False
+                if binding['bridge_ifindex'] == index:
+                    matched = True
+                    if name != binding['bridge'] or master:
+                        return False
+            return matched
+        except (KeyError, ValueError, UnicodeError, struct.error):
+            return False
+
+    def drain_links(self):
+        # Lifetime uncertainty removes enrichment only, never packet accounting.
+        if not hasattr(self, 'links'):
+            return False
+        for _ in range(128):
+            try:
+                data, _, flags, address = self.links.recvmsg(262144)
+            except BlockingIOError:
+                return True
+            except OSError:
+                self.invalidate_links()
+                return False
+            if flags & socket.MSG_TRUNC or address[0] != 0:
+                self.invalidate_links()
+                continue
+            offset = 0
+            while offset < len(data):
+                if offset + 16 > len(data):
+                    self.invalidate_links()
+                    break
+                length, kind, _, _, _ = struct.unpack_from('=IHHII', data, offset)
+                if length < 16 or offset + length > len(data):
+                    self.invalidate_links()
+                    break
+                if kind in (16, 17) and length >= 32:  # RTM_NEWLINK/DELLINK
+                    info = data[offset + 16:offset + length]
+                    if kind == 17 or not self.link_identity_matches(info):
+                        self.invalidate_links({struct.unpack_from('=i', info, 4)[0]})
+                elif kind != 3:
+                    self.invalidate_links()
+                offset += (length + 3) & ~3
+        self.invalidate_links()
+        return False
+
+    def peer_witness(self, body, attrs, token, entry, observation):
+        try:
+            binding = entry['binding']
+            lifetimes = getattr(self, 'peer_lifetimes', {})
+            if (observation['direction'] != 'egress' or observation['action'] != 'ACCEPT' or
+                    observation['timestamp_source'] != 'kernel' or entry.get('retired') or token not in lifetimes or
+                    body[0] != 7 or attrs.get(1) != struct.pack('!HBB', 0x0800, 2, 0) or 20 in attrs):
+                return None
+            physical_input = struct.unpack('!I', attrs[6])[0]
+            physical_output = struct.unpack('!I', attrs[7])[0]
+            layer2 = attrs[21]
+            if (len(layer2) != 14 or layer2[12:] != b'\x08\x00' or
+                    physical_input != binding['peer_ifindex'] or physical_output == physical_input or
+                    observation['source_address'] != binding['address']):
+                return None
+            source_mac = layer2[6:12].hex(':')
+            destination_mac = layer2[:6].hex(':')
+            if source_mac != binding['mac'].lower():
+                return None
+            stamp = datetime.datetime.fromisoformat(observation['observed_at'].replace('Z', '+00:00'))
+            source_start = lifetimes[token]
+            if stamp < datetime.datetime.fromisoformat(source_start.replace('Z', '+00:00')):
+                return None
+            candidates = []
+            for candidate, target in self.journal.state['bindings'].items():
+                peer = target['binding']
+                if target.get('retired') or candidate not in lifetimes or peer['peer_ifindex'] != physical_output:
+                    continue
+                # Any conflicting live generation makes the physical peer
+                # ambiguous, even if only one happens to match this packet.
+                if candidates and not same_attachment(candidates[0][1]['binding'], peer):
+                    return None
+                candidates.append((candidate, target))
+            if not candidates:
+                return None
+            candidate, target = min(candidates, key=lambda item: lifetimes[item[0]])
+            peer = target['binding']
+            target_start = lifetimes[candidate]
+            if (stamp < datetime.datetime.fromisoformat(target_start.replace('Z', '+00:00')) or
+                    peer['address'] != observation['destination_address'] or peer['mac'].lower() != destination_mac or
+                    attachment_key(peer) == attachment_key(binding) or peer['network_id'] != binding['network_id'] or
+                    peer['bridge'] != binding['bridge'] or peer['bridge_ifindex'] != binding['bridge_ifindex'] or
+                    peer['engine_id'] != binding['engine_id'] or peer['boot_id'] != binding['boot_id']):
+                return None
+            witness = {'target': peer, 'target_token': candidate, 'source_registered_at': source_start,
+                       'target_registered_at': target_start, 'family': body[0], 'hook': 2, 'ether_type': 0x0800,
+                       'physical_input': physical_input, 'physical_output': physical_output,
+                       'source_mac': source_mac, 'destination_mac': destination_mac}
+            if 18 in attrs:
+                witness['conntrack'] = peer_conntrack(attrs[18], observation)
+            return witness
+        except (KeyError, ValueError, TypeError, struct.error, OverflowError):
+            return None
+
     def decode(self, body):
         token = ''
         try:
@@ -445,6 +606,11 @@ class Receiver:
                 source = 'kernel'
             observation.update(binding=binding, token=token, generation=binding['generation'], direction=direction, action=action,
                                observed_at=timestamp, timestamp_source=source)
+            # Optional proof failure never turns a decoded packet into a gap.
+            if self.drain_links():
+                witness = self.peer_witness(body, attrs, token, entry, observation)
+                if witness is not None:
+                    observation['peer_witness'] = witness
             self.journal.observation(observation, self.generation)
         except (ValueError, UnicodeError, struct.error, OverflowError) as error:
             self.journal.gap(str(error)[:256], self.generation, token)
@@ -485,6 +651,9 @@ class Receiver:
         # Watermark is advanced only by a completed native counter snapshot.
 
     def register(self, binding):
+        self.drain()
+        self.drain_links()
+        link_revision = self.link_revision
         identity = binding['identity']
         values = [identity[key] for key in ('partition', 'account_id', 'region', 'vpc_id', 'subnet_id', 'interface_id')]
         if any(not isinstance(value, str) or not re.fullmatch(r'[A-Za-z0-9-]{1,128}', value) for value in values):
@@ -501,6 +670,9 @@ class Receiver:
             raise ValueError('missing or excessive immutable binding metadata')
         if not ipaddress.ip_address(binding['address']).version == 4:
             raise ValueError('attachment address must be IPv4')
+        if (not re.fullmatch(r'[0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5}', binding['mac']) or
+                int(binding['mac'][:2], 16) & 1 or binding['mac'] == '00:00:00:00:00:00'):
+            raise ValueError('invalid attachment MAC')
         if binding.get('engine_id') and binding['engine_id'] != self.engine:
             raise ValueError('binding Engine mismatch')
         if binding.get('boot_id') and binding['boot_id'] != self.boot:
@@ -514,7 +686,9 @@ class Receiver:
         mtu = min(int(peer['mtu']), int(bridge['mtu']))
         if binding.get('mtu') and binding['mtu'] != mtu:
             raise ValueError('binding MTU changed')
-        binding.update(peer_ifindex=peer['ifindex'], engine_id=self.engine, boot_id=self.boot, mtu=mtu)
+        if binding.get('bridge_ifindex') and binding['bridge_ifindex'] != bridge['ifindex']:
+            raise ValueError('bridge ifindex changed')
+        binding.update(peer_ifindex=peer['ifindex'], bridge_ifindex=bridge['ifindex'], engine_id=self.engine, boot_id=self.boot, mtu=mtu)
         # Reject a foreign controller's existing table without preventing the
         # first policy installation (which legitimately has no table yet).
         result = run_native(['nft', '-j', 'list', 'table', 'bridge', binding['policy_table']])
@@ -529,20 +703,34 @@ class Receiver:
                 raise ValueError('policy controller ownership mismatch')
         elif b'No such file' not in result.stderr:
             raise ValueError('cannot verify policy ownership')
-        for entry in self.journal.state['bindings'].values():
+        links_drained = self.drain_links() and self.link_revision == link_revision
+        verified_at = now()
+        # Publishing a new authoritative attachment invalidates conflicting
+        # generations even when a device was deliberately reused without delete.
+        for token, entry in self.journal.state['bindings'].items():
+            previous = entry['binding']
+            if not same_attachment(previous, binding) and (
+                    previous.get('peer_ifindex') == binding['peer_ifindex'] or
+                    attachment_key(previous) == attachment_key(binding)):
+                self.peer_lifetimes.pop(token, None)
+        for token, entry in self.journal.state['bindings'].items():
             if entry['binding'] == binding and not entry.get('retired'):
+                if links_drained:
+                    self.peer_lifetimes[token] = verified_at
                 return entry['registration']
         if len(self.journal.state['bindings']) >= MAX_REGISTRATIONS:
             raise ValueError('retained binding registry full; acknowledge retired evidence')
         token = uuid.uuid4().hex
         registration = {'group': self.group, 'token': token, 'generation': binding['generation']}
         self.journal.state['registration_order'] = self.journal.state.get('registration_order', 0) + 1
-        self.journal.state['bindings'][token] = {'binding': binding, 'registration': registration, 'registered_at': now(),
+        self.journal.state['bindings'][token] = {'binding': binding, 'registration': registration, 'registered_at': verified_at,
                                                   'order': self.journal.state['registration_order']}
         if len(encoded(self.journal.state)) > 7 * 1024 * 1024:
             del self.journal.state['bindings'][token]
             raise ValueError('retained binding metadata exceeds bound')
         self.journal.save()
+        if links_drained:
+            self.peer_lifetimes[token] = verified_at
         self.journal.gap('policy-generation-registration-coverage', self.generation, token)
         return registration
 
@@ -563,6 +751,7 @@ class Receiver:
                 raise ValueError('cannot verify retired native references')
             if token.encode() in result.stdout:
                 raise ValueError('native rules still reference registration')
+        getattr(self, 'peer_lifetimes', {}).pop(token, None)
         self.drain()
         self.journal.gap('policy-generation-retirement-uncertain-coverage', self.generation, token)
         entry['retired'] = True
@@ -610,6 +799,7 @@ class Receiver:
                 continue
             self.journal.gap('resolved-unreferenced-policy-generation', self.generation, candidate, entry.get('registered_at'))
             entry['retired'] = True
+            getattr(self, 'peer_lifetimes', {}).pop(candidate, None)
             entry['retired_at'] = now()
             retired += 1
         self.journal.save()
@@ -761,7 +951,9 @@ class Receiver:
     def serve(self):
         self.counter_time = time.monotonic()
         while True:
-            ready, _, _ = select.select([self.netlink, self.control], [], [], 0.1)
+            ready, _, _ = select.select([self.netlink, self.links, self.control], [], [], 0.1)
+            if self.links in ready:
+                self.drain_links()
             if time.monotonic() - self.counter_time >= 1:
                 self.drain()
                 self.coverage()

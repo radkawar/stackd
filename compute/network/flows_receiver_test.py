@@ -1,4 +1,5 @@
 import base64
+import copy
 import os
 import struct
 import tempfile
@@ -168,6 +169,206 @@ class DecoderTests(unittest.TestCase):
                 for filename in files:
                     with open(os.path.join(directory, filename), 'rb') as stream:
                         self.assertNotIn(b'customer-body', stream.read())
+
+    def test_forward_peer_witness_is_optional_frozen_and_lifetime_fenced(self):
+        with tempfile.TemporaryDirectory() as root:
+            instance = receiver.Receiver.__new__(receiver.Receiver)
+            owner = {'test': 'peer-witness'}
+            instance.journal = receiver.Journal(root, owner)
+            instance.journal.state['group'] = 12123
+            instance.generation, instance.boot = 'receiver', 'boot'
+            instance.last_sequence, instance.received = None, {}
+            instance.link_revision = 0
+            class LinkSocket:
+                messages = []
+                def recvmsg(self, size):
+                    if not self.messages:
+                        raise BlockingIOError()
+                    return self.messages.pop(0)
+            instance.links = LinkSocket()
+            source_token, target_token = 'a' * 32, 'b' * 32
+            identity = {'partition': 'aws', 'account_id': '111111111111', 'region': 'us-east-1',
+                        'vpc_id': 'vpc-one', 'subnet_id': 'subnet-one', 'interface_id': 'eni-source'}
+            source = {'identity': identity, 'network_id': 'arn:aws:ec2:us-east-1:111111111111:vpc/vpc-one',
+                      'peer_ifindex': 321, 'peer_name': 'source', 'bridge': 'bridge', 'bridge_ifindex': 300,
+                      'boot_id': 'boot', 'engine_id': 'engine', 'generation': 'source-policy', 'mtu': 1500,
+                      'address': '10.1.0.10', 'mac': '02:00:00:00:00:0a'}
+            target = copy.deepcopy(source)
+            target.update(peer_ifindex=322, peer_name='target', address='10.1.0.11',
+                          mac='02:00:00:00:00:0b', generation='target-policy')
+            target['identity']['interface_id'] = 'eni-target'
+            baseline = {
+                source_token: {'binding': source, 'registered_at': '2023-11-14T22:13:20.123455Z'},
+                target_token: {'binding': target, 'registered_at': '2023-11-14T22:13:20.123455Z'}}
+            layer2 = bytes.fromhex('02000000000b02000000000a0800')
+            actual = {1: struct.pack('!HBB', 0x0800, 2, 0), 4: struct.pack('!I', 321), 6: struct.pack('!I', 321),
+                      7: struct.pack('!I', 322), 21: layer2, 3: struct.pack('!QQ', 1700000000, 123456)}
+            observations = []
+            def capture(change=None, attrs_change=None, direction='egress', action='ACCEPT', family=7):
+                instance.journal.state['bindings'] = copy.deepcopy(baseline)
+                instance.peer_lifetimes = {token: entry['registered_at'] for token, entry in baseline.items()}
+                if change:
+                    change()
+                attrs = dict(actual)
+                if attrs_change:
+                    attrs_change(attrs)
+                frame = (struct.pack('!BBH', family, 0, 12123)
+                         + attr(12, struct.pack('!I', len(observations) + 1))
+                         + attr(10, ('sf:' + source_token + ':' + direction + ':' + action).encode() + b'\0')
+                         + attr(9, ipv4_udp()))
+                frame += b''.join(attr(kind, value) for kind, value in attrs.items())
+                instance.decode(frame)
+                rows, _ = instance.journal.read(0, 100, 1024 * 1024)
+                self.assertFalse(any('gap' in row for row in rows))
+                observation = rows[-1]['observation']
+                observations.append(observation)
+                self.assertEqual((observation['packets'], observation['ip_bytes']), (1, len(ipv4_udp())))
+                return observation.get('peer_witness')
+            first = capture()
+            self.assertEqual(first['target']['identity']['interface_id'], 'eni-target')
+            self.assertEqual(first['physical_output'], 322)
+            for options in ({'direction': 'ingress'}, {'action': 'REJECT'}, {'family': 2},
+                            {'attrs_change': lambda attrs: attrs.pop(1)},
+                            {'attrs_change': lambda attrs: attrs.update({1: struct.pack('!HBB', 0x0800, 1, 0)})},
+                            {'attrs_change': lambda attrs: attrs.pop(6)},
+                            {'attrs_change': lambda attrs: attrs.update({7: struct.pack('!I', 321)})},
+                            {'attrs_change': lambda attrs: attrs.pop(3)},
+                            {'attrs_change': lambda attrs: attrs.pop(21)},
+                            {'attrs_change': lambda attrs: attrs.update({21: b'\0' * 12 + b'\x08\x00'})},
+                            {'attrs_change': lambda attrs: attrs.update({20: b''})},
+                            {'change': lambda: instance.peer_lifetimes.update({target_token: '2023-11-14T22:13:20.123457Z'})},
+                            {'change': lambda: instance.peer_lifetimes.update({source_token: '2023-11-14T22:13:20.123457Z'})},
+                            {'change': lambda: instance.journal.state['bindings'][target_token].update(retired=True)},
+                            {'change': lambda: instance.journal.state['bindings'][source_token].update(retired=True)},
+                            {'change': lambda: instance.journal.state['bindings'][target_token]['binding'].update(network_id='foreign-vpc')},
+                            {'change': lambda: instance.journal.state['bindings'][target_token]['binding'].update(engine_id='foreign-engine')},
+                            {'change': lambda: instance.journal.state['bindings'][target_token]['binding'].update(boot_id='foreign-boot')},
+                            {'change': lambda: instance.journal.state['bindings'][target_token]['binding'].update(bridge_ifindex=999)},
+                            {'change': lambda: instance.journal.state['bindings'][target_token]['binding'].update(address='10.1.0.12')},
+                            {'change': lambda: instance.journal.state['bindings'][source_token]['binding'].update(address='10.1.0.12')}):
+                with self.subTest(options=options):
+                    self.assertIsNone(capture(**options))
+            def overlapping_epoch():
+                duplicate = copy.deepcopy(baseline[target_token])
+                duplicate['binding']['generation'] = 'next-policy'
+                instance.journal.state['bindings']['c' * 32] = duplicate
+                instance.peer_lifetimes['c' * 32] = duplicate['registered_at']
+            self.assertIsNotNone(capture(change=overlapping_epoch))
+            def ambiguous_attachment():
+                overlapping_epoch()
+                instance.journal.state['bindings']['c' * 32]['binding']['identity']['interface_id'] = 'eni-other'
+            self.assertIsNone(capture(change=ambiguous_attachment))
+            def link_event():
+                info = struct.pack('=BBHiII', 0, 0, 1, 322, 0, 0)
+                event = struct.pack('=IHHII', 32, 17, 0, 0, 0) + info
+                instance.links.messages.append((event, [], 0, (0, 1)))
+            self.assertIsNone(capture(change=link_event))
+            def new_link(index=322, name=b'target', master=300, flags=1):
+                info = struct.pack('=BBHiII', 0, 0, 1, index, flags, 0)
+                info += attr(3, name + b'\0') + attr(20, b'updated alias\0')
+                if master:
+                    info += attr(10, struct.pack('=I', master))
+                event = struct.pack('=IHHII', 16 + len(info), 16, 0, 0, 0) + info
+                instance.links.messages.append((event, [], 0, (0, 1)))
+            self.assertEqual(capture(change=new_link), first)
+            self.assertEqual(capture(change=lambda: new_link(300, b'bridge', 0)), first)
+            for change in (lambda: new_link(name=b'renamed'),
+                           lambda: new_link(master=999),
+                           lambda: new_link(master=0),
+                           lambda: new_link(flags=0)):
+                self.assertIsNone(capture(change=change))
+            def deleted_then_reused():
+                link_event()
+                new_link()
+            self.assertIsNone(capture(change=deleted_then_reused))
+            def overflow():
+                instance.links.messages.append((b'', [], receiver.socket.MSG_TRUNC, (0, 1)))
+            self.assertIsNone(capture(change=overflow))
+            self.assertIsNone(capture(change=lambda: instance.peer_lifetimes.clear()))
+            self.assertEqual(first['target']['address'], '10.1.0.11')
+            rows, cursor = instance.journal.read(0, 100, 1024 * 1024)
+            self.assertEqual(sum(row['observation']['packets'] for row in rows), len(observations))
+            self.assertEqual(receiver.Journal(root, owner).read(0, 100, 1024 * 1024), (rows, cursor))
+
+    def test_conntrack_translation_evidence_rejects_nat_and_mismatched_tuples(self):
+        observation = receiver.packet_header(ipv4_udp())
+        def tuple_attrs(source, destination):
+            return attr(1, attr(1, receiver.ipaddress.IPv4Address(source).packed)
+                        + attr(2, receiver.ipaddress.IPv4Address(destination).packed))
+        original = tuple_attrs('10.1.0.10', '10.1.0.11')
+        reply = tuple_attrs('10.1.0.11', '10.1.0.10')
+        metadata = attr(1, original) + attr(2, reply) + attr(3, struct.pack('!I', 2))
+        self.assertEqual(receiver.peer_conntrack(metadata, observation)['status'], 2)
+        for status in (1 << 4, 1 << 5):
+            with self.assertRaisesRegex(ValueError, 'translated'):
+                receiver.peer_conntrack(attr(1, original) + attr(2, reply) + attr(3, struct.pack('!I', status)), observation)
+        # NAT_DONE also describes a null (untranslated) NAT binding.
+        for status in (1 << 7, 1 << 8):
+            self.assertEqual(receiver.peer_conntrack(attr(1, original) + attr(2, reply)
+                             + attr(3, struct.pack('!I', status)), observation)['status'], status)
+        with self.assertRaisesRegex(ValueError, 'translated'):
+            receiver.peer_conntrack(attr(1, original) + attr(2, tuple_attrs('10.1.0.12', '10.1.0.10'))
+                                    + attr(3, struct.pack('!I', 2)), observation)
+
+    def test_registration_reverifies_and_fences_reused_peers_without_dropping_capture(self):
+        with tempfile.TemporaryDirectory() as root:
+            instance = receiver.Receiver.__new__(receiver.Receiver)
+            instance.journal = receiver.Journal(root, {'test': 'registration-lifetimes'})
+            instance.generation, instance.boot, instance.engine = 'receiver', 'boot', 'engine'
+            instance.group = 12123
+            instance.peer_lifetimes, instance.link_revision = {}, 0
+            instance.drain = lambda: None
+            instance.drain_links = lambda: True
+            identity = {'partition': 'aws', 'account_id': '111111111111', 'region': 'us-east-1',
+                        'vpc_id': 'vpc-one', 'subnet_id': 'subnet-one', 'interface_id': 'eni-target'}
+            binding = {'identity': identity, 'network_id': 'arn:aws:ec2:us-east-1:111111111111:vpc/vpc-one',
+                       'policy_table': 'stackd_ec2_abcd', 'public_owner': 'controller', 'generation': 'epoch-one',
+                       'peer_name': 'target', 'bridge': 'bridge', 'address': '10.1.0.11', 'mac': '02:00:00:00:00:0b'}
+            original_json, original_native = receiver.command_json, receiver.run_native
+            changed_during_inspection = False
+            def inspect(arguments):
+                if arguments[-1] == 'target':
+                    if changed_during_inspection:
+                        instance.invalidate_links({322})
+                    return [{'ifindex': 322, 'master': 'bridge', 'mtu': 1500}]
+                return [{'ifindex': 300, 'mtu': 1500}]
+            receiver.command_json = inspect
+            receiver.run_native = lambda arguments: types.SimpleNamespace(returncode=1, stderr=b'No such file', stdout=b'')
+            try:
+                registration = instance.register(copy.deepcopy(binding))
+                token = registration['token']
+                self.assertIn(token, instance.peer_lifetimes)
+                self.assertEqual(instance.journal.state['bindings'][token]['binding']['bridge_ifindex'], 300)
+                instance.peer_lifetimes[token] = '2020-01-01T00:00:00Z'
+                self.assertEqual(instance.register(copy.deepcopy(binding)), registration)
+                self.assertNotEqual(instance.peer_lifetimes[token], '2020-01-01T00:00:00Z')
+                overlap = copy.deepcopy(binding)
+                overlap['generation'] = 'epoch-two'
+                second = instance.register(overlap)
+                self.assertIn(token, instance.peer_lifetimes)
+                self.assertIn(second['token'], instance.peer_lifetimes)
+                reused = copy.deepcopy(binding)
+                reused['identity']['interface_id'] = 'eni-reused'
+                third = instance.register(reused)
+                self.assertNotIn(token, instance.peer_lifetimes)
+                self.assertNotIn(second['token'], instance.peer_lifetimes)
+                self.assertIn(third['token'], instance.peer_lifetimes)
+                changed_during_inspection = True
+                uncertain = copy.deepcopy(binding)
+                uncertain['identity']['interface_id'] = 'eni-racing'
+                fourth = instance.register(uncertain)
+                self.assertIn(fourth['token'], instance.journal.state['bindings'])
+                self.assertNotIn(fourth['token'], instance.peer_lifetimes)
+                self.assertNotIn(third['token'], instance.peer_lifetimes)
+                # Retirement invalidates enrichment before draining old frames.
+                changed_during_inspection = False
+                instance.register(copy.deepcopy(uncertain))
+                during_drain = []
+                instance.drain = lambda: during_drain.append(fourth['token'] in instance.peer_lifetimes)
+                instance.retire(fourth)
+                self.assertEqual(during_drain, [False])
+            finally:
+                receiver.command_json, receiver.run_native = original_json, original_native
 
 
 class JournalTests(unittest.TestCase):

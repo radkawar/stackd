@@ -425,9 +425,16 @@ func (s *Service) mergeFlowLogObservation(tx Transaction, r FlowLogRecord, i Flo
 		identity = fmt.Sprintf("%s\x00loss\x00%d", flowLogKeyString(i.Key), s.clock.Now().Unix()/int64(r.AggregationSeconds))
 	}
 	id := fmt.Sprintf("%x", sha256.Sum256([]byte(identity)))
-	a := FlowLogAggregateRecord{Key: FlowLogAggregateKey{FlowLogKey: r.Key, ID: id}, Incarnation: r.Incarnation, Interface: i, SourceAddress: o.SourceAddress, DestinationAddress: o.DestinationAddress, SourcePort: o.SourcePort, DestinationPort: o.DestinationPort, Protocol: o.Protocol, Action: o.Action, Direction: o.Direction, Start: o.Start, End: o.End, Due: s.clock.Now().Truncate(interval).Add(interval), Lost: o.Lost}
+	// Missing, unsupported or inapplicable enrichment never discards a packet.
+	if o.TrafficPath != 1 || o.Direction != "egress" || o.Action != "ACCEPT" || o.Lost {
+		o.TrafficPath = 0
+	}
+	a := FlowLogAggregateRecord{Key: FlowLogAggregateKey{FlowLogKey: r.Key, ID: id}, Incarnation: r.Incarnation, Interface: i, SourceAddress: o.SourceAddress, DestinationAddress: o.DestinationAddress, SourcePort: o.SourcePort, DestinationPort: o.DestinationPort, Protocol: o.Protocol, Action: o.Action, Direction: o.Direction, Start: o.Start, End: o.End, Due: s.clock.Now().Truncate(interval).Add(interval), TrafficPath: o.TrafficPath, Lost: o.Lost}
 	if old, exists := aggregates[a.Key]; exists {
 		a = old
+		if a.TrafficPath != o.TrafficPath {
+			a.TrafficPath = 0
+		}
 	}
 	if o.Start.Before(a.Start) {
 		a.Start = o.Start
@@ -444,6 +451,7 @@ func (s *Service) mergeFlowLogObservation(tx Transaction, r FlowLogRecord, i Flo
 	}
 	if math.MaxUint64-a.Packets < o.Packets || math.MaxUint64-a.Bytes < o.Bytes {
 		a.Lost = true
+		a.TrafficPath = 0
 	} else {
 		a.Packets += o.Packets
 		a.Bytes += o.Bytes

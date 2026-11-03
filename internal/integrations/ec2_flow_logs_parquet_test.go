@@ -16,20 +16,21 @@ import (
 )
 
 func TestEC2FlowLogParquetSelectedColumnsTypesAndGaps(t *testing.T) {
-	header := "srcport end account-id version packets tcp-flags protocol bytes start dstport log-status instance-id interface-id srcaddr"
+	header := "srcport end account-id version packets tcp-flags protocol bytes start dstport log-status instance-id interface-id srcaddr traffic-path flow-direction"
 	lines := []ec2.FlowLogLine{
-		{Message: "49152 1798761660 001234567890 3 4294967297 18 6 9223372036854775807 1798761600 443 OK - eni-observed 10.0.0.4"},
-		{Message: "- 1798761720 001234567890 3 - - - - 1798761660 - SKIPDATA - eni-observed -"},
+		{Message: "49152 1798761660 001234567890 5 4294967297 18 6 9223372036854775807 1798761600 443 OK - eni-observed 10.0.0.4 1 egress"},
+		{Message: "- 1798761720 001234567890 5 - - - - 1798761660 - SKIPDATA - eni-observed - - -"},
+		{Message: "443 1798761660 001234567890 5 2 18 6 120 1798761600 49152 OK - eni-observed 10.0.0.8 - ingress"},
 	}
 	payload, err := encodeFlowLogParquet(header, lines)
 	if err != nil {
 		t.Fatal(err)
 	}
 	file, rows := readFlowLogParquet(t, payload)
-	wantNames := []string{"srcport", "end", "account_id", "version", "packets", "tcp_flags", "protocol", "bytes", "start", "dstport", "log_status", "instance_id", "interface_id", "srcaddr"}
-	wantTypes := []parquet.Kind{parquet.Int32, parquet.Int64, parquet.ByteArray, parquet.Int32, parquet.Int64, parquet.Int32, parquet.Int32, parquet.Int64, parquet.Int64, parquet.Int32, parquet.ByteArray, parquet.ByteArray, parquet.ByteArray, parquet.ByteArray}
+	wantNames := []string{"srcport", "end", "account_id", "version", "packets", "tcp_flags", "protocol", "bytes", "start", "dstport", "log_status", "instance_id", "interface_id", "srcaddr", "traffic_path", "flow_direction"}
+	wantTypes := []parquet.Kind{parquet.Int32, parquet.Int64, parquet.ByteArray, parquet.Int32, parquet.Int64, parquet.Int32, parquet.Int32, parquet.Int64, parquet.Int64, parquet.Int32, parquet.ByteArray, parquet.ByteArray, parquet.ByteArray, parquet.ByteArray, parquet.Int32, parquet.ByteArray}
 	fields := file.Schema().Fields()
-	if len(fields) != len(wantNames) || len(rows) != 2 {
+	if len(fields) != len(wantNames) || len(rows) != 3 {
 		t.Fatalf("selected columns or rows changed: schema=%s rows=%v", file.Schema(), rows)
 	}
 	for i, field := range fields {
@@ -40,7 +41,7 @@ func TestEC2FlowLogParquetSelectedColumnsTypesAndGaps(t *testing.T) {
 			t.Fatalf("column %s is binary rather than STRING: %s", field.Name(), field.Type())
 		}
 	}
-	if rows[0][0].Int32() != 49152 || rows[0][3].Int32() != 3 || rows[0][5].Int32() != 18 || rows[0][6].Int32() != 6 || rows[0][9].Int32() != 443 {
+	if rows[0][0].Int32() != 49152 || rows[0][3].Int32() != 5 || rows[0][5].Int32() != 18 || rows[0][6].Int32() != 6 || rows[0][9].Int32() != 443 || rows[0][14].Int32() != 1 || rows[0][14].DefinitionLevel() != 1 {
 		t.Fatalf("INT32 values changed: %v", rows[0])
 	}
 	if rows[0][1].Int64() != 1798761660 || rows[0][4].Int64() != 4294967297 || rows[0][7].Int64() != 9223372036854775807 || rows[0][8].Int64() != 1798761600 {
@@ -51,13 +52,16 @@ func TestEC2FlowLogParquetSelectedColumnsTypesAndGaps(t *testing.T) {
 			t.Fatalf("column %s = %q, want %q", wantNames[column], got, want)
 		}
 	}
-	for _, column := range []int{0, 4, 5, 6, 7, 9} {
+	for _, column := range []int{0, 4, 5, 6, 7, 9, 14} {
 		if !fields[column].Optional() || !rows[1][column].IsNull() || rows[1][column].DefinitionLevel() != 0 {
 			t.Fatalf("unavailable numeric column %s became a fabricated value: %v", wantNames[column], rows[1][column])
 		}
 	}
 	if rows[1][1].Int64() != 1798761720 || rows[1][8].Int64() != 1798761660 || string(rows[1][10].ByteArray()) != "SKIPDATA" || string(rows[1][13].ByteArray()) != "-" {
 		t.Fatalf("gap lost its retained times, status, or unavailable string: %v", rows[1])
+	}
+	if !fields[14].Optional() || !rows[2][14].IsNull() || rows[2][14].DefinitionLevel() != 0 || string(rows[2][10].ByteArray()) != "OK" || string(rows[2][15].ByteArray()) != "ingress" {
+		t.Fatalf("valid ingress requires unavailable nullable INT32 traffic_path: %v", rows[2])
 	}
 }
 
@@ -103,7 +107,7 @@ func flowLogParquetDestination(t *testing.T) (*cfnS3OwnerFixture, *EC2FlowLogs, 
 		Key: ec2.ResourceKey{Scope: scope, ID: "immutable-sealed-window"}, FlowLogKey: ec2.ResourceKey{Scope: scope, ID: "fl-parquet"},
 		DestinationType: "s3", Destination: "arn:aws:s3:::parquet-flow-delivery/selected", FileFormat: "parquet",
 		HivePartitions: true, HourPartitions: true, WindowStart: time.Date(2026, 12, 31, 23, 59, 0, 0, time.UTC),
-		Header: "interface-id packets log-status",
+		Header: "interface-id packets log-status traffic-path",
 	}
 	adapter := &EC2FlowLogs{S3: f.owner}
 	if wire := adapter.validateS3(f.ctx, ec2.FlowLogRecord{Key: batch.FlowLogKey, DestinationType: batch.DestinationType, Destination: batch.Destination, HivePartitions: true}); wire != nil {
@@ -114,7 +118,7 @@ func flowLogParquetDestination(t *testing.T) (*cfnS3OwnerFixture, *EC2FlowLogs, 
 
 func TestEC2FlowLogParquetS3DeliveryKeepsWindowRetryIdentityAndCurrentAuthority(t *testing.T) {
 	f, adapter, batch := flowLogParquetDestination(t)
-	lines := []ec2.FlowLogLine{{Message: "eni-real 9876543210 OK"}}
+	lines := []ec2.FlowLogLine{{Message: "eni-real 9876543210 OK 1"}}
 	if wire := adapter.Write(f.ctx, batch, lines); wire != nil {
 		t.Fatal(wire)
 	}
@@ -138,7 +142,7 @@ func TestEC2FlowLogParquetS3DeliveryKeepsWindowRetryIdentityAndCurrentAuthority(
 	}
 	payload := get()
 	_, rows := readFlowLogParquet(t, payload)
-	if len(rows) != 1 || string(rows[0][0].ByteArray()) != "eni-real" || rows[0][1].Int64() != 9876543210 {
+	if len(rows) != 1 || string(rows[0][0].ByteArray()) != "eni-real" || rows[0][1].Int64() != 9876543210 || rows[0][3].Int32() != 1 {
 		t.Fatalf("S3 payload lost observed records: %v", rows)
 	}
 	batch.Due = batch.WindowStart.Add(72 * time.Hour)

@@ -270,6 +270,7 @@ func TestFlowLogParquetRepeatedFieldsAreExplicitlyUnsupported(t *testing.T) {
 func TestFlowLogCaptureCheckpointSealingRetryAndRestart(t *testing.T) {
 	f := newFlowTest(t)
 	request := f.input()
+	request.LogFormat = new(api.String(defaultFlowLogFormat + " ${traffic-path}"))
 	request.DestinationOptions = &api.DestinationOptionsRequest{FileFormat: new(api.DestinationFileFormat("parquet"))}
 	r := f.create(t, request)
 	f.capture.batch = FlowLogCaptureBatch{Cursor: "native-1", Observations: []FlowLogObservation{f.observation()}}
@@ -319,8 +320,13 @@ func TestFlowLogCaptureCheckpointSealingRetryAndRestart(t *testing.T) {
 		t.Fatalf("S3 cadence replaced aggregation: %#v", sealed)
 	}
 	d := sealed[0]
-	if len(d.Lines) != 1 || !strings.HasSuffix(d.Lines[0].Message, "2 120 1767225600 1767225601 ACCEPT OK") {
+	if len(d.Lines) != 1 || !strings.HasSuffix(d.Lines[0].Message, "2 120 1767225600 1767225601 ACCEPT OK -") {
 		t.Fatalf("native fields not preserved: %#v", d.Lines)
+	}
+	// Enrichment learned after sealing cannot rewrite a queued historical line.
+	r.LogFormat, r.FormatVersion = "${traffic-path}", 5
+	if err := f.repo.Update(f.ctx, func(tx Transaction) error { return tx.PutFlowLog(r) }); err != nil {
+		t.Fatal(err)
 	}
 	if err := f.clock.Advance(4 * time.Minute); err != nil {
 		t.Fatal(err)
@@ -347,6 +353,9 @@ func TestFlowLogCaptureCheckpointSealingRetryAndRestart(t *testing.T) {
 		t.Fatal("restart did not recover immutable delivery")
 	}
 	for _, written := range f.destination.writes {
+		if written.Header != d.Header || !reflect.DeepEqual(written.Lines, d.Lines) {
+			t.Fatal("retry or restart reclassified a sealed historical line")
+		}
 		if written.FileFormat != "parquet" {
 			t.Fatal("retry or restart changed sealed file format")
 		}
@@ -585,7 +594,9 @@ func TestFlowLogCreateResourceLimit(t *testing.T) {
 
 func TestFlowLogLateCaptureDoesNotReplaceSealedDelivery(t *testing.T) {
 	f := newFlowTest(t)
-	r := f.create(t, f.input())
+	request := f.input()
+	request.LogFormat = new(api.String(defaultFlowLogFormat + " ${traffic-path}"))
+	r := f.create(t, request)
 	first := f.observation()
 	f.capture.batch = FlowLogCaptureBatch{Cursor: "first", Observations: []FlowLogObservation{first}}
 	if err := f.service.captureFlowLogs(f.ctx, f.captureJob(t)); err != nil {
@@ -599,12 +610,19 @@ func TestFlowLogLateCaptureDoesNotReplaceSealedDelivery(t *testing.T) {
 		t.Fatal(err)
 	}
 	original := f.deliveries(t)[0]
+	if !strings.HasSuffix(original.Lines[0].Message, " -") {
+		t.Fatal("missing historical evidence was classified")
+	}
 	late := first
 	late.Start, late.End = first.Start.Add(2*time.Second), first.End.Add(2*time.Second)
 	late.Packets, late.Bytes = 1, 60
+	late.TrafficPath = 1
 	f.capture.batch = FlowLogCaptureBatch{Cursor: "late", Observations: []FlowLogObservation{late}}
 	if err := f.service.captureFlowLogs(f.ctx, f.captureJob(t)); err != nil {
 		t.Fatal(err)
+	}
+	if got := f.aggregates(t, r.Key)[0].TrafficPath; got != 1 {
+		t.Fatalf("new proven observation lost its path: %d", got)
 	}
 	a = f.aggregates(t, r.Key)[0]
 	if err := f.clock.Advance(a.Due.Sub(f.clock.Now())); err != nil {
@@ -621,6 +639,9 @@ func TestFlowLogLateCaptureDoesNotReplaceSealedDelivery(t *testing.T) {
 	for _, batch := range deliveries {
 		if batch.Key == original.Key && !reflect.DeepEqual(batch, original) {
 			t.Fatal("late capture mutated sealed delivery")
+		}
+		if batch.Key != original.Key && !strings.HasSuffix(batch.Lines[0].Message, " 1") {
+			t.Fatalf("proven late egress did not publish traffic-path 1: %+v", batch.Lines)
 		}
 		for _, line := range batch.Lines {
 			fields := strings.Fields(line.Message)
@@ -675,5 +696,87 @@ func TestFlowLogSealingBatchesClosedFlowsWithoutLosingTuples(t *testing.T) {
 	}
 	if !ports["42000"] || !ports["42001"] || !ports["42002"] || len(ports) != 3 {
 		t.Fatalf("publication lost flow tuples: %+v", ports)
+	}
+}
+
+func TestFlowLogTrafficPathAggregationIsConservative(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		paths     []uint8
+		direction string
+		action    string
+		lost      bool
+		want      uint8
+	}{
+		{name: "proven", paths: []uint8{1, 1}, want: 1},
+		{name: "conflict-stays-unknown", paths: []uint8{1, 0, 1}},
+		{name: "legacy-stays-unknown", paths: []uint8{0, 1, 1}},
+		{name: "unsupported-stays-unknown", paths: []uint8{1, 2, 1}},
+		{name: "ingress", paths: []uint8{1, 1}, direction: "ingress"},
+		{name: "reject", paths: []uint8{1, 1}, action: "REJECT"},
+		{name: "loss", paths: []uint8{1}, lost: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			f := newFlowTest(t)
+			r := f.create(t, f.input())
+			for _, path := range test.paths {
+				o := f.observation()
+				o.TrafficPath, o.Lost = path, test.lost
+				if test.direction != "" {
+					o.Direction = test.direction
+				}
+				if test.action != "" {
+					o.Action = test.action
+				}
+				if err := f.repo.Update(f.ctx, func(tx Transaction) error {
+					// Rehydrate on every merge, including legacy zero evidence.
+					rows, err := tx.FlowLogAggregates(r.Key)
+					if err != nil {
+						return err
+					}
+					aggregates := make(map[FlowLogAggregateKey]FlowLogAggregateRecord, len(rows))
+					for _, row := range rows {
+						aggregates[row.Key] = row
+					}
+					return f.service.mergeFlowLogObservation(tx, r, FlowLogInterface{Key: f.eni.Key}, o, aggregates)
+				}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			rows := f.aggregates(t, r.Key)
+			if len(rows) != 1 || rows[0].TrafficPath != test.want || rows[0].Packets != uint64(len(test.paths))*2 || rows[0].Bytes != uint64(len(test.paths))*120 || rows[0].Lost != test.lost {
+				t.Fatalf("enrichment changed tuple identity/accounting or retained unsupported evidence: %+v", rows)
+			}
+		})
+	}
+}
+
+func TestFlowLogTrafficPathFormatVersionAndAvailability(t *testing.T) {
+	version, err := validateFlowLogFormat("${traffic-path}")
+	if err != nil || version != 5 {
+		t.Fatalf("traffic-path must independently select version 5: version=%d err=%v", version, err)
+	}
+	r := FlowLogRecord{LogFormat: "${version} ${traffic-path} ${packets} ${log-status}", FormatVersion: version}
+	for _, test := range []struct {
+		name      string
+		path      uint8
+		direction string
+		action    string
+		lost      bool
+		want      string
+	}{
+		{"proven-egress", 1, "egress", "ACCEPT", false, "5 1 2 OK"},
+		{"legacy", 0, "egress", "ACCEPT", false, "5 - 2 OK"},
+		{"unsupported", 8, "egress", "ACCEPT", false, "5 - 2 OK"},
+		{"ingress", 1, "ingress", "ACCEPT", false, "5 - 2 OK"},
+		{"reject", 1, "egress", "REJECT", false, "5 - 2 OK"},
+		{"loss", 1, "egress", "ACCEPT", true, "5 - - SKIPDATA"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			a := FlowLogAggregateRecord{TrafficPath: test.path, Direction: test.direction, Action: test.action, Lost: test.lost, Packets: 2}
+			if got := formatFlowLog(r, a); got != test.want {
+				t.Fatalf("got %q, want %q", got, test.want)
+			}
+		})
 	}
 }

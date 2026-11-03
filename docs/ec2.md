@@ -23,15 +23,28 @@ subscriptions, admission groups, capture checkpoints, aggregates and delivery
 batches. State changes and their journal events commit together.
 Migration 425 retains the S3 file format on subscriptions and sealed batches.
 Existing subscriptions and pending deliveries remain plain text after upgrade.
+Migration 426 retains aggregate traffic-path evidence. Historical aggregates
+start with an unknown path; an upgrade does not classify old packets.
 
 Destinations are CloudWatch Logs and plain-text gzip or Parquet S3 objects.
 Records support the default fourteen-field version-2 format and these additional fields:
 `vpc-id`, `subnet-id`, `instance-id`, `tcp-flags`, `type`, `pkt-srcaddr`,
-`pkt-dstaddr`, `region`, `az-id` and `flow-direction`. The selected fields set the
+`pkt-dstaddr`, `region`, `az-id`, `flow-direction` and `traffic-path`. The selected fields set the
 record version. Aggregation uses 60 or 600 seconds; S3 publication has a separate
 five-minute cadence. S3 supports custom prefixes, Hive-compatible partitions and
 hour partitions. Plain-text gzip files contain a field-name header. CloudWatch uses
 the ENI ID as the stream name and the flow start as the event timestamp.
+
+`traffic-path` selects version 5. Value `1` requires an accepted egress packet
+forwarded directly to another registered resource in the same full VPC identity.
+The receiver checks the actual bridge hook, physical interfaces, Ethernet/IP
+addresses, kernel timestamp and verified attachment lifetimes. It freezes the
+peer evidence with the packet; current route tables cannot change old records.
+Ingress, rejected packets, gateway traffic, other paths and uncertain metadata
+use `-` in text and null in the Parquet INT32 column. Missing path evidence does
+not discard packet counts. If an aggregate includes unknown or conflicting path
+evidence, its path stays unknown. Link deletion, shutdown, identity changes or
+lost notifications disable enrichment until native registration verifies it again.
 
 Set `DestinationOptions.FileFormat` to `parquet` for typed `.log.parquet` objects.
 They retain selected column order, use underscore column names and the documented
@@ -99,12 +112,23 @@ restarts and journal loss determine coverage; gaps produce `SKIPDATA`, not
 invented packet counts. Destination effects run outside storage transactions.
 Delivery is not a crash-exactly-once claim.
 
+The controller can replace the recognized predecessor receiver while retaining
+its owned volume, NFLOG group and pending journal. It checks the complete native
+ownership configuration before it stops the old process. The stop/start interval
+produces explicit coverage gaps; this is not a lossless upgrade. An unrecognized
+receiver revision is refused without stopping or replacing it. A receiver restart
+requires attachment re-registration before new traffic-path evidence is available.
+
 ### Verification and remaining boundaries
 
 The native receiver smoke exercised real UDP and header-only TCP capture,
 retained replay, acknowledgement and receiver-restart loss. Explicit TCP frames
 include SYN, SYN-ACK, ACK, FIN, RST and ECN flags with IP/TCP options and exact
 IP-byte counts. These injected frames are not a socket-handshake proof.
+It also proves direct same-VPC path evidence, ingress/reject/gateway exclusions,
+link-lifetime invalidation, foreign-VPC admission refusal, immutable replay and
+upgrade from the retained predecessor source. Unknown source revisions are
+refused without changing the running collector.
 The native policy smoke exercised
 source and destination SG rejection, ordered NACL rejection, private-route
 blackholes, ordinary gateway-address application traffic and acceptance without
@@ -168,11 +192,21 @@ both witness removals and idle collector removal passed. This adds evidence for
 existing TCP-control behavior; TCP payload/fragment/offload accounting remains
 unsupported.
 
+The [traffic-path extension run](../testdata/integration/ec2_flow_logs_traffic_path_native.json)
+passed on 2026-11-03 with Terraform 1.15.9, AWS provider 6.68.0 and PyArrow 23.0.1.
+Twenty UDP and sixteen TCP publication checks covered same-VPC egress value `1`
+and unavailable ingress values in CloudWatch, text and Parquet. This includes
+source ACCEPT with destination REJECT. Packet counts, IP bytes, controller
+restart, strict no-drift plans and removal of all 15 resources passed.
+The run exposed over-broad link invalidation: harmless `RTM_NEWLINK` updates must
+not erase a verified attachment lifetime. Decoder and native regressions now
+cover this case without accepting deleted, renamed, moved or disabled links.
+
 Remaining `TODO: Comeback` boundaries are IPv6 capture, reliable segment counts
 for TCP payloads/fragments/offloaded packets, continuously proven idle windows
-for `NODATA`, further enrichment fields, Transit Gateway/regional NAT sources,
-Firehose, duplicate-column Parquet layouts and cross-account role/cross-region
-CloudWatch delivery.
+for `NODATA`, traffic-path values 2–8 and non-direct same-VPC paths, further
+enrichment fields, Transit Gateway/regional NAT sources, Firehose, duplicate-column
+Parquet layouts and cross-account role/cross-region CloudWatch delivery.
 Ambiguous native packet counts produce gaps. Unsupported controls return errors.
 These tests do not establish complete VPC Flow Logs or EC2 conformance.
 

@@ -27,7 +27,7 @@ func (g flowLogParquetGroup) Fields() []parquet.Field { return g.fields }
 // https://docs.aws.amazon.com/vpc/latest/userguide/flow-log-records.html
 func flowLogParquetType(field string) (parquet.Node, bool) {
 	switch field {
-	case "version", "srcport", "dstport", "protocol", "tcp-flags":
+	case "version", "srcport", "dstport", "protocol", "tcp-flags", "traffic-path":
 		return parquet.Optional(parquet.Leaf(parquet.Int32Type)), true
 	case "packets", "bytes", "start", "end":
 		return parquet.Optional(parquet.Leaf(parquet.Int64Type)), true

@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"io"
 	"net/netip"
+	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -21,6 +23,28 @@ import (
 // isolated native bridge verdict. It is not an EC2 API assertion, a socket-call
 // packet estimate, or a manufactured observation; it does not prove TCP payloads.
 func TestFlowCollectorDockerNativeReplay(t *testing.T) {
+	current := flowReceiverScript
+	predecessor, err := os.ReadFile("testdata/flows_receiver_24a6a69.py")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, upgrade := range []bool{false, true} {
+		name := "current"
+		if upgrade {
+			name = "predecessor-upgrade"
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Cleanup(func() { flowReceiverScript = current })
+			if upgrade {
+				flowReceiverScript = string(predecessor)
+			}
+			testFlowCollectorDockerNativeReplay(t, current, upgrade)
+		})
+	}
+	t.Run("unrecognized-revision", testFlowCollectorRejectsUnknownReceiverRevision)
+}
+
+func testFlowCollectorDockerNativeReplay(t *testing.T, current string, upgrade bool) {
 	client := daemonNetworkTestEngine(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 90*time.Second)
 	defer cancel()
@@ -66,6 +90,7 @@ func TestFlowCollectorDockerNativeReplay(t *testing.T) {
 		t.Fatal(err)
 	}
 	peer, sender := "flp"+unique[:10], "fls"+unique[:10]
+	targetPeer, targetSink := "flt"+unique[:10], "flr"+unique[:10]
 	table := "stackd_ec2_" + unique
 	helper := func(script string, capabilities ...string) ([]byte, error) {
 		return docker.RunHelper(ctx, client, "flow-native-fixture", docker.ContainerConfig{
@@ -77,14 +102,14 @@ func TestFlowCollectorDockerNativeReplay(t *testing.T) {
 		cleanup, done := context.WithTimeout(context.Background(), 20*time.Second)
 		defer done()
 		_, err := docker.RunHelper(cleanup, client, "flow-native-fixture-cleanup", docker.ContainerConfig{
-			Image: docker.ToolkitImage, Entrypoint: []string{"/bin/sh", "-ec", "nft destroy table bridge " + table + "; ip link del " + peer},
+			Image: docker.ToolkitImage, Entrypoint: []string{"/bin/sh", "-ec", "nft destroy table bridge " + table + "; ip link del " + peer + "; ip link del " + targetPeer},
 			HostConfig: docker.ContainerHostConfig{NetworkMode: "host", ReadonlyRootfs: true, CapDrop: []string{"ALL"}, CapAdd: []string{"NET_ADMIN"}, SecurityOpt: []string{"no-new-privileges:true"}, Memory: 64 << 20, MemorySwap: 64 << 20, PidsLimit: 16},
 		})
 		if err != nil {
 			t.Error(err)
 		}
 	})
-	output, err := helper("ip link add "+peer+" type veth peer name "+sender+"; ip link set "+peer+" master "+bridge.Device+"; ip link set "+peer+" up; ip link set "+sender+" up; ip -j link show dev "+bridge.Device, "NET_ADMIN")
+	output, err := helper("ip link add "+peer+" type veth peer name "+sender+"; ip link set "+peer+" master "+bridge.Device+"; ip link set "+peer+" up; ip link set "+sender+" up; ip link add "+targetPeer+" type veth peer name "+targetSink+"; ip link set "+targetSink+" address 02:00:00:fa:f1:11; ip link set "+targetPeer+" master "+bridge.Device+"; ip link set "+targetPeer+" up; ip link set "+targetSink+" up; bridge fdb replace 02:00:00:fa:f1:11 dev "+targetPeer+" master static; ip -j link show dev "+bridge.Device, "NET_ADMIN")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,6 +121,17 @@ func TestFlowCollectorDockerNativeReplay(t *testing.T) {
 	}
 	binding := FlowBinding{Identity: identity, NetworkID: spec.NetworkID, PolicyTable: table, PublicOwner: namespace, Bridge: bridge.Device, PeerName: peer, Address: spec.Address, MAC: spec.MAC, Generation: "epoch-" + unique}
 	registration, err := collector.Register(ctx, binding)
+	if err != nil {
+		t.Fatal(err)
+	}
+	targetBinding := binding
+	targetBinding.Identity.InterfaceID += "-target"
+	targetBinding.PeerName = targetPeer
+	targetBinding.Address = netip.MustParseAddr("10.254.241.11")
+	targetBinding.MAC = "02:00:00:fa:f1:11"
+	targetBinding.PolicyTable += "1"
+	targetBinding.Generation += "-target"
+	_, err = collector.Register(ctx, targetBinding)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,10 +152,11 @@ func TestFlowCollectorDockerNativeReplay(t *testing.T) {
 	if _, err := helper("printf '%s' '"+rules+"' | nft -f -", "NET_ADMIN"); err != nil {
 		t.Fatal(err)
 	}
-	packetScript := fmt.Sprintf(`import socket,struct
+	packetScript := func(port uint16, destination netip.Addr, destinationMAC string) string {
+		return fmt.Sprintf(`import socket,struct
 src=socket.inet_aton(%q); dst=socket.inet_aton(%q)
 payload=b'stackd-native-flow-body-not-retained'
-udp=struct.pack('!HHHH',49123,49124,8+len(payload),0)+payload
+udp=struct.pack('!HHHH',%d,49124,8+len(payload),0)+payload
 ip=struct.pack('!BBHHHBBH4s4s',0x45,0,20+len(udp),123,0,64,17,0,src,dst)
 words=struct.unpack('!10H',ip); checksum=sum(words)
 while checksum>>16: checksum=(checksum&65535)+(checksum>>16)
@@ -127,8 +164,9 @@ ip=ip[:10]+struct.pack('!H',(~checksum)&65535)+ip[12:]
 frame=bytes.fromhex(%q.replace(':',''))+bytes.fromhex(%q.replace(':',''))+b'\x08\x00'+ip+udp
 s=socket.socket(socket.AF_PACKET,socket.SOCK_RAW)
 s.bind((%q,0)); s.send(frame); s.close()
-`, spec.Address.String(), spec.Gateway.String(), link[0].Address, spec.MAC, sender)
-	if _, err := helper("python3 -c '"+strings.ReplaceAll(packetScript, "'", "'\"'\"'")+"'", "NET_RAW"); err != nil {
+`, spec.Address.String(), destination.String(), port, destinationMAC, spec.MAC, sender)
+	}
+	if _, err := helper("python3 -c '"+strings.ReplaceAll(packetScript(49123, spec.Gateway, link[0].Address), "'", "'\"'\"'")+"'", "NET_RAW"); err != nil {
 		t.Fatal(err)
 	}
 	// Explicit header-only frames give independent exact packet/byte expectations:
@@ -167,7 +205,7 @@ s.close()
 				continue
 			}
 			index := int(value.SourcePort - 49200)
-			if seen[value.SourcePort] || value.Binding.Identity != identity || value.Action != "ACCEPT" || value.Direction != "egress" || value.Protocol != 6 || value.TCPFlags != tcpFlags[index] || value.DestinationPort != 49124 || value.Packets != 1 || value.IPBytes != 56 || value.SourceAddress != spec.Address || value.DestinationAddress != spec.Gateway || value.ObservedAt.IsZero() {
+			if seen[value.SourcePort] || value.Binding.Identity != identity || value.Action != "ACCEPT" || value.Direction != "egress" || value.Protocol != 6 || value.TCPFlags != tcpFlags[index] || value.DestinationPort != 49124 || value.Packets != 1 || value.IPBytes != 56 || value.SourceAddress != spec.Address || value.DestinationAddress != spec.Gateway || value.ObservedAt.IsZero() || value.PeerWitness != nil {
 				t.Fatalf("incorrect actual native TCP-control evidence: %+v", value)
 			}
 			seen[value.SourcePort] = true
@@ -197,8 +235,12 @@ s.close()
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
-	if observation.Binding.Identity != identity || observation.Action != "ACCEPT" || observation.Direction != "egress" || observation.Packets != 1 || observation.IPBytes != uint32(28+len("stackd-native-flow-body-not-retained")) || observation.SourceAddress != spec.Address || observation.DestinationAddress != spec.Gateway || observation.ObservedAt.IsZero() {
+	if observation.Binding.Identity != identity || observation.Action != "ACCEPT" || observation.Direction != "egress" || observation.Packets != 1 || observation.IPBytes != uint32(28+len("stackd-native-flow-body-not-retained")) || observation.SourceAddress != spec.Address || observation.DestinationAddress != spec.Gateway || observation.ObservedAt.IsZero() || observation.PeerWitness != nil {
 		t.Fatalf("incorrect actual native packet evidence: %+v", observation)
+	}
+	beforeID, err := collector.ownedContainer(ctx)
+	if err != nil {
+		t.Fatal(err)
 	}
 	if err := collector.Close(); err != nil {
 		t.Fatal(err)
@@ -207,9 +249,46 @@ s.close()
 	if err != nil {
 		t.Fatal(err)
 	}
+	flowReceiverScript = current
+	if err := successor.Ensure(ctx); err != nil {
+		t.Fatal(err)
+	}
+	afterID, err := successor.ownedContainer(ctx)
+	if err != nil || (beforeID != afterID) != upgrade {
+		t.Fatalf("unexpected receiver adoption/replacement: before=%s after=%s upgrade=%t err=%v", beforeID, afterID, upgrade, err)
+	}
 	retained, err := successor.Read(ctx, 0, FlowReadLimits{MaxRecords: 1024, MaxBytes: 1 << 20})
 	if err != nil || len(retained.Records) < len(batch.Records) {
 		t.Fatalf("controller restart lost native replay: %+v %v", retained, err)
+	}
+	if retained.Health.Group != health.Group {
+		t.Fatal("receiver adoption/upgrade changed the retained NFLOG group")
+	}
+	for _, original := range batch.Records {
+		if original.Observation == nil {
+			continue
+		}
+		matched := false
+		for _, replay := range retained.Records {
+			if replay.Cursor == original.Cursor && reflect.DeepEqual(replay, original) {
+				matched = true
+			}
+		}
+		if !matched {
+			t.Fatalf("receiver adoption/upgrade changed a pending actual packet: %+v", original)
+		}
+	}
+	if upgrade {
+		upgradeGap, restartGap := false, false
+		for _, record := range retained.Records {
+			if record.Gap != nil {
+				upgradeGap = upgradeGap || record.Gap.Reason == "receiver-software-upgrade-uncertain-coverage"
+				restartGap = restartGap || record.Gap.Reason == "receiver-start-uncertain-coverage"
+			}
+		}
+		if !upgradeGap || !restartGap {
+			t.Fatalf("compatible receiver upgrade omitted explicit uncertainty: %+v", retained)
+		}
 	}
 	found := false
 	for _, record := range retained.Records {
@@ -223,6 +302,148 @@ s.close()
 	if assertTCPControls(retained.Records) != len(tcpFlags) {
 		t.Fatal("retained receiver did not replay every actual native TCP-control frame")
 	}
+	// Reverify attachment lifetimes after a possible software restart. The
+	// target needs authoritative registration, not its own capture policy.
+	registration, err = successor.Register(ctx, binding)
+	if err != nil {
+		t.Fatal(err)
+	}
+	targetRegistration, err := successor.Register(ctx, targetBinding)
+	if err != nil {
+		t.Fatal(err)
+	}
+	forwardRules := fmt.Sprintf(`add chain bridge %s forward { type filter hook forward priority -300; policy accept; }
+add rule bridge %s forward iifname "%s" oifname "%s" ether type ip ip saddr %s ip daddr %s udp sport 49301 udp dport 49124 log prefix "%s" group %d snaplen 128 queue-threshold 1 drop
+add rule bridge %s forward iifname "%s" oifname "%s" ether type ip ip saddr %s ip daddr %s udp sport 49300-49304 udp dport 49124 log prefix "%s" group %d snaplen 128 queue-threshold 1
+add rule bridge %s forward iifname "%s" oifname "%s" ether type ip ip saddr %s ip daddr %s udp sport 49300-49304 udp dport 49124 log prefix "%s" group %d snaplen 128 queue-threshold 1 accept
+`, table, table, peer, targetPeer, spec.Address, targetBinding.Address, registration.Prefix("egress", "REJECT"), registration.Group,
+		table, peer, targetPeer, spec.Address, targetBinding.Address, registration.Prefix("egress", "ACCEPT"), registration.Group,
+		table, peer, targetPeer, spec.Address, targetBinding.Address, targetRegistration.Prefix("ingress", "ACCEPT"), registration.Group)
+	// RTM_NEWLINK can report harmless attribute updates without replacing,
+	// renaming, moving or disabling either native attachment.
+	if _, err := helper("ip link set "+bridge.Device+" alias stackd-flow-proof; ip link set "+targetPeer+" alias stackd-flow-proof", "NET_ADMIN"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := helper("printf '%s' '"+forwardRules+"' | nft -f -", "NET_ADMIN"); err != nil {
+		t.Fatal(err)
+	}
+	sendForward := func(port uint16) {
+		t.Helper()
+		script := packetScript(port, targetBinding.Address, targetBinding.MAC)
+		if _, err := helper("python3 -c '"+strings.ReplaceAll(script, "'", "'\"'\"'")+"'", "NET_RAW"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	assertForward := func(port uint16, wantPath bool, action string) {
+		t.Helper()
+		until := time.Now().Add(10 * time.Second)
+		for {
+			retained, err = successor.Read(ctx, 0, FlowReadLimits{MaxRecords: 1024, MaxBytes: 1 << 20})
+			if err != nil {
+				t.Fatal(err)
+			}
+			egress, ingress := 0, 0
+			for _, record := range retained.Records {
+				value := record.Observation
+				if value == nil || value.SourcePort != port {
+					continue
+				}
+				if value.Packets != 1 || value.IPBytes != uint32(28+len("stackd-native-flow-body-not-retained")) || value.SourceAddress != spec.Address || value.DestinationAddress != targetBinding.Address {
+					t.Fatalf("forward enrichment changed actual packet counts: %+v", value)
+				}
+				if value.Direction == "ingress" {
+					ingress++
+					if value.PeerWitness != nil || value.Binding.Identity != targetBinding.Identity || value.Action != "ACCEPT" {
+						t.Fatalf("ingress received egress path evidence: %+v", value)
+					}
+				} else {
+					egress++
+					if value.Action != action || (value.PeerWitness != nil) != wantPath {
+						t.Fatalf("incorrect actual bridge-FORWARD proof (want path=%t): %+v", wantPath, value)
+					}
+					if proof := value.PeerWitness; proof != nil {
+						if proof.Target.Identity != targetBinding.Identity || proof.Target.NetworkID != binding.NetworkID ||
+							proof.PhysicalInput != value.Binding.PeerIfIndex || proof.PhysicalOutput != proof.Target.PeerIfIndex ||
+							proof.SourceMAC != spec.MAC || proof.DestinationMAC != targetBinding.MAC || proof.Hook != 2 ||
+							value.TimestampSource != "kernel" || value.ObservedAt.Before(proof.TargetRegisteredAt) {
+							t.Fatalf("incorrect immutable native peer witness: %+v", proof)
+						}
+					}
+				}
+			}
+			wantIngress := 1
+			if action == "REJECT" {
+				wantIngress = 0
+			}
+			if egress == 1 && ingress == wantIngress {
+				return
+			}
+			if egress > 1 || ingress > wantIngress || time.Now().After(until) {
+				t.Fatalf("actual forward packets missing/duplicated: port=%d egress=%d ingress=%d", port, egress, ingress)
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+	sendForward(49300)
+	assertForward(49300, true, "ACCEPT")
+	sendForward(49301)
+	assertForward(49301, false, "REJECT")
+	// A link lifetime event invalidates evidence even when name/MAC/IP remain.
+	if _, err := helper("ip link set "+targetPeer+" down; ip link set "+targetPeer+" up; bridge fdb replace "+targetBinding.MAC+" dev "+targetPeer+" master static", "NET_ADMIN"); err != nil {
+		t.Fatal(err)
+	}
+	sendForward(49302)
+	assertForward(49302, false, "ACCEPT")
+	if _, err := successor.Register(ctx, binding); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := successor.Register(ctx, targetBinding); err != nil {
+		t.Fatal(err)
+	}
+	sendForward(49303)
+	assertForward(49303, true, "ACCEPT")
+	foreign := targetBinding
+	foreign.Identity.VPCID += "-foreign"
+	foreign.NetworkID = foreign.Identity.VPCARN()
+	foreign.Generation += "-foreign"
+	foreignSpec := spec
+	foreignSpec.FlowIdentity, foreignSpec.NetworkID = foreign.Identity, foreign.NetworkID
+	foreignSpec.Pool = netip.MustParsePrefix("10.254.242.0/24")
+	foreignSpec.Gateway = netip.MustParseAddr("10.254.242.1")
+	foreignSpec.Address = netip.MustParseAddr("10.254.242.11")
+	if err := bridges.WithBridge(ctx, foreignSpec, func(Bridge) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		cleanup, done := context.WithTimeout(context.Background(), 20*time.Second)
+		defer done()
+		if err := bridges.Release(cleanup, foreignSpec.NetworkID); err != nil {
+			t.Error(err)
+		}
+	})
+	if _, err := successor.Register(ctx, foreign); err == nil || !strings.Contains(err.Error(), "bridge is not owned by the full VPC identity") {
+		t.Fatalf("foreign VPC registration did not fail ownership admission: %v", err)
+	}
+	// A refused foreign owner must not invalidate the actual local attachment.
+	sendForward(49304)
+	assertForward(49304, true, "ACCEPT")
+	replayed, err := successor.Read(ctx, 0, FlowReadLimits{MaxRecords: 1024, MaxBytes: 1 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, original := range retained.Records {
+		if original.Observation == nil || original.Observation.SourcePort < 49300 || original.Observation.SourcePort > 49304 {
+			continue
+		}
+		matched := false
+		for _, replay := range replayed.Records {
+			matched = matched || (replay.Cursor == original.Cursor && reflect.DeepEqual(replay, original))
+		}
+		if !matched {
+			t.Fatal("later attachment changes altered frozen native replay")
+		}
+	}
+	retained = replayed
 	archive, err := successor.Archive(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -258,7 +479,7 @@ s.close()
 		t.Fatal(err)
 	}
 	for _, record := range acked.Records {
-		if record.Observation != nil && record.Observation.SourcePort == 49123 {
+		if value := record.Observation; value != nil && (value.SourcePort == 49123 || (value.SourcePort >= 49300 && value.SourcePort <= 49304)) {
 			t.Fatal("durably acknowledged native observation replayed")
 		}
 	}

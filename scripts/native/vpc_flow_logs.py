@@ -42,9 +42,9 @@ from stackd_process import StackdProcess
 from vpc_flow_logs_tcp import TCPProof
 
 TOOLKIT = "nicolaka/netshoot@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed283572f47c970c780c03b61"
-FIELDS = "version account-id interface-id srcaddr dstaddr srcport dstport protocol packets bytes start end action log-status vpc-id subnet-id flow-direction tcp-flags".split()
+FIELDS = "version account-id interface-id srcaddr dstaddr srcport dstport protocol packets bytes start end action log-status vpc-id subnet-id flow-direction tcp-flags traffic-path".split()
 PARQUET_FIELDS = FIELDS + ["instance-id"]
-PARQUET_INT32 = {"version", "srcport", "dstport", "protocol", "tcp-flags"}
+PARQUET_INT32 = {"version", "srcport", "dstport", "protocol", "tcp-flags", "traffic-path"}
 PARQUET_INT64 = {"packets", "bytes", "start", "end"}
 SERVER = '''import json,select,socket,time
 sockets=[]
@@ -532,8 +532,11 @@ class Consumer:
                 require(row["action"] == "ACCEPT", f"Parquet traffic filter differs: {key}: {row}")
                 if row["protocol"] == 17:
                     require(row["tcp-flags"] == 0, f"Parquet fabricated UDP TCP flags: {key}: {row}")
-                require(all(row[field] is not None for field in PARQUET_INT32 | PARQUET_INT64),
+                require(all(row[field] is not None for field in (PARQUET_INT32 | PARQUET_INT64) - {"traffic-path"}),
                         f"Parquet discarded captured numeric values: {key}: {row}")
+                require(row["traffic-path"] is None if row["flow-direction"] == "ingress"
+                        else row["traffic-path"] in (None, 1),
+                        f"Parquet fabricated traffic-path enrichment: {key}: {row}")
             else:
                 require(all(row[field] is None for field in
                             (PARQUET_INT32 | PARQUET_INT64) - {"version", "start", "end"}),
@@ -550,6 +553,7 @@ class Consumer:
 
     def verify_records(self):
         rows = self.read_records()
+        path_proof = []
         for kind, action in (("accept", "ACCEPT"), ("parquet", "ACCEPT"), ("reject", "REJECT")):
             require(all(row["action"] == action for row in rows[kind] if row["log-status"] == "OK"),
                     f"Traffic filter admitted the wrong action into {kind}")
@@ -573,9 +577,28 @@ class Consumer:
                         and row["subnet-id"] == self.outputs["destination_subnet"], f"Authoritative ENI scope differs: {row}")
                 require(int(packet["started"]) - 1 <= int(row["start"]) <= int(row["end"]) <= int(packet["finished"]) + 1,
                         f"Record has fabricated or unrelated packet time: {row}")
+                require(row["traffic-path"] is None if kind == "parquet" else row["traffic-path"] == "-",
+                        f"Ingress has an inapplicable traffic path: {kind}: {row}")
+                path_proof.append({"destination": kind, "row": row})
             excluded = ("reject",) if packet["expected_action"] == "ACCEPT" else ("accept", "parquet")
             for kind in excluded:
                 require(not any(matches(row) for row in rows[kind]), f"Traffic filter leaked a tuple into {kind}")
+            source_rows = [r for r in rows["all"]
+                           if r["interface-id"] == self.source["eni"] and r["flow-direction"] == "egress"
+                           and r["srcaddr"] == self.source["address"] and r["dstaddr"] == self.destination["address"]
+                           and str(r["srcport"]) == str(packet["source_port"])
+                           and str(r["dstport"]) == str(packet["destination_port"]) and str(r["protocol"]) == "17"]
+            if not source_rows:
+                return False
+            require(len(source_rows) == 1, f"Duplicate source UDP tuple: {source_rows}")
+            source = source_rows[0]
+            require(source["traffic-path"] == "1" and source["action"] == "ACCEPT" and source["log-status"] == "OK"
+                    and int(source["packets"]) == 1 and int(source["bytes"]) == packet["expected_ip_bytes"]
+                    and source["account-id"] == ACCOUNT and source["vpc-id"] == self.outputs["vpc_id"]
+                    and source["subnet-id"] == self.outputs["source_subnet"],
+                    f"Source UDP did not retain its actual same-VPC forwarding path: {source}")
+            path_proof.append({"destination": "all", "row": source})
+        self.report["udp_traffic_path_proof"] = path_proof
         return self.tcp.verify(rows)
 
     def cleanup(self):

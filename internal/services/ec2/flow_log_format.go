@@ -9,7 +9,7 @@ import (
 
 var flowLogFieldVersions = map[string]int{
 	"version": 2, "account-id": 2, "interface-id": 2, "srcaddr": 2, "dstaddr": 2, "srcport": 2, "dstport": 2, "protocol": 2, "packets": 2, "bytes": 2, "start": 2, "end": 2, "action": 2, "log-status": 2,
-	"vpc-id": 3, "subnet-id": 3, "instance-id": 3, "tcp-flags": 3, "type": 3, "pkt-srcaddr": 3, "pkt-dstaddr": 3, "region": 4, "az-id": 4, "flow-direction": 5,
+	"vpc-id": 3, "subnet-id": 3, "instance-id": 3, "tcp-flags": 3, "type": 3, "pkt-srcaddr": 3, "pkt-dstaddr": 3, "region": 4, "az-id": 4, "flow-direction": 5, "traffic-path": 5,
 }
 
 func validateFlowLogFormat(format string) (int, error) {
@@ -66,6 +66,9 @@ func formatFlowLog(r FlowLogRecord, a FlowLogAggregateRecord) string {
 		values["action"], values["flow-direction"] = a.Action, a.Direction
 		values["tcp-flags"], values["type"] = fmt.Sprint(a.TCPFlags), kind
 		values["pkt-srcaddr"], values["pkt-dstaddr"] = a.SourceAddress, a.DestinationAddress
+		if a.TrafficPath == 1 && a.Direction == "egress" && a.Action == "ACCEPT" {
+			values["traffic-path"] = "1"
+		}
 		if address, err := netip.ParseAddr(a.Interface.Address); err == nil && address.Is4() && kind == "IPv4" {
 			if a.Direction == "egress" {
 				values["srcaddr"] = address.String()

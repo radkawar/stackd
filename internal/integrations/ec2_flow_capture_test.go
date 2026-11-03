@@ -2,6 +2,7 @@ package integrations
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"math"
 	"net/netip"
@@ -69,6 +70,142 @@ func TestEC2FlowCaptureMapsNativePacketWithoutAddressOwnershipInference(t *testi
 	}
 	if collector.after != 41 || collector.limits.MaxRecords != 1024 || collector.limits.MaxBytes != 1024*1024 || len(collector.acks) != 0 {
 		t.Fatalf("read did not preserve bounded non-destructive access: %+v", collector)
+	}
+}
+
+func flowCapturePeerFixture() (*flowCaptureCollector, ec2.FlowLogInterface, network.FlowObservation) {
+	collector, desired, observation := flowCaptureFixture()
+	observation.Binding.Bridge = "br-vpc"
+	observation.Binding.BridgeIfIndex = 100
+	observation.Binding.PeerName = "source-peer"
+	observation.Binding.PeerIfIndex = 101
+	observation.Binding.MAC = "02:00:00:00:00:04"
+	target := observation.Binding
+	target.Identity.AccountID = "333333333333"
+	target.Identity.InterfaceID = "eni-target"
+	target.PeerName, target.PeerIfIndex = "target-peer", 102
+	target.Address = observation.DestinationAddress
+	target.MAC = "02:00:00:00:00:08"
+	target.Generation = "target-policy"
+	observation.PeerWitness = &network.FlowPeerWitness{
+		Target: target, TargetToken: "target-token",
+		SourceRegisteredAt: observation.ObservedAt.Add(-time.Second), TargetRegisteredAt: observation.ObservedAt.Add(-time.Millisecond),
+		Family: 7, Hook: 2, EtherType: 0x0800, PhysicalInput: 101, PhysicalOutput: 102,
+		SourceMAC: observation.Binding.MAC, DestinationMAC: target.MAC,
+	}
+	collector.batch.Records[0].Observation = &observation
+	collector.batch.Coverage[0].Binding = observation.Binding
+	return collector, desired, observation
+}
+
+func TestEC2FlowCaptureTrafficPathUsesOnlyFrozenForwardPeerWitness(t *testing.T) {
+	collector, desired, native := flowCapturePeerFixture()
+	// No desired target or current target policy is needed. Current coverage
+	// may already describe an entirely different attachment at the old address.
+	current := native.PeerWitness.Target
+	current.Identity.InterfaceID = "eni-replacement"
+	current.Generation = "replacement-policy"
+	collector.batch.Coverage = append(collector.batch.Coverage, network.FlowCoverage{Binding: current, Token: "replacement-token"})
+	first, err := (EC2FlowCapture{Collector: collector}).Read(t.Context(), []ec2.FlowLogInterface{desired}, "41")
+	if err != nil || len(first.Observations) != 1 || first.Observations[0].TrafficPath != 1 ||
+		first.Observations[0].Packets != uint64(native.Packets) || first.Observations[0].Bytes != uint64(native.IPBytes) || first.Observations[0].Lost {
+		t.Fatalf("immutable same-VPC forwarding proof was not translated: %+v %v", first, err)
+	}
+	data, err := json.Marshal(collector.batch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var restored network.FlowBatch
+	if err := json.Unmarshal(data, &restored); err != nil {
+		t.Fatal(err)
+	}
+	replayCollector := &flowCaptureCollector{batch: restored}
+	replayed, err := (EC2FlowCapture{Collector: replayCollector}).Read(t.Context(), []ec2.FlowLogInterface{desired}, "41")
+	if err != nil || !reflect.DeepEqual(first, replayed) {
+		t.Fatalf("serialized native witness was not replay stable: %+v %v", replayed, err)
+	}
+}
+
+func TestEC2FlowCaptureInvalidTrafficPathWitnessPreservesPacketAccounting(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		change func(*network.FlowObservation)
+	}{
+		{"legacy-no-witness", func(o *network.FlowObservation) { o.PeerWitness = nil }},
+		{"ingress", func(o *network.FlowObservation) { o.Direction = "ingress" }},
+		{"reject", func(o *network.FlowObservation) { o.Action = "REJECT" }},
+		{"receipt-not-kernel", func(o *network.FlowObservation) { o.TimestampSource = "daemon-receipt" }},
+		{"nonbridge-family", func(o *network.FlowObservation) { o.PeerWitness.Family = 2 }},
+		{"input-not-forward", func(o *network.FlowObservation) { o.PeerWitness.Hook = 1 }},
+		{"non-ipv4-header", func(o *network.FlowObservation) { o.PeerWitness.EtherType = 0x86dd }},
+		{"no-source-fence", func(o *network.FlowObservation) { o.PeerWitness.SourceRegisteredAt = time.Time{} }},
+		{"no-target-fence", func(o *network.FlowObservation) { o.PeerWitness.TargetRegisteredAt = time.Time{} }},
+		{"queued-before-source", func(o *network.FlowObservation) {
+			o.PeerWitness.SourceRegisteredAt = o.ObservedAt.Add(time.Microsecond)
+		}},
+		{"queued-before-reused-target", func(o *network.FlowObservation) {
+			o.PeerWitness.TargetRegisteredAt = o.ObservedAt.Add(time.Microsecond)
+		}},
+		{"wrong-source-peer", func(o *network.FlowObservation) { o.PeerWitness.PhysicalInput = 999 }},
+		{"wrong-target-peer", func(o *network.FlowObservation) { o.PeerWitness.PhysicalOutput = 999 }},
+		{"same-physical-peer", func(o *network.FlowObservation) { o.PeerWitness.Target.PeerIfIndex = o.Binding.PeerIfIndex }},
+		{"no-target-token", func(o *network.FlowObservation) { o.PeerWitness.TargetToken = "" }},
+		{"source-target-token", func(o *network.FlowObservation) { o.PeerWitness.TargetToken = o.Token }},
+		{"no-target-generation", func(o *network.FlowObservation) { o.PeerWitness.Target.Generation = "" }},
+		{"source-address-spoof", func(o *network.FlowObservation) { o.SourceAddress = netip.MustParseAddr("10.0.0.99") }},
+		{"destination-address-spoof", func(o *network.FlowObservation) { o.DestinationAddress = netip.MustParseAddr("10.0.0.99") }},
+		{"source-mac-spoof", func(o *network.FlowObservation) { o.PeerWitness.SourceMAC = "02:00:00:00:00:99" }},
+		{"destination-mac-spoof", func(o *network.FlowObservation) { o.PeerWitness.DestinationMAC = "02:00:00:00:00:99" }},
+		{"multicast-target-mac", func(o *network.FlowObservation) {
+			o.PeerWitness.Target.MAC = "ff:ff:ff:ff:ff:ff"
+			o.PeerWitness.DestinationMAC = o.PeerWitness.Target.MAC
+		}},
+		{"bad-target-identity", func(o *network.FlowObservation) { o.PeerWitness.Target.Identity.InterfaceID = "eni:invalid" }},
+		{"foreign-vpc", func(o *network.FlowObservation) {
+			o.PeerWitness.Target.Identity.VPCID = "vpc-foreign"
+			o.PeerWitness.Target.NetworkID = o.PeerWitness.Target.Identity.VPCARN()
+		}},
+		{"overlapping-other-owner", func(o *network.FlowObservation) {
+			o.PeerWitness.Target.Identity.VPCOwnerAccountID = "999999999999"
+			o.PeerWitness.Target.NetworkID = o.PeerWitness.Target.Identity.VPCARN()
+		}},
+		{"other-bridge", func(o *network.FlowObservation) { o.PeerWitness.Target.Bridge = "br-other" }},
+		{"reused-bridge-name", func(o *network.FlowObservation) { o.PeerWitness.Target.BridgeIfIndex = 999 }},
+		{"other-engine", func(o *network.FlowObservation) { o.PeerWitness.Target.EngineID = "other-engine" }},
+		{"other-boot", func(o *network.FlowObservation) { o.PeerWitness.Target.BootID = "other-boot" }},
+		{"same-eni", func(o *network.FlowObservation) { o.PeerWitness.Target.Identity = o.Binding.Identity }},
+		{"nat-status", func(o *network.FlowObservation) { o.PeerWitness.Conntrack = &network.FlowPeerConntrack{Status: 1 << 4} }},
+		{"uncertain-conntrack", func(o *network.FlowObservation) { o.PeerWitness.Conntrack = &network.FlowPeerConntrack{} }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			collector, desired, native := flowCapturePeerFixture()
+			test.change(&native)
+			collector.batch.Records[0].Observation = &native
+			batch, err := (EC2FlowCapture{Collector: collector}).Read(t.Context(), []ec2.FlowLogInterface{desired}, "41")
+			if err != nil || batch.Cursor != "42" || len(batch.Observations) != 1 || batch.Observations[0].Lost ||
+				batch.Observations[0].TrafficPath != 0 || batch.Observations[0].Packets != uint64(native.Packets) || batch.Observations[0].Bytes != uint64(native.IPBytes) {
+				t.Fatalf("missing/invalid path proof discarded a real packet: %+v %v", batch, err)
+			}
+		})
+	}
+}
+
+func TestEC2FlowCaptureTrafficPathChecksUntranslatedConntrackInEitherDirection(t *testing.T) {
+	for _, reverse := range []bool{false, true} {
+		_, _, observation := flowCapturePeerFixture()
+		source, destination := observation.SourceAddress, observation.DestinationAddress
+		if reverse {
+			source, destination = destination, source
+		}
+		ct := &network.FlowPeerConntrack{Status: 2, OriginalSource: source, OriginalDestination: destination, ReplySource: destination, ReplyDestination: source}
+		observation.PeerWitness.Conntrack = ct
+		if ec2FlowCaptureTrafficPath(&observation) != 1 {
+			t.Fatal("untranslated conntrack tuple lost proven same-VPC path")
+		}
+		ct.ReplySource = netip.MustParseAddr("10.0.0.99")
+		if ec2FlowCaptureTrafficPath(&observation) != 0 {
+			t.Fatal("translated conntrack reply retained same-VPC path")
+		}
 	}
 }
 

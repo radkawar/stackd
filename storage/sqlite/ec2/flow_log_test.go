@@ -431,7 +431,22 @@ func TestFlowLogMigrationPreservesRetainedEC2State(t *testing.T) {
 	}
 }
 
-func TestFlowLogFileFormatMigrationPreservesLegacyPendingDeliveries(t *testing.T) {
+func TestFlowLogMigrationsPreserveLegacyAggregatesAndPendingDeliveries(t *testing.T) {
+	for _, test := range []struct {
+		migration string
+		format    string
+	}{
+		{"424_ec2_flow_logs.sql", "plain-text"},
+		{"425_ec2_flow_log_file_format.sql", "plain-text"},
+		{"425_ec2_flow_log_file_format.sql", "parquet"},
+	} {
+		t.Run(test.migration+"/"+test.format, func(t *testing.T) {
+			testFlowLogLegacyPendingUpgrade(t, test.migration, test.format)
+		})
+	}
+}
+
+func testFlowLogLegacyPendingUpgrade(t *testing.T, lastMigration, fileFormat string) {
 	path := filepath.Join(t.TempDir(), "legacy-flow-logs.sqlite")
 	migrations, err := filepath.Glob("../schema/*.sql")
 	if err != nil {
@@ -439,7 +454,7 @@ func TestFlowLogFileFormatMigrationPreservesLegacyPendingDeliveries(t *testing.T
 	}
 	version := 0
 	for i, migration := range migrations {
-		if filepath.Base(migration) == "424_ec2_flow_logs.sql" {
+		if filepath.Base(migration) == lastMigration {
 			version = i + 1
 			break
 		}
@@ -449,8 +464,9 @@ func TestFlowLogFileFormatMigrationPreservesLegacyPendingDeliveries(t *testing.T
 	}
 	db := awstest.HistoricalSQLite(t, path, "../schema", version, "", nil)
 	scope := domain.Scope{Partition: "aws", AccountID: "111111111111", Region: "us-east-1"}
-	record, _, _, delivery, capture := flowRecords(scope)
-	record.FileFormat, delivery.FileFormat, record.Tags = "plain-text", "plain-text", nil
+	record, _, aggregate, delivery, capture := flowRecords(scope)
+	record.FileFormat, delivery.FileFormat, record.Tags = fileFormat, fileFormat, nil
+	aggregate.Action, aggregate.Lost, aggregate.TrafficPath = "ACCEPT", false, 0
 	if _, err := db.ExecContext(t.Context(), `INSERT INTO ec2_flow_logs
 		(partition, account_id, region, resource_id, incarnation, selector_resource_id, resource_type, traffic_type,
 		 destination_type, destination, log_group_name, permission_arn, log_format, format_version, aggregation_seconds,
@@ -459,6 +475,23 @@ func TestFlowLogFileFormatMigrationPreservesLegacyPendingDeliveries(t *testing.T
 		scope.Partition, scope.AccountID, scope.Region, record.Key.ID, record.Incarnation, record.ResourceID, record.ResourceType, record.TrafficType,
 		record.DestinationType, record.Destination, record.LogGroupName, record.PermissionARN, record.LogFormat, record.FormatVersion, record.AggregationSeconds,
 		record.HivePartitions, record.HourPartitions, false, record.CreatedAt, record.Status, record.DeliveryStatus, record.DeliveryError, record.CaptureError, sqlite.Uint64(record.Version)); err != nil {
+		t.Fatal(err)
+	}
+	// This row predates enrichment; even a later matching native witness must
+	// not turn its already-counted packets into historical ownership evidence.
+	if _, err := db.ExecContext(t.Context(), `INSERT INTO ec2_flow_log_aggregates
+		(partition, account_id, region, flow_log_id, aggregate_id, incarnation, interface_partition, interface_account_id,
+		 interface_region, interface_id, interface_incarnation, network_id, address, vpc_id, subnet_id, instance_id,
+		 availability_zone_id, source_address, destination_address, source_port, destination_port, protocol, action,
+		 direction, packets, bytes, start, end, due, tcp_flags, lost)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		scope.Partition, scope.AccountID, scope.Region, record.Key.ID, aggregate.Key.ID, aggregate.Incarnation,
+		aggregate.Interface.Key.Scope.Partition, aggregate.Interface.Key.Scope.AccountID, aggregate.Interface.Key.Scope.Region,
+		aggregate.Interface.Key.ID, aggregate.Interface.Incarnation, aggregate.Interface.NetworkID, aggregate.Interface.Address,
+		aggregate.Interface.VPCID, aggregate.Interface.SubnetID, aggregate.Interface.InstanceID, aggregate.Interface.AvailabilityZoneID,
+		aggregate.SourceAddress, aggregate.DestinationAddress, aggregate.SourcePort, aggregate.DestinationPort, aggregate.Protocol,
+		aggregate.Action, aggregate.Direction, sqlite.Uint64(aggregate.Packets), sqlite.Uint64(aggregate.Bytes), aggregate.Start,
+		aggregate.End, aggregate.Due, aggregate.TCPFlags, aggregate.Lost); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.ExecContext(t.Context(), `INSERT INTO ec2_flow_log_deliveries
@@ -479,6 +512,14 @@ func TestFlowLogFileFormatMigrationPreservesLegacyPendingDeliveries(t *testing.T
 	if _, err := db.ExecContext(t.Context(), `INSERT INTO ec2_flow_log_capture (singleton, cursor, due, version) VALUES (1, ?, ?, ?)`, capture.Cursor, capture.Due, sqlite.Uint64(capture.Version)); err != nil {
 		t.Fatal(err)
 	}
+	if lastMigration == "425_ec2_flow_log_file_format.sql" {
+		if _, err := db.ExecContext(t.Context(), `UPDATE ec2_flow_logs SET file_format = ?`, fileFormat); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.ExecContext(t.Context(), `UPDATE ec2_flow_log_deliveries SET file_format = ?`, fileFormat); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -495,6 +536,13 @@ func TestFlowLogFileFormatMigrationPreservesLegacyPendingDeliveries(t *testing.T
 		}
 		if !reflect.DeepEqual(got, record) {
 			t.Fatalf("upgrade changed legacy subscription: %+v, want %+v", got, record)
+		}
+		aggregates, err := r.FlowLogAggregates(record.Key)
+		if err != nil {
+			return err
+		}
+		if !reflect.DeepEqual(aggregates, []domain.FlowLogAggregateRecord{aggregate}) {
+			t.Fatalf("upgrade reclassified historical packets or changed their accounting: %+v", aggregates)
 		}
 		rows, err := r.FlowLogDeliveries()
 		if err != nil {
@@ -516,6 +564,8 @@ func TestFlowLogFileFormatMigrationPreservesLegacyPendingDeliveries(t *testing.T
 	}
 	retry := delivery
 	retry.FileFormat, retry.Version, retry.Due = "parquet", 2, retry.Due.Add(time.Minute)
+	retry.Header = "version interface-id packets traffic-path"
+	retry.Lines = []domain.FlowLogLine{{Start: aggregate.Start, InterfaceID: aggregate.Interface.Key.ID, Message: "5 eni-source 1 1"}}
 	if err := repository.Update(t.Context(), func(tx domain.Transaction) error { return tx.PutFlowLogDelivery(retry) }); err != nil {
 		t.Fatal(err)
 	}
@@ -662,6 +712,41 @@ func TestFlowLogOrderedChildrenReplacementAndCompletion(t *testing.T) {
 			} {
 				if err := stores.repo.Update(t.Context(), remove); !errors.Is(err, domain.ErrNotFound) {
 					t.Fatalf("missing deletion: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestFlowLogTrafficPathDurableRoundtripAndUpdates(t *testing.T) {
+	for _, backend := range []string{"memory", "sqlite"} {
+		t.Run(backend, func(t *testing.T) {
+			stores := openFlowStores(t, backend)
+			scope := domain.Scope{Partition: "aws", AccountID: "111111111111", Region: "us-east-1"}
+			record, _, aggregate, _, _ := flowRecords(scope)
+			aggregate.Action, aggregate.Lost = "ACCEPT", false
+			if err := stores.repo.Update(t.Context(), func(tx domain.Transaction) error { return tx.PutFlowLog(record) }); err != nil {
+				t.Fatal(err)
+			}
+			for _, path := range []uint8{0, 1, 0} {
+				aggregate.TrafficPath = path
+				if err := stores.repo.Update(t.Context(), func(tx domain.Transaction) error { return tx.PutFlowLogAggregate(aggregate) }); err != nil {
+					t.Fatal(err)
+				}
+				if backend == "sqlite" {
+					stores.reopen(t)
+				}
+				if err := stores.repo.View(t.Context(), func(r domain.Reader) error {
+					rows, err := r.FlowLogAggregates(record.Key)
+					if err != nil {
+						return err
+					}
+					if !reflect.DeepEqual(rows, []domain.FlowLogAggregateRecord{aggregate}) {
+						t.Fatalf("path %d failed typed durable insert/update/reopen: %+v", path, rows)
+					}
+					return nil
+				}); err != nil {
+					t.Fatal(err)
 				}
 			}
 		})

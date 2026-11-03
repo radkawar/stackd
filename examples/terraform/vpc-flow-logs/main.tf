@@ -47,7 +47,7 @@ provider "aws" {
 }
 
 locals {
-  fields         = "$${version} $${account-id} $${interface-id} $${srcaddr} $${dstaddr} $${srcport} $${dstport} $${protocol} $${packets} $${bytes} $${start} $${end} $${action} $${log-status} $${vpc-id} $${subnet-id} $${flow-direction} $${tcp-flags}"
+  fields         = "$${version} $${account-id} $${interface-id} $${srcaddr} $${dstaddr} $${srcport} $${dstport} $${protocol} $${packets} $${bytes} $${start} $${end} $${action} $${log-status} $${vpc-id} $${subnet-id} $${flow-direction} $${tcp-flags} $${traffic-path}"
   parquet_fields = "${local.fields} $${instance-id}"
   tags           = { Name = var.name, Fixture = "vpc-flow-logs", Revision = var.revision }
 }
