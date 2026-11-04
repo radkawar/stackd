@@ -10,22 +10,32 @@ import (
 )
 
 func TestServiceLinkedPolicySnapshotRequiresCurrentImmutableIdentity(t *testing.T) {
-	a := newAccount()
-	a.partition = "aws"
-	r := &Role{RoleName: "AWSServiceRoleForExample", RoleId: "AROACURRENT", Arn: "arn:aws:iam::123456789012:role/aws-service-role/example.amazonaws.com/AWSServiceRoleForExample", IdentityPolicies: newIdentityPolicies()}
-	a.roles["awsserviceroleforexample"] = r
+	repository := NewMemoryRepository(nil)
+	service := NewWithRepository(nil, repository)
+	scope := Scope{Partition: "aws", AccountID: "123456789012"}
+	r := Role{RoleName: "AWSServiceRoleForExample", RoleId: "AROACURRENT", Arn: "arn:aws:iam::123456789012:role/aws-service-role/example.amazonaws.com/AWSServiceRoleForExample", IdentityPolicies: newIdentityPolicies()}
+	save := func() {
+		t.Helper()
+		if err := repository.Update(t.Context(), func(tx WriteTx) error { return tx.PutRole(scope, r) }); err != nil {
+			t.Fatal(err)
+		}
+	}
+	save()
 	m := awsctx.Metadata{Partition: "aws", AccountID: "123456789012", PrincipalARN: "arn:aws:sts::123456789012:assumed-role/AWSServiceRoleForExample/session", PrincipalID: "AROACURRENT:session", IssuerARN: r.Arn, IssuerID: r.RoleId}
-	set, err := identityPolicySnapshot(a, m)
+	ctx := awsctx.WithMetadata(t.Context(), m)
+	set, err := service.IdentityPolicies(ctx)
 	if err != nil || set.ServiceLinkedRole {
 		t.Fatalf("path conferred trusted ownership: %+v %v", set, err)
 	}
 	r.ServiceLinkedService = "example.amazonaws.com"
-	set, err = identityPolicySnapshot(a, m)
+	save()
+	set, err = service.IdentityPolicies(ctx)
 	if err != nil || !set.ServiceLinkedRole {
 		t.Fatalf("current trusted role lost ownership: %+v %v", set, err)
 	}
 	r.RoleId = "AROARECREATED"
-	if _, err := identityPolicySnapshot(a, m); err == nil {
+	save()
+	if _, err := service.IdentityPolicies(ctx); err == nil {
 		t.Fatal("stale role session resolved to replacement role")
 	}
 }

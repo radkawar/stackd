@@ -43,6 +43,7 @@ func TestAccessReportSignedActivitySnapshotAndOwnership(t *testing.T) {
 	}
 	_, err = f.client("eu-west-1", key).GetUser(t.Context(), &sdkiam.GetUserInput{})
 	requireCode(t, err, "AccessDenied")
+	f.flush(t)
 	generated, err := f.root.GenerateServiceLastAccessedDetails(t.Context(), &sdkiam.GenerateServiceLastAccessedDetailsInput{Arn: aws.String(key.PrincipalARN), Granularity: types.AccessAdvisorUsageGranularityTypeActionLevel})
 	if err != nil {
 		t.Fatal(err)
@@ -97,6 +98,7 @@ func TestAccessReportSignedActivitySnapshotAndOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	f.flush(t)
 	reread, err := f.root.GetServiceLastAccessedDetails(t.Context(), &sdkiam.GetServiceLastAccessedDetailsInput{JobId: generated.JobId})
 	if err != nil {
 		t.Fatal(err)

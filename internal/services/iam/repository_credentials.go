@@ -148,6 +148,13 @@ func (w credentialWriter) Put(r identity.Record) error {
 	return nil
 }
 
+func (w credentialWriter) PutUsage(record identity.Record) error {
+	if err := w.tx.PutCredentialUsage(record.Credential.AccessKeyID, record.LastUsed); err != nil {
+		return err
+	}
+	return w.recordRoleUse(record)
+}
+
 func (w credentialWriter) Delete(key string) error { return w.tx.DeleteCredential(key) }
 
 func (w credentialWriter) recordRoleUse(record identity.Record) error {
@@ -162,19 +169,9 @@ func (w credentialWriter) recordRoleUse(record identity.Record) error {
 	}
 	scope := Scope{Partition: issuer[1], AccountID: issuer[4]}
 	name := issuer[5][strings.LastIndexByte(issuer[5], '/')+1:]
-	role, err := w.tx.Role(scope, name)
-	if errors.Is(err, ErrRecordNotFound) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if role.RoleId != record.Credential.IssuerID || role.Arn != record.Credential.IssuerARN ||
-		(role.LastUsed.recorded() && !record.LastUsed.Date.After(role.LastUsed.Date)) {
-		return nil
-	}
-	role.LastUsed = RoleLastUse{Date: record.LastUsed.Date, Region: record.LastUsed.Region}
-	return w.tx.PutRole(scope, role)
+	return w.tx.RecordRoleUse(scope, name, record.Credential.IssuerID, record.Credential.IssuerARN, RoleLastUse{
+		Date: record.LastUsed.Date, Region: record.LastUsed.Region,
+	})
 }
 
 func (t *memoryTx) Credential(key string) (identity.Record, error) {
@@ -210,6 +207,19 @@ func (t *memoryTx) PutCredential(r identity.Record) error {
 		return err
 	}
 	t.state.credentials[r.Credential.AccessKeyID] = cloneCredentialRecord(r)
+	return nil
+}
+
+func (t *memoryTx) PutCredentialUsage(key string, use identity.LastUsed) error {
+	if err := t.check(true); err != nil {
+		return err
+	}
+	current, ok := t.state.credentials[key]
+	if !ok {
+		return identity.ErrNotFound
+	}
+	current.LastUsed = use
+	t.state.credentials[key] = current
 	return nil
 }
 

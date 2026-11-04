@@ -20,7 +20,7 @@ type ReadGroupMembershipClaimsParams struct {
 }
 
 func (q *Queries) ReadGroupMembershipClaims(ctx context.Context, arg ReadGroupMembershipClaimsParams) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, readGroupMembershipClaims, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.readGroupMembershipClaimsStmt, readGroupMembershipClaims, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ type WriteGroupMembershipClaimParams struct {
 }
 
 func (q *Queries) WriteGroupMembershipClaim(ctx context.Context, arg WriteGroupMembershipClaimParams) error {
-	_, err := q.db.ExecContext(ctx, writeGroupMembershipClaim,
+	_, err := q.exec(ctx, q.writeGroupMembershipClaimStmt, writeGroupMembershipClaim,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,

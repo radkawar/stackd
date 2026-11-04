@@ -21,6 +21,15 @@ import (
 	sqls3 "stackd/storage/sqlite/s3"
 )
 
+func newSQLiteS3Repository(t *testing.T, db *sql.DB) *sqls3.Repository {
+	t.Helper()
+	repository, err := sqls3.New(t.Context(), db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return repository
+}
+
 // cfnS3OwnerFixture runs the real S3 and S3 Control owners over memory or a
 // reopened SQLite database. Nothing below mocks owner responses.
 type cfnS3OwnerFixture struct {
@@ -63,7 +72,7 @@ func (f *cfnS3OwnerFixture) open(t *testing.T) {
 		if f.db, err = sqlite.Open(f.ctx, f.path); err != nil {
 			t.Fatal(err)
 		}
-		f.repository = sqls3.New(f.db)
+		f.repository = newSQLiteS3Repository(t, f.db)
 	}
 	f.owner = s3.New(s3.Config{Repository: f.repository, Authorizer: f.authorizer, Clock: f.source})
 	f.commands = NewStepFunctionsCommands(map[string]awscommands.CommandExecutor{"s3": f.owner, "s3control": f.owner.Control()})

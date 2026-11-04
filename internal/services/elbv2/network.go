@@ -25,6 +25,18 @@ type NetworkAuthority interface {
 	Release(context.Context, Scope, string, string) error
 	ResolveTarget(context.Context, Scope, string, string, string) (TargetEndpoint, error)
 }
+
+// PodRouteAuthority is supplied by the EKS service, which owns current cluster
+// scope and immutable identity. It never exposes its repository to consumers.
+type PodRouteAuthority interface {
+	PodRoutes(context.Context, string, string, string, string) ([]network.PodRoute, error)
+}
+
+// podRouteNetworks is an optional extension for integrations composing current
+// EC2 packet policy with independently owned EKS worker routes.
+type podRouteNetworks interface {
+	PodRoutes(context.Context, Scope, string) ([]network.PodRoute, error)
+}
 type NetworkAttachment struct {
 	ID, SubnetID  string
 	PublicAddress string

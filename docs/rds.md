@@ -31,9 +31,36 @@ upstream `docker-library/repo-info` records for `postgres/remote/17-bookworm.md`
 and `mysql/remote/8.4.md`, not an AWS engine release assertion. Explicit
 `-rds-postgres-image` and `-rds-mysql-image` overrides must be installed immutable
 images implementing the same native layout. `-rds-endpoint-host` supplies the
-Docker host address visible to the caller; native ports bind daemon loopback.
-The returned address/port is the real PostgreSQL/MySQL TCP endpoint, not an AWS
-hostname simulated by an HTTP SQL proxy.
+Docker host address visible to the caller and the PostgreSQL certificate identity;
+it defaults to `127.0.0.1`. `-rds-publish-address` independently selects the
+daemon-side IP for SQL port bindings and reservations, also defaulting to
+`127.0.0.1` to preserve loopback-only access. It accepts an IP literal, not a DNS
+name or an address with a port. The returned address/port is the real
+PostgreSQL/MySQL TCP endpoint, not an AWS hostname simulated by an HTTP SQL proxy.
+
+For trusted EKS pods routed to the Docker host bridge, configure both values,
+for example:
+
+```sh
+  -rds-publish-address 172.17.0.1 -rds-endpoint-host 172.17.0.1
+```
+
+Use the actual reachable bridge IP on your host. Alternatively, publishing at
+`0.0.0.0` binds all IPv4 host interfaces while the advertised endpoint must remain
+a concrete reachable IP or DNS name, not the wildcard. Non-loopback publication
+exposes SQL to that network: restrict host/firewall access explicitly. This is not
+RDS VPC/security-group enforcement, and MySQL does not gain TLS from this flag.
+PostgreSQL clients must receive the per-incarnation public CA and connect with
+`sslmode=verify-full` (see the CA extraction example below); its leaf certificate
+has an IP SAN for an IP endpoint, or a DNS SAN for a DNS endpoint, independent of
+the bind address. Both pods and the controller must be able to reach that endpoint.
+
+`-native-ports` bounds newly allocated automatic SQL ports. Omit an explicit
+instance/cluster port to use the pool: an explicitly requested host port and a
+retained port remain exact, even outside the pool. Existing containers must match
+the configured published bind address; changing it fails closed rather than
+silently widening exposure. Retained PostgreSQL certificates must still verify
+the configured endpoint host; changing that host does not rotate trust.
 
 An embedder supplies `Config.RDSRuntime`, normally `engine/rds.NewDocker`, and
 owns runtime closure. A stable, unique Docker namespace identifies one
@@ -79,7 +106,7 @@ hardware. Native engine versions are pinned, not silently selected from a
 requested unsupported release. Parameter groups retain typed values and apply
 methods; supported settings are native server parameters. Subnet-group controls
 read real EC2-owned subnet/VPC/AZ records through the RDS role. Native VPC packet
-policy is not implemented by a loopback database endpoint, so subnet/security
+policy is not implemented by a host-published database endpoint, so subnet/security
 attachment requests that would imply that protection fail explicitly instead of
 returning a fake security-group association.
 

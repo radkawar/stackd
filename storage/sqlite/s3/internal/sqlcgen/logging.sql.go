@@ -19,7 +19,7 @@ type DeleteBucketLoggingParams struct {
 }
 
 func (q *Queries) DeleteBucketLogging(ctx context.Context, arg DeleteBucketLoggingParams) error {
-	_, err := q.db.ExecContext(ctx, deleteBucketLogging, arg.Partition, arg.BucketName)
+	_, err := q.exec(ctx, q.deleteBucketLoggingStmt, deleteBucketLogging, arg.Partition, arg.BucketName)
 	return err
 }
 
@@ -33,7 +33,7 @@ type GetBucketLoggingParams struct {
 }
 
 func (q *Queries) GetBucketLogging(ctx context.Context, arg GetBucketLoggingParams) (S3BucketLogging, error) {
-	row := q.db.QueryRowContext(ctx, getBucketLogging, arg.Partition, arg.BucketName)
+	row := q.queryRow(ctx, q.getBucketLoggingStmt, getBucketLogging, arg.Partition, arg.BucketName)
 	var i S3BucketLogging
 	err := row.Scan(
 		&i.Partition,
@@ -56,7 +56,7 @@ type GetBucketLoggingGrantsParams struct {
 }
 
 func (q *Queries) GetBucketLoggingGrants(ctx context.Context, arg GetBucketLoggingGrantsParams) ([]S3BucketLoggingGrant, error) {
-	rows, err := q.db.QueryContext(ctx, getBucketLoggingGrants, arg.Partition, arg.BucketName)
+	rows, err := q.query(ctx, q.getBucketLoggingGrantsStmt, getBucketLoggingGrants, arg.Partition, arg.BucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ type PutBucketLoggingParams struct {
 }
 
 func (q *Queries) PutBucketLogging(ctx context.Context, arg PutBucketLoggingParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketLogging,
+	_, err := q.exec(ctx, q.putBucketLoggingStmt, putBucketLogging,
 		arg.Partition,
 		arg.BucketName,
 		arg.TargetBucket,
@@ -128,7 +128,7 @@ type PutBucketLoggingGrantParams struct {
 }
 
 func (q *Queries) PutBucketLoggingGrant(ctx context.Context, arg PutBucketLoggingGrantParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketLoggingGrant,
+	_, err := q.exec(ctx, q.putBucketLoggingGrantStmt, putBucketLoggingGrant,
 		arg.Partition,
 		arg.BucketName,
 		arg.Position,

@@ -12,7 +12,7 @@ import (
 )
 
 // EBSKMSOperations keeps snapshot encryption on the real KMS command boundary.
-// Credential activity and API events retain the shared transaction context.
+// API events retain the shared transaction; IAM activity is reported asynchronously.
 type EBSKMSOperations interface {
 	Decrypt(context.Context, []byte, map[string]string) ([]byte, string, *awswire.Error)
 	EnsureServiceKey(context.Context, string) (string, *awswire.Error)
@@ -54,9 +54,7 @@ func ebsKMSEncryptionContext(encryption map[string]string) kmsapi.EncryptionCont
 
 func (k EBSSnapshotKeys) command(ctx context.Context, name string, input any) (any, *awswire.Error) {
 	ctx = ebsKMSContext(ctx)
-	if rejected := recordKMSActivity(ctx, k.Activity, name); rejected != nil {
-		return nil, rejected
-	}
+	recordKMSActivity(ctx, k.Activity, name)
 	model, _ := awscatalog.LookupService("kms")
 	operation, _ := model.Operation(name)
 	return k.KMS.ExecuteCommand(ctx, awsapi.DecodedRequest{Operation: operation, Protocol: model.Protocol, Input: input})
@@ -76,9 +74,7 @@ func (k EBSSnapshotKeys) GenerateDataKey(ctx context.Context, keyID string, encr
 
 func (k EBSSnapshotKeys) Decrypt(ctx context.Context, wrapped []byte, encryption map[string]string) ([]byte, string, *awswire.Error) {
 	ctx = ebsKMSContext(ctx)
-	if rejected := recordKMSActivity(ctx, k.Activity, "Decrypt"); rejected != nil {
-		return nil, "", rejected
-	}
+	recordKMSActivity(ctx, k.Activity, "Decrypt")
 	return k.KMS.Decrypt(ctx, wrapped, encryption)
 }
 
@@ -97,9 +93,7 @@ func (k EBSSnapshotKeys) ReEncrypt(ctx context.Context, wrapped []byte, keyID st
 
 func (k EBSSnapshotKeys) DescribeKey(ctx context.Context, keyID string) (string, *awswire.Error) {
 	ctx = ebsKMSContext(ctx)
-	if rejected := recordKMSActivity(ctx, k.Activity, "DescribeKey"); rejected != nil {
-		return "", rejected
-	}
+	recordKMSActivity(ctx, k.Activity, "DescribeKey")
 	metadata, rejected := k.KMS.DescribeKey(ctx, keyID)
 	if rejected != nil {
 		return "", rejected

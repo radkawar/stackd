@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"stackd/compute/docker"
 	"stackd/compute/network"
@@ -88,12 +89,34 @@ func (n *dockerNode) setPolicy(ctx context.Context, policy network.Policy) error
 	}
 	if n.peer == "" || !policy.Subnet.IsValid() || !policy.Subnet.Contains(n.spec.Network.Address) {
 		n.callback.setEnabled(false)
+		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		if err := n.failClosedPolicy(cleanup); err != nil {
+			return errors.Join(errors.New("ALB policy requires an attached peer and containing logical subnet"), err)
+		}
 		return errors.New("ALB policy requires an attached peer and containing logical subnet")
 	}
 	err := n.driver.networks.ApplyPolicy(ctx, policyTable(n.spec), n.spec.Network, policy, n.peer,
 		network.Options{Callback: n.callbackAddress, PublicOwner: resourceKey(n.spec)}, n.bridge)
 	if err != nil {
+		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		if len(policy.PodRoutes) != 0 {
+			base := clonePolicy(policy)
+			base.PodRoutes = nil
+			baseErr := n.driver.networks.ApplyPolicy(cleanup, policyTable(n.spec), n.spec.Network, base, n.peer,
+				network.Options{Callback: n.callbackAddress, PublicOwner: resourceKey(n.spec)}, n.bridge)
+			if baseErr == nil {
+				// Preserve unrelated targets while the service reports impaired
+				// pod authority and retains this same current base snapshot.
+				return fmt.Errorf("install ALB pod packet boundary: %w", err)
+			}
+			err = errors.Join(err, baseErr)
+		}
 		n.callback.setEnabled(false)
+		// Keep the anti-spoof guard on a live attachment, but revoke all data
+		// admission and host pod routes even after caller cancellation.
+		err = errors.Join(err, n.failClosedPolicy(cleanup))
 		return fmt.Errorf("install ALB outside-node packet boundary: %w", err)
 	}
 	n.callback.mu.Lock()
@@ -105,6 +128,15 @@ func (n *dockerNode) setPolicy(ctx context.Context, policy network.Policy) error
 	return nil
 }
 
+func (n *dockerNode) failClosedPolicy(ctx context.Context) error {
+	if n.peer == "" {
+		return n.driver.removePolicy(ctx, n.spec)
+	}
+	return n.driver.networks.ApplyPolicy(ctx, policyTable(n.spec), n.spec.Network,
+		network.Policy{Subnet: n.spec.Network.Pool}, n.peer,
+		network.Options{Callback: n.callbackAddress, PublicOwner: resourceKey(n.spec)}, n.bridge)
+}
+
 func (d *Docker) removePolicy(ctx context.Context, spec Specification) error {
 	return d.networks.RemovePolicy(ctx, policyTable(spec), resourceKey(spec))
 }
@@ -114,5 +146,12 @@ func clonePolicy(policy network.Policy) network.Policy {
 	policy.SecurityEgress = slices.Clone(policy.SecurityEgress)
 	policy.ACLIngress = slices.Clone(policy.ACLIngress)
 	policy.ACLEgress = slices.Clone(policy.ACLEgress)
+	policy.NATRoutes = slices.Clone(policy.NATRoutes)
+	for i := range policy.NATRoutes {
+		policy.NATRoutes[i].Ingress = slices.Clone(policy.NATRoutes[i].Ingress)
+		policy.NATRoutes[i].Egress = slices.Clone(policy.NATRoutes[i].Egress)
+	}
+	policy.PrivateRoutes = slices.Clone(policy.PrivateRoutes)
+	policy.PodRoutes = slices.Clone(policy.PodRoutes)
 	return policy
 }

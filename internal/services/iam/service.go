@@ -35,6 +35,9 @@ type Service struct {
 	serviceLinked          *serviceLinkedRuntime
 	clock                  clock.Clock
 	jobs                   *scheduler.Driver
+	activity               *activityRuntime
+	closeOnce              sync.Once
+	closeErr               error
 	simulationControls     authorization.ControlSource
 	organizationReports    OrganizationAccessSource
 	rootAccess             RootAccessSource
@@ -94,6 +97,7 @@ func NewWithConfig(config Config) *Service {
 		store = identity.NewWithConfig(identity.Config{Repository: NewCredentialRepository(repository, config.CredentialEvents), Clock: source})
 	}
 	s := &Service{repository: repository, credentials: store, clock: source, simulationControls: config.SimulationControls, organizationReports: config.OrganizationReports, rootAccess: config.RootAccess, publicEndpoint: config.PublicEndpoint, credentialEvents: config.CredentialEvents, apiCallEvents: config.APICallEvents}
+	s.activity = newActivityRuntime()
 	s.initServiceLinkedRoles()
 	s.jobs = scheduler.New(source, credentialReportJobs{s}, accessReportJobs{s}, serviceLinkedDeletionJobs{s})
 	s.authorizer = authorization.NewWithClock(s, nil, source)

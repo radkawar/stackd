@@ -34,6 +34,7 @@ type Config struct {
 	CatalogEvents     CatalogEvents
 	ConnectionSecrets ConnectionSecrets
 	ConnectionCrypto  ConnectionCrypto
+	IcebergObjects    IcebergObjects
 }
 
 type Service struct {
@@ -50,6 +51,7 @@ type Service struct {
 	catalogEvents     CatalogEvents
 	connectionSecrets ConnectionSecrets
 	connectionCrypto  ConnectionCrypto
+	icebergObjects    IcebergObjects
 	crawlerMu         sync.Mutex
 	crawlerActive     map[ResourceKey]context.CancelFunc
 	lifetime          context.Context
@@ -81,6 +83,7 @@ func New(c Config) *Service {
 	s.catalogEvents = c.CatalogEvents
 	s.connectionSecrets = c.ConnectionSecrets
 	s.connectionCrypto = c.ConnectionCrypto
+	s.icebergObjects = c.IcebergObjects
 	s.jobs = scheduler.New(c.Clock, jobRunJobs{s}, crawlerJobs{s}, registryJobs{s}, workflowJobs{s})
 	registerCatalog(s)
 	registerJobs(s)

@@ -28,9 +28,9 @@ type Provider interface {
 	Operations() []string
 }
 
-// privateOperationProvider owns native agent APIs absent from public SDK models.
-// Routing occurs after the gateway's signature, region and body-bound checks;
-// the provider supplies its generated private decoder and current authorization.
+// privateOperationProvider owns separately specified APIs absent from public
+// SDK models (native agents and Glue Iceberg REST). Routing precedes signature
+// checks; dispatch follows signature, region and body-bound checks.
 type privateOperationProvider interface {
 	PrivateOperation(*http.Request) (string, bool)
 	ServePrivateOperation(http.ResponseWriter, *http.Request)

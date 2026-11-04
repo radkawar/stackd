@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func executeSQL(ctx context.Context, client *http.Client, endpoint string, request Request, user string, consume func(Page) error) error {
+func executeSQL(ctx context.Context, client *http.Client, endpoint string, request Request, user string, consume func(Page) error) (retErr error) {
 	sql := request.SQL
 	if len(request.Parameters) != 0 {
 		// Trino parses parameters itself; no SQL interpretation or interpolation
@@ -24,7 +24,9 @@ func executeSQL(ctx context.Context, client *http.Client, endpoint string, reque
 	headers.Set("X-Trino-User", user)
 	headers.Set("X-Trino-Source", "stackd-athena")
 	headers.Set("X-Trino-Time-Zone", "UTC")
-	headers.Set("X-Trino-Catalog", request.Catalog)
+	if request.Catalog != "" {
+		headers.Set("X-Trino-Catalog", request.Catalog)
+	}
 	if request.Database != "" {
 		headers.Set("X-Trino-Schema", request.Database)
 	}
@@ -39,6 +41,32 @@ func executeSQL(ctx context.Context, client *http.Client, endpoint string, reque
 	next := endpoint + "/v1/statement"
 	method := http.MethodPost
 	var body io.Reader = strings.NewReader(sql)
+	var queryID string
+	finished := false
+	defer func() {
+		if retErr == nil || finished || queryID == "" {
+			return
+		}
+		// Context cancellation must cancel the native query, not just abandon
+		// its result GET. Always address the observed ID on the owned origin.
+		cancelCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		cancelReq, err := http.NewRequestWithContext(cancelCtx, http.MethodDelete, endpoint+"/v1/query/"+url.PathEscape(queryID), nil)
+		if err != nil {
+			retErr = errors.Join(retErr, err)
+			return
+		}
+		cancelReq.Header = headers
+		response, err := client.Do(cancelReq)
+		if err != nil {
+			retErr = errors.Join(retErr, err)
+			return
+		}
+		response.Body.Close()
+		if response.StatusCode != http.StatusNoContent && response.StatusCode != http.StatusNotFound && response.StatusCode != http.StatusGone {
+			retErr = errors.Join(retErr, fmt.Errorf("cancel Trino query HTTP %d", response.StatusCode))
+		}
+	}()
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -63,6 +91,8 @@ func executeSQL(ctx context.Context, client *http.Client, endpoint string, reque
 		if err != nil {
 			return fmt.Errorf("decode Trino result: %w", err)
 		}
+		queryID = page.ID
+		finished = page.NextURI == "" || page.Error != nil
 		if page.NextURI == "" || page.Error != nil {
 			var queryErr error
 			if page.Error != nil {
@@ -109,14 +139,6 @@ func executeSQL(ctx context.Context, client *http.Client, endpoint string, reque
 			}
 		}
 		if err := consume(page); err != nil {
-			if page.NextURI != "" {
-				cancelCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-				cancelReq, _ := http.NewRequestWithContext(cancelCtx, http.MethodDelete, page.NextURI, nil)
-				if response, cancelErr := client.Do(cancelReq); cancelErr == nil {
-					response.Body.Close()
-				}
-				cancel()
-			}
 			return err
 		}
 		if page.Error != nil {

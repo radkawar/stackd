@@ -27,9 +27,7 @@ type EventBridgeBusKeys struct {
 }
 
 func (k EventBridgeBusKeys) PrepareBusKey(ctx context.Context, source eventbridge.BusKey, identifier string, initialize bool) (string, *awswire.Error) {
-	if err := recordKMSActivity(ctx, k.Activity, "DescribeKey"); err != nil {
-		return "", busKeyFailure("DescribeKey", identifier, err)
-	}
+	recordKMSActivity(ctx, k.Activity, "DescribeKey")
 	metadata, rejected := k.KMS.DescribeKey(kms.WithViaService(ctx, "events"), identifier)
 	if rejected != nil {
 		return "", busKeyFailure("DescribeKey", identifier, rejected)
@@ -46,9 +44,7 @@ func (k EventBridgeBusKeys) PrepareBusKey(ctx context.Context, source eventbridg
 		return "", &awswire.Error{Code: "ValidationException", Message: "Parameter kmsKeyIdentifier is not valid. Reason: " + keyARN + " is disabled.", StatusCode: 400}
 	}
 	if initialize {
-		if err := recordKMSActivity(ctx, k.Activity, "GenerateDataKeyWithoutPlaintext"); err != nil {
-			return "", busKeyFailure("GenerateDataKeyWithoutPlaintext", keyARN, err)
-		}
+		recordKMSActivity(ctx, k.Activity, "GenerateDataKeyWithoutPlaintext")
 		_, _, rejected = k.KMS.GenerateDataKeyWithoutPlaintext(kms.WithViaService(ctx, "events"), keyARN, archiveEncryptionContext(source, ""))
 		if rejected != nil {
 			return "", busKeyFailure("GenerateDataKeyWithoutPlaintext", keyARN, rejected)
@@ -83,9 +79,7 @@ func (k EventBridgeBusKeys) DecryptBusDataKey(ctx context.Context, source eventb
 }
 
 func (k EventBridgeBusKeys) DecryptBusConfiguration(ctx context.Context, source eventbridge.BusKey, wrapped []byte) ([]byte, *awswire.Error) {
-	if rejected := recordKMSActivity(ctx, k.Activity, "Decrypt"); rejected != nil {
-		return nil, busConfigurationFailure(rejected)
-	}
+	recordKMSActivity(ctx, k.Activity, "Decrypt")
 	plain, _, rejected := k.KMS.Decrypt(kms.WithViaService(ctx, "events"), wrapped, archiveEncryptionContext(source, ""))
 	if rejected != nil {
 		return nil, busConfigurationFailure(rejected)

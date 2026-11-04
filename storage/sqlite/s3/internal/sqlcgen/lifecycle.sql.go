@@ -21,7 +21,7 @@ type AdvanceLifecycleScanParams struct {
 }
 
 func (q *Queries) AdvanceLifecycleScan(ctx context.Context, arg AdvanceLifecycleScanParams) error {
-	_, err := q.db.ExecContext(ctx, advanceLifecycleScan, arg.NextScan, arg.Partition, arg.BucketName)
+	_, err := q.exec(ctx, q.advanceLifecycleScanStmt, advanceLifecycleScan, arg.NextScan, arg.Partition, arg.BucketName)
 	return err
 }
 
@@ -35,7 +35,7 @@ type DeleteBucketLifecycleParams struct {
 }
 
 func (q *Queries) DeleteBucketLifecycle(ctx context.Context, arg DeleteBucketLifecycleParams) error {
-	_, err := q.db.ExecContext(ctx, deleteBucketLifecycle, arg.Partition, arg.BucketName)
+	_, err := q.exec(ctx, q.deleteBucketLifecycleStmt, deleteBucketLifecycle, arg.Partition, arg.BucketName)
 	return err
 }
 
@@ -49,7 +49,7 @@ type GetBucketLifecycleParams struct {
 }
 
 func (q *Queries) GetBucketLifecycle(ctx context.Context, arg GetBucketLifecycleParams) (S3BucketLifecycle, error) {
-	row := q.db.QueryRowContext(ctx, getBucketLifecycle, arg.Partition, arg.BucketName)
+	row := q.queryRow(ctx, q.getBucketLifecycleStmt, getBucketLifecycle, arg.Partition, arg.BucketName)
 	var i S3BucketLifecycle
 	err := row.Scan(
 		&i.Partition,
@@ -71,7 +71,7 @@ type GetBucketLifecycleRulesParams struct {
 }
 
 func (q *Queries) GetBucketLifecycleRules(ctx context.Context, arg GetBucketLifecycleRulesParams) ([]S3BucketLifecycleRule, error) {
-	rows, err := q.db.QueryContext(ctx, getBucketLifecycleRules, arg.Partition, arg.BucketName)
+	rows, err := q.query(ctx, q.getBucketLifecycleRulesStmt, getBucketLifecycleRules, arg.Partition, arg.BucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ type GetBucketLifecycleTagsParams struct {
 }
 
 func (q *Queries) GetBucketLifecycleTags(ctx context.Context, arg GetBucketLifecycleTagsParams) ([]S3BucketLifecycleTag, error) {
-	rows, err := q.db.QueryContext(ctx, getBucketLifecycleTags, arg.Partition, arg.BucketName)
+	rows, err := q.query(ctx, q.getBucketLifecycleTagsStmt, getBucketLifecycleTags, arg.Partition, arg.BucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +158,7 @@ type GetBucketLifecycleTransitionsParams struct {
 }
 
 func (q *Queries) GetBucketLifecycleTransitions(ctx context.Context, arg GetBucketLifecycleTransitionsParams) ([]S3BucketLifecycleTransition, error) {
-	rows, err := q.db.QueryContext(ctx, getBucketLifecycleTransitions, arg.Partition, arg.BucketName)
+	rows, err := q.query(ctx, q.getBucketLifecycleTransitionsStmt, getBucketLifecycleTransitions, arg.Partition, arg.BucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +202,7 @@ type NextLifecycleScanRow struct {
 }
 
 func (q *Queries) NextLifecycleScan(ctx context.Context) (NextLifecycleScanRow, error) {
-	row := q.db.QueryRowContext(ctx, nextLifecycleScan)
+	row := q.queryRow(ctx, q.nextLifecycleScanStmt, nextLifecycleScan)
 	var i NextLifecycleScanRow
 	err := row.Scan(&i.Partition, &i.BucketName, &i.NextScan)
 	return i, err
@@ -222,7 +222,7 @@ type PutBucketLifecycleParams struct {
 }
 
 func (q *Queries) PutBucketLifecycle(ctx context.Context, arg PutBucketLifecycleParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketLifecycle,
+	_, err := q.exec(ctx, q.putBucketLifecycleStmt, putBucketLifecycle,
 		arg.Partition,
 		arg.BucketName,
 		arg.MinimumObjectSize,
@@ -259,7 +259,7 @@ type PutBucketLifecycleRuleParams struct {
 }
 
 func (q *Queries) PutBucketLifecycleRule(ctx context.Context, arg PutBucketLifecycleRuleParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketLifecycleRule,
+	_, err := q.exec(ctx, q.putBucketLifecycleRuleStmt, putBucketLifecycleRule,
 		arg.Partition,
 		arg.BucketName,
 		arg.Position,
@@ -294,7 +294,7 @@ type PutBucketLifecycleTagParams struct {
 }
 
 func (q *Queries) PutBucketLifecycleTag(ctx context.Context, arg PutBucketLifecycleTagParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketLifecycleTag,
+	_, err := q.exec(ctx, q.putBucketLifecycleTagStmt, putBucketLifecycleTag,
 		arg.Partition,
 		arg.BucketName,
 		arg.RulePosition,
@@ -323,7 +323,7 @@ type PutBucketLifecycleTransitionParams struct {
 }
 
 func (q *Queries) PutBucketLifecycleTransition(ctx context.Context, arg PutBucketLifecycleTransitionParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketLifecycleTransition,
+	_, err := q.exec(ctx, q.putBucketLifecycleTransitionStmt, putBucketLifecycleTransition,
 		arg.Partition,
 		arg.BucketName,
 		arg.RulePosition,
@@ -352,7 +352,7 @@ type TransitionObjectParams struct {
 }
 
 func (q *Queries) TransitionObject(ctx context.Context, arg TransitionObjectParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, transitionObject,
+	result, err := q.exec(ctx, q.transitionObjectStmt, transitionObject,
 		arg.StorageClass,
 		arg.Sequence,
 		arg.Partition,

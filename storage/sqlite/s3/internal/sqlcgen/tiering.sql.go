@@ -20,7 +20,7 @@ type BucketHasEnabledTieringParams struct {
 }
 
 func (q *Queries) BucketHasEnabledTiering(ctx context.Context, arg BucketHasEnabledTieringParams) (bool, error) {
-	row := q.db.QueryRowContext(ctx, bucketHasEnabledTiering, arg.Partition, arg.BucketName)
+	row := q.queryRow(ctx, q.bucketHasEnabledTieringStmt, bucketHasEnabledTiering, arg.Partition, arg.BucketName)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
@@ -36,7 +36,7 @@ type CountBucketTieringConfigurationsParams struct {
 }
 
 func (q *Queries) CountBucketTieringConfigurations(ctx context.Context, arg CountBucketTieringConfigurationsParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countBucketTieringConfigurations, arg.Partition, arg.BucketName)
+	row := q.queryRow(ctx, q.countBucketTieringConfigurationsStmt, countBucketTieringConfigurations, arg.Partition, arg.BucketName)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -53,7 +53,7 @@ type DeleteBucketTieringConfigurationParams struct {
 }
 
 func (q *Queries) DeleteBucketTieringConfiguration(ctx context.Context, arg DeleteBucketTieringConfigurationParams) error {
-	_, err := q.db.ExecContext(ctx, deleteBucketTieringConfiguration, arg.Partition, arg.BucketName, arg.ID)
+	_, err := q.exec(ctx, q.deleteBucketTieringConfigurationStmt, deleteBucketTieringConfiguration, arg.Partition, arg.BucketName, arg.ID)
 	return err
 }
 
@@ -67,7 +67,7 @@ type DeleteTieringScanParams struct {
 }
 
 func (q *Queries) DeleteTieringScan(ctx context.Context, arg DeleteTieringScanParams) error {
-	_, err := q.db.ExecContext(ctx, deleteTieringScan, arg.Partition, arg.BucketName)
+	_, err := q.exec(ctx, q.deleteTieringScanStmt, deleteTieringScan, arg.Partition, arg.BucketName)
 	return err
 }
 
@@ -82,7 +82,7 @@ type GetBucketTieringConfigurationParams struct {
 }
 
 func (q *Queries) GetBucketTieringConfiguration(ctx context.Context, arg GetBucketTieringConfigurationParams) (S3BucketTieringConfiguration, error) {
-	row := q.db.QueryRowContext(ctx, getBucketTieringConfiguration, arg.Partition, arg.BucketName, arg.ID)
+	row := q.queryRow(ctx, q.getBucketTieringConfigurationStmt, getBucketTieringConfiguration, arg.Partition, arg.BucketName, arg.ID)
 	var i S3BucketTieringConfiguration
 	err := row.Scan(
 		&i.Partition,
@@ -109,7 +109,7 @@ type GetBucketTieringRulesParams struct {
 }
 
 func (q *Queries) GetBucketTieringRules(ctx context.Context, arg GetBucketTieringRulesParams) ([]S3BucketTieringRule, error) {
-	rows, err := q.db.QueryContext(ctx, getBucketTieringRules, arg.Partition, arg.BucketName, arg.ConfigurationID)
+	rows, err := q.query(ctx, q.getBucketTieringRulesStmt, getBucketTieringRules, arg.Partition, arg.BucketName, arg.ConfigurationID)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +150,7 @@ type GetBucketTieringTagsParams struct {
 }
 
 func (q *Queries) GetBucketTieringTags(ctx context.Context, arg GetBucketTieringTagsParams) ([]S3BucketTieringTag, error) {
-	rows, err := q.db.QueryContext(ctx, getBucketTieringTags, arg.Partition, arg.BucketName, arg.ConfigurationID)
+	rows, err := q.query(ctx, q.getBucketTieringTagsStmt, getBucketTieringTags, arg.Partition, arg.BucketName, arg.ConfigurationID)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +193,7 @@ type ListBucketTieringConfigurationsParams struct {
 }
 
 func (q *Queries) ListBucketTieringConfigurations(ctx context.Context, arg ListBucketTieringConfigurationsParams) ([]S3BucketTieringConfiguration, error) {
-	rows, err := q.db.QueryContext(ctx, listBucketTieringConfigurations,
+	rows, err := q.query(ctx, q.listBucketTieringConfigurationsStmt, listBucketTieringConfigurations,
 		arg.Partition,
 		arg.BucketName,
 		arg.After,
@@ -234,7 +234,7 @@ SELECT "partition", bucket_name, due FROM s3_bucket_tiering_scans ORDER BY due, 
 `
 
 func (q *Queries) NextTieringScan(ctx context.Context) (S3BucketTieringScan, error) {
-	row := q.db.QueryRowContext(ctx, nextTieringScan)
+	row := q.queryRow(ctx, q.nextTieringScanStmt, nextTieringScan)
 	var i S3BucketTieringScan
 	err := row.Scan(&i.Partition, &i.BucketName, &i.Due)
 	return i, err
@@ -258,7 +258,7 @@ type PutBucketTieringConfigurationParams struct {
 }
 
 func (q *Queries) PutBucketTieringConfiguration(ctx context.Context, arg PutBucketTieringConfigurationParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketTieringConfiguration,
+	_, err := q.exec(ctx, q.putBucketTieringConfigurationStmt, putBucketTieringConfiguration,
 		arg.Partition,
 		arg.BucketName,
 		arg.ID,
@@ -286,7 +286,7 @@ type PutBucketTieringRuleParams struct {
 }
 
 func (q *Queries) PutBucketTieringRule(ctx context.Context, arg PutBucketTieringRuleParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketTieringRule,
+	_, err := q.exec(ctx, q.putBucketTieringRuleStmt, putBucketTieringRule,
 		arg.Partition,
 		arg.BucketName,
 		arg.ConfigurationID,
@@ -312,7 +312,7 @@ type PutBucketTieringTagParams struct {
 }
 
 func (q *Queries) PutBucketTieringTag(ctx context.Context, arg PutBucketTieringTagParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketTieringTag,
+	_, err := q.exec(ctx, q.putBucketTieringTagStmt, putBucketTieringTag,
 		arg.Partition,
 		arg.BucketName,
 		arg.ConfigurationID,
@@ -336,7 +336,7 @@ type PutTieringScanParams struct {
 }
 
 func (q *Queries) PutTieringScan(ctx context.Context, arg PutTieringScanParams) error {
-	_, err := q.db.ExecContext(ctx, putTieringScan, arg.Partition, arg.BucketName, arg.Due)
+	_, err := q.exec(ctx, q.putTieringScanStmt, putTieringScan, arg.Partition, arg.BucketName, arg.Due)
 	return err
 }
 
@@ -358,7 +358,7 @@ type SetObjectTieringParams struct {
 }
 
 func (q *Queries) SetObjectTiering(ctx context.Context, arg SetObjectTieringParams) error {
-	_, err := q.db.ExecContext(ctx, setObjectTiering,
+	_, err := q.exec(ctx, q.setObjectTieringStmt, setObjectTiering,
 		arg.TieringAccessed,
 		arg.ArchiveTier,
 		arg.Partition,

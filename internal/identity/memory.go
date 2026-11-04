@@ -72,6 +72,20 @@ func (t memoryTransaction) Put(v Record) error {
 	return nil
 }
 
+func (t memoryTransaction) PutUsage(observation Record) error {
+	if err := t.tx.Check(true); err != nil {
+		return err
+	}
+	key := observation.Credential.AccessKeyID
+	current, ok := (*t.records)[key]
+	if !ok {
+		return ErrNotFound
+	}
+	current.LastUsed = observation.LastUsed
+	(*t.records)[key] = current
+	return nil
+}
+
 func (t memoryTransaction) Delete(key string) error {
 	if err := t.tx.Check(true); err != nil {
 		return err

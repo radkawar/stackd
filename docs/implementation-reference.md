@@ -524,7 +524,10 @@ listed in the [analytics evidence](behavior-references.md#glue-and-athena-engine
 Image overrides are `-glue-spark-image`, `-glue-python-image`, `-athena-image` and
 `-athena-hive-ddl-image`; adapters never pull images. Embedded callers inject
 `Config.GlueRuntime` and `Config.AthenaRuntime`, and close caller-owned native
-runtimes after the stack. Glue's AWS-library image is restricted to permitted
+runtimes after the stack. Athena's Docker adapter requires a private durable
+`StateDirectory` for locked, exact-owned warm-engine orphan recovery; see its
+[lifecycle and native gate](runtime-containers.md#glue-and-athena).
+Glue's AWS-library image is restricted to permitted
 AWS-targeted development/testing, not general standalone or other-cloud use.
 Its [exact upstream license](../compute/glue/AWS-GLUE-LICENSE.txt) is not Apache-2.0.
 
@@ -691,8 +694,9 @@ reports generate an atomic CSV snapshot of actual passwords, MFA, keys and
 certificates, retain it across mutations, and share the ordered IAM job driver
 with service-linked deletion. See [credential reports](iam-credential-reports.md).
 
-IAM last-access reports freeze actual authenticated activity and current policy
-relationships, including denied attempts and KMS calls made by SQS. Report jobs
+IAM last-access reports freeze already-flushed authenticated activity and current
+policy relationships, including denied attempts and KMS calls made by SQS. Usage
+observations are coalesced and durably batched off the data plane; report jobs
 use service time and enforce generating-user/session ownership. Organizations
 reports apply SCP hierarchies and aggregate attempts by account, with cached jobs
 and asynchronous permission failures. Action coverage, service names and default

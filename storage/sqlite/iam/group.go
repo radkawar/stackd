@@ -68,6 +68,22 @@ func (r reader) Groups(scope domain.Scope) ([]domain.Group, error) {
 	return records, nil
 }
 
+func (r reader) UserGroups(scope domain.Scope, name string) ([]domain.Group, error) {
+	rows, err := r.q.ListUserGroupKeys(r.ctx, sqlcgen.ListUserGroupKeysParams{Partition: scope.Partition, Account: scope.AccountID, Entry1: strings.ToLower(name)})
+	if err != nil {
+		return nil, err
+	}
+	records := make([]domain.Group, 0, len(rows))
+	for _, row := range rows {
+		record, err := r.Group(scope, row.ResourceKey)
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, record)
+	}
+	return records, nil
+}
+
 func (w writer) PutGroup(scope domain.Scope, record domain.Group) error {
 	if err := w.q.EnsureScope(w.ctx, sqlcgen.EnsureScopeParams{Partition: scope.Partition, Account: scope.AccountID}); err != nil {
 		return err

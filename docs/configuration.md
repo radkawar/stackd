@@ -142,6 +142,16 @@ Additional state settings are explicit:
 
 The last three are optional runtime inputs, not substitutes for `-database`; see [runtime setup](runtimes.md). Protect databases, capture directories, guest disks and keys as sensitive local application state. Graceful controller shutdown does **not** imply all persistent workloads stop or all native resources are deleted.
 
+`-eks-storage-reserve-gib` selects the positive integer GiB native Docker worker
+reserve at cluster creation (default **64**). Nodefs/imagefs hard thresholds and
+minimum reclaim each use that reserve; image GC percentages come from the
+configured daemon's actual backing-filesystem capacity. The policy is retained
+with cluster ownership and applies to later Fargate workers. Changing the flag
+does not rewrite existing workers: **recreate the cluster** to change its policy,
+including older clusters retaining native percentage defaults. Memory/inode
+safety and native eviction remain enabled. See
+[native worker storage policy](eks.md#native-worker-storage-reserve).
+
 ## Manual service time
 
 By default time follows the wall clock. For deterministic service-time transitions, initialize a paused timeline:

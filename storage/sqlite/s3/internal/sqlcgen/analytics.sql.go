@@ -20,7 +20,7 @@ type CountBucketAnalyticsConfigurationsParams struct {
 }
 
 func (q *Queries) CountBucketAnalyticsConfigurations(ctx context.Context, arg CountBucketAnalyticsConfigurationsParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countBucketAnalyticsConfigurations, arg.Partition, arg.BucketName)
+	row := q.queryRow(ctx, q.countBucketAnalyticsConfigurationsStmt, countBucketAnalyticsConfigurations, arg.Partition, arg.BucketName)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -37,7 +37,7 @@ type DeleteBucketAnalyticsConfigurationParams struct {
 }
 
 func (q *Queries) DeleteBucketAnalyticsConfiguration(ctx context.Context, arg DeleteBucketAnalyticsConfigurationParams) error {
-	_, err := q.db.ExecContext(ctx, deleteBucketAnalyticsConfiguration, arg.Partition, arg.BucketName, arg.ID)
+	_, err := q.exec(ctx, q.deleteBucketAnalyticsConfigurationStmt, deleteBucketAnalyticsConfiguration, arg.Partition, arg.BucketName, arg.ID)
 	return err
 }
 
@@ -52,7 +52,7 @@ type GetBucketAnalyticsConfigurationParams struct {
 }
 
 func (q *Queries) GetBucketAnalyticsConfiguration(ctx context.Context, arg GetBucketAnalyticsConfigurationParams) (S3BucketAnalyticsConfiguration, error) {
-	row := q.db.QueryRowContext(ctx, getBucketAnalyticsConfiguration, arg.Partition, arg.BucketName, arg.ID)
+	row := q.queryRow(ctx, q.getBucketAnalyticsConfigurationStmt, getBucketAnalyticsConfiguration, arg.Partition, arg.BucketName, arg.ID)
 	var i S3BucketAnalyticsConfiguration
 	err := row.Scan(
 		&i.Partition,
@@ -79,7 +79,7 @@ type GetBucketAnalyticsTagsParams struct {
 }
 
 func (q *Queries) GetBucketAnalyticsTags(ctx context.Context, arg GetBucketAnalyticsTagsParams) ([]S3BucketAnalyticsTag, error) {
-	rows, err := q.db.QueryContext(ctx, getBucketAnalyticsTags, arg.Partition, arg.BucketName, arg.ConfigurationID)
+	rows, err := q.query(ctx, q.getBucketAnalyticsTagsStmt, getBucketAnalyticsTags, arg.Partition, arg.BucketName, arg.ConfigurationID)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ type ListBucketAnalyticsConfigurationsRow struct {
 }
 
 func (q *Queries) ListBucketAnalyticsConfigurations(ctx context.Context, arg ListBucketAnalyticsConfigurationsParams) ([]ListBucketAnalyticsConfigurationsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listBucketAnalyticsConfigurations,
+	rows, err := q.query(ctx, q.listBucketAnalyticsConfigurationsStmt, listBucketAnalyticsConfigurations,
 		arg.Partition,
 		arg.BucketName,
 		arg.After,
@@ -195,7 +195,7 @@ type PutBucketAnalyticsConfigurationParams struct {
 }
 
 func (q *Queries) PutBucketAnalyticsConfiguration(ctx context.Context, arg PutBucketAnalyticsConfigurationParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketAnalyticsConfiguration,
+	_, err := q.exec(ctx, q.putBucketAnalyticsConfigurationStmt, putBucketAnalyticsConfiguration,
 		arg.Partition,
 		arg.BucketName,
 		arg.ID,
@@ -223,7 +223,7 @@ type PutBucketAnalyticsTagParams struct {
 }
 
 func (q *Queries) PutBucketAnalyticsTag(ctx context.Context, arg PutBucketAnalyticsTagParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketAnalyticsTag,
+	_, err := q.exec(ctx, q.putBucketAnalyticsTagStmt, putBucketAnalyticsTag,
 		arg.Partition,
 		arg.BucketName,
 		arg.ConfigurationID,

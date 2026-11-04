@@ -7,6 +7,7 @@ package sqlcgen
 import (
 	"context"
 	"database/sql"
+	"fmt"
 )
 
 type DBTX interface {
@@ -20,12 +21,2018 @@ func New(db DBTX) *Queries {
 	return &Queries{db: db}
 }
 
+func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
+	q := Queries{db: db}
+	var err error
+	if q.activateReplicationMetricScheduleStmt, err = db.PrepareContext(ctx, activateReplicationMetricSchedule); err != nil {
+		return nil, fmt.Errorf("error preparing query ActivateReplicationMetricSchedule: %w", err)
+	}
+	if q.addReplicationMetricOutcomeStmt, err = db.PrepareContext(ctx, addReplicationMetricOutcome); err != nil {
+		return nil, fmt.Errorf("error preparing query AddReplicationMetricOutcome: %w", err)
+	}
+	if q.advanceInventoryReportStmt, err = db.PrepareContext(ctx, advanceInventoryReport); err != nil {
+		return nil, fmt.Errorf("error preparing query AdvanceInventoryReport: %w", err)
+	}
+	if q.advanceLifecycleScanStmt, err = db.PrepareContext(ctx, advanceLifecycleScan); err != nil {
+		return nil, fmt.Errorf("error preparing query AdvanceLifecycleScan: %w", err)
+	}
+	if q.bucketHasEnabledTieringStmt, err = db.PrepareContext(ctx, bucketHasEnabledTiering); err != nil {
+		return nil, fmt.Errorf("error preparing query BucketHasEnabledTiering: %w", err)
+	}
+	if q.copyReplicaDataStmt, err = db.PrepareContext(ctx, copyReplicaData); err != nil {
+		return nil, fmt.Errorf("error preparing query CopyReplicaData: %w", err)
+	}
+	if q.copyReplicaPartsStmt, err = db.PrepareContext(ctx, copyReplicaParts); err != nil {
+		return nil, fmt.Errorf("error preparing query CopyReplicaParts: %w", err)
+	}
+	if q.countAccessPointsStmt, err = db.PrepareContext(ctx, countAccessPoints); err != nil {
+		return nil, fmt.Errorf("error preparing query CountAccessPoints: %w", err)
+	}
+	if q.countBucketAnalyticsConfigurationsStmt, err = db.PrepareContext(ctx, countBucketAnalyticsConfigurations); err != nil {
+		return nil, fmt.Errorf("error preparing query CountBucketAnalyticsConfigurations: %w", err)
+	}
+	if q.countBucketInventoryConfigurationsStmt, err = db.PrepareContext(ctx, countBucketInventoryConfigurations); err != nil {
+		return nil, fmt.Errorf("error preparing query CountBucketInventoryConfigurations: %w", err)
+	}
+	if q.countBucketMetricsConfigurationsStmt, err = db.PrepareContext(ctx, countBucketMetricsConfigurations); err != nil {
+		return nil, fmt.Errorf("error preparing query CountBucketMetricsConfigurations: %w", err)
+	}
+	if q.countBucketTieringConfigurationsStmt, err = db.PrepareContext(ctx, countBucketTieringConfigurations); err != nil {
+		return nil, fmt.Errorf("error preparing query CountBucketTieringConfigurations: %w", err)
+	}
+	if q.deleteAccessLogDeliveryStmt, err = db.PrepareContext(ctx, deleteAccessLogDelivery); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteAccessLogDelivery: %w", err)
+	}
+	if q.deleteAccessPointStmt, err = db.PrepareContext(ctx, deleteAccessPoint); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteAccessPoint: %w", err)
+	}
+	if q.deleteAccessPointPolicyPrincipalsStmt, err = db.PrepareContext(ctx, deleteAccessPointPolicyPrincipals); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteAccessPointPolicyPrincipals: %w", err)
+	}
+	if q.deleteAccessPointTagsStmt, err = db.PrepareContext(ctx, deleteAccessPointTags); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteAccessPointTags: %w", err)
+	}
+	if q.deleteAccountPublicAccessBlockStmt, err = db.PrepareContext(ctx, deleteAccountPublicAccessBlock); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteAccountPublicAccessBlock: %w", err)
+	}
+	if q.deleteBucketStmt, err = db.PrepareContext(ctx, deleteBucket); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteBucket: %w", err)
+	}
+	if q.deleteBucketACLGrantsStmt, err = db.PrepareContext(ctx, deleteBucketACLGrants); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteBucketACLGrants: %w", err)
+	}
+	if q.deleteBucketAnalyticsConfigurationStmt, err = db.PrepareContext(ctx, deleteBucketAnalyticsConfiguration); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteBucketAnalyticsConfiguration: %w", err)
+	}
+	if q.deleteBucketCORSStmt, err = db.PrepareContext(ctx, deleteBucketCORS); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteBucketCORS: %w", err)
+	}
+	if q.deleteBucketInventoryConfigurationStmt, err = db.PrepareContext(ctx, deleteBucketInventoryConfiguration); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteBucketInventoryConfiguration: %w", err)
+	}
+	if q.deleteBucketLifecycleStmt, err = db.PrepareContext(ctx, deleteBucketLifecycle); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteBucketLifecycle: %w", err)
+	}
+	if q.deleteBucketLoggingStmt, err = db.PrepareContext(ctx, deleteBucketLogging); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteBucketLogging: %w", err)
+	}
+	if q.deleteBucketMetricsConfigurationStmt, err = db.PrepareContext(ctx, deleteBucketMetricsConfiguration); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteBucketMetricsConfiguration: %w", err)
+	}
+	if q.deleteBucketPolicyPrincipalsStmt, err = db.PrepareContext(ctx, deleteBucketPolicyPrincipals); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteBucketPolicyPrincipals: %w", err)
+	}
+	if q.deleteBucketPublicAccessStmt, err = db.PrepareContext(ctx, deleteBucketPublicAccess); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteBucketPublicAccess: %w", err)
+	}
+	if q.deleteBucketReplicationStmt, err = db.PrepareContext(ctx, deleteBucketReplication); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteBucketReplication: %w", err)
+	}
+	if q.deleteBucketTagsStmt, err = db.PrepareContext(ctx, deleteBucketTags); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteBucketTags: %w", err)
+	}
+	if q.deleteBucketTieringConfigurationStmt, err = db.PrepareContext(ctx, deleteBucketTieringConfiguration); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteBucketTieringConfiguration: %w", err)
+	}
+	if q.deleteBucketWebsiteStmt, err = db.PrepareContext(ctx, deleteBucketWebsite); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteBucketWebsite: %w", err)
+	}
+	if q.deleteInactiveReplicationMetricSchedulesStmt, err = db.PrepareContext(ctx, deleteInactiveReplicationMetricSchedules); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteInactiveReplicationMetricSchedules: %w", err)
+	}
+	if q.deleteMultipartUploadStmt, err = db.PrepareContext(ctx, deleteMultipartUpload); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteMultipartUpload: %w", err)
+	}
+	if q.deleteNotificationDeliveryStmt, err = db.PrepareContext(ctx, deleteNotificationDelivery); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteNotificationDelivery: %w", err)
+	}
+	if q.deleteNotificationRulesStmt, err = db.PrepareContext(ctx, deleteNotificationRules); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteNotificationRules: %w", err)
+	}
+	if q.deleteObjectRestoreStmt, err = db.PrepareContext(ctx, deleteObjectRestore); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteObjectRestore: %w", err)
+	}
+	if q.deleteObjectTagsStmt, err = db.PrepareContext(ctx, deleteObjectTags); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteObjectTags: %w", err)
+	}
+	if q.deleteObjectVersionStmt, err = db.PrepareContext(ctx, deleteObjectVersion); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteObjectVersion: %w", err)
+	}
+	if q.deleteObjectVersionACLGrantsStmt, err = db.PrepareContext(ctx, deleteObjectVersionACLGrants); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteObjectVersionACLGrants: %w", err)
+	}
+	if q.deleteObjectVersionEncryptionContextStmt, err = db.PrepareContext(ctx, deleteObjectVersionEncryptionContext); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteObjectVersionEncryptionContext: %w", err)
+	}
+	if q.deleteReplicationJobStmt, err = db.PrepareContext(ctx, deleteReplicationJob); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteReplicationJob: %w", err)
+	}
+	if q.deleteReplicationMetricPublicationStmt, err = db.PrepareContext(ctx, deleteReplicationMetricPublication); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteReplicationMetricPublication: %w", err)
+	}
+	if q.deleteTieringScanStmt, err = db.PrepareContext(ctx, deleteTieringScan); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteTieringScan: %w", err)
+	}
+	if q.getAccessLogDeliveryStmt, err = db.PrepareContext(ctx, getAccessLogDelivery); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAccessLogDelivery: %w", err)
+	}
+	if q.getAccessLogDeliveryGrantsStmt, err = db.PrepareContext(ctx, getAccessLogDeliveryGrants); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAccessLogDeliveryGrants: %w", err)
+	}
+	if q.getAccessPointStmt, err = db.PrepareContext(ctx, getAccessPoint); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAccessPoint: %w", err)
+	}
+	if q.getAccessPointAliasStmt, err = db.PrepareContext(ctx, getAccessPointAlias); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAccessPointAlias: %w", err)
+	}
+	if q.getAccessPointPolicyPrincipalsStmt, err = db.PrepareContext(ctx, getAccessPointPolicyPrincipals); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAccessPointPolicyPrincipals: %w", err)
+	}
+	if q.getAccessPointTagsStmt, err = db.PrepareContext(ctx, getAccessPointTags); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAccessPointTags: %w", err)
+	}
+	if q.getAccountPublicAccessBlockStmt, err = db.PrepareContext(ctx, getAccountPublicAccessBlock); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAccountPublicAccessBlock: %w", err)
+	}
+	if q.getBucketStmt, err = db.PrepareContext(ctx, getBucket); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucket: %w", err)
+	}
+	if q.getBucketACLGrantsStmt, err = db.PrepareContext(ctx, getBucketACLGrants); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketACLGrants: %w", err)
+	}
+	if q.getBucketAnalyticsConfigurationStmt, err = db.PrepareContext(ctx, getBucketAnalyticsConfiguration); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketAnalyticsConfiguration: %w", err)
+	}
+	if q.getBucketAnalyticsTagsStmt, err = db.PrepareContext(ctx, getBucketAnalyticsTags); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketAnalyticsTags: %w", err)
+	}
+	if q.getBucketCORSRulesStmt, err = db.PrepareContext(ctx, getBucketCORSRules); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketCORSRules: %w", err)
+	}
+	if q.getBucketCORSValuesStmt, err = db.PrepareContext(ctx, getBucketCORSValues); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketCORSValues: %w", err)
+	}
+	if q.getBucketInventoryConfigurationStmt, err = db.PrepareContext(ctx, getBucketInventoryConfiguration); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketInventoryConfiguration: %w", err)
+	}
+	if q.getBucketInventoryOptionalFieldsStmt, err = db.PrepareContext(ctx, getBucketInventoryOptionalFields); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketInventoryOptionalFields: %w", err)
+	}
+	if q.getBucketLifecycleStmt, err = db.PrepareContext(ctx, getBucketLifecycle); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketLifecycle: %w", err)
+	}
+	if q.getBucketLifecycleRulesStmt, err = db.PrepareContext(ctx, getBucketLifecycleRules); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketLifecycleRules: %w", err)
+	}
+	if q.getBucketLifecycleTagsStmt, err = db.PrepareContext(ctx, getBucketLifecycleTags); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketLifecycleTags: %w", err)
+	}
+	if q.getBucketLifecycleTransitionsStmt, err = db.PrepareContext(ctx, getBucketLifecycleTransitions); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketLifecycleTransitions: %w", err)
+	}
+	if q.getBucketLoggingStmt, err = db.PrepareContext(ctx, getBucketLogging); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketLogging: %w", err)
+	}
+	if q.getBucketLoggingGrantsStmt, err = db.PrepareContext(ctx, getBucketLoggingGrants); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketLoggingGrants: %w", err)
+	}
+	if q.getBucketMetricsConfigurationStmt, err = db.PrepareContext(ctx, getBucketMetricsConfiguration); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketMetricsConfiguration: %w", err)
+	}
+	if q.getBucketMetricsTagsStmt, err = db.PrepareContext(ctx, getBucketMetricsTags); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketMetricsTags: %w", err)
+	}
+	if q.getBucketPolicyPrincipalsStmt, err = db.PrepareContext(ctx, getBucketPolicyPrincipals); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketPolicyPrincipals: %w", err)
+	}
+	if q.getBucketPublicAccessStmt, err = db.PrepareContext(ctx, getBucketPublicAccess); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketPublicAccess: %w", err)
+	}
+	if q.getBucketReplicationStmt, err = db.PrepareContext(ctx, getBucketReplication); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketReplication: %w", err)
+	}
+	if q.getBucketReplicationFilterTagsStmt, err = db.PrepareContext(ctx, getBucketReplicationFilterTags); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketReplicationFilterTags: %w", err)
+	}
+	if q.getBucketReplicationRulesStmt, err = db.PrepareContext(ctx, getBucketReplicationRules); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketReplicationRules: %w", err)
+	}
+	if q.getBucketTagsStmt, err = db.PrepareContext(ctx, getBucketTags); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketTags: %w", err)
+	}
+	if q.getBucketTieringConfigurationStmt, err = db.PrepareContext(ctx, getBucketTieringConfiguration); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketTieringConfiguration: %w", err)
+	}
+	if q.getBucketTieringRulesStmt, err = db.PrepareContext(ctx, getBucketTieringRules); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketTieringRules: %w", err)
+	}
+	if q.getBucketTieringTagsStmt, err = db.PrepareContext(ctx, getBucketTieringTags); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketTieringTags: %w", err)
+	}
+	if q.getBucketWebsiteStmt, err = db.PrepareContext(ctx, getBucketWebsite); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketWebsite: %w", err)
+	}
+	if q.getBucketWebsiteRulesStmt, err = db.PrepareContext(ctx, getBucketWebsiteRules); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBucketWebsiteRules: %w", err)
+	}
+	if q.getCompletedMultipartUploadStmt, err = db.PrepareContext(ctx, getCompletedMultipartUpload); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCompletedMultipartUpload: %w", err)
+	}
+	if q.getMultipartObjectDataStmt, err = db.PrepareContext(ctx, getMultipartObjectData); err != nil {
+		return nil, fmt.Errorf("error preparing query GetMultipartObjectData: %w", err)
+	}
+	if q.getMultipartUploadStmt, err = db.PrepareContext(ctx, getMultipartUpload); err != nil {
+		return nil, fmt.Errorf("error preparing query GetMultipartUpload: %w", err)
+	}
+	if q.getMultipartUploadACLGrantsStmt, err = db.PrepareContext(ctx, getMultipartUploadACLGrants); err != nil {
+		return nil, fmt.Errorf("error preparing query GetMultipartUploadACLGrants: %w", err)
+	}
+	if q.getMultipartUploadEncryptionContextStmt, err = db.PrepareContext(ctx, getMultipartUploadEncryptionContext); err != nil {
+		return nil, fmt.Errorf("error preparing query GetMultipartUploadEncryptionContext: %w", err)
+	}
+	if q.getMultipartUploadEncryptionMetadataStmt, err = db.PrepareContext(ctx, getMultipartUploadEncryptionMetadata); err != nil {
+		return nil, fmt.Errorf("error preparing query GetMultipartUploadEncryptionMetadata: %w", err)
+	}
+	if q.getMultipartUploadMetadataStmt, err = db.PrepareContext(ctx, getMultipartUploadMetadata); err != nil {
+		return nil, fmt.Errorf("error preparing query GetMultipartUploadMetadata: %w", err)
+	}
+	if q.getMultipartUploadTagsStmt, err = db.PrepareContext(ctx, getMultipartUploadTags); err != nil {
+		return nil, fmt.Errorf("error preparing query GetMultipartUploadTags: %w", err)
+	}
+	if q.getNotificationDeliveryStmt, err = db.PrepareContext(ctx, getNotificationDelivery); err != nil {
+		return nil, fmt.Errorf("error preparing query GetNotificationDelivery: %w", err)
+	}
+	if q.getNotificationStateStmt, err = db.PrepareContext(ctx, getNotificationState); err != nil {
+		return nil, fmt.Errorf("error preparing query GetNotificationState: %w", err)
+	}
+	if q.getObjectStmt, err = db.PrepareContext(ctx, getObject); err != nil {
+		return nil, fmt.Errorf("error preparing query GetObject: %w", err)
+	}
+	if q.getObjectRestoreStmt, err = db.PrepareContext(ctx, getObjectRestore); err != nil {
+		return nil, fmt.Errorf("error preparing query GetObjectRestore: %w", err)
+	}
+	if q.getObjectTagsStmt, err = db.PrepareContext(ctx, getObjectTags); err != nil {
+		return nil, fmt.Errorf("error preparing query GetObjectTags: %w", err)
+	}
+	if q.getObjectVersionStmt, err = db.PrepareContext(ctx, getObjectVersion); err != nil {
+		return nil, fmt.Errorf("error preparing query GetObjectVersion: %w", err)
+	}
+	if q.getObjectVersionACLGrantsStmt, err = db.PrepareContext(ctx, getObjectVersionACLGrants); err != nil {
+		return nil, fmt.Errorf("error preparing query GetObjectVersionACLGrants: %w", err)
+	}
+	if q.getObjectVersionDataStmt, err = db.PrepareContext(ctx, getObjectVersionData); err != nil {
+		return nil, fmt.Errorf("error preparing query GetObjectVersionData: %w", err)
+	}
+	if q.getObjectVersionEncryptionContextStmt, err = db.PrepareContext(ctx, getObjectVersionEncryptionContext); err != nil {
+		return nil, fmt.Errorf("error preparing query GetObjectVersionEncryptionContext: %w", err)
+	}
+	if q.getObjectVersionEncryptionMetadataStmt, err = db.PrepareContext(ctx, getObjectVersionEncryptionMetadata); err != nil {
+		return nil, fmt.Errorf("error preparing query GetObjectVersionEncryptionMetadata: %w", err)
+	}
+	if q.getObjectVersionMetadataStmt, err = db.PrepareContext(ctx, getObjectVersionMetadata); err != nil {
+		return nil, fmt.Errorf("error preparing query GetObjectVersionMetadata: %w", err)
+	}
+	if q.getOldestReplicationPendingStmt, err = db.PrepareContext(ctx, getOldestReplicationPending); err != nil {
+		return nil, fmt.Errorf("error preparing query GetOldestReplicationPending: %w", err)
+	}
+	if q.getReplicationJobStmt, err = db.PrepareContext(ctx, getReplicationJob); err != nil {
+		return nil, fmt.Errorf("error preparing query GetReplicationJob: %w", err)
+	}
+	if q.getReplicationMetricPublicationStmt, err = db.PrepareContext(ctx, getReplicationMetricPublication); err != nil {
+		return nil, fmt.Errorf("error preparing query GetReplicationMetricPublication: %w", err)
+	}
+	if q.getReplicationPendingCountsStmt, err = db.PrepareContext(ctx, getReplicationPendingCounts); err != nil {
+		return nil, fmt.Errorf("error preparing query GetReplicationPendingCounts: %w", err)
+	}
+	if q.getReplicationStatesStmt, err = db.PrepareContext(ctx, getReplicationStates); err != nil {
+		return nil, fmt.Errorf("error preparing query GetReplicationStates: %w", err)
+	}
+	if q.insertAccessLogDeliveryStmt, err = db.PrepareContext(ctx, insertAccessLogDelivery); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertAccessLogDelivery: %w", err)
+	}
+	if q.listAccessPointsStmt, err = db.PrepareContext(ctx, listAccessPoints); err != nil {
+		return nil, fmt.Errorf("error preparing query ListAccessPoints: %w", err)
+	}
+	if q.listBucketAnalyticsConfigurationsStmt, err = db.PrepareContext(ctx, listBucketAnalyticsConfigurations); err != nil {
+		return nil, fmt.Errorf("error preparing query ListBucketAnalyticsConfigurations: %w", err)
+	}
+	if q.listBucketInventoryConfigurationsStmt, err = db.PrepareContext(ctx, listBucketInventoryConfigurations); err != nil {
+		return nil, fmt.Errorf("error preparing query ListBucketInventoryConfigurations: %w", err)
+	}
+	if q.listBucketMetricsConfigurationsStmt, err = db.PrepareContext(ctx, listBucketMetricsConfigurations); err != nil {
+		return nil, fmt.Errorf("error preparing query ListBucketMetricsConfigurations: %w", err)
+	}
+	if q.listBucketTieringConfigurationsStmt, err = db.PrepareContext(ctx, listBucketTieringConfigurations); err != nil {
+		return nil, fmt.Errorf("error preparing query ListBucketTieringConfigurations: %w", err)
+	}
+	if q.listBucketsStmt, err = db.PrepareContext(ctx, listBuckets); err != nil {
+		return nil, fmt.Errorf("error preparing query ListBuckets: %w", err)
+	}
+	if q.listMultipartPartsStmt, err = db.PrepareContext(ctx, listMultipartParts); err != nil {
+		return nil, fmt.Errorf("error preparing query ListMultipartParts: %w", err)
+	}
+	if q.listMultipartUploadsStmt, err = db.PrepareContext(ctx, listMultipartUploads); err != nil {
+		return nil, fmt.Errorf("error preparing query ListMultipartUploads: %w", err)
+	}
+	if q.listNotificationEventsStmt, err = db.PrepareContext(ctx, listNotificationEvents); err != nil {
+		return nil, fmt.Errorf("error preparing query ListNotificationEvents: %w", err)
+	}
+	if q.listNotificationFiltersStmt, err = db.PrepareContext(ctx, listNotificationFilters); err != nil {
+		return nil, fmt.Errorf("error preparing query ListNotificationFilters: %w", err)
+	}
+	if q.listNotificationRulesStmt, err = db.PrepareContext(ctx, listNotificationRules); err != nil {
+		return nil, fmt.Errorf("error preparing query ListNotificationRules: %w", err)
+	}
+	if q.listObjectPartsStmt, err = db.PrepareContext(ctx, listObjectParts); err != nil {
+		return nil, fmt.Errorf("error preparing query ListObjectParts: %w", err)
+	}
+	if q.listObjectVersionsStmt, err = db.PrepareContext(ctx, listObjectVersions); err != nil {
+		return nil, fmt.Errorf("error preparing query ListObjectVersions: %w", err)
+	}
+	if q.listObjectsStmt, err = db.PrepareContext(ctx, listObjects); err != nil {
+		return nil, fmt.Errorf("error preparing query ListObjects: %w", err)
+	}
+	if q.nextAccessLogDeliveryStmt, err = db.PrepareContext(ctx, nextAccessLogDelivery); err != nil {
+		return nil, fmt.Errorf("error preparing query NextAccessLogDelivery: %w", err)
+	}
+	if q.nextInventoryConfigurationStmt, err = db.PrepareContext(ctx, nextInventoryConfiguration); err != nil {
+		return nil, fmt.Errorf("error preparing query NextInventoryConfiguration: %w", err)
+	}
+	if q.nextLifecycleScanStmt, err = db.PrepareContext(ctx, nextLifecycleScan); err != nil {
+		return nil, fmt.Errorf("error preparing query NextLifecycleScan: %w", err)
+	}
+	if q.nextNotificationChangeStmt, err = db.PrepareContext(ctx, nextNotificationChange); err != nil {
+		return nil, fmt.Errorf("error preparing query NextNotificationChange: %w", err)
+	}
+	if q.nextNotificationDeliveryStmt, err = db.PrepareContext(ctx, nextNotificationDelivery); err != nil {
+		return nil, fmt.Errorf("error preparing query NextNotificationDelivery: %w", err)
+	}
+	if q.nextObjectRestoreStmt, err = db.PrepareContext(ctx, nextObjectRestore); err != nil {
+		return nil, fmt.Errorf("error preparing query NextObjectRestore: %w", err)
+	}
+	if q.nextObjectSequenceStmt, err = db.PrepareContext(ctx, nextObjectSequence); err != nil {
+		return nil, fmt.Errorf("error preparing query NextObjectSequence: %w", err)
+	}
+	if q.nextReplicationAttemptStmt, err = db.PrepareContext(ctx, nextReplicationAttempt); err != nil {
+		return nil, fmt.Errorf("error preparing query NextReplicationAttempt: %w", err)
+	}
+	if q.nextReplicationMetricPublicationStmt, err = db.PrepareContext(ctx, nextReplicationMetricPublication); err != nil {
+		return nil, fmt.Errorf("error preparing query NextReplicationMetricPublication: %w", err)
+	}
+	if q.nextReplicationThresholdStmt, err = db.PrepareContext(ctx, nextReplicationThreshold); err != nil {
+		return nil, fmt.Errorf("error preparing query NextReplicationThreshold: %w", err)
+	}
+	if q.nextTieringScanStmt, err = db.PrepareContext(ctx, nextTieringScan); err != nil {
+		return nil, fmt.Errorf("error preparing query NextTieringScan: %w", err)
+	}
+	if q.publishMultipartPartStmt, err = db.PrepareContext(ctx, publishMultipartPart); err != nil {
+		return nil, fmt.Errorf("error preparing query PublishMultipartPart: %w", err)
+	}
+	if q.publishMultipartUploadTagsStmt, err = db.PrepareContext(ctx, publishMultipartUploadTags); err != nil {
+		return nil, fmt.Errorf("error preparing query PublishMultipartUploadTags: %w", err)
+	}
+	if q.putAccessLogDeliveryGrantStmt, err = db.PrepareContext(ctx, putAccessLogDeliveryGrant); err != nil {
+		return nil, fmt.Errorf("error preparing query PutAccessLogDeliveryGrant: %w", err)
+	}
+	if q.putAccessPointStmt, err = db.PrepareContext(ctx, putAccessPoint); err != nil {
+		return nil, fmt.Errorf("error preparing query PutAccessPoint: %w", err)
+	}
+	if q.putAccessPointPolicyPrincipalStmt, err = db.PrepareContext(ctx, putAccessPointPolicyPrincipal); err != nil {
+		return nil, fmt.Errorf("error preparing query PutAccessPointPolicyPrincipal: %w", err)
+	}
+	if q.putAccessPointTagStmt, err = db.PrepareContext(ctx, putAccessPointTag); err != nil {
+		return nil, fmt.Errorf("error preparing query PutAccessPointTag: %w", err)
+	}
+	if q.putAccountPublicAccessBlockStmt, err = db.PrepareContext(ctx, putAccountPublicAccessBlock); err != nil {
+		return nil, fmt.Errorf("error preparing query PutAccountPublicAccessBlock: %w", err)
+	}
+	if q.putBucketStmt, err = db.PrepareContext(ctx, putBucket); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucket: %w", err)
+	}
+	if q.putBucketACLGrantStmt, err = db.PrepareContext(ctx, putBucketACLGrant); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketACLGrant: %w", err)
+	}
+	if q.putBucketAnalyticsConfigurationStmt, err = db.PrepareContext(ctx, putBucketAnalyticsConfiguration); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketAnalyticsConfiguration: %w", err)
+	}
+	if q.putBucketAnalyticsTagStmt, err = db.PrepareContext(ctx, putBucketAnalyticsTag); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketAnalyticsTag: %w", err)
+	}
+	if q.putBucketCORSRuleStmt, err = db.PrepareContext(ctx, putBucketCORSRule); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketCORSRule: %w", err)
+	}
+	if q.putBucketCORSValueStmt, err = db.PrepareContext(ctx, putBucketCORSValue); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketCORSValue: %w", err)
+	}
+	if q.putBucketInventoryConfigurationStmt, err = db.PrepareContext(ctx, putBucketInventoryConfiguration); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketInventoryConfiguration: %w", err)
+	}
+	if q.putBucketInventoryOptionalFieldStmt, err = db.PrepareContext(ctx, putBucketInventoryOptionalField); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketInventoryOptionalField: %w", err)
+	}
+	if q.putBucketLifecycleStmt, err = db.PrepareContext(ctx, putBucketLifecycle); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketLifecycle: %w", err)
+	}
+	if q.putBucketLifecycleRuleStmt, err = db.PrepareContext(ctx, putBucketLifecycleRule); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketLifecycleRule: %w", err)
+	}
+	if q.putBucketLifecycleTagStmt, err = db.PrepareContext(ctx, putBucketLifecycleTag); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketLifecycleTag: %w", err)
+	}
+	if q.putBucketLifecycleTransitionStmt, err = db.PrepareContext(ctx, putBucketLifecycleTransition); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketLifecycleTransition: %w", err)
+	}
+	if q.putBucketLoggingStmt, err = db.PrepareContext(ctx, putBucketLogging); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketLogging: %w", err)
+	}
+	if q.putBucketLoggingGrantStmt, err = db.PrepareContext(ctx, putBucketLoggingGrant); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketLoggingGrant: %w", err)
+	}
+	if q.putBucketMetricsConfigurationStmt, err = db.PrepareContext(ctx, putBucketMetricsConfiguration); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketMetricsConfiguration: %w", err)
+	}
+	if q.putBucketMetricsTagStmt, err = db.PrepareContext(ctx, putBucketMetricsTag); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketMetricsTag: %w", err)
+	}
+	if q.putBucketPolicyPrincipalStmt, err = db.PrepareContext(ctx, putBucketPolicyPrincipal); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketPolicyPrincipal: %w", err)
+	}
+	if q.putBucketPublicAccessStmt, err = db.PrepareContext(ctx, putBucketPublicAccess); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketPublicAccess: %w", err)
+	}
+	if q.putBucketReplicationStmt, err = db.PrepareContext(ctx, putBucketReplication); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketReplication: %w", err)
+	}
+	if q.putBucketReplicationFilterTagStmt, err = db.PrepareContext(ctx, putBucketReplicationFilterTag); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketReplicationFilterTag: %w", err)
+	}
+	if q.putBucketReplicationRuleStmt, err = db.PrepareContext(ctx, putBucketReplicationRule); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketReplicationRule: %w", err)
+	}
+	if q.putBucketTagStmt, err = db.PrepareContext(ctx, putBucketTag); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketTag: %w", err)
+	}
+	if q.putBucketTieringConfigurationStmt, err = db.PrepareContext(ctx, putBucketTieringConfiguration); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketTieringConfiguration: %w", err)
+	}
+	if q.putBucketTieringRuleStmt, err = db.PrepareContext(ctx, putBucketTieringRule); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketTieringRule: %w", err)
+	}
+	if q.putBucketTieringTagStmt, err = db.PrepareContext(ctx, putBucketTieringTag); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketTieringTag: %w", err)
+	}
+	if q.putBucketWebsiteStmt, err = db.PrepareContext(ctx, putBucketWebsite); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketWebsite: %w", err)
+	}
+	if q.putBucketWebsiteRuleStmt, err = db.PrepareContext(ctx, putBucketWebsiteRule); err != nil {
+		return nil, fmt.Errorf("error preparing query PutBucketWebsiteRule: %w", err)
+	}
+	if q.putMultipartPartStmt, err = db.PrepareContext(ctx, putMultipartPart); err != nil {
+		return nil, fmt.Errorf("error preparing query PutMultipartPart: %w", err)
+	}
+	if q.putMultipartUploadStmt, err = db.PrepareContext(ctx, putMultipartUpload); err != nil {
+		return nil, fmt.Errorf("error preparing query PutMultipartUpload: %w", err)
+	}
+	if q.putMultipartUploadACLGrantStmt, err = db.PrepareContext(ctx, putMultipartUploadACLGrant); err != nil {
+		return nil, fmt.Errorf("error preparing query PutMultipartUploadACLGrant: %w", err)
+	}
+	if q.putMultipartUploadEncryptionContextStmt, err = db.PrepareContext(ctx, putMultipartUploadEncryptionContext); err != nil {
+		return nil, fmt.Errorf("error preparing query PutMultipartUploadEncryptionContext: %w", err)
+	}
+	if q.putMultipartUploadEncryptionMetadataStmt, err = db.PrepareContext(ctx, putMultipartUploadEncryptionMetadata); err != nil {
+		return nil, fmt.Errorf("error preparing query PutMultipartUploadEncryptionMetadata: %w", err)
+	}
+	if q.putMultipartUploadMetadataStmt, err = db.PrepareContext(ctx, putMultipartUploadMetadata); err != nil {
+		return nil, fmt.Errorf("error preparing query PutMultipartUploadMetadata: %w", err)
+	}
+	if q.putMultipartUploadTagStmt, err = db.PrepareContext(ctx, putMultipartUploadTag); err != nil {
+		return nil, fmt.Errorf("error preparing query PutMultipartUploadTag: %w", err)
+	}
+	if q.putNotificationDeliveryStmt, err = db.PrepareContext(ctx, putNotificationDelivery); err != nil {
+		return nil, fmt.Errorf("error preparing query PutNotificationDelivery: %w", err)
+	}
+	if q.putNotificationEventStmt, err = db.PrepareContext(ctx, putNotificationEvent); err != nil {
+		return nil, fmt.Errorf("error preparing query PutNotificationEvent: %w", err)
+	}
+	if q.putNotificationFilterStmt, err = db.PrepareContext(ctx, putNotificationFilter); err != nil {
+		return nil, fmt.Errorf("error preparing query PutNotificationFilter: %w", err)
+	}
+	if q.putNotificationRuleStmt, err = db.PrepareContext(ctx, putNotificationRule); err != nil {
+		return nil, fmt.Errorf("error preparing query PutNotificationRule: %w", err)
+	}
+	if q.putNotificationStateStmt, err = db.PrepareContext(ctx, putNotificationState); err != nil {
+		return nil, fmt.Errorf("error preparing query PutNotificationState: %w", err)
+	}
+	if q.putObjectRestoreStmt, err = db.PrepareContext(ctx, putObjectRestore); err != nil {
+		return nil, fmt.Errorf("error preparing query PutObjectRestore: %w", err)
+	}
+	if q.putObjectTagStmt, err = db.PrepareContext(ctx, putObjectTag); err != nil {
+		return nil, fmt.Errorf("error preparing query PutObjectTag: %w", err)
+	}
+	if q.putObjectVersionStmt, err = db.PrepareContext(ctx, putObjectVersion); err != nil {
+		return nil, fmt.Errorf("error preparing query PutObjectVersion: %w", err)
+	}
+	if q.putObjectVersionACLGrantStmt, err = db.PrepareContext(ctx, putObjectVersionACLGrant); err != nil {
+		return nil, fmt.Errorf("error preparing query PutObjectVersionACLGrant: %w", err)
+	}
+	if q.putObjectVersionDataStmt, err = db.PrepareContext(ctx, putObjectVersionData); err != nil {
+		return nil, fmt.Errorf("error preparing query PutObjectVersionData: %w", err)
+	}
+	if q.putObjectVersionEncryptionContextStmt, err = db.PrepareContext(ctx, putObjectVersionEncryptionContext); err != nil {
+		return nil, fmt.Errorf("error preparing query PutObjectVersionEncryptionContext: %w", err)
+	}
+	if q.putObjectVersionMetadataStmt, err = db.PrepareContext(ctx, putObjectVersionMetadata); err != nil {
+		return nil, fmt.Errorf("error preparing query PutObjectVersionMetadata: %w", err)
+	}
+	if q.putReplicationJobStmt, err = db.PrepareContext(ctx, putReplicationJob); err != nil {
+		return nil, fmt.Errorf("error preparing query PutReplicationJob: %w", err)
+	}
+	if q.putReplicationStateStmt, err = db.PrepareContext(ctx, putReplicationState); err != nil {
+		return nil, fmt.Errorf("error preparing query PutReplicationState: %w", err)
+	}
+	if q.putTieringScanStmt, err = db.PrepareContext(ctx, putTieringScan); err != nil {
+		return nil, fmt.Errorf("error preparing query PutTieringScan: %w", err)
+	}
+	if q.replaceObjectVersionACLOwnerStmt, err = db.PrepareContext(ctx, replaceObjectVersionACLOwner); err != nil {
+		return nil, fmt.Errorf("error preparing query ReplaceObjectVersionACLOwner: %w", err)
+	}
+	if q.replaceObjectVersionEncryptionStmt, err = db.PrepareContext(ctx, replaceObjectVersionEncryption); err != nil {
+		return nil, fmt.Errorf("error preparing query ReplaceObjectVersionEncryption: %w", err)
+	}
+	if q.replaceObjectVersionEncryptionKeyStmt, err = db.PrepareContext(ctx, replaceObjectVersionEncryptionKey); err != nil {
+		return nil, fmt.Errorf("error preparing query ReplaceObjectVersionEncryptionKey: %w", err)
+	}
+	if q.replaceObjectVersionLegalHoldStmt, err = db.PrepareContext(ctx, replaceObjectVersionLegalHold); err != nil {
+		return nil, fmt.Errorf("error preparing query ReplaceObjectVersionLegalHold: %w", err)
+	}
+	if q.replaceObjectVersionRetentionStmt, err = db.PrepareContext(ctx, replaceObjectVersionRetention); err != nil {
+		return nil, fmt.Errorf("error preparing query ReplaceObjectVersionRetention: %w", err)
+	}
+	if q.replicationJobsForVersionStmt, err = db.PrepareContext(ctx, replicationJobsForVersion); err != nil {
+		return nil, fmt.Errorf("error preparing query ReplicationJobsForVersion: %w", err)
+	}
+	if q.sampleReplicationMetricPublicationStmt, err = db.PrepareContext(ctx, sampleReplicationMetricPublication); err != nil {
+		return nil, fmt.Errorf("error preparing query SampleReplicationMetricPublication: %w", err)
+	}
+	if q.setObjectTieringStmt, err = db.PrepareContext(ctx, setObjectTiering); err != nil {
+		return nil, fmt.Errorf("error preparing query SetObjectTiering: %w", err)
+	}
+	if q.stopReplicationMetricSchedulesStmt, err = db.PrepareContext(ctx, stopReplicationMetricSchedules); err != nil {
+		return nil, fmt.Errorf("error preparing query StopReplicationMetricSchedules: %w", err)
+	}
+	if q.supersedeDeletedMultipartUploadsStmt, err = db.PrepareContext(ctx, supersedeDeletedMultipartUploads); err != nil {
+		return nil, fmt.Errorf("error preparing query SupersedeDeletedMultipartUploads: %w", err)
+	}
+	if q.supersedeOlderMultipartUploadsStmt, err = db.PrepareContext(ctx, supersedeOlderMultipartUploads); err != nil {
+		return nil, fmt.Errorf("error preparing query SupersedeOlderMultipartUploads: %w", err)
+	}
+	if q.transitionObjectStmt, err = db.PrepareContext(ctx, transitionObject); err != nil {
+		return nil, fmt.Errorf("error preparing query TransitionObject: %w", err)
+	}
+	if q.updateAccessLogDeliveryDueStmt, err = db.PrepareContext(ctx, updateAccessLogDeliveryDue); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateAccessLogDeliveryDue: %w", err)
+	}
+	return &q, nil
+}
+
+func (q *Queries) Close() error {
+	var err error
+	if q.activateReplicationMetricScheduleStmt != nil {
+		if cerr := q.activateReplicationMetricScheduleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing activateReplicationMetricScheduleStmt: %w", cerr)
+		}
+	}
+	if q.addReplicationMetricOutcomeStmt != nil {
+		if cerr := q.addReplicationMetricOutcomeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing addReplicationMetricOutcomeStmt: %w", cerr)
+		}
+	}
+	if q.advanceInventoryReportStmt != nil {
+		if cerr := q.advanceInventoryReportStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing advanceInventoryReportStmt: %w", cerr)
+		}
+	}
+	if q.advanceLifecycleScanStmt != nil {
+		if cerr := q.advanceLifecycleScanStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing advanceLifecycleScanStmt: %w", cerr)
+		}
+	}
+	if q.bucketHasEnabledTieringStmt != nil {
+		if cerr := q.bucketHasEnabledTieringStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing bucketHasEnabledTieringStmt: %w", cerr)
+		}
+	}
+	if q.copyReplicaDataStmt != nil {
+		if cerr := q.copyReplicaDataStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing copyReplicaDataStmt: %w", cerr)
+		}
+	}
+	if q.copyReplicaPartsStmt != nil {
+		if cerr := q.copyReplicaPartsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing copyReplicaPartsStmt: %w", cerr)
+		}
+	}
+	if q.countAccessPointsStmt != nil {
+		if cerr := q.countAccessPointsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing countAccessPointsStmt: %w", cerr)
+		}
+	}
+	if q.countBucketAnalyticsConfigurationsStmt != nil {
+		if cerr := q.countBucketAnalyticsConfigurationsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing countBucketAnalyticsConfigurationsStmt: %w", cerr)
+		}
+	}
+	if q.countBucketInventoryConfigurationsStmt != nil {
+		if cerr := q.countBucketInventoryConfigurationsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing countBucketInventoryConfigurationsStmt: %w", cerr)
+		}
+	}
+	if q.countBucketMetricsConfigurationsStmt != nil {
+		if cerr := q.countBucketMetricsConfigurationsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing countBucketMetricsConfigurationsStmt: %w", cerr)
+		}
+	}
+	if q.countBucketTieringConfigurationsStmt != nil {
+		if cerr := q.countBucketTieringConfigurationsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing countBucketTieringConfigurationsStmt: %w", cerr)
+		}
+	}
+	if q.deleteAccessLogDeliveryStmt != nil {
+		if cerr := q.deleteAccessLogDeliveryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteAccessLogDeliveryStmt: %w", cerr)
+		}
+	}
+	if q.deleteAccessPointStmt != nil {
+		if cerr := q.deleteAccessPointStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteAccessPointStmt: %w", cerr)
+		}
+	}
+	if q.deleteAccessPointPolicyPrincipalsStmt != nil {
+		if cerr := q.deleteAccessPointPolicyPrincipalsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteAccessPointPolicyPrincipalsStmt: %w", cerr)
+		}
+	}
+	if q.deleteAccessPointTagsStmt != nil {
+		if cerr := q.deleteAccessPointTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteAccessPointTagsStmt: %w", cerr)
+		}
+	}
+	if q.deleteAccountPublicAccessBlockStmt != nil {
+		if cerr := q.deleteAccountPublicAccessBlockStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteAccountPublicAccessBlockStmt: %w", cerr)
+		}
+	}
+	if q.deleteBucketStmt != nil {
+		if cerr := q.deleteBucketStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteBucketStmt: %w", cerr)
+		}
+	}
+	if q.deleteBucketACLGrantsStmt != nil {
+		if cerr := q.deleteBucketACLGrantsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteBucketACLGrantsStmt: %w", cerr)
+		}
+	}
+	if q.deleteBucketAnalyticsConfigurationStmt != nil {
+		if cerr := q.deleteBucketAnalyticsConfigurationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteBucketAnalyticsConfigurationStmt: %w", cerr)
+		}
+	}
+	if q.deleteBucketCORSStmt != nil {
+		if cerr := q.deleteBucketCORSStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteBucketCORSStmt: %w", cerr)
+		}
+	}
+	if q.deleteBucketInventoryConfigurationStmt != nil {
+		if cerr := q.deleteBucketInventoryConfigurationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteBucketInventoryConfigurationStmt: %w", cerr)
+		}
+	}
+	if q.deleteBucketLifecycleStmt != nil {
+		if cerr := q.deleteBucketLifecycleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteBucketLifecycleStmt: %w", cerr)
+		}
+	}
+	if q.deleteBucketLoggingStmt != nil {
+		if cerr := q.deleteBucketLoggingStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteBucketLoggingStmt: %w", cerr)
+		}
+	}
+	if q.deleteBucketMetricsConfigurationStmt != nil {
+		if cerr := q.deleteBucketMetricsConfigurationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteBucketMetricsConfigurationStmt: %w", cerr)
+		}
+	}
+	if q.deleteBucketPolicyPrincipalsStmt != nil {
+		if cerr := q.deleteBucketPolicyPrincipalsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteBucketPolicyPrincipalsStmt: %w", cerr)
+		}
+	}
+	if q.deleteBucketPublicAccessStmt != nil {
+		if cerr := q.deleteBucketPublicAccessStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteBucketPublicAccessStmt: %w", cerr)
+		}
+	}
+	if q.deleteBucketReplicationStmt != nil {
+		if cerr := q.deleteBucketReplicationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteBucketReplicationStmt: %w", cerr)
+		}
+	}
+	if q.deleteBucketTagsStmt != nil {
+		if cerr := q.deleteBucketTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteBucketTagsStmt: %w", cerr)
+		}
+	}
+	if q.deleteBucketTieringConfigurationStmt != nil {
+		if cerr := q.deleteBucketTieringConfigurationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteBucketTieringConfigurationStmt: %w", cerr)
+		}
+	}
+	if q.deleteBucketWebsiteStmt != nil {
+		if cerr := q.deleteBucketWebsiteStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteBucketWebsiteStmt: %w", cerr)
+		}
+	}
+	if q.deleteInactiveReplicationMetricSchedulesStmt != nil {
+		if cerr := q.deleteInactiveReplicationMetricSchedulesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteInactiveReplicationMetricSchedulesStmt: %w", cerr)
+		}
+	}
+	if q.deleteMultipartUploadStmt != nil {
+		if cerr := q.deleteMultipartUploadStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteMultipartUploadStmt: %w", cerr)
+		}
+	}
+	if q.deleteNotificationDeliveryStmt != nil {
+		if cerr := q.deleteNotificationDeliveryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteNotificationDeliveryStmt: %w", cerr)
+		}
+	}
+	if q.deleteNotificationRulesStmt != nil {
+		if cerr := q.deleteNotificationRulesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteNotificationRulesStmt: %w", cerr)
+		}
+	}
+	if q.deleteObjectRestoreStmt != nil {
+		if cerr := q.deleteObjectRestoreStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteObjectRestoreStmt: %w", cerr)
+		}
+	}
+	if q.deleteObjectTagsStmt != nil {
+		if cerr := q.deleteObjectTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteObjectTagsStmt: %w", cerr)
+		}
+	}
+	if q.deleteObjectVersionStmt != nil {
+		if cerr := q.deleteObjectVersionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteObjectVersionStmt: %w", cerr)
+		}
+	}
+	if q.deleteObjectVersionACLGrantsStmt != nil {
+		if cerr := q.deleteObjectVersionACLGrantsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteObjectVersionACLGrantsStmt: %w", cerr)
+		}
+	}
+	if q.deleteObjectVersionEncryptionContextStmt != nil {
+		if cerr := q.deleteObjectVersionEncryptionContextStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteObjectVersionEncryptionContextStmt: %w", cerr)
+		}
+	}
+	if q.deleteReplicationJobStmt != nil {
+		if cerr := q.deleteReplicationJobStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteReplicationJobStmt: %w", cerr)
+		}
+	}
+	if q.deleteReplicationMetricPublicationStmt != nil {
+		if cerr := q.deleteReplicationMetricPublicationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteReplicationMetricPublicationStmt: %w", cerr)
+		}
+	}
+	if q.deleteTieringScanStmt != nil {
+		if cerr := q.deleteTieringScanStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteTieringScanStmt: %w", cerr)
+		}
+	}
+	if q.getAccessLogDeliveryStmt != nil {
+		if cerr := q.getAccessLogDeliveryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAccessLogDeliveryStmt: %w", cerr)
+		}
+	}
+	if q.getAccessLogDeliveryGrantsStmt != nil {
+		if cerr := q.getAccessLogDeliveryGrantsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAccessLogDeliveryGrantsStmt: %w", cerr)
+		}
+	}
+	if q.getAccessPointStmt != nil {
+		if cerr := q.getAccessPointStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAccessPointStmt: %w", cerr)
+		}
+	}
+	if q.getAccessPointAliasStmt != nil {
+		if cerr := q.getAccessPointAliasStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAccessPointAliasStmt: %w", cerr)
+		}
+	}
+	if q.getAccessPointPolicyPrincipalsStmt != nil {
+		if cerr := q.getAccessPointPolicyPrincipalsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAccessPointPolicyPrincipalsStmt: %w", cerr)
+		}
+	}
+	if q.getAccessPointTagsStmt != nil {
+		if cerr := q.getAccessPointTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAccessPointTagsStmt: %w", cerr)
+		}
+	}
+	if q.getAccountPublicAccessBlockStmt != nil {
+		if cerr := q.getAccountPublicAccessBlockStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAccountPublicAccessBlockStmt: %w", cerr)
+		}
+	}
+	if q.getBucketStmt != nil {
+		if cerr := q.getBucketStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketStmt: %w", cerr)
+		}
+	}
+	if q.getBucketACLGrantsStmt != nil {
+		if cerr := q.getBucketACLGrantsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketACLGrantsStmt: %w", cerr)
+		}
+	}
+	if q.getBucketAnalyticsConfigurationStmt != nil {
+		if cerr := q.getBucketAnalyticsConfigurationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketAnalyticsConfigurationStmt: %w", cerr)
+		}
+	}
+	if q.getBucketAnalyticsTagsStmt != nil {
+		if cerr := q.getBucketAnalyticsTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketAnalyticsTagsStmt: %w", cerr)
+		}
+	}
+	if q.getBucketCORSRulesStmt != nil {
+		if cerr := q.getBucketCORSRulesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketCORSRulesStmt: %w", cerr)
+		}
+	}
+	if q.getBucketCORSValuesStmt != nil {
+		if cerr := q.getBucketCORSValuesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketCORSValuesStmt: %w", cerr)
+		}
+	}
+	if q.getBucketInventoryConfigurationStmt != nil {
+		if cerr := q.getBucketInventoryConfigurationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketInventoryConfigurationStmt: %w", cerr)
+		}
+	}
+	if q.getBucketInventoryOptionalFieldsStmt != nil {
+		if cerr := q.getBucketInventoryOptionalFieldsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketInventoryOptionalFieldsStmt: %w", cerr)
+		}
+	}
+	if q.getBucketLifecycleStmt != nil {
+		if cerr := q.getBucketLifecycleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketLifecycleStmt: %w", cerr)
+		}
+	}
+	if q.getBucketLifecycleRulesStmt != nil {
+		if cerr := q.getBucketLifecycleRulesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketLifecycleRulesStmt: %w", cerr)
+		}
+	}
+	if q.getBucketLifecycleTagsStmt != nil {
+		if cerr := q.getBucketLifecycleTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketLifecycleTagsStmt: %w", cerr)
+		}
+	}
+	if q.getBucketLifecycleTransitionsStmt != nil {
+		if cerr := q.getBucketLifecycleTransitionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketLifecycleTransitionsStmt: %w", cerr)
+		}
+	}
+	if q.getBucketLoggingStmt != nil {
+		if cerr := q.getBucketLoggingStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketLoggingStmt: %w", cerr)
+		}
+	}
+	if q.getBucketLoggingGrantsStmt != nil {
+		if cerr := q.getBucketLoggingGrantsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketLoggingGrantsStmt: %w", cerr)
+		}
+	}
+	if q.getBucketMetricsConfigurationStmt != nil {
+		if cerr := q.getBucketMetricsConfigurationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketMetricsConfigurationStmt: %w", cerr)
+		}
+	}
+	if q.getBucketMetricsTagsStmt != nil {
+		if cerr := q.getBucketMetricsTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketMetricsTagsStmt: %w", cerr)
+		}
+	}
+	if q.getBucketPolicyPrincipalsStmt != nil {
+		if cerr := q.getBucketPolicyPrincipalsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketPolicyPrincipalsStmt: %w", cerr)
+		}
+	}
+	if q.getBucketPublicAccessStmt != nil {
+		if cerr := q.getBucketPublicAccessStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketPublicAccessStmt: %w", cerr)
+		}
+	}
+	if q.getBucketReplicationStmt != nil {
+		if cerr := q.getBucketReplicationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketReplicationStmt: %w", cerr)
+		}
+	}
+	if q.getBucketReplicationFilterTagsStmt != nil {
+		if cerr := q.getBucketReplicationFilterTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketReplicationFilterTagsStmt: %w", cerr)
+		}
+	}
+	if q.getBucketReplicationRulesStmt != nil {
+		if cerr := q.getBucketReplicationRulesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketReplicationRulesStmt: %w", cerr)
+		}
+	}
+	if q.getBucketTagsStmt != nil {
+		if cerr := q.getBucketTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketTagsStmt: %w", cerr)
+		}
+	}
+	if q.getBucketTieringConfigurationStmt != nil {
+		if cerr := q.getBucketTieringConfigurationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketTieringConfigurationStmt: %w", cerr)
+		}
+	}
+	if q.getBucketTieringRulesStmt != nil {
+		if cerr := q.getBucketTieringRulesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketTieringRulesStmt: %w", cerr)
+		}
+	}
+	if q.getBucketTieringTagsStmt != nil {
+		if cerr := q.getBucketTieringTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketTieringTagsStmt: %w", cerr)
+		}
+	}
+	if q.getBucketWebsiteStmt != nil {
+		if cerr := q.getBucketWebsiteStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketWebsiteStmt: %w", cerr)
+		}
+	}
+	if q.getBucketWebsiteRulesStmt != nil {
+		if cerr := q.getBucketWebsiteRulesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBucketWebsiteRulesStmt: %w", cerr)
+		}
+	}
+	if q.getCompletedMultipartUploadStmt != nil {
+		if cerr := q.getCompletedMultipartUploadStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCompletedMultipartUploadStmt: %w", cerr)
+		}
+	}
+	if q.getMultipartObjectDataStmt != nil {
+		if cerr := q.getMultipartObjectDataStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getMultipartObjectDataStmt: %w", cerr)
+		}
+	}
+	if q.getMultipartUploadStmt != nil {
+		if cerr := q.getMultipartUploadStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getMultipartUploadStmt: %w", cerr)
+		}
+	}
+	if q.getMultipartUploadACLGrantsStmt != nil {
+		if cerr := q.getMultipartUploadACLGrantsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getMultipartUploadACLGrantsStmt: %w", cerr)
+		}
+	}
+	if q.getMultipartUploadEncryptionContextStmt != nil {
+		if cerr := q.getMultipartUploadEncryptionContextStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getMultipartUploadEncryptionContextStmt: %w", cerr)
+		}
+	}
+	if q.getMultipartUploadEncryptionMetadataStmt != nil {
+		if cerr := q.getMultipartUploadEncryptionMetadataStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getMultipartUploadEncryptionMetadataStmt: %w", cerr)
+		}
+	}
+	if q.getMultipartUploadMetadataStmt != nil {
+		if cerr := q.getMultipartUploadMetadataStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getMultipartUploadMetadataStmt: %w", cerr)
+		}
+	}
+	if q.getMultipartUploadTagsStmt != nil {
+		if cerr := q.getMultipartUploadTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getMultipartUploadTagsStmt: %w", cerr)
+		}
+	}
+	if q.getNotificationDeliveryStmt != nil {
+		if cerr := q.getNotificationDeliveryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getNotificationDeliveryStmt: %w", cerr)
+		}
+	}
+	if q.getNotificationStateStmt != nil {
+		if cerr := q.getNotificationStateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getNotificationStateStmt: %w", cerr)
+		}
+	}
+	if q.getObjectStmt != nil {
+		if cerr := q.getObjectStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getObjectStmt: %w", cerr)
+		}
+	}
+	if q.getObjectRestoreStmt != nil {
+		if cerr := q.getObjectRestoreStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getObjectRestoreStmt: %w", cerr)
+		}
+	}
+	if q.getObjectTagsStmt != nil {
+		if cerr := q.getObjectTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getObjectTagsStmt: %w", cerr)
+		}
+	}
+	if q.getObjectVersionStmt != nil {
+		if cerr := q.getObjectVersionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getObjectVersionStmt: %w", cerr)
+		}
+	}
+	if q.getObjectVersionACLGrantsStmt != nil {
+		if cerr := q.getObjectVersionACLGrantsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getObjectVersionACLGrantsStmt: %w", cerr)
+		}
+	}
+	if q.getObjectVersionDataStmt != nil {
+		if cerr := q.getObjectVersionDataStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getObjectVersionDataStmt: %w", cerr)
+		}
+	}
+	if q.getObjectVersionEncryptionContextStmt != nil {
+		if cerr := q.getObjectVersionEncryptionContextStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getObjectVersionEncryptionContextStmt: %w", cerr)
+		}
+	}
+	if q.getObjectVersionEncryptionMetadataStmt != nil {
+		if cerr := q.getObjectVersionEncryptionMetadataStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getObjectVersionEncryptionMetadataStmt: %w", cerr)
+		}
+	}
+	if q.getObjectVersionMetadataStmt != nil {
+		if cerr := q.getObjectVersionMetadataStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getObjectVersionMetadataStmt: %w", cerr)
+		}
+	}
+	if q.getOldestReplicationPendingStmt != nil {
+		if cerr := q.getOldestReplicationPendingStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getOldestReplicationPendingStmt: %w", cerr)
+		}
+	}
+	if q.getReplicationJobStmt != nil {
+		if cerr := q.getReplicationJobStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getReplicationJobStmt: %w", cerr)
+		}
+	}
+	if q.getReplicationMetricPublicationStmt != nil {
+		if cerr := q.getReplicationMetricPublicationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getReplicationMetricPublicationStmt: %w", cerr)
+		}
+	}
+	if q.getReplicationPendingCountsStmt != nil {
+		if cerr := q.getReplicationPendingCountsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getReplicationPendingCountsStmt: %w", cerr)
+		}
+	}
+	if q.getReplicationStatesStmt != nil {
+		if cerr := q.getReplicationStatesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getReplicationStatesStmt: %w", cerr)
+		}
+	}
+	if q.insertAccessLogDeliveryStmt != nil {
+		if cerr := q.insertAccessLogDeliveryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertAccessLogDeliveryStmt: %w", cerr)
+		}
+	}
+	if q.listAccessPointsStmt != nil {
+		if cerr := q.listAccessPointsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listAccessPointsStmt: %w", cerr)
+		}
+	}
+	if q.listBucketAnalyticsConfigurationsStmt != nil {
+		if cerr := q.listBucketAnalyticsConfigurationsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listBucketAnalyticsConfigurationsStmt: %w", cerr)
+		}
+	}
+	if q.listBucketInventoryConfigurationsStmt != nil {
+		if cerr := q.listBucketInventoryConfigurationsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listBucketInventoryConfigurationsStmt: %w", cerr)
+		}
+	}
+	if q.listBucketMetricsConfigurationsStmt != nil {
+		if cerr := q.listBucketMetricsConfigurationsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listBucketMetricsConfigurationsStmt: %w", cerr)
+		}
+	}
+	if q.listBucketTieringConfigurationsStmt != nil {
+		if cerr := q.listBucketTieringConfigurationsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listBucketTieringConfigurationsStmt: %w", cerr)
+		}
+	}
+	if q.listBucketsStmt != nil {
+		if cerr := q.listBucketsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listBucketsStmt: %w", cerr)
+		}
+	}
+	if q.listMultipartPartsStmt != nil {
+		if cerr := q.listMultipartPartsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listMultipartPartsStmt: %w", cerr)
+		}
+	}
+	if q.listMultipartUploadsStmt != nil {
+		if cerr := q.listMultipartUploadsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listMultipartUploadsStmt: %w", cerr)
+		}
+	}
+	if q.listNotificationEventsStmt != nil {
+		if cerr := q.listNotificationEventsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listNotificationEventsStmt: %w", cerr)
+		}
+	}
+	if q.listNotificationFiltersStmt != nil {
+		if cerr := q.listNotificationFiltersStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listNotificationFiltersStmt: %w", cerr)
+		}
+	}
+	if q.listNotificationRulesStmt != nil {
+		if cerr := q.listNotificationRulesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listNotificationRulesStmt: %w", cerr)
+		}
+	}
+	if q.listObjectPartsStmt != nil {
+		if cerr := q.listObjectPartsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listObjectPartsStmt: %w", cerr)
+		}
+	}
+	if q.listObjectVersionsStmt != nil {
+		if cerr := q.listObjectVersionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listObjectVersionsStmt: %w", cerr)
+		}
+	}
+	if q.listObjectsStmt != nil {
+		if cerr := q.listObjectsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listObjectsStmt: %w", cerr)
+		}
+	}
+	if q.nextAccessLogDeliveryStmt != nil {
+		if cerr := q.nextAccessLogDeliveryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing nextAccessLogDeliveryStmt: %w", cerr)
+		}
+	}
+	if q.nextInventoryConfigurationStmt != nil {
+		if cerr := q.nextInventoryConfigurationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing nextInventoryConfigurationStmt: %w", cerr)
+		}
+	}
+	if q.nextLifecycleScanStmt != nil {
+		if cerr := q.nextLifecycleScanStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing nextLifecycleScanStmt: %w", cerr)
+		}
+	}
+	if q.nextNotificationChangeStmt != nil {
+		if cerr := q.nextNotificationChangeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing nextNotificationChangeStmt: %w", cerr)
+		}
+	}
+	if q.nextNotificationDeliveryStmt != nil {
+		if cerr := q.nextNotificationDeliveryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing nextNotificationDeliveryStmt: %w", cerr)
+		}
+	}
+	if q.nextObjectRestoreStmt != nil {
+		if cerr := q.nextObjectRestoreStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing nextObjectRestoreStmt: %w", cerr)
+		}
+	}
+	if q.nextObjectSequenceStmt != nil {
+		if cerr := q.nextObjectSequenceStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing nextObjectSequenceStmt: %w", cerr)
+		}
+	}
+	if q.nextReplicationAttemptStmt != nil {
+		if cerr := q.nextReplicationAttemptStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing nextReplicationAttemptStmt: %w", cerr)
+		}
+	}
+	if q.nextReplicationMetricPublicationStmt != nil {
+		if cerr := q.nextReplicationMetricPublicationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing nextReplicationMetricPublicationStmt: %w", cerr)
+		}
+	}
+	if q.nextReplicationThresholdStmt != nil {
+		if cerr := q.nextReplicationThresholdStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing nextReplicationThresholdStmt: %w", cerr)
+		}
+	}
+	if q.nextTieringScanStmt != nil {
+		if cerr := q.nextTieringScanStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing nextTieringScanStmt: %w", cerr)
+		}
+	}
+	if q.publishMultipartPartStmt != nil {
+		if cerr := q.publishMultipartPartStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing publishMultipartPartStmt: %w", cerr)
+		}
+	}
+	if q.publishMultipartUploadTagsStmt != nil {
+		if cerr := q.publishMultipartUploadTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing publishMultipartUploadTagsStmt: %w", cerr)
+		}
+	}
+	if q.putAccessLogDeliveryGrantStmt != nil {
+		if cerr := q.putAccessLogDeliveryGrantStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putAccessLogDeliveryGrantStmt: %w", cerr)
+		}
+	}
+	if q.putAccessPointStmt != nil {
+		if cerr := q.putAccessPointStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putAccessPointStmt: %w", cerr)
+		}
+	}
+	if q.putAccessPointPolicyPrincipalStmt != nil {
+		if cerr := q.putAccessPointPolicyPrincipalStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putAccessPointPolicyPrincipalStmt: %w", cerr)
+		}
+	}
+	if q.putAccessPointTagStmt != nil {
+		if cerr := q.putAccessPointTagStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putAccessPointTagStmt: %w", cerr)
+		}
+	}
+	if q.putAccountPublicAccessBlockStmt != nil {
+		if cerr := q.putAccountPublicAccessBlockStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putAccountPublicAccessBlockStmt: %w", cerr)
+		}
+	}
+	if q.putBucketStmt != nil {
+		if cerr := q.putBucketStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketStmt: %w", cerr)
+		}
+	}
+	if q.putBucketACLGrantStmt != nil {
+		if cerr := q.putBucketACLGrantStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketACLGrantStmt: %w", cerr)
+		}
+	}
+	if q.putBucketAnalyticsConfigurationStmt != nil {
+		if cerr := q.putBucketAnalyticsConfigurationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketAnalyticsConfigurationStmt: %w", cerr)
+		}
+	}
+	if q.putBucketAnalyticsTagStmt != nil {
+		if cerr := q.putBucketAnalyticsTagStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketAnalyticsTagStmt: %w", cerr)
+		}
+	}
+	if q.putBucketCORSRuleStmt != nil {
+		if cerr := q.putBucketCORSRuleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketCORSRuleStmt: %w", cerr)
+		}
+	}
+	if q.putBucketCORSValueStmt != nil {
+		if cerr := q.putBucketCORSValueStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketCORSValueStmt: %w", cerr)
+		}
+	}
+	if q.putBucketInventoryConfigurationStmt != nil {
+		if cerr := q.putBucketInventoryConfigurationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketInventoryConfigurationStmt: %w", cerr)
+		}
+	}
+	if q.putBucketInventoryOptionalFieldStmt != nil {
+		if cerr := q.putBucketInventoryOptionalFieldStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketInventoryOptionalFieldStmt: %w", cerr)
+		}
+	}
+	if q.putBucketLifecycleStmt != nil {
+		if cerr := q.putBucketLifecycleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketLifecycleStmt: %w", cerr)
+		}
+	}
+	if q.putBucketLifecycleRuleStmt != nil {
+		if cerr := q.putBucketLifecycleRuleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketLifecycleRuleStmt: %w", cerr)
+		}
+	}
+	if q.putBucketLifecycleTagStmt != nil {
+		if cerr := q.putBucketLifecycleTagStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketLifecycleTagStmt: %w", cerr)
+		}
+	}
+	if q.putBucketLifecycleTransitionStmt != nil {
+		if cerr := q.putBucketLifecycleTransitionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketLifecycleTransitionStmt: %w", cerr)
+		}
+	}
+	if q.putBucketLoggingStmt != nil {
+		if cerr := q.putBucketLoggingStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketLoggingStmt: %w", cerr)
+		}
+	}
+	if q.putBucketLoggingGrantStmt != nil {
+		if cerr := q.putBucketLoggingGrantStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketLoggingGrantStmt: %w", cerr)
+		}
+	}
+	if q.putBucketMetricsConfigurationStmt != nil {
+		if cerr := q.putBucketMetricsConfigurationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketMetricsConfigurationStmt: %w", cerr)
+		}
+	}
+	if q.putBucketMetricsTagStmt != nil {
+		if cerr := q.putBucketMetricsTagStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketMetricsTagStmt: %w", cerr)
+		}
+	}
+	if q.putBucketPolicyPrincipalStmt != nil {
+		if cerr := q.putBucketPolicyPrincipalStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketPolicyPrincipalStmt: %w", cerr)
+		}
+	}
+	if q.putBucketPublicAccessStmt != nil {
+		if cerr := q.putBucketPublicAccessStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketPublicAccessStmt: %w", cerr)
+		}
+	}
+	if q.putBucketReplicationStmt != nil {
+		if cerr := q.putBucketReplicationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketReplicationStmt: %w", cerr)
+		}
+	}
+	if q.putBucketReplicationFilterTagStmt != nil {
+		if cerr := q.putBucketReplicationFilterTagStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketReplicationFilterTagStmt: %w", cerr)
+		}
+	}
+	if q.putBucketReplicationRuleStmt != nil {
+		if cerr := q.putBucketReplicationRuleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketReplicationRuleStmt: %w", cerr)
+		}
+	}
+	if q.putBucketTagStmt != nil {
+		if cerr := q.putBucketTagStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketTagStmt: %w", cerr)
+		}
+	}
+	if q.putBucketTieringConfigurationStmt != nil {
+		if cerr := q.putBucketTieringConfigurationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketTieringConfigurationStmt: %w", cerr)
+		}
+	}
+	if q.putBucketTieringRuleStmt != nil {
+		if cerr := q.putBucketTieringRuleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketTieringRuleStmt: %w", cerr)
+		}
+	}
+	if q.putBucketTieringTagStmt != nil {
+		if cerr := q.putBucketTieringTagStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketTieringTagStmt: %w", cerr)
+		}
+	}
+	if q.putBucketWebsiteStmt != nil {
+		if cerr := q.putBucketWebsiteStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketWebsiteStmt: %w", cerr)
+		}
+	}
+	if q.putBucketWebsiteRuleStmt != nil {
+		if cerr := q.putBucketWebsiteRuleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putBucketWebsiteRuleStmt: %w", cerr)
+		}
+	}
+	if q.putMultipartPartStmt != nil {
+		if cerr := q.putMultipartPartStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putMultipartPartStmt: %w", cerr)
+		}
+	}
+	if q.putMultipartUploadStmt != nil {
+		if cerr := q.putMultipartUploadStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putMultipartUploadStmt: %w", cerr)
+		}
+	}
+	if q.putMultipartUploadACLGrantStmt != nil {
+		if cerr := q.putMultipartUploadACLGrantStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putMultipartUploadACLGrantStmt: %w", cerr)
+		}
+	}
+	if q.putMultipartUploadEncryptionContextStmt != nil {
+		if cerr := q.putMultipartUploadEncryptionContextStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putMultipartUploadEncryptionContextStmt: %w", cerr)
+		}
+	}
+	if q.putMultipartUploadEncryptionMetadataStmt != nil {
+		if cerr := q.putMultipartUploadEncryptionMetadataStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putMultipartUploadEncryptionMetadataStmt: %w", cerr)
+		}
+	}
+	if q.putMultipartUploadMetadataStmt != nil {
+		if cerr := q.putMultipartUploadMetadataStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putMultipartUploadMetadataStmt: %w", cerr)
+		}
+	}
+	if q.putMultipartUploadTagStmt != nil {
+		if cerr := q.putMultipartUploadTagStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putMultipartUploadTagStmt: %w", cerr)
+		}
+	}
+	if q.putNotificationDeliveryStmt != nil {
+		if cerr := q.putNotificationDeliveryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putNotificationDeliveryStmt: %w", cerr)
+		}
+	}
+	if q.putNotificationEventStmt != nil {
+		if cerr := q.putNotificationEventStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putNotificationEventStmt: %w", cerr)
+		}
+	}
+	if q.putNotificationFilterStmt != nil {
+		if cerr := q.putNotificationFilterStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putNotificationFilterStmt: %w", cerr)
+		}
+	}
+	if q.putNotificationRuleStmt != nil {
+		if cerr := q.putNotificationRuleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putNotificationRuleStmt: %w", cerr)
+		}
+	}
+	if q.putNotificationStateStmt != nil {
+		if cerr := q.putNotificationStateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putNotificationStateStmt: %w", cerr)
+		}
+	}
+	if q.putObjectRestoreStmt != nil {
+		if cerr := q.putObjectRestoreStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putObjectRestoreStmt: %w", cerr)
+		}
+	}
+	if q.putObjectTagStmt != nil {
+		if cerr := q.putObjectTagStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putObjectTagStmt: %w", cerr)
+		}
+	}
+	if q.putObjectVersionStmt != nil {
+		if cerr := q.putObjectVersionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putObjectVersionStmt: %w", cerr)
+		}
+	}
+	if q.putObjectVersionACLGrantStmt != nil {
+		if cerr := q.putObjectVersionACLGrantStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putObjectVersionACLGrantStmt: %w", cerr)
+		}
+	}
+	if q.putObjectVersionDataStmt != nil {
+		if cerr := q.putObjectVersionDataStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putObjectVersionDataStmt: %w", cerr)
+		}
+	}
+	if q.putObjectVersionEncryptionContextStmt != nil {
+		if cerr := q.putObjectVersionEncryptionContextStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putObjectVersionEncryptionContextStmt: %w", cerr)
+		}
+	}
+	if q.putObjectVersionMetadataStmt != nil {
+		if cerr := q.putObjectVersionMetadataStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putObjectVersionMetadataStmt: %w", cerr)
+		}
+	}
+	if q.putReplicationJobStmt != nil {
+		if cerr := q.putReplicationJobStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putReplicationJobStmt: %w", cerr)
+		}
+	}
+	if q.putReplicationStateStmt != nil {
+		if cerr := q.putReplicationStateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putReplicationStateStmt: %w", cerr)
+		}
+	}
+	if q.putTieringScanStmt != nil {
+		if cerr := q.putTieringScanStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing putTieringScanStmt: %w", cerr)
+		}
+	}
+	if q.replaceObjectVersionACLOwnerStmt != nil {
+		if cerr := q.replaceObjectVersionACLOwnerStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing replaceObjectVersionACLOwnerStmt: %w", cerr)
+		}
+	}
+	if q.replaceObjectVersionEncryptionStmt != nil {
+		if cerr := q.replaceObjectVersionEncryptionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing replaceObjectVersionEncryptionStmt: %w", cerr)
+		}
+	}
+	if q.replaceObjectVersionEncryptionKeyStmt != nil {
+		if cerr := q.replaceObjectVersionEncryptionKeyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing replaceObjectVersionEncryptionKeyStmt: %w", cerr)
+		}
+	}
+	if q.replaceObjectVersionLegalHoldStmt != nil {
+		if cerr := q.replaceObjectVersionLegalHoldStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing replaceObjectVersionLegalHoldStmt: %w", cerr)
+		}
+	}
+	if q.replaceObjectVersionRetentionStmt != nil {
+		if cerr := q.replaceObjectVersionRetentionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing replaceObjectVersionRetentionStmt: %w", cerr)
+		}
+	}
+	if q.replicationJobsForVersionStmt != nil {
+		if cerr := q.replicationJobsForVersionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing replicationJobsForVersionStmt: %w", cerr)
+		}
+	}
+	if q.sampleReplicationMetricPublicationStmt != nil {
+		if cerr := q.sampleReplicationMetricPublicationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing sampleReplicationMetricPublicationStmt: %w", cerr)
+		}
+	}
+	if q.setObjectTieringStmt != nil {
+		if cerr := q.setObjectTieringStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing setObjectTieringStmt: %w", cerr)
+		}
+	}
+	if q.stopReplicationMetricSchedulesStmt != nil {
+		if cerr := q.stopReplicationMetricSchedulesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing stopReplicationMetricSchedulesStmt: %w", cerr)
+		}
+	}
+	if q.supersedeDeletedMultipartUploadsStmt != nil {
+		if cerr := q.supersedeDeletedMultipartUploadsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing supersedeDeletedMultipartUploadsStmt: %w", cerr)
+		}
+	}
+	if q.supersedeOlderMultipartUploadsStmt != nil {
+		if cerr := q.supersedeOlderMultipartUploadsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing supersedeOlderMultipartUploadsStmt: %w", cerr)
+		}
+	}
+	if q.transitionObjectStmt != nil {
+		if cerr := q.transitionObjectStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing transitionObjectStmt: %w", cerr)
+		}
+	}
+	if q.updateAccessLogDeliveryDueStmt != nil {
+		if cerr := q.updateAccessLogDeliveryDueStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateAccessLogDeliveryDueStmt: %w", cerr)
+		}
+	}
+	return err
+}
+
+func (q *Queries) exec(ctx context.Context, stmt *sql.Stmt, query string, args ...interface{}) (sql.Result, error) {
+	switch {
+	case stmt != nil && q.tx != nil:
+		return q.tx.StmtContext(ctx, stmt).ExecContext(ctx, args...)
+	case stmt != nil:
+		return stmt.ExecContext(ctx, args...)
+	default:
+		return q.db.ExecContext(ctx, query, args...)
+	}
+}
+
+func (q *Queries) query(ctx context.Context, stmt *sql.Stmt, query string, args ...interface{}) (*sql.Rows, error) {
+	switch {
+	case stmt != nil && q.tx != nil:
+		return q.tx.StmtContext(ctx, stmt).QueryContext(ctx, args...)
+	case stmt != nil:
+		return stmt.QueryContext(ctx, args...)
+	default:
+		return q.db.QueryContext(ctx, query, args...)
+	}
+}
+
+func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, args ...interface{}) *sql.Row {
+	switch {
+	case stmt != nil && q.tx != nil:
+		return q.tx.StmtContext(ctx, stmt).QueryRowContext(ctx, args...)
+	case stmt != nil:
+		return stmt.QueryRowContext(ctx, args...)
+	default:
+		return q.db.QueryRowContext(ctx, query, args...)
+	}
+}
+
 type Queries struct {
-	db DBTX
+	db                                           DBTX
+	tx                                           *sql.Tx
+	activateReplicationMetricScheduleStmt        *sql.Stmt
+	addReplicationMetricOutcomeStmt              *sql.Stmt
+	advanceInventoryReportStmt                   *sql.Stmt
+	advanceLifecycleScanStmt                     *sql.Stmt
+	bucketHasEnabledTieringStmt                  *sql.Stmt
+	copyReplicaDataStmt                          *sql.Stmt
+	copyReplicaPartsStmt                         *sql.Stmt
+	countAccessPointsStmt                        *sql.Stmt
+	countBucketAnalyticsConfigurationsStmt       *sql.Stmt
+	countBucketInventoryConfigurationsStmt       *sql.Stmt
+	countBucketMetricsConfigurationsStmt         *sql.Stmt
+	countBucketTieringConfigurationsStmt         *sql.Stmt
+	deleteAccessLogDeliveryStmt                  *sql.Stmt
+	deleteAccessPointStmt                        *sql.Stmt
+	deleteAccessPointPolicyPrincipalsStmt        *sql.Stmt
+	deleteAccessPointTagsStmt                    *sql.Stmt
+	deleteAccountPublicAccessBlockStmt           *sql.Stmt
+	deleteBucketStmt                             *sql.Stmt
+	deleteBucketACLGrantsStmt                    *sql.Stmt
+	deleteBucketAnalyticsConfigurationStmt       *sql.Stmt
+	deleteBucketCORSStmt                         *sql.Stmt
+	deleteBucketInventoryConfigurationStmt       *sql.Stmt
+	deleteBucketLifecycleStmt                    *sql.Stmt
+	deleteBucketLoggingStmt                      *sql.Stmt
+	deleteBucketMetricsConfigurationStmt         *sql.Stmt
+	deleteBucketPolicyPrincipalsStmt             *sql.Stmt
+	deleteBucketPublicAccessStmt                 *sql.Stmt
+	deleteBucketReplicationStmt                  *sql.Stmt
+	deleteBucketTagsStmt                         *sql.Stmt
+	deleteBucketTieringConfigurationStmt         *sql.Stmt
+	deleteBucketWebsiteStmt                      *sql.Stmt
+	deleteInactiveReplicationMetricSchedulesStmt *sql.Stmt
+	deleteMultipartUploadStmt                    *sql.Stmt
+	deleteNotificationDeliveryStmt               *sql.Stmt
+	deleteNotificationRulesStmt                  *sql.Stmt
+	deleteObjectRestoreStmt                      *sql.Stmt
+	deleteObjectTagsStmt                         *sql.Stmt
+	deleteObjectVersionStmt                      *sql.Stmt
+	deleteObjectVersionACLGrantsStmt             *sql.Stmt
+	deleteObjectVersionEncryptionContextStmt     *sql.Stmt
+	deleteReplicationJobStmt                     *sql.Stmt
+	deleteReplicationMetricPublicationStmt       *sql.Stmt
+	deleteTieringScanStmt                        *sql.Stmt
+	getAccessLogDeliveryStmt                     *sql.Stmt
+	getAccessLogDeliveryGrantsStmt               *sql.Stmt
+	getAccessPointStmt                           *sql.Stmt
+	getAccessPointAliasStmt                      *sql.Stmt
+	getAccessPointPolicyPrincipalsStmt           *sql.Stmt
+	getAccessPointTagsStmt                       *sql.Stmt
+	getAccountPublicAccessBlockStmt              *sql.Stmt
+	getBucketStmt                                *sql.Stmt
+	getBucketACLGrantsStmt                       *sql.Stmt
+	getBucketAnalyticsConfigurationStmt          *sql.Stmt
+	getBucketAnalyticsTagsStmt                   *sql.Stmt
+	getBucketCORSRulesStmt                       *sql.Stmt
+	getBucketCORSValuesStmt                      *sql.Stmt
+	getBucketInventoryConfigurationStmt          *sql.Stmt
+	getBucketInventoryOptionalFieldsStmt         *sql.Stmt
+	getBucketLifecycleStmt                       *sql.Stmt
+	getBucketLifecycleRulesStmt                  *sql.Stmt
+	getBucketLifecycleTagsStmt                   *sql.Stmt
+	getBucketLifecycleTransitionsStmt            *sql.Stmt
+	getBucketLoggingStmt                         *sql.Stmt
+	getBucketLoggingGrantsStmt                   *sql.Stmt
+	getBucketMetricsConfigurationStmt            *sql.Stmt
+	getBucketMetricsTagsStmt                     *sql.Stmt
+	getBucketPolicyPrincipalsStmt                *sql.Stmt
+	getBucketPublicAccessStmt                    *sql.Stmt
+	getBucketReplicationStmt                     *sql.Stmt
+	getBucketReplicationFilterTagsStmt           *sql.Stmt
+	getBucketReplicationRulesStmt                *sql.Stmt
+	getBucketTagsStmt                            *sql.Stmt
+	getBucketTieringConfigurationStmt            *sql.Stmt
+	getBucketTieringRulesStmt                    *sql.Stmt
+	getBucketTieringTagsStmt                     *sql.Stmt
+	getBucketWebsiteStmt                         *sql.Stmt
+	getBucketWebsiteRulesStmt                    *sql.Stmt
+	getCompletedMultipartUploadStmt              *sql.Stmt
+	getMultipartObjectDataStmt                   *sql.Stmt
+	getMultipartUploadStmt                       *sql.Stmt
+	getMultipartUploadACLGrantsStmt              *sql.Stmt
+	getMultipartUploadEncryptionContextStmt      *sql.Stmt
+	getMultipartUploadEncryptionMetadataStmt     *sql.Stmt
+	getMultipartUploadMetadataStmt               *sql.Stmt
+	getMultipartUploadTagsStmt                   *sql.Stmt
+	getNotificationDeliveryStmt                  *sql.Stmt
+	getNotificationStateStmt                     *sql.Stmt
+	getObjectStmt                                *sql.Stmt
+	getObjectRestoreStmt                         *sql.Stmt
+	getObjectTagsStmt                            *sql.Stmt
+	getObjectVersionStmt                         *sql.Stmt
+	getObjectVersionACLGrantsStmt                *sql.Stmt
+	getObjectVersionDataStmt                     *sql.Stmt
+	getObjectVersionEncryptionContextStmt        *sql.Stmt
+	getObjectVersionEncryptionMetadataStmt       *sql.Stmt
+	getObjectVersionMetadataStmt                 *sql.Stmt
+	getOldestReplicationPendingStmt              *sql.Stmt
+	getReplicationJobStmt                        *sql.Stmt
+	getReplicationMetricPublicationStmt          *sql.Stmt
+	getReplicationPendingCountsStmt              *sql.Stmt
+	getReplicationStatesStmt                     *sql.Stmt
+	insertAccessLogDeliveryStmt                  *sql.Stmt
+	listAccessPointsStmt                         *sql.Stmt
+	listBucketAnalyticsConfigurationsStmt        *sql.Stmt
+	listBucketInventoryConfigurationsStmt        *sql.Stmt
+	listBucketMetricsConfigurationsStmt          *sql.Stmt
+	listBucketTieringConfigurationsStmt          *sql.Stmt
+	listBucketsStmt                              *sql.Stmt
+	listMultipartPartsStmt                       *sql.Stmt
+	listMultipartUploadsStmt                     *sql.Stmt
+	listNotificationEventsStmt                   *sql.Stmt
+	listNotificationFiltersStmt                  *sql.Stmt
+	listNotificationRulesStmt                    *sql.Stmt
+	listObjectPartsStmt                          *sql.Stmt
+	listObjectVersionsStmt                       *sql.Stmt
+	listObjectsStmt                              *sql.Stmt
+	nextAccessLogDeliveryStmt                    *sql.Stmt
+	nextInventoryConfigurationStmt               *sql.Stmt
+	nextLifecycleScanStmt                        *sql.Stmt
+	nextNotificationChangeStmt                   *sql.Stmt
+	nextNotificationDeliveryStmt                 *sql.Stmt
+	nextObjectRestoreStmt                        *sql.Stmt
+	nextObjectSequenceStmt                       *sql.Stmt
+	nextReplicationAttemptStmt                   *sql.Stmt
+	nextReplicationMetricPublicationStmt         *sql.Stmt
+	nextReplicationThresholdStmt                 *sql.Stmt
+	nextTieringScanStmt                          *sql.Stmt
+	publishMultipartPartStmt                     *sql.Stmt
+	publishMultipartUploadTagsStmt               *sql.Stmt
+	putAccessLogDeliveryGrantStmt                *sql.Stmt
+	putAccessPointStmt                           *sql.Stmt
+	putAccessPointPolicyPrincipalStmt            *sql.Stmt
+	putAccessPointTagStmt                        *sql.Stmt
+	putAccountPublicAccessBlockStmt              *sql.Stmt
+	putBucketStmt                                *sql.Stmt
+	putBucketACLGrantStmt                        *sql.Stmt
+	putBucketAnalyticsConfigurationStmt          *sql.Stmt
+	putBucketAnalyticsTagStmt                    *sql.Stmt
+	putBucketCORSRuleStmt                        *sql.Stmt
+	putBucketCORSValueStmt                       *sql.Stmt
+	putBucketInventoryConfigurationStmt          *sql.Stmt
+	putBucketInventoryOptionalFieldStmt          *sql.Stmt
+	putBucketLifecycleStmt                       *sql.Stmt
+	putBucketLifecycleRuleStmt                   *sql.Stmt
+	putBucketLifecycleTagStmt                    *sql.Stmt
+	putBucketLifecycleTransitionStmt             *sql.Stmt
+	putBucketLoggingStmt                         *sql.Stmt
+	putBucketLoggingGrantStmt                    *sql.Stmt
+	putBucketMetricsConfigurationStmt            *sql.Stmt
+	putBucketMetricsTagStmt                      *sql.Stmt
+	putBucketPolicyPrincipalStmt                 *sql.Stmt
+	putBucketPublicAccessStmt                    *sql.Stmt
+	putBucketReplicationStmt                     *sql.Stmt
+	putBucketReplicationFilterTagStmt            *sql.Stmt
+	putBucketReplicationRuleStmt                 *sql.Stmt
+	putBucketTagStmt                             *sql.Stmt
+	putBucketTieringConfigurationStmt            *sql.Stmt
+	putBucketTieringRuleStmt                     *sql.Stmt
+	putBucketTieringTagStmt                      *sql.Stmt
+	putBucketWebsiteStmt                         *sql.Stmt
+	putBucketWebsiteRuleStmt                     *sql.Stmt
+	putMultipartPartStmt                         *sql.Stmt
+	putMultipartUploadStmt                       *sql.Stmt
+	putMultipartUploadACLGrantStmt               *sql.Stmt
+	putMultipartUploadEncryptionContextStmt      *sql.Stmt
+	putMultipartUploadEncryptionMetadataStmt     *sql.Stmt
+	putMultipartUploadMetadataStmt               *sql.Stmt
+	putMultipartUploadTagStmt                    *sql.Stmt
+	putNotificationDeliveryStmt                  *sql.Stmt
+	putNotificationEventStmt                     *sql.Stmt
+	putNotificationFilterStmt                    *sql.Stmt
+	putNotificationRuleStmt                      *sql.Stmt
+	putNotificationStateStmt                     *sql.Stmt
+	putObjectRestoreStmt                         *sql.Stmt
+	putObjectTagStmt                             *sql.Stmt
+	putObjectVersionStmt                         *sql.Stmt
+	putObjectVersionACLGrantStmt                 *sql.Stmt
+	putObjectVersionDataStmt                     *sql.Stmt
+	putObjectVersionEncryptionContextStmt        *sql.Stmt
+	putObjectVersionMetadataStmt                 *sql.Stmt
+	putReplicationJobStmt                        *sql.Stmt
+	putReplicationStateStmt                      *sql.Stmt
+	putTieringScanStmt                           *sql.Stmt
+	replaceObjectVersionACLOwnerStmt             *sql.Stmt
+	replaceObjectVersionEncryptionStmt           *sql.Stmt
+	replaceObjectVersionEncryptionKeyStmt        *sql.Stmt
+	replaceObjectVersionLegalHoldStmt            *sql.Stmt
+	replaceObjectVersionRetentionStmt            *sql.Stmt
+	replicationJobsForVersionStmt                *sql.Stmt
+	sampleReplicationMetricPublicationStmt       *sql.Stmt
+	setObjectTieringStmt                         *sql.Stmt
+	stopReplicationMetricSchedulesStmt           *sql.Stmt
+	supersedeDeletedMultipartUploadsStmt         *sql.Stmt
+	supersedeOlderMultipartUploadsStmt           *sql.Stmt
+	transitionObjectStmt                         *sql.Stmt
+	updateAccessLogDeliveryDueStmt               *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
-		db: tx,
+		db:                                           tx,
+		tx:                                           tx,
+		activateReplicationMetricScheduleStmt:        q.activateReplicationMetricScheduleStmt,
+		addReplicationMetricOutcomeStmt:              q.addReplicationMetricOutcomeStmt,
+		advanceInventoryReportStmt:                   q.advanceInventoryReportStmt,
+		advanceLifecycleScanStmt:                     q.advanceLifecycleScanStmt,
+		bucketHasEnabledTieringStmt:                  q.bucketHasEnabledTieringStmt,
+		copyReplicaDataStmt:                          q.copyReplicaDataStmt,
+		copyReplicaPartsStmt:                         q.copyReplicaPartsStmt,
+		countAccessPointsStmt:                        q.countAccessPointsStmt,
+		countBucketAnalyticsConfigurationsStmt:       q.countBucketAnalyticsConfigurationsStmt,
+		countBucketInventoryConfigurationsStmt:       q.countBucketInventoryConfigurationsStmt,
+		countBucketMetricsConfigurationsStmt:         q.countBucketMetricsConfigurationsStmt,
+		countBucketTieringConfigurationsStmt:         q.countBucketTieringConfigurationsStmt,
+		deleteAccessLogDeliveryStmt:                  q.deleteAccessLogDeliveryStmt,
+		deleteAccessPointStmt:                        q.deleteAccessPointStmt,
+		deleteAccessPointPolicyPrincipalsStmt:        q.deleteAccessPointPolicyPrincipalsStmt,
+		deleteAccessPointTagsStmt:                    q.deleteAccessPointTagsStmt,
+		deleteAccountPublicAccessBlockStmt:           q.deleteAccountPublicAccessBlockStmt,
+		deleteBucketStmt:                             q.deleteBucketStmt,
+		deleteBucketACLGrantsStmt:                    q.deleteBucketACLGrantsStmt,
+		deleteBucketAnalyticsConfigurationStmt:       q.deleteBucketAnalyticsConfigurationStmt,
+		deleteBucketCORSStmt:                         q.deleteBucketCORSStmt,
+		deleteBucketInventoryConfigurationStmt:       q.deleteBucketInventoryConfigurationStmt,
+		deleteBucketLifecycleStmt:                    q.deleteBucketLifecycleStmt,
+		deleteBucketLoggingStmt:                      q.deleteBucketLoggingStmt,
+		deleteBucketMetricsConfigurationStmt:         q.deleteBucketMetricsConfigurationStmt,
+		deleteBucketPolicyPrincipalsStmt:             q.deleteBucketPolicyPrincipalsStmt,
+		deleteBucketPublicAccessStmt:                 q.deleteBucketPublicAccessStmt,
+		deleteBucketReplicationStmt:                  q.deleteBucketReplicationStmt,
+		deleteBucketTagsStmt:                         q.deleteBucketTagsStmt,
+		deleteBucketTieringConfigurationStmt:         q.deleteBucketTieringConfigurationStmt,
+		deleteBucketWebsiteStmt:                      q.deleteBucketWebsiteStmt,
+		deleteInactiveReplicationMetricSchedulesStmt: q.deleteInactiveReplicationMetricSchedulesStmt,
+		deleteMultipartUploadStmt:                    q.deleteMultipartUploadStmt,
+		deleteNotificationDeliveryStmt:               q.deleteNotificationDeliveryStmt,
+		deleteNotificationRulesStmt:                  q.deleteNotificationRulesStmt,
+		deleteObjectRestoreStmt:                      q.deleteObjectRestoreStmt,
+		deleteObjectTagsStmt:                         q.deleteObjectTagsStmt,
+		deleteObjectVersionStmt:                      q.deleteObjectVersionStmt,
+		deleteObjectVersionACLGrantsStmt:             q.deleteObjectVersionACLGrantsStmt,
+		deleteObjectVersionEncryptionContextStmt:     q.deleteObjectVersionEncryptionContextStmt,
+		deleteReplicationJobStmt:                     q.deleteReplicationJobStmt,
+		deleteReplicationMetricPublicationStmt:       q.deleteReplicationMetricPublicationStmt,
+		deleteTieringScanStmt:                        q.deleteTieringScanStmt,
+		getAccessLogDeliveryStmt:                     q.getAccessLogDeliveryStmt,
+		getAccessLogDeliveryGrantsStmt:               q.getAccessLogDeliveryGrantsStmt,
+		getAccessPointStmt:                           q.getAccessPointStmt,
+		getAccessPointAliasStmt:                      q.getAccessPointAliasStmt,
+		getAccessPointPolicyPrincipalsStmt:           q.getAccessPointPolicyPrincipalsStmt,
+		getAccessPointTagsStmt:                       q.getAccessPointTagsStmt,
+		getAccountPublicAccessBlockStmt:              q.getAccountPublicAccessBlockStmt,
+		getBucketStmt:                                q.getBucketStmt,
+		getBucketACLGrantsStmt:                       q.getBucketACLGrantsStmt,
+		getBucketAnalyticsConfigurationStmt:          q.getBucketAnalyticsConfigurationStmt,
+		getBucketAnalyticsTagsStmt:                   q.getBucketAnalyticsTagsStmt,
+		getBucketCORSRulesStmt:                       q.getBucketCORSRulesStmt,
+		getBucketCORSValuesStmt:                      q.getBucketCORSValuesStmt,
+		getBucketInventoryConfigurationStmt:          q.getBucketInventoryConfigurationStmt,
+		getBucketInventoryOptionalFieldsStmt:         q.getBucketInventoryOptionalFieldsStmt,
+		getBucketLifecycleStmt:                       q.getBucketLifecycleStmt,
+		getBucketLifecycleRulesStmt:                  q.getBucketLifecycleRulesStmt,
+		getBucketLifecycleTagsStmt:                   q.getBucketLifecycleTagsStmt,
+		getBucketLifecycleTransitionsStmt:            q.getBucketLifecycleTransitionsStmt,
+		getBucketLoggingStmt:                         q.getBucketLoggingStmt,
+		getBucketLoggingGrantsStmt:                   q.getBucketLoggingGrantsStmt,
+		getBucketMetricsConfigurationStmt:            q.getBucketMetricsConfigurationStmt,
+		getBucketMetricsTagsStmt:                     q.getBucketMetricsTagsStmt,
+		getBucketPolicyPrincipalsStmt:                q.getBucketPolicyPrincipalsStmt,
+		getBucketPublicAccessStmt:                    q.getBucketPublicAccessStmt,
+		getBucketReplicationStmt:                     q.getBucketReplicationStmt,
+		getBucketReplicationFilterTagsStmt:           q.getBucketReplicationFilterTagsStmt,
+		getBucketReplicationRulesStmt:                q.getBucketReplicationRulesStmt,
+		getBucketTagsStmt:                            q.getBucketTagsStmt,
+		getBucketTieringConfigurationStmt:            q.getBucketTieringConfigurationStmt,
+		getBucketTieringRulesStmt:                    q.getBucketTieringRulesStmt,
+		getBucketTieringTagsStmt:                     q.getBucketTieringTagsStmt,
+		getBucketWebsiteStmt:                         q.getBucketWebsiteStmt,
+		getBucketWebsiteRulesStmt:                    q.getBucketWebsiteRulesStmt,
+		getCompletedMultipartUploadStmt:              q.getCompletedMultipartUploadStmt,
+		getMultipartObjectDataStmt:                   q.getMultipartObjectDataStmt,
+		getMultipartUploadStmt:                       q.getMultipartUploadStmt,
+		getMultipartUploadACLGrantsStmt:              q.getMultipartUploadACLGrantsStmt,
+		getMultipartUploadEncryptionContextStmt:      q.getMultipartUploadEncryptionContextStmt,
+		getMultipartUploadEncryptionMetadataStmt:     q.getMultipartUploadEncryptionMetadataStmt,
+		getMultipartUploadMetadataStmt:               q.getMultipartUploadMetadataStmt,
+		getMultipartUploadTagsStmt:                   q.getMultipartUploadTagsStmt,
+		getNotificationDeliveryStmt:                  q.getNotificationDeliveryStmt,
+		getNotificationStateStmt:                     q.getNotificationStateStmt,
+		getObjectStmt:                                q.getObjectStmt,
+		getObjectRestoreStmt:                         q.getObjectRestoreStmt,
+		getObjectTagsStmt:                            q.getObjectTagsStmt,
+		getObjectVersionStmt:                         q.getObjectVersionStmt,
+		getObjectVersionACLGrantsStmt:                q.getObjectVersionACLGrantsStmt,
+		getObjectVersionDataStmt:                     q.getObjectVersionDataStmt,
+		getObjectVersionEncryptionContextStmt:        q.getObjectVersionEncryptionContextStmt,
+		getObjectVersionEncryptionMetadataStmt:       q.getObjectVersionEncryptionMetadataStmt,
+		getObjectVersionMetadataStmt:                 q.getObjectVersionMetadataStmt,
+		getOldestReplicationPendingStmt:              q.getOldestReplicationPendingStmt,
+		getReplicationJobStmt:                        q.getReplicationJobStmt,
+		getReplicationMetricPublicationStmt:          q.getReplicationMetricPublicationStmt,
+		getReplicationPendingCountsStmt:              q.getReplicationPendingCountsStmt,
+		getReplicationStatesStmt:                     q.getReplicationStatesStmt,
+		insertAccessLogDeliveryStmt:                  q.insertAccessLogDeliveryStmt,
+		listAccessPointsStmt:                         q.listAccessPointsStmt,
+		listBucketAnalyticsConfigurationsStmt:        q.listBucketAnalyticsConfigurationsStmt,
+		listBucketInventoryConfigurationsStmt:        q.listBucketInventoryConfigurationsStmt,
+		listBucketMetricsConfigurationsStmt:          q.listBucketMetricsConfigurationsStmt,
+		listBucketTieringConfigurationsStmt:          q.listBucketTieringConfigurationsStmt,
+		listBucketsStmt:                              q.listBucketsStmt,
+		listMultipartPartsStmt:                       q.listMultipartPartsStmt,
+		listMultipartUploadsStmt:                     q.listMultipartUploadsStmt,
+		listNotificationEventsStmt:                   q.listNotificationEventsStmt,
+		listNotificationFiltersStmt:                  q.listNotificationFiltersStmt,
+		listNotificationRulesStmt:                    q.listNotificationRulesStmt,
+		listObjectPartsStmt:                          q.listObjectPartsStmt,
+		listObjectVersionsStmt:                       q.listObjectVersionsStmt,
+		listObjectsStmt:                              q.listObjectsStmt,
+		nextAccessLogDeliveryStmt:                    q.nextAccessLogDeliveryStmt,
+		nextInventoryConfigurationStmt:               q.nextInventoryConfigurationStmt,
+		nextLifecycleScanStmt:                        q.nextLifecycleScanStmt,
+		nextNotificationChangeStmt:                   q.nextNotificationChangeStmt,
+		nextNotificationDeliveryStmt:                 q.nextNotificationDeliveryStmt,
+		nextObjectRestoreStmt:                        q.nextObjectRestoreStmt,
+		nextObjectSequenceStmt:                       q.nextObjectSequenceStmt,
+		nextReplicationAttemptStmt:                   q.nextReplicationAttemptStmt,
+		nextReplicationMetricPublicationStmt:         q.nextReplicationMetricPublicationStmt,
+		nextReplicationThresholdStmt:                 q.nextReplicationThresholdStmt,
+		nextTieringScanStmt:                          q.nextTieringScanStmt,
+		publishMultipartPartStmt:                     q.publishMultipartPartStmt,
+		publishMultipartUploadTagsStmt:               q.publishMultipartUploadTagsStmt,
+		putAccessLogDeliveryGrantStmt:                q.putAccessLogDeliveryGrantStmt,
+		putAccessPointStmt:                           q.putAccessPointStmt,
+		putAccessPointPolicyPrincipalStmt:            q.putAccessPointPolicyPrincipalStmt,
+		putAccessPointTagStmt:                        q.putAccessPointTagStmt,
+		putAccountPublicAccessBlockStmt:              q.putAccountPublicAccessBlockStmt,
+		putBucketStmt:                                q.putBucketStmt,
+		putBucketACLGrantStmt:                        q.putBucketACLGrantStmt,
+		putBucketAnalyticsConfigurationStmt:          q.putBucketAnalyticsConfigurationStmt,
+		putBucketAnalyticsTagStmt:                    q.putBucketAnalyticsTagStmt,
+		putBucketCORSRuleStmt:                        q.putBucketCORSRuleStmt,
+		putBucketCORSValueStmt:                       q.putBucketCORSValueStmt,
+		putBucketInventoryConfigurationStmt:          q.putBucketInventoryConfigurationStmt,
+		putBucketInventoryOptionalFieldStmt:          q.putBucketInventoryOptionalFieldStmt,
+		putBucketLifecycleStmt:                       q.putBucketLifecycleStmt,
+		putBucketLifecycleRuleStmt:                   q.putBucketLifecycleRuleStmt,
+		putBucketLifecycleTagStmt:                    q.putBucketLifecycleTagStmt,
+		putBucketLifecycleTransitionStmt:             q.putBucketLifecycleTransitionStmt,
+		putBucketLoggingStmt:                         q.putBucketLoggingStmt,
+		putBucketLoggingGrantStmt:                    q.putBucketLoggingGrantStmt,
+		putBucketMetricsConfigurationStmt:            q.putBucketMetricsConfigurationStmt,
+		putBucketMetricsTagStmt:                      q.putBucketMetricsTagStmt,
+		putBucketPolicyPrincipalStmt:                 q.putBucketPolicyPrincipalStmt,
+		putBucketPublicAccessStmt:                    q.putBucketPublicAccessStmt,
+		putBucketReplicationStmt:                     q.putBucketReplicationStmt,
+		putBucketReplicationFilterTagStmt:            q.putBucketReplicationFilterTagStmt,
+		putBucketReplicationRuleStmt:                 q.putBucketReplicationRuleStmt,
+		putBucketTagStmt:                             q.putBucketTagStmt,
+		putBucketTieringConfigurationStmt:            q.putBucketTieringConfigurationStmt,
+		putBucketTieringRuleStmt:                     q.putBucketTieringRuleStmt,
+		putBucketTieringTagStmt:                      q.putBucketTieringTagStmt,
+		putBucketWebsiteStmt:                         q.putBucketWebsiteStmt,
+		putBucketWebsiteRuleStmt:                     q.putBucketWebsiteRuleStmt,
+		putMultipartPartStmt:                         q.putMultipartPartStmt,
+		putMultipartUploadStmt:                       q.putMultipartUploadStmt,
+		putMultipartUploadACLGrantStmt:               q.putMultipartUploadACLGrantStmt,
+		putMultipartUploadEncryptionContextStmt:      q.putMultipartUploadEncryptionContextStmt,
+		putMultipartUploadEncryptionMetadataStmt:     q.putMultipartUploadEncryptionMetadataStmt,
+		putMultipartUploadMetadataStmt:               q.putMultipartUploadMetadataStmt,
+		putMultipartUploadTagStmt:                    q.putMultipartUploadTagStmt,
+		putNotificationDeliveryStmt:                  q.putNotificationDeliveryStmt,
+		putNotificationEventStmt:                     q.putNotificationEventStmt,
+		putNotificationFilterStmt:                    q.putNotificationFilterStmt,
+		putNotificationRuleStmt:                      q.putNotificationRuleStmt,
+		putNotificationStateStmt:                     q.putNotificationStateStmt,
+		putObjectRestoreStmt:                         q.putObjectRestoreStmt,
+		putObjectTagStmt:                             q.putObjectTagStmt,
+		putObjectVersionStmt:                         q.putObjectVersionStmt,
+		putObjectVersionACLGrantStmt:                 q.putObjectVersionACLGrantStmt,
+		putObjectVersionDataStmt:                     q.putObjectVersionDataStmt,
+		putObjectVersionEncryptionContextStmt:        q.putObjectVersionEncryptionContextStmt,
+		putObjectVersionMetadataStmt:                 q.putObjectVersionMetadataStmt,
+		putReplicationJobStmt:                        q.putReplicationJobStmt,
+		putReplicationStateStmt:                      q.putReplicationStateStmt,
+		putTieringScanStmt:                           q.putTieringScanStmt,
+		replaceObjectVersionACLOwnerStmt:             q.replaceObjectVersionACLOwnerStmt,
+		replaceObjectVersionEncryptionStmt:           q.replaceObjectVersionEncryptionStmt,
+		replaceObjectVersionEncryptionKeyStmt:        q.replaceObjectVersionEncryptionKeyStmt,
+		replaceObjectVersionLegalHoldStmt:            q.replaceObjectVersionLegalHoldStmt,
+		replaceObjectVersionRetentionStmt:            q.replaceObjectVersionRetentionStmt,
+		replicationJobsForVersionStmt:                q.replicationJobsForVersionStmt,
+		sampleReplicationMetricPublicationStmt:       q.sampleReplicationMetricPublicationStmt,
+		setObjectTieringStmt:                         q.setObjectTieringStmt,
+		stopReplicationMetricSchedulesStmt:           q.stopReplicationMetricSchedulesStmt,
+		supersedeDeletedMultipartUploadsStmt:         q.supersedeDeletedMultipartUploadsStmt,
+		supersedeOlderMultipartUploadsStmt:           q.supersedeOlderMultipartUploadsStmt,
+		transitionObjectStmt:                         q.transitionObjectStmt,
+		updateAccessLogDeliveryDueStmt:               q.updateAccessLogDeliveryDueStmt,
 	}
 }

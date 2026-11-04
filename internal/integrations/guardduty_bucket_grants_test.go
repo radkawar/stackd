@@ -15,7 +15,6 @@ import (
 	"stackd/storage/sqlite"
 	sqlguard "stackd/storage/sqlite/guardduty"
 	sqljournal "stackd/storage/sqlite/journal"
-	sqls3 "stackd/storage/sqlite/s3"
 )
 
 func TestGuardDutyBucketGrantCommitsWithAdmittedState(t *testing.T) {
@@ -34,7 +33,7 @@ func TestGuardDutyBucketGrantCommitsWithAdmittedState(t *testing.T) {
 					t.Fatal(err)
 				}
 				t.Cleanup(func() { _ = db.Close() })
-				buckets, findings, events = sqls3.New(db), sqlguard.New(db), sqljournal.New(db)
+				buckets, findings, events = newSQLiteS3Repository(t, db), sqlguard.New(db), sqljournal.New(db)
 			}
 			now := time.Date(2031, 1, 2, 3, 4, 5, 0, time.UTC)
 			scope := guardduty.Scope{Partition: "aws", AccountID: "123456789012", Region: "us-east-1"}

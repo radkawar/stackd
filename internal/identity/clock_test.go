@@ -223,8 +223,9 @@ type clockHookTransaction struct {
 	tx Transaction
 }
 
-func (t clockHookTransaction) Put(record Record) error { return t.tx.Put(record) }
-func (t clockHookTransaction) Delete(key string) error { return t.tx.Delete(key) }
+func (t clockHookTransaction) Put(record Record) error      { return t.tx.Put(record) }
+func (t clockHookTransaction) PutUsage(record Record) error { return t.tx.PutUsage(record) }
+func (t clockHookTransaction) Delete(key string) error      { return t.tx.Delete(key) }
 
 func advanceIdentityClock(t *testing.T, manual *clock.Manual, d time.Duration) {
 	t.Helper()

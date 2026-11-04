@@ -77,6 +77,11 @@ func TestK3dNativeWorkload(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("real ready cluster endpoint %s", endpoint.URL)
+	storage := runtime.clusters[id].state.StoragePolicy
+	if storage == nil || storage.ReserveGiB != DefaultStorageReserveGiB {
+		t.Fatalf("missing default creation storage policy: %+v", storage)
+	}
+	storageWorkers := assertNativeStorageConfig(t, ctx, runtime, id, *storage, 1)
 	issuerConfiguration, issuerKeys := exerciseRetainedNativeIssuer(t, ctx, runtime, id, handler)
 	ca, err := base64.StdEncoding.DecodeString(endpoint.CertificateAuthority)
 	if err != nil {
@@ -205,6 +210,7 @@ func TestK3dNativeWorkload(t *testing.T) {
 		t.Fatalf("streaming exec: %v %s", err, output)
 	}
 	t.Log("authenticated watch and kubectl exec reached real Kubernetes")
+	assertNativeWorkerDaemonRecovery(t, ctx, runtime, id, args)
 	revoked.Store(true)
 	if status, data := request("GET", "/api/v1/namespaces/default/pods", "fixture-view", "", true); status != 403 {
 		t.Fatalf("revoked grant retained authority: %d %s", status, data)
@@ -253,6 +259,9 @@ func TestK3dNativeWorkload(t *testing.T) {
 	if err = wrongOwner.Close(); err != nil {
 		t.Fatal(err)
 	}
+	// A changed controller reserve affects only newly created clusters. It
+	// must neither reject reattachment/deletion nor rewrite running workers.
+	config.StorageReserveGiB = DefaultStorageReserveGiB + 1
 	runtime, err = NewK3d(config)
 	if err != nil {
 		t.Fatal(err)
@@ -287,6 +296,18 @@ func TestK3dNativeWorkload(t *testing.T) {
 		t.Fatal("public endpoint or CA changed across restart")
 	}
 	assertRetainedNativeIssuer(t, ctx, runtime, id, issuerConfiguration, issuerKeys)
+	// A Fargate worker created after changing the controller flag still uses
+	// the retained cluster policy, as observed in its real kubelet configz.
+	storageSlot := strings.Repeat("b", 32)
+	if err := runtime.createFargateAgent(ctx, runtime.clusters[id], FargateSpecification{ID: "storage-proof", Name: "storage-proof"}, storageSlot, nil); err != nil {
+		t.Fatal(err)
+	}
+	reopenedStorageWorkers := assertNativeStorageConfig(t, ctx, runtime, id, *storage, 2)
+	for name, nativeID := range storageWorkers {
+		if reopenedStorageWorkers[name] != nativeID {
+			t.Fatalf("native worker %s was replaced across storage flag change", name)
+		}
+	}
 	status, data = request("GET", "/api/v1/namespaces/default/pods?labelSelector=app%3Dnative-proof", "fixture-admin", "", false)
 	if status != 200 || json.Unmarshal(data, &pods) != nil || len(pods.Items) != 1 || pods.Items[0].Metadata.UID != podUID {
 		t.Fatalf("pod lost across restart: %d %s", status, data)

@@ -111,7 +111,7 @@ func (r reader) MultipartUploads(query domain.MultipartQuery) ([]domain.Multipar
 		after = sql.NullInt64{Int64: *query.AfterOrder, Valid: true}
 	}
 	rows, err := r.q.ListMultipartUploads(r.ctx, sqlcgen.ListMultipartUploadsParams{
-		Partition: query.Bucket.Partition, BucketName: query.Bucket.Name, Prefix: []byte(query.Prefix),
+		Partition: query.Bucket.Partition, BucketName: query.Bucket.Name, StartKey: max(query.Prefix, query.AfterKey), PrefixEnd: objectPrefixEnd(query.Prefix),
 		AfterKey: query.AfterKey, AfterOrder: after, RowLimit: int64(query.Limit),
 	})
 	if err != nil {

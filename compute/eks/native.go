@@ -38,13 +38,22 @@ type dockerContainer struct {
 			HostPort string
 		}
 	}
-	Mounts          []struct{ Type, Name, Source, Destination string }
+	Mounts []struct {
+		Type, Name, Source, Destination string
+		RW                              bool
+	}
 	NetworkSettings struct {
 		Networks map[string]struct{ NetworkID string }
 	}
 }
 
 func (k *K3d) ownedContainers(ctx context.Context, state diskState) ([]dockerContainer, error) {
+	return k.inspectOwnedContainers(ctx, state, true)
+}
+
+// Deletion still checks native ownership, but must also be able to remove an
+// explicitly owned legacy cluster or one whose staged executable was lost.
+func (k *K3d) inspectOwnedContainers(ctx context.Context, state diskState, checkECR bool) ([]dockerContainer, error) {
 	// Inspect both name and k3d cluster label: neither alone establishes ownership.
 	ids := make(map[string]bool)
 	for _, filter := range []string{"name=k3d-" + state.Name + "-", "label=k3d.cluster=" + state.Name} {
@@ -112,6 +121,10 @@ func (k *K3d) ownedContainers(ctx context.Context, state diskState) ([]dockerCon
 			}
 		} else if err := k.validateWorkerTransport(state, container); err != nil {
 			return nil, err
+		} else if checkECR {
+			if err := k.validateWorkerECR(state, container); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return containers, nil
@@ -175,6 +188,16 @@ func (k *K3d) ensureNative(ctx context.Context, state *diskState, dir string, si
 	if state.Ready && (server == nil || worker == nil || network == "" || volume == "") {
 		return nil, errors.New("eks: previously ready Kubernetes was removed externally; refusing empty replacement")
 	}
+	// Existing workers were checked before staging anything: externally mounted
+	// legacy providers cannot be migrated by replacing a live bind mount.
+	if err = k.prepareECR(state, dir, server == nil && worker == nil); err != nil {
+		return nil, err
+	}
+	if server == nil && worker == nil {
+		if err = k.prepareStoragePolicy(ctx, state, dir); err != nil {
+			return nil, err
+		}
+	}
 	if network == "" {
 		if _, err = k.command(ctx, "docker", "network", "create", "--label", ownerLabel+"="+state.Token, "--label", idLabel+"="+state.ID, state.Name); err != nil {
 			return nil, err
@@ -196,8 +219,9 @@ func (k *K3d) ensureNative(ctx context.Context, state *diskState, dir string, si
 		}
 	}()
 	if server == nil {
-		// k3d's default entrypoint unconditionally cordons/drains its node.
-		// Agentless control planes have no Node and must never drain workloads.
+		// Run initialization hooks, then exec k3s on every node. The default
+		// entrypoint backgrounds it and can hide agent death behind an endless
+		// kubectl uncordon loop; Docker must observe and restart the real daemon.
 		entrypoint := []byte("#!/bin/sh\nset -eu\nfor hook in /bin/k3d-entrypoint-*.sh; do \"$hook\"; done\nexec /bin/k3s \"$@\"\n")
 		if err = writePrivate(dir, "control-plane-entrypoint.sh", entrypoint); err != nil {
 			return nil, err
@@ -214,7 +238,7 @@ func (k *K3d) ensureNative(ctx context.Context, state *diskState, dir string, si
 			"--k3s-arg", "--disable=traefik@server:0",
 			"--k3s-arg", "--disable-agent@server:0",
 			"--k3s-arg", "--egress-selector-mode=cluster@server:0",
-			"--volume", filepath.Join(dir, "control-plane-entrypoint.sh") + ":/bin/k3d-entrypoint.sh:ro@server:0",
+			"--volume", filepath.Join(dir, "control-plane-entrypoint.sh") + ":/bin/k3d-entrypoint.sh:ro@all",
 			"--volume", filepath.Join(dir, "audit-policy.yaml") + ":/etc/stackd/audit-policy.yaml:ro@server:0",
 			"--volume", filepath.Join(dir, "audit-webhook.kubeconfig") + ":/etc/stackd/audit-webhook.kubeconfig:ro@server:0",
 			"--wait", "--timeout", "180s"}

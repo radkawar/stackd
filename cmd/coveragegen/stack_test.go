@@ -3,6 +3,7 @@ package main
 import "testing"
 
 func TestObserveStackSelectedServiceIdentity(t *testing.T) {
+	t.Chdir("../..") // The generator reads its pinned registry from the repository root.
 	inventory := Inventory{Services: []Service{
 		{ID: "cognitoidentity", Model: "cognito-identity", Operations: []Operation{{Name: "CreateIdentityPool", Status: "unimplemented"}}},
 		{ID: "configservice", Model: "config-service", Operations: []Operation{{Name: "PutConfigurationRecorder", Status: "unimplemented"}}},

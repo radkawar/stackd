@@ -24,7 +24,6 @@ import (
 	"stackd/storage/memory"
 	"stackd/storage/sqlite"
 	sqlec2 "stackd/storage/sqlite/ec2"
-	sqliam "stackd/storage/sqlite/iam"
 	sqlkms "stackd/storage/sqlite/kms"
 	sqlssm "stackd/storage/sqlite/ssm"
 )
@@ -220,7 +219,7 @@ func TestCFNEC2GeneratedKeyPairPrivatePersistenceIsAtomic(t *testing.T) {
 				t.Cleanup(func() { _ = db.Close() })
 				ec2Repo = sqlec2.New(db)
 				ssmRepo = sqlssm.New(db)
-				iamRepo = sqliam.New(db)
+				iamRepo = newSQLiteIAMRepository(t, db)
 				keyStorage = sqlkms.New(db)
 			}
 			identityOwner := iam.NewWithConfig(iam.Config{Repository: iamRepo})
@@ -338,7 +337,7 @@ func TestCFNEC2GeneratedKeyPairPrivatePersistenceIsAtomic(t *testing.T) {
 				}
 				ec2Repo = sqlec2.New(db)
 				ssmRepo = sqlssm.New(db)
-				iamRepo = sqliam.New(db)
+				iamRepo = newSQLiteIAMRepository(t, db)
 				keyStorage = sqlkms.New(db)
 			}
 			identityOwner = iam.NewWithConfig(iam.Config{Repository: iamRepo})

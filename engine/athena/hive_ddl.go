@@ -42,13 +42,14 @@ type HiveDDL struct {
 }
 type DDLColumn struct{ Name, Type, TrinoType, Comment string }
 
-func (d *Docker) parseHiveDDL(ctx context.Context, handle, sql string) (_ *HiveDDL, retErr error) {
+func (d *Docker) parseHiveDDL(ctx context.Context, handle, owner, sql string) (_ *HiveDDL, retErr error) {
 	ctx, cancel := context.WithTimeout(ctx, d.startupTimeout)
 	defer cancel()
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	config := d.containerConfig(handle, nil)
+	config.Labels["stackd.athena.owner"] = owner
 	config.Image = d.hiveDDLImageID
 	config.Hostname = "localhost"
 	// Docker's "none" network keeps the loopback sandbox required by Py4J.
@@ -150,9 +151,9 @@ func icebergDDL(plan *HiveDDL, request Request) (string, error) {
 	if catalog != request.Catalog && catalog != "awsdatacatalog" && catalog != "iceberg" {
 		return "", errors.New("iceberg CREATE references an unconfigured catalog")
 	}
-	nativeCatalog := "iceberg"
-	if catalog == "awsdatacatalog" && request.CatalogID != "" && request.CatalogID != request.AccountID {
-		nativeCatalog = "awsdatacatalog_iceberg"
+	nativeCatalog, _, defaultPrefix := catalogAliases(request)
+	if catalog == "awsdatacatalog" && defaultPrefix != "" {
+		nativeCatalog = defaultPrefix + "iceberg"
 	}
 	var out strings.Builder
 	out.WriteString("CREATE TABLE ")

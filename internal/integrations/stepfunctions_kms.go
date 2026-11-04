@@ -36,9 +36,7 @@ var _ stepfunctions.EncryptionKeys = StepFunctionsKeys{}
 
 func (k StepFunctionsKeys) ResolveKey(ctx context.Context, identifier string) (string, *awswire.Error) {
 	ctx = kms.WithViaService(ctx, "states")
-	if rejected := recordKMSActivity(ctx, k.Activity, "DescribeKey"); rejected != nil {
-		return "", stepFunctionsKeyError(rejected, true)
-	}
+	recordKMSActivity(ctx, k.Activity, "DescribeKey")
 	metadata, rejected := k.KMS.DescribeKey(ctx, identifier)
 	if rejected != nil {
 		return "", stepFunctionsKeyError(rejected, true)
@@ -70,9 +68,7 @@ func (k StepFunctionsKeys) GenerateDataKey(ctx context.Context, resourceARN, rol
 	if rejected != nil {
 		return nil, nil, "", rejected
 	}
-	if rejected := recordKMSActivity(ctx, k.Activity, "GenerateDataKey"); rejected != nil {
-		return nil, nil, "", stepFunctionsKeyError(rejected, false)
-	}
+	recordKMSActivity(ctx, k.Activity, "GenerateDataKey")
 	plain, wrapped, keyARN, rejected := k.KMS.GenerateDataKey(ctx, keyID, encryption)
 	if rejected != nil {
 		clear(plain)
@@ -86,9 +82,7 @@ func (k StepFunctionsKeys) Decrypt(ctx context.Context, resourceARN, roleARN str
 	if rejected != nil {
 		return nil, "", rejected
 	}
-	if rejected := recordKMSActivity(ctx, k.Activity, "Decrypt"); rejected != nil {
-		return nil, "", stepFunctionsKeyError(rejected, false)
-	}
+	recordKMSActivity(ctx, k.Activity, "Decrypt")
 	plain, keyARN, rejected := k.KMS.Decrypt(ctx, wrapped, encryption)
 	if rejected != nil {
 		clear(plain)

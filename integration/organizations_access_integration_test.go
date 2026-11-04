@@ -23,6 +23,7 @@ import (
 	"stackd"
 	"stackd/clock"
 	"stackd/storage"
+	iamstorage "stackd/storage/iam"
 )
 
 type organizationReportFixture struct {
@@ -186,6 +187,31 @@ func testOrganizationsAccessReportAggregatesSignedAttemptsAndFreezesHierarchy(t 
 			t.Fatal(err)
 		}
 	}
+	waitActivityPublication(t, func() bool {
+		observed := make(map[string]bool)
+		if err := backends.IAM.View(t.Context(), func(tx iamstorage.ReadTx) error {
+			for _, account := range []string{first, second} {
+				rows, err := tx.PrincipalActivities(iamstorage.Scope{Partition: "aws", AccountID: account})
+				if err != nil {
+					return err
+				}
+				for _, row := range rows {
+					switch {
+					case account == first && row.ServiceNamespace == "sqs" && row.ActionName == "ListQueues":
+						observed[first] = true
+					case account == second && row.ServiceNamespace == "kms" && row.ActionName == "ListAliases":
+						observed["kms"] = true
+					case account == second && row.ServiceNamespace == "sqs" && row.ActionName == "ListQueues" && row.LastAuthenticated.Equal(lastSQS):
+						observed[second] = true
+					}
+				}
+			}
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+		return len(observed) == 3
+	})
 	path := f.rootPath + "/" + parent
 	job := f.generate(t, path, "")
 	pending, err := f.iam.GetOrganizationsAccessReport(t.Context(), &iam.GetOrganizationsAccessReportInput{JobId: job})
@@ -484,7 +510,29 @@ func TestOrganizationsAccessReportGenerationSlotAndCurrentSCPRequirement(t *test
 }
 
 func TestOrganizationsAccessReportManagementAccountIgnoresPolicy(t *testing.T) {
-	f := newOrganizationReportFixture(t, nil)
+	backends := storage.NewMemory()
+	f := newOrganizationReportFixture(t, backends)
+	if _, err := f.iam.GetAccountSummary(t.Context(), &iam.GetAccountSummaryInput{}); err != nil {
+		t.Fatal(err)
+	}
+	waitActivityPublication(t, func() bool {
+		found := false
+		if err := backends.IAM.View(t.Context(), func(tx iamstorage.ReadTx) error {
+			rows, err := tx.PrincipalActivities(iamstorage.Scope{Partition: "aws", AccountID: "000000000000"})
+			if err != nil {
+				return err
+			}
+			for _, row := range rows {
+				if row.ServiceNamespace == "iam" && row.ActionName == "GetAccountSummary" {
+					found = true
+				}
+			}
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+		return found
+	})
 	path := f.rootPath + "/000000000000"
 	job := f.generate(t, path, "p-missing0")
 	out := finishOrganizationReport(t, f.clock, f.iam, job)

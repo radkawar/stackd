@@ -76,6 +76,13 @@ func (f *activityFixture) user(t *testing.T, name string) identity.Credential {
 	return credential
 }
 
+func (f *activityFixture) flush(t *testing.T) {
+	t.Helper()
+	if err := f.service.FlushActivity(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func activityRows(t *testing.T, repository iam.Repository, scope iam.Scope, principalID string) []iam.PrincipalActivity {
 	t.Helper()
 	var rows []iam.PrincipalActivity
@@ -119,6 +126,7 @@ func TestPrincipalActivityDeniedAttemptsAndCredentialCoalescing(t *testing.T) {
 			}
 			_, err = f.client("eu-west-1", key).ListUsers(t.Context(), &sdkiam.ListUsersInput{})
 			requireCode(t, err, "AccessDenied")
+			f.flush(t)
 			scope := iam.Scope{Partition: "aws", AccountID: key.AccountID}
 			rows := activityRows(t, f.repository, scope, key.PrincipalID)
 			if len(rows) != 3 {
@@ -143,6 +151,9 @@ func TestPrincipalActivityDeniedAttemptsAndCredentialCoalescing(t *testing.T) {
 			t.Cleanup(func() { _ = older.Close() })
 			ctx := activityContext(t.Context(), key, "aws", "us-east-1")
 			if err := older.RecordActivity(ctx, "iam", "ListUsers"); err != nil {
+				t.Fatal(err)
+			}
+			if err := older.FlushActivity(t.Context()); err != nil {
 				t.Fatal(err)
 			}
 			if got := activityRows(t, f.repository, scope, key.PrincipalID); !slices.Equal(got, rows) {
@@ -189,7 +200,7 @@ func (tx activityFailureTx) PutPrincipalActivity(scope iam.Scope, row iam.Princi
 	return nil
 }
 
-func TestPrincipalActivityFailureRollsBackUsageAndPreventsServiceEffects(t *testing.T) {
+func TestPrincipalActivityFailureRollsBackReportingWithoutFailingServiceEffects(t *testing.T) {
 	for _, canceled := range []bool{false, true} {
 		name := "storage failure"
 		if canceled {
@@ -203,12 +214,16 @@ func TestPrincipalActivityFailureRollsBackUsageAndPreventsServiceEffects(t *test
 			if err != nil {
 				t.Fatal(err)
 			}
+			f.flush(t)
 			repository.fail.Store(!canceled)
 			repository.cancel.Store(canceled)
-			_, err = f.client("us-east-1", key).CreateUser(t.Context(), &sdkiam.CreateUserInput{UserName: aws.String("must-not-exist")})
-			requireCode(t, err, "ServiceFailure")
-			repository.fail.Store(false)
-			repository.cancel.Store(false)
+			_, err = f.client("us-east-1", key).CreateUser(t.Context(), &sdkiam.CreateUserInput{UserName: aws.String("accepted-during-report-failure")})
+			if err != nil {
+				t.Fatalf("reporting failure reached the data plane: %v", err)
+			}
+			if err := f.service.FlushActivity(t.Context()); err == nil {
+				t.Fatal("explicit drain hid the reporting failure")
+			}
 			scope := iam.Scope{Partition: "aws", AccountID: key.AccountID}
 			if rows := activityRows(t, repository, scope, key.PrincipalID); len(rows) != 0 {
 				t.Fatalf("rolled-back activity exists: %+v", rows)
@@ -217,13 +232,14 @@ func TestPrincipalActivityFailureRollsBackUsageAndPreventsServiceEffects(t *test
 			if err != nil || used.Recorded() {
 				t.Fatalf("rolled-back credential usage=%+v %v", used, err)
 			}
-			_, err = f.root.GetUser(t.Context(), &sdkiam.GetUserInput{UserName: aws.String("must-not-exist")})
-			requireCode(t, err, "NoSuchEntity")
-			if _, err := f.client("us-east-1", key).CreateUser(t.Context(), &sdkiam.CreateUserInput{UserName: aws.String("must-not-exist")}); err != nil {
-				t.Fatal(err)
+			if _, err := f.root.GetUser(t.Context(), &sdkiam.GetUserInput{UserName: aws.String("accepted-during-report-failure")}); err != nil {
+				t.Fatalf("reporting failure rolled back the service effect: %v", err)
 			}
+			repository.fail.Store(false)
+			repository.cancel.Store(false)
+			f.flush(t)
 			if rows := activityRows(t, repository, scope, key.PrincipalID); len(rows) != 1 {
-				t.Fatalf("successful retry activity=%+v", rows)
+				t.Fatalf("retained failed snapshot was not drained: %+v", rows)
 			}
 		})
 	}
@@ -261,6 +277,7 @@ func TestPrincipalActivitySessionsUseCurrentIssuerAndSurviveCredentialRemoval(t 
 	if _, err := f.client("us-east-1", assumed).ListUsers(t.Context(), &sdkiam.ListUsersInput{}); err != nil {
 		t.Fatal(err)
 	}
+	f.flush(t)
 	scope := iam.Scope{Partition: "aws", AccountID: parent.AccountID}
 	userRows := activityRows(t, f.repository, scope, parent.PrincipalID)
 	roleRows := activityRows(t, f.repository, scope, assumed.IssuerID)
@@ -279,6 +296,7 @@ func TestPrincipalActivitySessionsUseCurrentIssuerAndSurviveCredentialRemoval(t 
 	// The role session is independent of its issuer's original access key.
 	_, err = f.client("us-east-1", assumed).GetAccountSummary(t.Context(), &sdkiam.GetAccountSummaryInput{})
 	requireCode(t, err, "AccessDenied")
+	f.flush(t)
 	roleRows = activityRows(t, f.repository, scope, assumed.IssuerID)
 	if len(roleRows) != 2 {
 		t.Fatalf("role attempt after source-key revocation missing: %+v", roleRows)
@@ -306,6 +324,7 @@ func TestPrincipalActivityRenameAndRecreateKeepImmutableIdentity(t *testing.T) {
 	key := f.user(t, "before")
 	_, err := f.client("us-east-1", key).ListUsers(t.Context(), &sdkiam.ListUsersInput{})
 	requireCode(t, err, "AccessDenied")
+	f.flush(t)
 	_, err = f.root.UpdateUser(t.Context(), &sdkiam.UpdateUserInput{UserName: aws.String("before"), NewUserName: aws.String("after"), NewPath: aws.String("/renamed/")})
 	if err != nil {
 		t.Fatal(err)
@@ -315,6 +334,7 @@ func TestPrincipalActivityRenameAndRecreateKeepImmutableIdentity(t *testing.T) {
 	}
 	_, err = f.client("us-east-1", key).ListUsers(t.Context(), &sdkiam.ListUsersInput{})
 	requireCode(t, err, "AccessDenied")
+	f.flush(t)
 	scope := iam.Scope{Partition: "aws", AccountID: key.AccountID}
 	rows := activityRows(t, f.repository, scope, key.PrincipalID)
 	if len(rows) != 1 || rows[0].PrincipalARN != "arn:aws:iam::123456789012:user/renamed/after" {
@@ -335,6 +355,7 @@ func TestPrincipalActivityRenameAndRecreateKeepImmutableIdentity(t *testing.T) {
 	}
 	_, err = f.client("us-east-1", recreated).ListUsers(t.Context(), &sdkiam.ListUsersInput{})
 	requireCode(t, err, "AccessDenied")
+	f.flush(t)
 	if got := activityRows(t, f.repository, scope, key.PrincipalID); !slices.Equal(got, rows) {
 		t.Fatalf("recreated user changed old activity: %+v", got)
 	}
@@ -364,6 +385,7 @@ func TestPrincipalActivityAccountPartitionIsolation(t *testing.T) {
 			}
 			_, err = f.client(scope.region, key).ListUsers(t.Context(), &sdkiam.ListUsersInput{})
 			requireCode(t, err, "AccessDenied")
+			f.flush(t)
 			ownScope := iam.Scope{AccountID: scope.account, Partition: scope.partition}
 			rows := activityRows(t, f.repository, ownScope, key.PrincipalID)
 			if len(rows) != 1 || rows[0].PrincipalARN != aws.ToString(user.User.Arn) || rows[0].Region != scope.region {
@@ -413,6 +435,7 @@ func TestPrincipalActivityAcceptedWorkOutlivesSessionCredential(t *testing.T) {
 	if err := f.service.RecordActivity(accepted, "kms", "GenerateDataKey"); err != nil {
 		t.Fatal(err)
 	}
+	f.flush(t)
 	rows := activityRows(t, f.repository, iam.Scope{AccountID: parent.AccountID, Partition: "aws"}, parent.PrincipalID)
 	if len(rows) != 2 {
 		t.Fatalf("accepted job lost activity after credential expiry/removal: %+v", rows)

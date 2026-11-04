@@ -19,7 +19,6 @@ import (
 	"stackd/storage/memory"
 	"stackd/storage/sqlite"
 	sqlec2 "stackd/storage/sqlite/ec2"
-	sqliam "stackd/storage/sqlite/iam"
 )
 
 func lambdaEC2Command(t *testing.T, ctx context.Context, service interface {
@@ -64,7 +63,7 @@ func TestLambdaSourceNetworkOwnershipAndCurrentAuthority(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					networks, identities = sqlec2.New(database), sqliam.New(database)
+					networks, identities = sqlec2.New(database), newSQLiteIAMRepository(t, database)
 				}
 				roles = iam.NewWithConfig(iam.Config{Repository: identities})
 				service = ec2.New(ec2.Config{Repository: networks, Authorizer: authorization.New(roles, nil)})

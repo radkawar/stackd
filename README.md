@@ -127,7 +127,7 @@ After installing k3d v5.8.3 and the pinned node/helper images:
 ```sh
 ./bin/stackd -listen 0.0.0.0:4566 -database ./data/stackd.sqlite \
   -docker-host unix:///var/run/docker.sock \
-  -eks-state-directory ./data/eks \
+  -eks-state-directory ./data/eks -eks-storage-reserve-gib 64 \
   -eks-k3d "$PWD/bin/k3d-v5.8.3" \
   -eks-listen-host 127.0.0.1 -eks-endpoint-host 127.0.0.1
 ```
@@ -136,6 +136,13 @@ Create and access clusters through the local EKS API; do not manually create
 similarly named k3d clusters and expect stackd to adopt them. Managed EC2 workers
 also need the QEMU runtime, prepared worker images, and host routing. See
 [EKS deployment and access](docs/runtime-vms.md#k3d-eks).
+
+The native storage reserve defaults to 64 GiB for nodefs/imagefs eviction and
+minimum reclaim, with capacity-derived image GC on the configured Docker daemon.
+It preserves native pressure handling and explicit memory/inode safety.
+The policy is retained at creation for bootstrap and future Fargate workers;
+**recreate a cluster to change its reserve**, not merely restart the controller.
+See [native storage policy](docs/eks.md#native-worker-storage-reserve).
 
 These examples broaden the API listener beyond loopback. Restrict network access,
 and configure origins reachable by both your host clients and workloads before

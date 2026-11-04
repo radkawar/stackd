@@ -57,6 +57,14 @@ func (r reader) User(scope domain.Scope, key string) (domain.User, error) {
 	return record, nil
 }
 
+func (r reader) UserIDExists(scope domain.Scope, id string) (bool, error) {
+	_, err := r.q.GetUserIdentityID(r.ctx, sqlcgen.GetUserIdentityIDParams{Partition: scope.Partition, Account: scope.AccountID, UserID: id})
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
 func (r reader) Users(scope domain.Scope) ([]domain.User, error) {
 	rows, err := r.q.ListUserKeys(r.ctx, sqlcgen.ListUserKeysParams{Partition: scope.Partition, Account: scope.AccountID})
 	if err != nil {

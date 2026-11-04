@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -69,5 +70,24 @@ func TestContainerEndpointUsesActualListenerPort(t *testing.T) {
 	}
 	if endpoint, err := containerEndpoint("http", "", &net.TCPAddr{IP: net.IPv4zero, Port: 4567}); err != nil || endpoint != explicit {
 		t.Fatalf("Desktop wildcard endpoint mismatch: %q %v", endpoint, err)
+	}
+}
+
+func TestEKSStorageReserveFlagRejectsInvalidValues(t *testing.T) {
+	originalFlags, originalArgs := flag.CommandLine, os.Args
+	t.Cleanup(func() {
+		flag.CommandLine, os.Args = originalFlags, originalArgs
+	})
+	for _, value := range []string{"0", "-1", "4294967296", "9223372036854775807"} {
+		t.Run(value, func(t *testing.T) {
+			flag.CommandLine = flag.NewFlagSet("stackd", flag.ContinueOnError)
+			os.Args = []string{"stackd", "-eks-storage-reserve-gib=" + value}
+			if err := run(); err == nil || !strings.Contains(err.Error(), "eks-storage-reserve-gib") {
+				t.Fatalf("expected storage reserve rejection before runtime startup; got %v", err)
+			}
+			if option := flag.CommandLine.Lookup("eks-storage-reserve-gib"); option == nil || option.DefValue != "64" {
+				t.Fatal("native storage reserve flag must default to 64 GiB")
+			}
+		})
 	}
 }

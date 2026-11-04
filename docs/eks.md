@@ -77,11 +77,27 @@ bootstrap worker is not AWS-managed EC2 capacity: it creates no fictional EC2
 instance or managed node-group record. Its image and kubelet remain at the
 cluster's initial version when the control plane upgrades.
 
-The server entrypoint runs k3d's initialization hooks and then executes k3s
-directly, without k3d's worker cordon/drain lifecycle. Its
-`--egress-selector-mode=cluster` uses agent tunnels for Kubernetes service,
-webhook and kubelet connections. Managed-worker overlay publication belongs to
-the separate worker, not the control-plane container.
+The server and local bootstrap/Fargate worker entrypoints run k3d's initialization
+hooks and then execute k3s directly. Docker therefore observes the actual daemon's
+exit and can apply its configured restart policy. The upstream worker entrypoint
+backgrounds k3s and can remain in an endless agent-local `kubectl uncordon` loop
+after daemon death; a Docker-running shell is not evidence of a healthy kubelet.
+Managed draining remains with the runtime's explicit worker lifecycle.
+The server's `--egress-selector-mode=cluster` uses agent tunnels for Kubernetes
+service, webhook and kubelet connections. Managed-worker overlay publication
+belongs to the separate worker, not the control-plane container.
+
+Fresh local nodes mount the same owned, read-only exec-style entrypoint.
+Retained workers keep Docker's immutable mount configuration. When upgrading an
+older worker, first verify its exact native ID, ownership labels and stock
+entrypoint; stage the cluster's already-owned exec-style entrypoint over that
+writable stock file and restart the **same container** during a maintenance
+window. Preserve its filesystem, image volume, endpoint and configured credential
+provider mounts. Do not replace the cluster, overwrite an unknown entrypoint or
+claim an uninterrupted workload during worker recovery. The opt-in
+`TestK3dNativeWorkload` terminates the real worker daemon and requires the same
+Docker container to restart, the original Kubernetes Node UID to become Ready,
+and authenticated kubelet exec to succeed again.
 
 With `-eks-worker-advertise-host`, the native API server advertises that address
 and its published port to agents. Advertising its Docker-private address instead
@@ -126,6 +142,180 @@ Retained mixed server/worker clusters from the earlier runtime must be recreated
 recovery refuses to silently drain or upgrade their data plane. Exact-owned
 deletion remains available. External kubeconfig adoption remains unsupported;
 having `$HOME/.kube/config` confers no ownership or access.
+
+### Native worker storage reserve
+
+`-eks-storage-reserve-gib` is a positive integer GiB creation setting, default
+**64**. It is native runtime configuration, not an AWS `CreateCluster` field.
+For reserve **R**, every new Docker-backed bootstrap/Fargate worker receives:
+
+- hard eviction at `nodefs.available<R GiB` and `imagefs.available<R GiB`;
+- minimum reclaim of **R GiB** for each storage signal, so the native eviction
+  recovery target is **2R GiB** available;
+- image GC starting near **1.5R GiB** available and reclaiming to at least
+  **2R GiB** available, expressed as native integer used-space percentages;
+- explicit standard safety thresholds `memory.available<100Mi`,
+  `nodefs.inodesFree<5%` and `imagefs.inodesFree<5%` in the hard-threshold map.
+
+The adapter probes `/` using `df -Pk` in the installed
+`ghcr.io/k3d-io/k3d-tools:5.8.3` image on the **configured Docker daemon**;
+it does not use the controller host's disk capacity or ambient Docker context.
+Capacity must exceed **2R**; invalid/overflowing reserves or capacities fail
+creation instead of shrinking the reserve. GC high/low percentages are floored
+from `(capacity - 1.5R) / capacity` and `(capacity - 2R) / capacity`; if they
+coincide, the low percentage is reduced by one to retain a distinct native
+reclaim watermark. Integer rounding can start GC earlier and reclaim more than
+the nominal absolute targets on large disks. Eviction and its native five-minute
+pressure transition remain active; this does not remove pressure taints, disable
+safety signals, or allocate a private filesystem.
+
+The reserve, probed capacity and GC thresholds are durably retained before
+creating workers. Future Fargate workers use that same policy, including after
+controller restart. **Changing the flag requires deleting and recreating the
+cluster** to change its workers' policy. Reattachment retains its creation policy
+even when the current flag differs; it never rewrites a running worker.
+Clusters created before this setting retain their original native defaults,
+including for later Fargate workers, until recreated. Exact-owned deletion
+remains available under the new controller, allowing a focused Terraform EKS
+replacement without discarding other retained services. Managed EC2 worker
+guest filesystems and their imported AMI bootstrap policy are separate.
+
+Absolute storage reserves avoid scaling the eviction recovery target with the
+size of a shared Docker filesystem. Memory and inode protections remain enabled.
+See [stackd issue #14](https://github.com/radkawar/stackd/issues/14).
+
+Focused regressions cover reserve/capacity overflow, insufficient capacity,
+integer GC rounding, worker arguments and retained policy. The existing real
+`TestK3dNativeWorkload` fixture additionally reads actual bootstrap/Fargate
+`configz`, changes the controller reserve across reopen, checks original worker
+identity and exact-owned deletion, and creates a later Fargate worker under the
+original policy. With Docker, kubectl and the pinned images installed:
+
+```sh
+go test ./compute/eks ./cmd/stackd -run 'TestNativeStorage|TestEKSStorageReserveFlag'
+STACKD_EKS_NATIVE_BINARY=/path/to/k3d-v5.8.3 \
+  go test ./compute/eks -run '^TestK3dNativeWorkload$' -count=1 -timeout=12m
+```
+
+### Authenticated private ECR pulls on the native worker
+
+The local k3d bootstrap worker can use stackd's private ECR registry without
+workload `imagePullSecrets`, anonymous registry access, or disabled TLS
+verification. This is explicit local node configuration, not automatic EC2
+instance-profile discovery or IRSA. Managed EC2 guests and Fargate retain their
+separate bootstrap/execution-role paths; configuring this provider does not
+install it into those guests.
+
+Build a static Linux provider executable matching the native worker architecture:
+
+```sh
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+  go build -o /owned/bin/stackd-ecr-credential-provider ./cmd/stackd-ecr-credential-provider
+```
+
+Create a dedicated local IAM node user/access key (or an explicitly supplied
+role session), with `ecr:GetAuthorizationToken` on `*` and
+`ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer`, and
+`ecr:BatchCheckLayerAvailability` on only the required repository ARNs. Do not
+give the worker the bootstrap root credentials. Write its credentials to an
+operator-owned **0600 regular file**, for example `/owned/ecr-node.json`:
+
+```json
+{
+  "endpoint": "https://172.17.0.1:40000",
+  "region": "us-east-1",
+  "accessKeyId": "<dedicated-local-node-access-key>",
+  "secretAccessKey": "<dedicated-local-node-secret>"
+}
+```
+
+`sessionToken` is optional for explicit temporary credentials. These are local
+stackd credentials, not credentials for a real AWS account. No ambient AWS
+profile, environment credentials, or IMDS fallback is used. The endpoint must be
+an HTTPS origin; stackd's partition/account/Region repository path belongs in
+the image name, for example
+`172.17.0.1:40000/aws/123456789012/us-east-1/example:local`.
+Use the actual account ID and TLS port of the selected sandbox. The endpoint
+must be reachable from the worker container, with a certificate valid for that
+hostname/IP; loopback addresses refer to the worker itself.
+
+Add these flags to the explicit runtime invocation:
+
+```sh
+  -eks-ecr-credential-provider /owned/bin/stackd-ecr-credential-provider \
+  -eks-ecr-credentials-file /owned/ecr-node.json \
+  -eks-ecr-ca /owned/development-ca-public.pem
+```
+
+Fresh clusters require all three settings. The CA is read at controller startup.
+The executable and credentials are read when creating the native cluster, so
+Terraform can create the scoped IAM identity and private credentials file first.
+Missing, malformed or non-private credentials fail creation rather than falling
+back to root. Before creating a worker, stackd copies the executable into its
+owned cluster directory and durably records its digest and file identity. The
+Docker daemon must see that retained directory and the credentials path; a remote
+daemon requires matching, operator-provisioned paths.
+
+The adapter mounts the retained executable, credentials, generated kubelet provider
+configuration and CA read-only on **the bootstrap worker only**. Containerd's
+`registries.yaml` contains the registry authority's `ca_file`, never an expiring
+ECR password. The provider implements the stable
+[kubelet exec credential-provider protocol](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-credential-provider/)
+and signs `GetAuthorizationToken` against the configured stackd endpoint.
+Registry passwords remain in kubelet memory; a zero-duration response cache
+obtains fresh authorization on every requested pull and avoids assuming that
+stackd's service clock equals wall time. The registry still checks current
+repository IAM for manifest and blob requests. TLS verification uses only the
+supplied CA for both the API call and
+[containerd registry connections](https://docs.k3s.io/installation/private-registry).
+
+Controller checkout relocation, rebuilding or deleting the original executable
+does not change a retained worker's provider. Reattachment uses the recorded
+artifact; the creation-source flag may be omitted while the same credentials and
+CA remain configured. Preserve the owned cluster directory and Docker daemon.
+Missing, changed or substituted retained artifacts fail closed; they are never
+regenerated or replaced beneath a live mount.
+
+Legacy workers with external executable mounts have no durable artifact receipt
+and require explicit owned-cluster deletion/recreation. Workers without provider
+mounts also require recreation to enable this feature. `Close` does not migrate
+or delete them. Receipted staging can resume only before workers exist; an
+unreceipted artifact requires explicit owned deletion before retry.
+
+Retained workers still require the same credentials path, registry authority
+and CA bytes. The provider reads credentials on each execution. Rotate their
+contents in place while preserving mode 0600 and the inode: replacing a
+bind-mounted file does not update a running container's mount. Endpoint or CA
+changes require cluster recreation. Temporary node sessions must be renewed by
+the operator; this provider refreshes registry authorization, not the IAM session.
+
+Regression coverage (added with [issue #1](https://github.com/radkawar/stackd/issues/1)):
+`TestECRWorkerConfiguration` checks private/read-only worker-only wiring and
+retained trust fences; `TestECRKubeletProviderTLSCurrentIAMAndRefresh` uses real
+stackd IAM/ECR and HTTPS to check token refresh, current repository denial,
+untrusted CA/plaintext rejection, protocol isolation, and private stdio config.
+These tests are not execution evidence until run.
+
+The opt-in `TestK3dNativePrivateECRPull` requires the pinned k3d, Docker, native
+images, a running stackd HTTPS registry, a scoped node credentials file, and an
+already-pushed private image containing `/bin/sh`. Set:
+
+```sh
+STACKD_EKS_NATIVE_BINARY=/path/to/k3d-v5.8.3 \
+STACKD_EKS_ECR_PROVIDER=/owned/bin/stackd-ecr-credential-provider \
+STACKD_EKS_ECR_CREDENTIALS=/owned/ecr-node.json \
+STACKD_EKS_ECR_CA=/owned/development-ca-public.pem \
+STACKD_EKS_ECR_IMAGE=172.17.0.1:40000/aws/123456789012/us-east-1/ecr-proof:local \
+  go test ./compute/eks -run '^TestK3dNativePrivateECRPull$' -count=1 -timeout=12m
+```
+
+`STACKD_EKS_DOCKER_HOST` optionally selects the explicit daemon (default
+`unix:///var/run/docker.sock`). The fixture checks that the registry rejects
+anonymous access, creates a real native cluster, runs an `Always`-pull Pod
+without importing its workload image or creating pull secrets, and waits for
+actual container execution. It retains worker, Node and Pod identity across
+controller relocation and source removal, checks further private pulls, rejects
+missing or corrupt retained artifacts, and deletes only its owned resources.
 
 ### Fargate execution ownership
 
@@ -357,6 +547,102 @@ customer-owned arguments. Both workflows recover real node CPU/memory metrics,
 delete the stuck namespace, restart the native server, and prove metrics and
 new namespace deletion still work. Seven-day signing-key rotation and retirement
 of expired verification keys remain explicitly unimplemented.
+
+### AWS Load Balancer Controller prerequisites
+
+Installing the upstream controller does not supply VPC networking to a native
+k3d worker. The default worker has neither an EC2 instance ID for `instance`
+targets nor a VPC-CNI ENI for each pod. Do not fabricate either identity.
+ALB IP target registration accepts private outside-VPC addresses only with an
+explicit `AvailabilityZone=all`; successful registration does not establish a
+native route to the target. In particular, the k3s flannel pod network is not
+automatically routed from the ALB's separate EC2-owned Docker bridge.
+
+For AWS Load Balancer Controller **v2.14.1**, Helm chart **1.14.1**, provide
+`clusterName`, `region`, and `vpcId` explicitly instead of relying on EC2 IMDS.
+Use a dedicated service account annotated with its controller role ARN, an IAM
+OIDC provider for this cluster's actual issuer, and an exact `aud=sts.amazonaws.com`
+and `sub=system:serviceaccount:<namespace>:<service-account>` trust policy.
+The controller requires its ordinary upstream IAM policy; bootstrap credentials
+must not be copied into its pod.
+
+The operator's kubeconfig exec plugin must still presign the AWS-shaped STS URL
+for `aws eks get-token`, not the local control endpoint. When a shell exports
+`AWS_ENDPOINT_URL`, scope `AWS_IGNORE_CONFIGURED_ENDPOINT_URLS=true` to `kubectl`
+and `helm` (or set it in the kubeconfig exec environment). Do not export it for
+ordinary AWS control calls or the controller pod: those must reach stackd.
+
+Mount the development CA as a read-only ConfigMap and set `AWS_CA_BUNDLE`.
+Set `AWS_ENDPOINT_URL` and `AWS_ENDPOINT_URL_STS` to the HTTPS gateway: the SDK's
+web-identity credential provider creates its own STS client independently of the
+controller's service-client overrides. Also set the chart's `awsApiEndpoints`
+using the **SDK service IDs**, including their spaces:
+
+```yaml
+awsApiEndpoints: "EC2=https://HOST:PORT,Elastic Load Balancing v2=https://HOST:PORT,STS=https://HOST:PORT,ACM=https://HOST:PORT,Resource Groups Tagging API=https://HOST:PORT"
+enableShield: false
+enableWaf: false
+enableWafv2: false
+enableBackendSecurityGroup: false
+enableManageBackendSecurityGroupRules: false
+enableServiceMutatorWebhook: false
+enableEndpointSlices: true
+defaultTargetType: ip
+controllerConfig:
+  featureGates:
+    EnableRGTAPI: false
+```
+
+Use explicit same-VPC subnets in at least two AZs and an explicit frontend SG in
+the Ingress annotations. Set
+`alb.ingress.kubernetes.io/manage-backend-security-group-rules: "false"` when
+the backend has no real EC2 ENI; this avoids requesting fictitious pod ENI
+ownership, without bypassing the ALB's actual SG, NACL, or route enforcement.
+Internal ALBs reaching outside-VPC targets still need an effective native
+egress path. No host route or packet-policy exception is installed by Helm.
+
+The controller's baseline workflow uses EC2 subnet/VPC/SG descriptions and
+ELBv2 load-balancer, target-group, listener, rule, attribute, tagging and target
+health APIs. The generated-Query regression
+`TestLoadBalancerControllerIPTargetReconciliation` covers its fixed-response
+default listener, weighted single-group forward rule, resource tag reads,
+outside-VPC registration and drain/re-registration transitions. It is not a
+running-controller or packet-routing conformance claim. The tracked native
+integration boundary is [stackd issue #4](https://github.com/radkawar/stackd/issues/4).
+
+The native routing authority now checks the current Kubernetes Node UID,
+PodCIDRs and InternalIP against exact-owned Docker workers and their actual
+`cni0` networks. It scopes host routes and forwarding grants to the current
+ALB/account/region/VPC and preserves ALB SG/NACL admission. Stable reconciliation
+retains open connections; loss of authority withdraws pod access without
+removing unrelated EC2 policy. Cleanup removes only witnessed owned state.
+This path supports native k3d bootstrap/Fargate workers, not external managed
+EC2 workers or VPC-CNI pod ENIs. Transport uses worker-gateway SNAT; it does not
+reproduce VPC-CNI source-address identity.
+
+`TestDaemonPodRoutePacketPathAndWithdrawal` exercises actual packets, retained
+connections and withdrawal on Linux Docker. The separate
+[`scripts/eks_lbc_smoke.py`](../scripts/eks_lbc_smoke.py) fresh-state workflow
+[passed with upstream LBC v2.14.1](../testdata/integration/eks_lbc_native_routing.json):
+exact IRSA, verified TLS, healthy real pod-IP targets and host HTTP; SG/NACL and
+foreign-VPC denial; retained Pod/ALB/target identities across controller restart;
+and exact-owned cleanup. CI runs this workflow and retains only sanitized
+assertions, never its raw state or credentials.
+
+Build `cmd/stackd` and a static Linux `cmd/stackd-elbv2-node`, install k3d v5.8.3
+and the pinned runtime images, and provide Helm, kubectl, AWS CLI, OpenSSL, `dig`
+and Python boto3. Run the script's `--help` for the fresh state directory,
+binary paths and immutable image options. The script imports workload images
+only into the owned workload agent; the agentless control-plane server has no
+containerd socket.
+
+Primary references: [controller configuration](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.14/deploy/configurations/),
+[v2.14.1 endpoint resolver](https://github.com/kubernetes-sigs/aws-load-balancer-controller/blob/v2.14.1/pkg/backend/endpoint_resolver.go),
+and [pod target registration](https://github.com/kubernetes-sigs/aws-load-balancer-controller/blob/v2.14.1/pkg/targetgroupbinding/resource_manager.go).
+The endpoint resolver ignores EndpointSlice entries without a real Pod
+`targetRef`; a plain selectorless Service containing arbitrary external
+addresses is not enough. Any local NodePort bridge must be explicitly selected
+and document its reconciliation and routing ownership separately.
 
 ### Add-ons and control-plane logs
 

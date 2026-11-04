@@ -28,13 +28,16 @@ const (
 
 // DockerConfig selects a local Docker engine and a stable installation namespace.
 // Client, when supplied, remains caller-owned. Host is used only without Client.
-// EndpointHost addresses the daemon's loopback via a caller-established route;
-// an empty value uses 127.0.0.1. Images must implement the pinned upstream layout.
-// PortRange bounds new automatic SQL endpoints, never explicit or retained ports.
+// EndpointHost is the advertised client address and PostgreSQL TLS identity;
+// an empty value uses 127.0.0.1. PublishAddress is the daemon-side IP to bind;
+// an empty value preserves loopback-only publication at 127.0.0.1.
+// Images must implement the pinned upstream layout. PortRange bounds new
+// automatic SQL endpoints, never explicit or retained ports.
 type DockerConfig struct {
 	Host, Namespace, PostgresImage, MySQLImage string
 	Client                                     *docker.Client
 	EndpointHost                               string
+	PublishAddress                             string
 	StartupTimeout                             time.Duration
 	PortRange                                  ports.Range
 }
@@ -45,6 +48,7 @@ type Docker struct {
 	client                    *docker.Client
 	ownsClient                bool
 	namespace, endpointHost   string
+	publishAddress            string
 	postgresImage, mysqlImage string
 	startupTimeout            time.Duration
 	portRange                 ports.Range
@@ -73,6 +77,14 @@ func NewDocker(config DockerConfig) (*Docker, error) {
 	if net.ParseIP(config.EndpointHost) == nil && strings.ContainsAny(config.EndpointHost, ":/?#@[]\\ \t\r\n") {
 		return nil, errors.New("invalid native RDS endpoint host")
 	}
+	if config.PublishAddress == "" {
+		config.PublishAddress = "127.0.0.1"
+	}
+	address := net.ParseIP(config.PublishAddress)
+	if address == nil {
+		return nil, errors.New("native RDS publish address must be an IP address")
+	}
+	config.PublishAddress = address.String()
 	if config.StartupTimeout == 0 {
 		config.StartupTimeout = 3 * time.Minute
 	}
@@ -99,7 +111,7 @@ func NewDocker(config DockerConfig) (*Docker, error) {
 			return nil, err
 		}
 	}
-	d := &Docker{client: client, ownsClient: owned, namespace: config.Namespace, endpointHost: config.EndpointHost, startupTimeout: config.StartupTimeout, portRange: config.PortRange, gate: make(chan struct{}, 1)}
+	d := &Docker{client: client, ownsClient: owned, namespace: config.Namespace, endpointHost: config.EndpointHost, publishAddress: config.PublishAddress, startupTimeout: config.StartupTimeout, portRange: config.PortRange, gate: make(chan struct{}, 1)}
 	for _, item := range []struct {
 		reference string
 		target    *string

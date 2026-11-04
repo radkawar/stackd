@@ -23,7 +23,6 @@ import (
 	"stackd/storage/sqlite"
 	sqlec2 "stackd/storage/sqlite/ec2"
 	sqlelb "stackd/storage/sqlite/elbv2"
-	sqliam "stackd/storage/sqlite/iam"
 )
 
 type loadBalancerNetworkFixture struct {
@@ -379,7 +378,7 @@ func TestLoadBalancerNetworkAllocationRollsBackWithAttachmentWrite(t *testing.T)
 					t.Fatal(err)
 				}
 				t.Cleanup(func() { _ = db.Close() })
-				networks, roles, balancers = sqlec2.New(db), sqliam.New(db), sqlelb.New(db)
+				networks, roles, balancers = sqlec2.New(db), newSQLiteIAMRepository(t, db), sqlelb.New(db)
 			}
 			f := newLoadBalancerNetworkFixtureWithRepositories(t, networks, roles)
 			if _, _, err := f.adapter.Validate(f.ctx, f.scope, f.subnets, nil); err != nil {

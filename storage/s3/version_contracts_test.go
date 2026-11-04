@@ -2,6 +2,7 @@ package s3_test
 
 import (
 	"bytes"
+	"database/sql"
 	"errors"
 	"path/filepath"
 	"reflect"
@@ -13,6 +14,15 @@ import (
 	"stackd/storage/sqlite"
 	sqls3 "stackd/storage/sqlite/s3"
 )
+
+func newSQLiteRepository(t *testing.T, db *sql.DB) *sqls3.Repository {
+	t.Helper()
+	repository, err := sqls3.New(t.Context(), db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return repository
+}
 
 func forVersionRepositories(t *testing.T, run func(*testing.T, s3.Repository)) {
 	t.Helper()
@@ -27,7 +37,7 @@ func forVersionRepositories(t *testing.T, run func(*testing.T, s3.Repository)) {
 				t.Fatal(err)
 			}
 			t.Cleanup(func() { _ = db.Close() })
-			run(t, sqls3.New(db))
+			run(t, newSQLiteRepository(t, db))
 		})
 	}
 }
@@ -293,7 +303,7 @@ func TestSQLiteMigrationAndRestartRetainEncryptedHistory(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	var migrated s3.ObjectRecord
-	if err := sqls3.New(db).Update(t.Context(), func(tx s3.Transaction) error {
+	if err := newSQLiteRepository(t, db).Update(t.Context(), func(tx s3.Transaction) error {
 		var err error
 		migrated, err = tx.ObjectVersion(s3.ObjectVersionKey{ObjectKey: key, VersionID: "null"})
 		if err != nil {
@@ -332,7 +342,7 @@ func TestSQLiteMigrationAndRestartRetainEncryptedHistory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := sqls3.New(db).Update(t.Context(), func(tx s3.Transaction) error {
+	if err := newSQLiteRepository(t, db).Update(t.Context(), func(tx s3.Transaction) error {
 		stored, err := tx.Bucket(bucket.Key)
 		if err != nil || stored.Versioning != "Suspended" {
 			t.Fatalf("restart lost versioning: %+v %v", stored, err)

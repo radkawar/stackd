@@ -125,6 +125,26 @@ func (w writer) PutRole(scope domain.Scope, record domain.Role) error {
 	return nil
 }
 
+func (w writer) RecordRoleUse(scope domain.Scope, name, id, arn string, use domain.RoleLastUse) error {
+	key := strings.ToLower(name)
+	current, err := w.q.GetRoleLastUse(w.ctx, sqlcgen.GetRoleLastUseParams{
+		Partition: scope.Partition, Account: scope.AccountID, ResourceKey: key, RoleID: id, Arn: arn,
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if (!current.LastUsedDate.IsZero() || current.LastUsedRegion != "") && !use.Date.After(current.LastUsedDate) {
+		return nil
+	}
+	return w.q.UpdateRoleLastUse(w.ctx, sqlcgen.UpdateRoleLastUseParams{
+		Partition: scope.Partition, Account: scope.AccountID, ResourceKey: key, RoleID: id, Arn: arn,
+		LastUsedDate: use.Date, LastUsedRegion: use.Region,
+	})
+}
+
 func (w writer) DeleteRole(scope domain.Scope, key string) error {
 	count, err := w.q.DeleteRole(w.ctx, sqlcgen.DeleteRoleParams{Partition: scope.Partition, Account: scope.AccountID, ResourceKey: strings.ToLower(key)})
 	if err != nil {

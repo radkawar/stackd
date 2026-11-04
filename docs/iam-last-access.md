@@ -9,7 +9,7 @@ IAM remains incomplete; see the [completion audit](iam-completion.md).
 
 ## Activity and report lifetime
 
-The gateway records recognized, authenticated API attempts before input validation,
+The gateway enqueues recognized, authenticated API attempts before input validation,
 session restrictions and service authorization. Denied requests count. Invalid
 signatures and unsigned federation calls have no verified AWS caller to record.
 SQS's actual KMS calls record KMS activity too; a queue data-key cache hit does not
@@ -19,10 +19,32 @@ API invocation.
 Gateway authentication owns signature, credential status and expiry validation.
 Activity consumers trust its principal metadata, including metadata retained by an
 accepted background task. They do not reauthenticate a task after its initiating
-session expires. Credential-use bookkeeping and principal activity commit in one
-IAM repository transaction. Missing credential rows do not erase accepted work;
-actual repository failures stop the request before service effects. Activity is
-independent of the access-key report's 15-minute coalescing rule.
+session expires. `RecordActivity` captures immutable caller identity and service
+time in memory; reporting failures do not gate authentication, authorization or
+service effects. A wall-clock worker flushes a coalesced batch every second.
+Credential-use bookkeeping and principal activity share that batch's IAM
+repository transaction. The access-key report retains its separate fifteen-minute
+coalescing rule.
+
+AWS documents recent [service last-accessed information](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_last-accessed.html)
+as normally appearing within four hours, not as a synchronous request effect.
+Stackd's one-second reporting interval is a local convention, not a reproduced
+four-hour delay or an AWS latency guarantee. `FlushActivity(ctx)` explicitly
+drains observations accepted before it; `Service.Close` joins its workers and
+flushes before repository shutdown. A crash can lose not-yet-flushed reporting
+observations, normally the most recent interval plus an in-flight flush; blocked
+or failed storage can extend that window until a successful flush. Failed batches
+retain their latest observations for the next flush. Resource mutations,
+credential issuance and their authoritative API/state events retain their
+existing transactional durability; IAM last-access reporting is not that log.
+
+Role-session usage changes only the role's scalar last-use date and region,
+fenced by the issuer's immutable role ID and ARN in its account and partition.
+Missing or replaced roles and equal/older observations are ignored, including
+the explicitly recorded zero epoch. SQLite does not reload or delete/reinsert
+the role's policy, trust, tag, boundary or template children for this bookkeeping.
+Credential and role usage retain exact captured service time and shared batch
+transactions; later flushes cannot roll back newer committed observations.
 
 Typed activity rows retain the latest attempt per immutable principal ID, service,
 action and region, within account and partition scope. Role sessions attribute
@@ -44,9 +66,10 @@ makes the snapshot available after one second of service time. This is the local
 processing cadence, not an assertion about AWS timing: small captured AWS jobs
 took about one second and the all-services job took about eight seconds. AWS's
 usual telemetry publication delay, documented as within four hours, is not
-reproduced as a fixed delay. Local committed activity is available to the next
-snapshot. Tests can advance `Config.Clock` and call `RunDueJobs` without wall-clock
-sleeping.
+reproduced as a fixed delay. Only already-flushed activity is available to the next
+snapshot. `Config.Clock` controls observation/report timestamps, not the wall-clock
+reporting flush. Tests can call `FlushActivity`, advance `Config.Clock` and call
+`RunDueJobs` without waiting for the periodic flush.
 
 A pending response omits completion date, result lists and job granularity. These
 omissions contradict required output traits in the pinned Smithy model. The
@@ -174,6 +197,9 @@ namespace sorts continue to use alphabetical order.
 Primary contracts:
 
 - [GenerateServiceLastAccessedDetails](https://docs.aws.amazon.com/IAM/latest/APIReference/API_GenerateServiceLastAccessedDetails.html)
+- [Refine permissions using last accessed information](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_last-accessed.html)
+- [RoleLastUsed fields and tracking period](https://docs.aws.amazon.com/IAM/latest/APIReference/API_RoleLastUsed.html)
+- [GetRole](https://docs.aws.amazon.com/IAM/latest/APIReference/API_GetRole.html)
 - [GetServiceLastAccessedDetails](https://docs.aws.amazon.com/IAM/latest/APIReference/API_GetServiceLastAccessedDetails.html)
 - [GetServiceLastAccessedDetailsWithEntities](https://docs.aws.amazon.com/IAM/latest/APIReference/API_GetServiceLastAccessedDetailsWithEntities.html)
 - [ListPoliciesGrantingServiceAccess](https://docs.aws.amazon.com/IAM/latest/APIReference/API_ListPoliciesGrantingServiceAccess.html)

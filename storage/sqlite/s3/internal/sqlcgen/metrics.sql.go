@@ -20,7 +20,7 @@ type CountBucketMetricsConfigurationsParams struct {
 }
 
 func (q *Queries) CountBucketMetricsConfigurations(ctx context.Context, arg CountBucketMetricsConfigurationsParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countBucketMetricsConfigurations, arg.Partition, arg.BucketName)
+	row := q.queryRow(ctx, q.countBucketMetricsConfigurationsStmt, countBucketMetricsConfigurations, arg.Partition, arg.BucketName)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -37,7 +37,7 @@ type DeleteBucketMetricsConfigurationParams struct {
 }
 
 func (q *Queries) DeleteBucketMetricsConfiguration(ctx context.Context, arg DeleteBucketMetricsConfigurationParams) error {
-	_, err := q.db.ExecContext(ctx, deleteBucketMetricsConfiguration, arg.Partition, arg.BucketName, arg.ID)
+	_, err := q.exec(ctx, q.deleteBucketMetricsConfigurationStmt, deleteBucketMetricsConfiguration, arg.Partition, arg.BucketName, arg.ID)
 	return err
 }
 
@@ -52,7 +52,7 @@ type GetBucketMetricsConfigurationParams struct {
 }
 
 func (q *Queries) GetBucketMetricsConfiguration(ctx context.Context, arg GetBucketMetricsConfigurationParams) (S3BucketMetricsConfiguration, error) {
-	row := q.db.QueryRowContext(ctx, getBucketMetricsConfiguration, arg.Partition, arg.BucketName, arg.ID)
+	row := q.queryRow(ctx, q.getBucketMetricsConfigurationStmt, getBucketMetricsConfiguration, arg.Partition, arg.BucketName, arg.ID)
 	var i S3BucketMetricsConfiguration
 	err := row.Scan(
 		&i.Partition,
@@ -77,7 +77,7 @@ type GetBucketMetricsTagsParams struct {
 }
 
 func (q *Queries) GetBucketMetricsTags(ctx context.Context, arg GetBucketMetricsTagsParams) ([]S3BucketMetricsTag, error) {
-	rows, err := q.db.QueryContext(ctx, getBucketMetricsTags, arg.Partition, arg.BucketName, arg.ConfigurationID)
+	rows, err := q.query(ctx, q.getBucketMetricsTagsStmt, getBucketMetricsTags, arg.Partition, arg.BucketName, arg.ConfigurationID)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +135,7 @@ type ListBucketMetricsConfigurationsRow struct {
 }
 
 func (q *Queries) ListBucketMetricsConfigurations(ctx context.Context, arg ListBucketMetricsConfigurationsParams) ([]ListBucketMetricsConfigurationsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listBucketMetricsConfigurations,
+	rows, err := q.query(ctx, q.listBucketMetricsConfigurationsStmt, listBucketMetricsConfigurations,
 		arg.Partition,
 		arg.BucketName,
 		arg.After,
@@ -187,7 +187,7 @@ type PutBucketMetricsConfigurationParams struct {
 }
 
 func (q *Queries) PutBucketMetricsConfiguration(ctx context.Context, arg PutBucketMetricsConfigurationParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketMetricsConfiguration,
+	_, err := q.exec(ctx, q.putBucketMetricsConfigurationStmt, putBucketMetricsConfiguration,
 		arg.Partition,
 		arg.BucketName,
 		arg.ID,
@@ -213,7 +213,7 @@ type PutBucketMetricsTagParams struct {
 }
 
 func (q *Queries) PutBucketMetricsTag(ctx context.Context, arg PutBucketMetricsTagParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketMetricsTag,
+	_, err := q.exec(ctx, q.putBucketMetricsTagStmt, putBucketMetricsTag,
 		arg.Partition,
 		arg.BucketName,
 		arg.ConfigurationID,

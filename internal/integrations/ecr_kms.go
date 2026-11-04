@@ -83,9 +83,7 @@ func ecrKMSInvalid(code, message string) *awswire.Error {
 }
 
 func (k ECRKeys) command(ctx context.Context, name string, input any) (any, *awswire.Error) {
-	if rejected := recordKMSActivity(ctx, k.Activity, name); rejected != nil {
-		return nil, rejected
-	}
+	recordKMSActivity(ctx, k.Activity, name)
 	model, _ := awscatalog.LookupService("kms")
 	operation, _ := model.Operation(name)
 	return k.KMS.ExecuteCommand(ctx, awsapi.DecodedRequest{Operation: operation, Protocol: model.Protocol, Input: input})
@@ -104,9 +102,7 @@ func (k ECRKeys) Provision(ctx context.Context, repository ecr.RepositoryKey, ke
 			}
 		}
 	}
-	if rejected := recordKMSActivity(caller, k.Activity, "DescribeKey"); rejected != nil {
-		return ecr.KeyMaterial{}, rejected
-	}
+	recordKMSActivity(caller, k.Activity, "DescribeKey")
 	metadata, rejected := k.KMS.DescribeKey(caller, keyID)
 	if rejected != nil {
 		return ecr.KeyMaterial{}, rejected

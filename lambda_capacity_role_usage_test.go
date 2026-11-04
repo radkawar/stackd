@@ -10,17 +10,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/credentials"
-	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/iam/types"
-	"github.com/aws/smithy-go"
 	"stackd/internal/awsctx"
 	"stackd/internal/services/iam"
 	"stackd/internal/services/lambda"
 	"stackd/storage/sqlite"
 	sqliam "stackd/storage/sqlite/iam"
 	sqllambda "stackd/storage/sqlite/lambda"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/iam/types"
+	"github.com/aws/smithy-go"
 )
 
 func TestLambdaCapacityRoleDeletionUsesSharedWritableAuthority(t *testing.T) {
@@ -35,7 +36,11 @@ func TestLambdaCapacityRoleDeletionUsesSharedWritableAuthority(t *testing.T) {
 	})
 	repository := sqllambda.New(db)
 	functions := lambda.New(lambda.Config{Repository: repository})
-	roles := iam.NewWithRepository(nil, sqliam.New(db))
+	identities, err := sqliam.New(t.Context(), db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roles := iam.NewWithRepository(nil, identities)
 	t.Cleanup(func() {
 		if err := roles.Close(); err != nil {
 			t.Error(err)

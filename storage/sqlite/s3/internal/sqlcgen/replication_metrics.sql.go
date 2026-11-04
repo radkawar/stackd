@@ -38,7 +38,7 @@ type ActivateReplicationMetricScheduleParams struct {
 }
 
 func (q *Queries) ActivateReplicationMetricSchedule(ctx context.Context, arg ActivateReplicationMetricScheduleParams) error {
-	_, err := q.db.ExecContext(ctx, activateReplicationMetricSchedule,
+	_, err := q.exec(ctx, q.activateReplicationMetricScheduleStmt, activateReplicationMetricSchedule,
 		arg.Partition,
 		arg.BucketName,
 		arg.DestinationPartition,
@@ -79,7 +79,7 @@ type AddReplicationMetricOutcomeParams struct {
 }
 
 func (q *Queries) AddReplicationMetricOutcome(ctx context.Context, arg AddReplicationMetricOutcomeParams) error {
-	_, err := q.db.ExecContext(ctx, addReplicationMetricOutcome,
+	_, err := q.exec(ctx, q.addReplicationMetricOutcomeStmt, addReplicationMetricOutcome,
 		arg.Partition,
 		arg.BucketName,
 		arg.DestinationPartition,
@@ -106,7 +106,7 @@ type DeleteInactiveReplicationMetricSchedulesParams struct {
 }
 
 func (q *Queries) DeleteInactiveReplicationMetricSchedules(ctx context.Context, arg DeleteInactiveReplicationMetricSchedulesParams) error {
-	_, err := q.db.ExecContext(ctx, deleteInactiveReplicationMetricSchedules, arg.Partition, arg.BucketName)
+	_, err := q.exec(ctx, q.deleteInactiveReplicationMetricSchedulesStmt, deleteInactiveReplicationMetricSchedules, arg.Partition, arg.BucketName)
 	return err
 }
 
@@ -129,7 +129,7 @@ type DeleteReplicationMetricPublicationParams struct {
 }
 
 func (q *Queries) DeleteReplicationMetricPublication(ctx context.Context, arg DeleteReplicationMetricPublicationParams) error {
-	_, err := q.db.ExecContext(ctx, deleteReplicationMetricPublication,
+	_, err := q.exec(ctx, q.deleteReplicationMetricPublicationStmt, deleteReplicationMetricPublication,
 		arg.Partition,
 		arg.BucketName,
 		arg.DestinationPartition,
@@ -165,7 +165,7 @@ type GetOldestReplicationPendingParams struct {
 }
 
 func (q *Queries) GetOldestReplicationPending(ctx context.Context, arg GetOldestReplicationPendingParams) (time.Time, error) {
-	row := q.db.QueryRowContext(ctx, getOldestReplicationPending,
+	row := q.queryRow(ctx, q.getOldestReplicationPendingStmt, getOldestReplicationPending,
 		arg.Partition,
 		arg.BucketName,
 		arg.DestinationPartition,
@@ -198,7 +198,7 @@ type GetReplicationMetricPublicationParams struct {
 }
 
 func (q *Queries) GetReplicationMetricPublication(ctx context.Context, arg GetReplicationMetricPublicationParams) (S3ReplicationMetricPublication, error) {
-	row := q.db.QueryRowContext(ctx, getReplicationMetricPublication,
+	row := q.queryRow(ctx, q.getReplicationMetricPublicationStmt, getReplicationMetricPublication,
 		arg.Partition,
 		arg.BucketName,
 		arg.DestinationPartition,
@@ -261,7 +261,7 @@ type GetReplicationPendingCountsRow struct {
 }
 
 func (q *Queries) GetReplicationPendingCounts(ctx context.Context, arg GetReplicationPendingCountsParams) (GetReplicationPendingCountsRow, error) {
-	row := q.db.QueryRowContext(ctx, getReplicationPendingCounts,
+	row := q.queryRow(ctx, q.getReplicationPendingCountsStmt, getReplicationPendingCounts,
 		arg.Partition,
 		arg.BucketName,
 		arg.DestinationPartition,
@@ -286,7 +286,7 @@ LIMIT 1
 `
 
 func (q *Queries) NextReplicationMetricPublication(ctx context.Context) (S3ReplicationMetricPublication, error) {
-	row := q.db.QueryRowContext(ctx, nextReplicationMetricPublication)
+	row := q.queryRow(ctx, q.nextReplicationMetricPublicationStmt, nextReplicationMetricPublication)
 	var i S3ReplicationMetricPublication
 	err := row.Scan(
 		&i.Partition,
@@ -335,7 +335,7 @@ type SampleReplicationMetricPublicationParams struct {
 }
 
 func (q *Queries) SampleReplicationMetricPublication(ctx context.Context, arg SampleReplicationMetricPublicationParams) (time.Time, error) {
-	row := q.db.QueryRowContext(ctx, sampleReplicationMetricPublication,
+	row := q.queryRow(ctx, q.sampleReplicationMetricPublicationStmt, sampleReplicationMetricPublication,
 		arg.PendingOperations,
 		arg.PendingBytes,
 		arg.PendingOldest,
@@ -365,6 +365,6 @@ type StopReplicationMetricSchedulesParams struct {
 }
 
 func (q *Queries) StopReplicationMetricSchedules(ctx context.Context, arg StopReplicationMetricSchedulesParams) error {
-	_, err := q.db.ExecContext(ctx, stopReplicationMetricSchedules, arg.Partition, arg.BucketName)
+	_, err := q.exec(ctx, q.stopReplicationMetricSchedulesStmt, stopReplicationMetricSchedules, arg.Partition, arg.BucketName)
 	return err
 }

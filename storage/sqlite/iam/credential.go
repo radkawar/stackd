@@ -107,6 +107,19 @@ func (w writer) PutCredential(record identity.Record) error {
 	return nil
 }
 
+func (w writer) PutCredentialUsage(key string, use identity.LastUsed) error {
+	count, err := w.q.UpdateCredentialLastUse(w.ctx, sqlcgen.UpdateCredentialLastUseParams{
+		ResourceKey: key, LastUsedDate: use.Date, LastUsedService: use.Service, LastUsedRegion: use.Region,
+	})
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return identity.ErrNotFound
+	}
+	return nil
+}
+
 func (w writer) DeleteCredential(key string) error {
 	count, err := w.q.DeleteCredential(w.ctx, key)
 	if err != nil {

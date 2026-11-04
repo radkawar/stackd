@@ -15,6 +15,19 @@ func (t *memoryTx) User(scope Scope, name string) (User, error) {
 	}
 	return cloneUser(record), nil
 }
+
+func (t *memoryTx) UserIDExists(scope Scope, id string) (bool, error) {
+	if err := t.check(false); err != nil {
+		return false, err
+	}
+	for _, user := range t.state.users[scope] {
+		if user.UserId == id {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (t *memoryTx) Users(scope Scope) ([]User, error) {
 	if err := t.check(false); err != nil {
 		return nil, err
@@ -63,6 +76,20 @@ func (t *memoryTx) Groups(scope Scope) ([]Group, error) {
 	result := make([]Group, 0, len(t.state.groups[scope]))
 	for _, record := range t.state.groups[scope] {
 		result = append(result, cloneGroup(record))
+	}
+	slices.SortFunc(result, func(a, b Group) int { return strings.Compare(a.GroupName, b.GroupName) })
+	return result, nil
+}
+func (t *memoryTx) UserGroups(scope Scope, name string) ([]Group, error) {
+	if err := t.check(false); err != nil {
+		return nil, err
+	}
+	name = strings.ToLower(name)
+	var result []Group
+	for _, record := range t.state.groups[scope] {
+		if _, member := record.Members[name]; member {
+			result = append(result, cloneGroup(record))
+		}
 	}
 	slices.SortFunc(result, func(a, b Group) int { return strings.Compare(a.GroupName, b.GroupName) })
 	return result, nil
@@ -116,6 +143,20 @@ func (t *memoryTx) PutRole(scope Scope, record Role) error {
 		t.state.roles[scope] = make(map[string]Role)
 	}
 	t.state.roles[scope][strings.ToLower(record.RoleName)] = cloneRole(record)
+	return nil
+}
+func (t *memoryTx) RecordRoleUse(scope Scope, name, id, arn string, use RoleLastUse) error {
+	if err := t.check(true); err != nil {
+		return err
+	}
+	key := strings.ToLower(name)
+	role, ok := t.state.roles[scope][key]
+	if !ok || role.RoleId != id || role.Arn != arn ||
+		(role.LastUsed.recorded() && !use.Date.After(role.LastUsed.Date)) {
+		return nil
+	}
+	role.LastUsed = use
+	t.state.roles[scope][key] = role
 	return nil
 }
 func (t *memoryTx) DeleteRole(scope Scope, name string) error {

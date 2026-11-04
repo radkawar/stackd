@@ -80,7 +80,7 @@ func (b *Bridges) runNativeOperation(ctx context.Context, owner string, environm
 		// in the daemon-side bootstrap, preserving the local controller's inode.
 		config.HostConfig.Mounts[0] = docker.ContainerMount{Type: "bind", Source: "/run", Target: "/stackd-host-run"}
 	}
-	if b.daemonOwned || bridge || strings.HasPrefix(owner, "stackd_eks_workers_") {
+	if b.daemonOwned || bridge || strings.HasPrefix(owner, "stackd_eks_workers_") || strings.HasPrefix(owner, "stackd_elbv2_") {
 		config.HostConfig.Mounts = append(config.HostConfig.Mounts, docker.ContainerMount{Type: "bind", Source: "/var/run/docker.sock", Target: "/var/run/docker.sock", ReadOnly: true})
 	}
 	name := "stackd-" + kind + "-" + rand.Text()

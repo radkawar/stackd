@@ -22,6 +22,7 @@ func (s *Service) StartWorkers() {
 	}
 	r.started = true
 	s.jobs.Start()
+	s.startActivityWorker()
 }
 
 // RunDueJobs processes or schedules at most limit intents due at the current
@@ -40,17 +41,21 @@ func (s *Service) RunDueJobs(ctx context.Context, limit int) (scheduler.Result, 
 	return s.jobs.RunDue(ctx, limit)
 }
 
-// Close stops IAM background work and waits for any transaction in flight.
-// It is safe to call repeatedly, including before worker startup.
+// Close joins accepted jobs and service-linked checks, then stops reporting work
+// and durably flushes activity before repository shutdown. Repeated calls return
+// the same shutdown result, including any final reporting failure.
 func (s *Service) Close() error {
-	r := s.serviceLinked
-	r.mu.Lock()
-	r.closed = true
-	r.cancel()
-	r.mu.Unlock()
-	s.jobs.Close()
-	r.checks.Wait()
-	return nil
+	s.closeOnce.Do(func() {
+		r := s.serviceLinked
+		r.mu.Lock()
+		r.closed = true
+		r.cancel()
+		r.mu.Unlock()
+		s.jobs.Close()
+		r.checks.Wait()
+		s.closeErr = s.closeActivity()
+	})
+	return s.closeErr
 }
 
 // Wake only after the outer transaction commits. Persisted records remain the

@@ -239,6 +239,7 @@ func (r *lastAccessReplay) check(t *testing.T, client *sdkiam.Client, step lastA
 	var err error
 	switch step.Operation {
 	case "GenerateServiceLastAccessedDetails":
+		r.fixture.flush(t)
 		var fields map[string]json.RawMessage
 		if err := json.Unmarshal(step.Input, &fields); err != nil {
 			t.Fatal(err)

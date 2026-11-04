@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -190,7 +191,14 @@ func (k *K3d) createFargateAgent(ctx context.Context, c *nativeCluster, s Fargat
 		return errors.New("eks: unsupported Fargate worker version")
 	}
 	name := fargateAgentName(c.state, slot)
-	args := []string{"container", "create", "--name", name, "--hostname", name, "--network", c.state.Name, "--privileged", "--restart", "unless-stopped", "--tmpfs", "/run", "--tmpfs", "/var/run", "--volume", "/var/lib/rancher/k3s", "--label", ownerLabel + "=" + c.state.Token, "--label", idLabel + "=" + c.state.ID, "--label", "k3d.cluster=" + c.state.Name, "--label", fargateIDLabel + "=" + s.ID, "--label", fargateSlotLabel + "=" + slot, "--label", "stackd.eks.kubernetes-version=" + version, "--env", "K3S_TOKEN=" + joinToken, image, "agent", "--server", "https://" + server + ":6443", "--node-name", name, "--node-label", fargateSlotLabel + "=" + slot, "--node-label", fargateIDLabel + "=" + s.ID, "--node-label", fargateProfileLabel + "=" + s.Name, "--node-label", "eks.amazonaws.com/compute-type=fargate", "--node-taint", "eks.amazonaws.com/compute-type=fargate:NoSchedule", "--kubelet-arg", "max-pods=1"}
+	args := []string{"container", "create", "--name", name, "--hostname", name, "--network", c.state.Name, "--privileged", "--restart", "unless-stopped", "--tmpfs", "/run", "--tmpfs", "/var/run", "--volume", "/var/lib/rancher/k3s", "--volume", filepath.Join(c.dir, "control-plane-entrypoint.sh") + ":/bin/k3d-entrypoint.sh:ro", "--label", ownerLabel + "=" + c.state.Token, "--label", idLabel + "=" + c.state.ID, "--label", "k3d.cluster=" + c.state.Name, "--label", fargateIDLabel + "=" + s.ID, "--label", fargateSlotLabel + "=" + slot, "--label", "stackd.eks.kubernetes-version=" + version, "--env", "K3S_TOKEN=" + joinToken, image, "agent", "--server", "https://" + server + ":6443", "--node-name", name, "--node-label", fargateSlotLabel + "=" + slot, "--node-label", fargateIDLabel + "=" + s.ID, "--node-label", fargateProfileLabel + "=" + s.Name, "--node-label", "eks.amazonaws.com/compute-type=fargate", "--node-taint", "eks.amazonaws.com/compute-type=fargate:NoSchedule", "--kubelet-arg", "max-pods=1"}
+	storageArgs, err := c.state.StoragePolicy.kubeletArguments()
+	if err != nil {
+		return err
+	}
+	for _, arg := range storageArgs {
+		args = append(args, "--kubelet-arg", arg)
+	}
 	port := 0
 	if c.state.WorkerAdvertiseHost != "" {
 		port = c.state.NativePort

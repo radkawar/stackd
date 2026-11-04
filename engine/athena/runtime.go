@@ -5,12 +5,14 @@ package athena
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 )
 
-// Runtime executes a query outside service transactions. The retained handle is
-// published before native creation so controller recovery can remove an orphan
-// without replaying a possibly committed SQL write. Cancel is idempotent.
+// Runtime executes a query outside service transactions. Each query publishes a
+// unique cancellation handle before native effects, including when reusing a
+// warm scoped engine. Stale handles cannot cancel later queries. Controller
+// recovery removes exact-owned orphan engines without replaying SQL writes.
 type Runtime interface {
 	Execute(context.Context, Request, func(string) error, func(Page) error) error
 	Cancel(context.Context, string) error
@@ -80,3 +82,13 @@ type QueryError struct {
 }
 
 func (e *QueryError) Error() string { return e.ErrorName + ": " + e.Message }
+
+// InfrastructureError reports lost engine ownership or failed native cleanup,
+// rather than a terminal SQL failure. Native QueryErrors in its diagnostic cause
+// are intentionally not exposed through errors.As: a joined cleanup failure must
+// never be mistaken for an ordinary reusable query error. Cancellation identity
+// remains available through errors.Is.
+type InfrastructureError struct{ cause error }
+
+func (e *InfrastructureError) Error() string        { return e.cause.Error() }
+func (e *InfrastructureError) Is(target error) bool { return errors.Is(e.cause, target) }

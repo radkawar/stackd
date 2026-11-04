@@ -117,7 +117,10 @@ func TestSourceResolutionSharesCurrentIAMReadTransaction(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	documents := backend.New(db)
-	identities := iamdb.New(db)
+	identities, err := iamdb.New(t.Context(), db)
+	if err != nil {
+		t.Fatal(err)
+	}
 	scope := domain.Scope{Partition: "aws", AccountID: "111111111111", Region: "us-east-1"}
 	key := domain.Key{Scope: scope, Kind: "cluster", Name: "source"}
 	endpoint := engine.Endpoint{Address: "127.0.0.1", Port: 27017, ReplicaSet: "stackd", CA: []byte("current-trust")}

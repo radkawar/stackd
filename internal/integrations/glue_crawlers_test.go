@@ -20,7 +20,6 @@ import (
 	"stackd/storage/memory"
 	"stackd/storage/sqlite"
 	gluestore "stackd/storage/sqlite/glue"
-	iamstore "stackd/storage/sqlite/iam"
 )
 
 type crawlerOutcomes chan string
@@ -39,7 +38,7 @@ func TestJDBCCrawlerCurrentAuthoritySharesSQLiteTransaction(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	repository := iamstore.New(db)
+	repository := newSQLiteIAMRepository(t, db)
 	scope := iam.Scope{Partition: "aws", AccountID: "123456789012"}
 	role := iam.Role{Arn: "arn:aws:iam::123456789012:role/crawler", RoleName: "crawler", RoleId: "AROACRAWLER", MaxSessionDuration: 3600, AssumeRolePolicyDocument: `{"Statement":{"Effect":"Allow","Principal":{"Service":"glue.amazonaws.com"},"Action":"sts:AssumeRole"}}`, IdentityPolicies: iam.IdentityPolicies{Inline: map[string]string{"connection": `{"Statement":{"Effect":"Allow","Action":"glue:GetConnection","Resource":"*"}}`}}}
 	updateRole := func() {

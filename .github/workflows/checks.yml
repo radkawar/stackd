@@ -52,9 +52,20 @@ jobs:
           go test -race ./internal/services/ec2 -timeout 5m -run '^TestEIPAttributesSDK'
           go test -race ./internal/integrations -timeout 5m -run '^(TestAthenaManifestRecordsOnlySuccessfulCommittedObjects|TestCFNSSOInstanceAndPermissionSetPrivateClaimsRejectCounterfeitAndForeignRecreation|TestCFNSSOPermissionSetUpdateOmitsAbsentNativeOptionalFields)$'
           go test ./internal/services/glue -timeout 5m -run '^TestTableStatisticsDeletionNativeIdempotence$'
+      - name: Check native ownership and shared Iceberg metadata
+        run: |
+          go test -race -timeout 10m ./compute/eks ./compute/elbv2 ./engine/rds ./engine/athena ./internal/services/glue/icebergmeta
+          go test -race -timeout 5m . -run '^TestGlueIcebergREST'
+      - name: Check scoped authorization, reporting and SQLite boundaries
+        run: |
+          go test -race -timeout 10m ./internal/awsapi ./internal/services/iam ./internal/services/cloudtrail
+          go test -race -timeout 5m ./storage/sqlite ./storage/sqlite/iam ./storage/sqlite/backends -run '^(TestWaitingTransactionHonorsCancellation|TestCanceledTransactionJoinsRollbackBeforeClose|TestUserIDExistsUsesScopedImmutableIdentity|TestHotRepositor.*|TestS3PrefixQueriesSeekBoundedBinaryKeyRanges)$'
+          go test -race -timeout 5m ./storage/s3 -run '^TestUTF8PrefixRangesPreserveAllListingCursors$'
+          go test -race -timeout 10m ./integration -run '^(TestECRKubeletProviderTLSCurrentIAMAndRefresh|TestS3RangeUsesCurrentIdentityPolicySnapshot|TestActivityRecordsActualSQSAndKMSAttempts|TestActivityCrossAccountResourceUsesCallerScope|TestAssumedRoleEnforcesTrustSessionAndCurrentPolicies|TestFederationRequiresSessionPolicyAndRemainsRestricted|TestS3NativeVersionLifecycleReplay|TestS3MultipartNativeRawReplay|TestS3NativeBinarySDKReplay)$'
       - name: Check VPC Flow Logs controls, persistence and delivery authority
         run: |
-          go test -race -timeout 10m ./compute/network ./internal/services/ec2 ./internal/integrations ./integration -run 'FlowLog|FlowCapture|FlowReceiver'
+          go test -race -timeout 10m ./compute/network
+          go test -race -timeout 10m ./internal/services/ec2 ./internal/integrations ./integration -run 'FlowLog|FlowCapture|FlowReceiver'
           # Historical migration replay is serial SQL, not a Go concurrency boundary.
           go test -timeout 5m ./storage/sqlite/ec2 -run FlowLog
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
@@ -143,7 +154,7 @@ jobs:
       - name: Exercise receiver replay, revision upgrade and native policy verdicts
         env:
           STACKD_NETWORK_DOCKER: '1'
-        run: go test ./compute/network -count=1 -timeout 5m -run '^(TestFlowCollectorDockerNativeReplay|TestDaemonFlowPolicyActualAdmissionAndTerminalRejection)$'
+        run: go test ./compute/network -count=1 -timeout 10m -run '^(TestFlowCollectorDockerNativeReplay|TestDaemonFlowPolicyActualAdmissionAndTerminalRejection|TestDaemonPodRoutePacketPathAndWithdrawal)$'
       - name: Exercise Terraform UDP/TCP traffic, native paths and both S3 formats
         run: |
           "$RUNNER_TEMP/flow-venv/bin/python" scripts/native/vpc_flow_logs.py \
@@ -161,5 +172,72 @@ jobs:
             ${{ runner.temp }}/flow-evidence/**/*.log
             ${{ runner.temp }}/flow-evidence/s3/*.log.gz
             ${{ runner.temp }}/flow-evidence/s3/*.log.parquet
+          if-no-files-found: ignore
+          retention-days: 7
+
+  native-analytics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.26.5'
+          cache: true
+      - name: Prepare pinned native SQL and Hive parser images
+        run: |
+          docker pull trinodb/trino@sha256:00125e40d063bc4816d165482f6044872b18b56026fb959d3b28ce1f96ffbbee
+          docker pull apache/spark@sha256:9b0a6c2c860f5e7d18dd5270286fef32a09c7f5a7e2b0dbe5642de8a3a02ab3e
+      - name: Exercise real warm SQL ownership, cancellation and orphan cleanup
+        env:
+          STACKD_ATHENA_NETWORK_DOCKER_HOST: unix:///var/run/docker.sock
+        run: go test ./engine/athena -count=1 -timeout 15m -run '^(TestDockerNetworkNative|TestWarmEngineNativeLifecycle)$' -v
+
+  native-ingress:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.26.5'
+          cache: true
+      - name: Prepare native ingress tools and immutable images
+        run: |
+          command -v aws kubectl helm dig openssl
+          mkdir -p bin
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            https://github.com/k3d-io/k3d/releases/download/v5.8.3/k3d-linux-amd64 \
+            --output bin/k3d
+          echo 'dbaa79a76ace7f4ca230a1ff41dc7d8a5036a8ad0309e9c54f9bf3836dbe853e  bin/k3d' | sha256sum --check -
+          chmod 0755 bin/k3d
+          docker pull rancher/k3s:v1.33.5-k3s1@sha256:fd4740667b7033055c27d424d0d2d660bf66cedbdb225d68e0eab6dd48aa0fd2
+          docker pull ghcr.io/k3d-io/k3d-tools@sha256:c5ceb2b9e8ff2cf55917b0bee8bc9c54fe1483a16366b734117e2cfac1417bed
+          docker tag ghcr.io/k3d-io/k3d-tools@sha256:c5ceb2b9e8ff2cf55917b0bee8bc9c54fe1483a16366b734117e2cfac1417bed ghcr.io/k3d-io/k3d-tools:5.8.3
+          docker pull nicolaka/netshoot@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed283572f47c970c780c03b61
+          docker pull public.ecr.aws/eks/aws-load-balancer-controller:v2.14.1@sha256:13abee6e31c2f25ee91f9ae91aabe4f5bcaf6a70eccd372b36835786d2e0813e
+          docker pull public.ecr.aws/docker/library/busybox:1.37.0@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
+          go build -o bin/stackd ./cmd/stackd
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/stackd-elbv2-node ./cmd/stackd-elbv2-node
+          python3 -m venv "$RUNNER_TEMP/ingress-venv"
+          "$RUNNER_TEMP/ingress-venv/bin/pip" install -r examples/requirements.txt
+      - name: Exercise upstream IRSA, healthy pod targets and actual ALB HTTP
+        run: |
+          "$RUNNER_TEMP/ingress-venv/bin/python" scripts/eks_lbc_smoke.py \
+            --binary bin/stackd --elbv2-node-executable bin/stackd-elbv2-node \
+            --k3d bin/k3d --storage-reserve-gib 4 \
+            --controller-image public.ecr.aws/eks/aws-load-balancer-controller:v2.14.1@sha256:13abee6e31c2f25ee91f9ae91aabe4f5bcaf6a70eccd372b36835786d2e0813e \
+            --state-directory "$RUNNER_TEMP/ingress-private" \
+            --output "$RUNNER_TEMP/ingress-result.json"
+      - name: Retain sanitized ingress assertions only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-ingress
+          path: ${{ runner.temp }}/ingress-result.json
           if-no-files-found: ignore
           retention-days: 7

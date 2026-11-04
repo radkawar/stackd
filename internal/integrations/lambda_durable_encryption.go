@@ -65,9 +65,7 @@ func (a LambdaDurableEncryption) Validate(ctx context.Context, function lambda.F
 	if err != nil || parsed.Service != "kms" || parsed.Region != function.Region || parsed.Partition != function.Partition {
 		return "", &awswire.Error{Code: "InvalidParameterValueException", Message: "DurableConfig.KMSKeyArn must identify a KMS key in the function region.", StatusCode: 400}
 	}
-	if rejected := recordKMSActivity(ctx, a.Activity, "DescribeKey"); rejected != nil {
-		return "", rejected
-	}
+	recordKMSActivity(ctx, a.Activity, "DescribeKey")
 	caller := durableKMSCaller(ctx)
 	metadata, rejected := a.KMS.DescribeKey(caller, identifier)
 	if rejected != nil {
@@ -86,9 +84,7 @@ func (a LambdaDurableEncryption) Validate(ctx context.Context, function lambda.F
 		{"GenerateDataKey", &kmsapi.GenerateDataKeyInput{KeyId: new(kmsapi.KeyIdType(key)), KeySpec: new(kmsapi.DataKeySpec("AES_256")), EncryptionContext: encryption, DryRun: new(kmsapi.NullableBooleanType(true))}},
 		{"Decrypt", &kmsapi.DecryptInput{KeyId: new(kmsapi.KeyIdType(key)), EncryptionAlgorithm: new(kmsapi.EncryptionAlgorithmSpec("SYMMETRIC_DEFAULT")), EncryptionContext: encryption, DryRun: new(kmsapi.NullableBooleanType(true)), DryRunModifiers: kmsapi.DryRunModifierList{kmsapi.DryRunModifierTypeIGNORE_CIPHERTEXT}}},
 	} {
-		if rejected := recordKMSActivity(ctx, a.Activity, call.name); rejected != nil {
-			return "", rejected
-		}
+		recordKMSActivity(ctx, a.Activity, call.name)
 		operation, _ := model.Operation(call.name)
 		_, rejected := a.KMS.ExecuteCommand(caller, awsapi.DecodedRequest{Operation: operation, Protocol: model.Protocol, Input: call.input})
 		if rejected == nil {
@@ -110,9 +106,7 @@ func (a LambdaDurableEncryption) Open(ctx context.Context, function lambda.Funct
 	if processing {
 		ctx = durableKMSService(ctx, function)
 	} else {
-		if rejected := recordKMSActivity(ctx, a.Activity, "Decrypt"); rejected != nil {
-			return nil, rejected
-		}
+		recordKMSActivity(ctx, a.Activity, "Decrypt")
 		ctx = durableKMSCaller(ctx)
 	}
 	plain, _, rejected := a.KMS.Decrypt(ctx, wrapped, map[string]string{"aws:lambda:FunctionArn": function.ARN()})

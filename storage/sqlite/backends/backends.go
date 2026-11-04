@@ -81,6 +81,14 @@ func New(ctx context.Context, db *sql.DB) (*storage.Backends, error) {
 	if err != nil {
 		return nil, fmt.Errorf("prepare workflow storage: %w", err)
 	}
+	identities, err := iam.New(ctx, db)
+	if err != nil {
+		return nil, fmt.Errorf("prepare IAM storage: %w", err)
+	}
+	objects, err := s3.New(ctx, db)
+	if err != nil {
+		return nil, fmt.Errorf("prepare S3 storage: %w", err)
+	}
 	return &storage.Backends{
 		ResolveAccountID: func(ctx context.Context, requested string) (string, error) {
 			return sqlite.ResolveAccountID(ctx, db, requested)
@@ -122,7 +130,7 @@ func New(ctx context.Context, db *sql.DB) (*storage.Backends, error) {
 		Firehose:                  firehose.New(db),
 		Glue:                      glue.New(db),
 		GuardDuty:                 guardduty.New(db),
-		IAM:                       iam.New(db),
+		IAM:                       identities,
 		Journal:                   journal.New(db),
 		Kafka:                     kafka.New(db),
 		Kinesis:                   kinesis.New(db),
@@ -139,7 +147,7 @@ func New(ctx context.Context, db *sql.DB) (*storage.Backends, error) {
 		ResourceGroups:            resourcegroups.New(db),
 		ResourceGroupsTaggingAPI:  resourcegroupstaggingapi.New(db),
 		Route53:                   route53.New(db),
-		S3:                        s3.New(db),
+		S3:                        objects,
 		Scheduler:                 scheduler.New(db),
 		SecretsManager:            secretsmanager.New(db),
 		ServiceCatalogAppRegistry: servicecatalogappregistry.New(db),

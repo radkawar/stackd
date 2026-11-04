@@ -27,7 +27,7 @@ type AdvanceInventoryReportParams struct {
 }
 
 func (q *Queries) AdvanceInventoryReport(ctx context.Context, arg AdvanceInventoryReportParams) error {
-	_, err := q.db.ExecContext(ctx, advanceInventoryReport,
+	_, err := q.exec(ctx, q.advanceInventoryReportStmt, advanceInventoryReport,
 		arg.NextReport,
 		arg.Partition,
 		arg.BucketName,
@@ -48,7 +48,7 @@ type CountBucketInventoryConfigurationsParams struct {
 }
 
 func (q *Queries) CountBucketInventoryConfigurations(ctx context.Context, arg CountBucketInventoryConfigurationsParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countBucketInventoryConfigurations, arg.Partition, arg.BucketName)
+	row := q.queryRow(ctx, q.countBucketInventoryConfigurationsStmt, countBucketInventoryConfigurations, arg.Partition, arg.BucketName)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -65,7 +65,7 @@ type DeleteBucketInventoryConfigurationParams struct {
 }
 
 func (q *Queries) DeleteBucketInventoryConfiguration(ctx context.Context, arg DeleteBucketInventoryConfigurationParams) error {
-	_, err := q.db.ExecContext(ctx, deleteBucketInventoryConfiguration, arg.Partition, arg.BucketName, arg.ID)
+	_, err := q.exec(ctx, q.deleteBucketInventoryConfigurationStmt, deleteBucketInventoryConfiguration, arg.Partition, arg.BucketName, arg.ID)
 	return err
 }
 
@@ -80,7 +80,7 @@ type GetBucketInventoryConfigurationParams struct {
 }
 
 func (q *Queries) GetBucketInventoryConfiguration(ctx context.Context, arg GetBucketInventoryConfigurationParams) (S3BucketInventoryConfiguration, error) {
-	row := q.db.QueryRowContext(ctx, getBucketInventoryConfiguration, arg.Partition, arg.BucketName, arg.ID)
+	row := q.queryRow(ctx, q.getBucketInventoryConfigurationStmt, getBucketInventoryConfiguration, arg.Partition, arg.BucketName, arg.ID)
 	var i S3BucketInventoryConfiguration
 	err := row.Scan(
 		&i.Partition,
@@ -115,7 +115,7 @@ type GetBucketInventoryOptionalFieldsParams struct {
 }
 
 func (q *Queries) GetBucketInventoryOptionalFields(ctx context.Context, arg GetBucketInventoryOptionalFieldsParams) ([]S3BucketInventoryOptionalField, error) {
-	rows, err := q.db.QueryContext(ctx, getBucketInventoryOptionalFields, arg.Partition, arg.BucketName, arg.ConfigurationID)
+	rows, err := q.query(ctx, q.getBucketInventoryOptionalFieldsStmt, getBucketInventoryOptionalFields, arg.Partition, arg.BucketName, arg.ConfigurationID)
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +171,7 @@ type ListBucketInventoryConfigurationsRow struct {
 }
 
 func (q *Queries) ListBucketInventoryConfigurations(ctx context.Context, arg ListBucketInventoryConfigurationsParams) ([]ListBucketInventoryConfigurationsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listBucketInventoryConfigurations,
+	rows, err := q.query(ctx, q.listBucketInventoryConfigurationsStmt, listBucketInventoryConfigurations,
 		arg.Partition,
 		arg.BucketName,
 		arg.After,
@@ -223,7 +223,7 @@ WHERE enabled = 1 ORDER BY next_report, partition, bucket_name, id LIMIT 1
 `
 
 func (q *Queries) NextInventoryConfiguration(ctx context.Context) (S3BucketInventoryConfiguration, error) {
-	row := q.db.QueryRowContext(ctx, nextInventoryConfiguration)
+	row := q.queryRow(ctx, q.nextInventoryConfigurationStmt, nextInventoryConfiguration)
 	var i S3BucketInventoryConfiguration
 	err := row.Scan(
 		&i.Partition,
@@ -274,7 +274,7 @@ type PutBucketInventoryConfigurationParams struct {
 }
 
 func (q *Queries) PutBucketInventoryConfiguration(ctx context.Context, arg PutBucketInventoryConfigurationParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketInventoryConfiguration,
+	_, err := q.exec(ctx, q.putBucketInventoryConfigurationStmt, putBucketInventoryConfiguration,
 		arg.Partition,
 		arg.BucketName,
 		arg.ID,
@@ -309,7 +309,7 @@ type PutBucketInventoryOptionalFieldParams struct {
 }
 
 func (q *Queries) PutBucketInventoryOptionalField(ctx context.Context, arg PutBucketInventoryOptionalFieldParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketInventoryOptionalField,
+	_, err := q.exec(ctx, q.putBucketInventoryOptionalFieldStmt, putBucketInventoryOptionalField,
 		arg.Partition,
 		arg.BucketName,
 		arg.ConfigurationID,

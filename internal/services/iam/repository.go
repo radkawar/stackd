@@ -43,9 +43,15 @@ type ReadTx interface {
 
 	Scopes(partition string) ([]Scope, error)
 	User(Scope, string) (User, error)
+	// UserIDExists fences an immutable user identity within this namespace,
+	// independently of its name, historical ARN, or remaining credentials.
+	UserIDExists(scope Scope, id string) (bool, error)
 	Users(Scope) ([]User, error)
 	Group(Scope, string) (Group, error)
 	Groups(Scope) ([]Group, error)
+	// UserGroups returns only groups containing the case-insensitive user name,
+	// in group-name order, from this same authorization snapshot.
+	UserGroups(Scope, string) ([]Group, error)
 	Role(Scope, string) (Role, error)
 	Roles(Scope) ([]Role, error)
 	ManagedPolicy(Scope, string) (ManagedPolicy, error)
@@ -92,6 +98,9 @@ type WriteTx interface {
 	PutGroup(Scope, Group) error
 	DeleteGroup(Scope, string) error
 	PutRole(Scope, Role) error
+	// RecordRoleUse changes only last-use metadata for the exact role identity.
+	// Missing/recreated roles and observations no newer than existing use are ignored.
+	RecordRoleUse(scope Scope, name, id, arn string, use RoleLastUse) error
 	DeleteRole(Scope, string) error
 	PutManagedPolicy(Scope, ManagedPolicy) error
 	DeleteManagedPolicy(Scope, string) error
@@ -110,6 +119,8 @@ type WriteTx interface {
 	PutServiceLinkedRoleDeletion(Scope, ServiceLinkedRoleDeletion) error
 	PutAccountSettings(Scope, AccountSettingsRecord) error
 	PutCredential(identity.Record) error
+	// PutCredentialUsage changes only LastUsed on an existing credential.
+	PutCredentialUsage(string, identity.LastUsed) error
 	DeleteCredential(string) error
 }
 

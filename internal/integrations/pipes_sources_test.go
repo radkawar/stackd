@@ -46,7 +46,7 @@ func TestPipesQueueFilteringCurrentRoleAndSQLiteRestart(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		iamRepository = sqliam.New(db)
+		iamRepository = newSQLiteIAMRepository(t, db)
 		pipeRepository = sqlpipes.New(db)
 		credentials := identity.NewWithConfig(identity.Config{AccountID: "123456789012", Repository: iam.NewCredentialRepository(iamRepository, nil), Clock: sourceClock})
 		iamService := iam.NewWithConfig(iam.Config{Repository: iamRepository, Credentials: credentials, Clock: sourceClock})

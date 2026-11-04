@@ -425,7 +425,7 @@ SQLite database):
 ```sh
 ./bin/stackd -listen 0.0.0.0:4566 -account-id 000000000000 \
   -database "$STATE/state.sqlite" -docker-host "$DOCKER_ENGINE" \
-  -eks-state-directory "$STATE/eks" -eks-k3d "$K3D" \
+  -eks-state-directory "$STATE/eks" -eks-k3d "$K3D" -eks-storage-reserve-gib 64 \
   -eks-listen-host 127.0.0.1 -eks-endpoint-host 127.0.0.1
 ```
 
@@ -435,6 +435,14 @@ appropriate for host-only kubectl. Remote clients need an explicitly reachable
 bind/advertised address and firewall admission; `0.0.0.0` is not a valid advertised
 address. Cluster ports are allocated and retained, not fixed at 6443. The native
 admin connection is separate from the user-facing authenticated proxy.
+
+`-eks-storage-reserve-gib` defaults to **64 GiB** and controls native worker
+nodefs/imagefs eviction reserves, not an AWS API field. The daemon filesystem
+must exceed twice the reserve. Creation retains the reserve and capacity-derived
+image GC percentages for the bootstrap worker and future Fargate workers;
+restarts preserve that policy. **Recreate the cluster** to change this setting
+or replace an older cluster's native percentage defaults. See
+[the exact storage thresholds and rounding](eks.md#native-worker-storage-reserve).
 
 The adapter does not adopt an ambient kubeconfig, Docker context, `DOCKER_HOST`,
 or arbitrary pre-existing cluster. **Do not run `k3d cluster create` first.**

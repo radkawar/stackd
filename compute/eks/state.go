@@ -44,6 +44,8 @@ type diskState struct {
 	AuditPolicyHash            string
 	ServiceAccountIssuer       string
 	NativeServiceAccountIssuer bool
+	StoragePolicy              *nativeStoragePolicy `json:",omitempty"`
+	ECRProvider                *providerArtifact    `json:",omitempty"`
 }
 
 func (k *K3d) resourceDir(id string) string {

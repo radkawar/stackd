@@ -21,7 +21,7 @@ type KMSDataKeys interface {
 	IsAWSManagedKey(context.Context, string) (bool, error)
 }
 
-// IAMActivity records use of an authenticated IAM credential.
+// IAMActivity enqueues eventual reporting for an authenticated IAM credential.
 type IAMActivity interface {
 	RecordActivity(context.Context, string, string) error
 }
@@ -34,30 +34,22 @@ type ServiceDataKeys struct {
 }
 
 func (k ServiceDataKeys) GenerateDataKey(ctx context.Context, id string, ec map[string]string) ([]byte, []byte, string, *awswire.Error) {
-	if err := recordKMSActivity(ctx, k.Activity, "GenerateDataKey"); err != nil {
-		return nil, nil, "", err
-	}
+	recordKMSActivity(ctx, k.Activity, "GenerateDataKey")
 	return k.KMS.GenerateDataKey(kms.WithViaService(ctx, k.Service), id, ec)
 }
 
 func (k ServiceDataKeys) Encrypt(ctx context.Context, id string, plain []byte, ec map[string]string) ([]byte, string, *awswire.Error) {
-	if err := recordKMSActivity(ctx, k.Activity, "Encrypt"); err != nil {
-		return nil, "", err
-	}
+	recordKMSActivity(ctx, k.Activity, "Encrypt")
 	return k.KMS.Encrypt(kms.WithViaService(ctx, k.Service), id, plain, ec)
 }
 
 func (k ServiceDataKeys) Decrypt(ctx context.Context, cipher []byte, ec map[string]string) ([]byte, string, *awswire.Error) {
-	if err := recordKMSActivity(ctx, k.Activity, "Decrypt"); err != nil {
-		return nil, "", err
-	}
+	recordKMSActivity(ctx, k.Activity, "Decrypt")
 	return k.KMS.Decrypt(kms.WithViaService(ctx, k.Service), cipher, ec)
 }
 
 func (k ServiceDataKeys) ReEncrypt(ctx context.Context, cipher []byte, destination string, sourceContext, destinationContext map[string]string) ([]byte, *awswire.Error) {
-	if err := recordKMSActivity(ctx, k.Activity, "ReEncrypt"); err != nil {
-		return nil, err
-	}
+	recordKMSActivity(ctx, k.Activity, "ReEncrypt")
 	return k.KMS.ReEncrypt(kms.WithViaService(ctx, k.Service), cipher, destination, sourceContext, destinationContext)
 }
 
@@ -90,14 +82,12 @@ func (k ServiceDataKeys) IsAWSManagedKey(ctx context.Context, arn string) (bool,
 	return k.KMS.IsAWSManagedKey(awsctx.WithMetadata(ctx, metadata), arn)
 }
 
-func recordKMSActivity(ctx context.Context, activity IAMActivity, operation string) *awswire.Error {
+func recordKMSActivity(ctx context.Context, activity IAMActivity, operation string) {
 	// A trusted service principal has no IAM credential to record. KMS still
 	// evaluates its key policy and source context on the actual operation.
 	if awsctx.FromContext(ctx).ServicePrincipal.Name != "" {
-		return nil
+		return
 	}
-	if err := activity.RecordActivity(ctx, "kms", operation); err != nil {
-		return &awswire.Error{Code: "ServiceFailure", Message: "Unable to record authenticated activity.", StatusCode: 500}
-	}
-	return nil
+	// Reporting persistence is owned by IAM's batcher, not this KMS operation.
+	_ = activity.RecordActivity(ctx, "kms", operation)
 }

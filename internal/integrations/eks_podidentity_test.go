@@ -24,7 +24,6 @@ import (
 	"stackd/storage/memory"
 	"stackd/storage/sqlite"
 	sqleks "stackd/storage/sqlite/eks"
-	sqliam "stackd/storage/sqlite/iam"
 	sqljournal "stackd/storage/sqlite/journal"
 )
 
@@ -65,7 +64,7 @@ func newPodIdentityRoleFixture(t *testing.T, backend string) *podIdentityRoleFix
 				t.Error(err)
 			}
 		})
-		f.repository, f.commands, f.events = sqliam.New(db), sqleks.New(db), sqljournal.New(db)
+		f.repository, f.commands, f.events = newSQLiteIAMRepository(t, db), sqleks.New(db), sqljournal.New(db)
 	default:
 		t.Fatalf("unknown backend %q", backend)
 	}

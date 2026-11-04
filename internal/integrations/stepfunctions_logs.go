@@ -183,9 +183,7 @@ func (a *StepFunctionsLogs) workflowLogMessage(ctx context.Context, revision ste
 	if wire != nil {
 		return "", fmt.Errorf("opening workflow log encryption role: %w", wire)
 	}
-	if wire := recordKMSActivity(role, a.Activity, "GenerateDataKey"); wire != nil {
-		return "", fmt.Errorf("recording workflow log encryption activity: %w", wire)
-	}
+	recordKMSActivity(role, a.Activity, "GenerateDataKey")
 	scope := revision.Machine
 	encryption := map[string]string{
 		"SourceArn":     "arn:" + scope.Partition + ":logs:" + scope.Region + ":" + scope.AccountID + ":*",

@@ -28,7 +28,6 @@ import (
 	"stackd/journal"
 	"stackd/storage/memory"
 	"stackd/storage/sqlite"
-	iamdb "stackd/storage/sqlite/iam"
 	journaldb "stackd/storage/sqlite/journal"
 	kafkadb "stackd/storage/sqlite/kafka"
 	kmsdb "stackd/storage/sqlite/kms"
@@ -100,7 +99,7 @@ func (f *kafkaSCRAMFixture) open() {
 	if err != nil {
 		f.t.Fatal(err)
 	}
-	f.identities, f.clusters, f.keys, f.secrets, f.events = iamdb.New(f.db), kafkadb.New(f.db), kmsdb.New(f.db), secretdb.New(f.db), journaldb.New(f.db)
+	f.identities, f.clusters, f.keys, f.secrets, f.events = newSQLiteIAMRepository(f.t, f.db), kafkadb.New(f.db), kmsdb.New(f.db), secretdb.New(f.db), journaldb.New(f.db)
 }
 
 func (f *kafkaSCRAMFixture) start() {

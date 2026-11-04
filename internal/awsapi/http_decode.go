@@ -245,6 +245,13 @@ func decodeHTTPValues(service awscatalog.Service, member awscatalog.Member, valu
 	}
 	switch shape.Kind {
 	case "string", "enum":
+		// Native S3 accepts checksum-mode values case-insensitively, including
+		// the lowercase value emitted by Arrow's C++ client. Canonicalize only
+		// this header's bound value, never the signed request or other enums.
+		// See testdata/aws/s3/checksum_mode_case_20261103.json.
+		if header && shape.ID == "com.amazonaws.s3#ChecksumMode" && strings.EqualFold(text, "ENABLED") {
+			text = "ENABLED"
+		}
 		if header && shape.MediaType != "" {
 			decoded, err := base64.StdEncoding.DecodeString(text)
 			if err != nil {

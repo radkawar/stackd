@@ -94,3 +94,17 @@ func TestRESTRawPayloadAndModeledResponseBindings(t *testing.T) {
 		t.Fatalf("modeled response bindings changed: %+v", response)
 	}
 }
+
+func TestRESTHeaderEnumsRemainCaseSensitive(t *testing.T) {
+	for _, value := range []string{"requestresponse", "REQUESTRESPONSE", "RequestResponseInvalid"} {
+		t.Run(value, func(t *testing.T) {
+			_, err := lambdaapi.DecodeRequest("Invoke", awsapi.Request{
+				Labels: map[string]string{"FunctionName": "demo"},
+				Header: http.Header{"X-Amz-Invocation-Type": {value}},
+			})
+			if err == nil {
+				t.Fatalf("unrelated HTTP header enum accepted %q", value)
+			}
+		})
+	}
+}

@@ -19,7 +19,7 @@ type DeleteBucketCORSParams struct {
 }
 
 func (q *Queries) DeleteBucketCORS(ctx context.Context, arg DeleteBucketCORSParams) error {
-	_, err := q.db.ExecContext(ctx, deleteBucketCORS, arg.Partition, arg.BucketName)
+	_, err := q.exec(ctx, q.deleteBucketCORSStmt, deleteBucketCORS, arg.Partition, arg.BucketName)
 	return err
 }
 
@@ -33,7 +33,7 @@ type DeleteBucketWebsiteParams struct {
 }
 
 func (q *Queries) DeleteBucketWebsite(ctx context.Context, arg DeleteBucketWebsiteParams) error {
-	_, err := q.db.ExecContext(ctx, deleteBucketWebsite, arg.Partition, arg.BucketName)
+	_, err := q.exec(ctx, q.deleteBucketWebsiteStmt, deleteBucketWebsite, arg.Partition, arg.BucketName)
 	return err
 }
 
@@ -47,7 +47,7 @@ type GetBucketCORSRulesParams struct {
 }
 
 func (q *Queries) GetBucketCORSRules(ctx context.Context, arg GetBucketCORSRulesParams) ([]S3CorsRule, error) {
-	rows, err := q.db.QueryContext(ctx, getBucketCORSRules, arg.Partition, arg.BucketName)
+	rows, err := q.query(ctx, q.getBucketCORSRulesStmt, getBucketCORSRules, arg.Partition, arg.BucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +85,7 @@ type GetBucketCORSValuesParams struct {
 }
 
 func (q *Queries) GetBucketCORSValues(ctx context.Context, arg GetBucketCORSValuesParams) ([]S3CorsValue, error) {
-	rows, err := q.db.QueryContext(ctx, getBucketCORSValues, arg.Partition, arg.BucketName)
+	rows, err := q.query(ctx, q.getBucketCORSValuesStmt, getBucketCORSValues, arg.Partition, arg.BucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ type GetBucketWebsiteParams struct {
 }
 
 func (q *Queries) GetBucketWebsite(ctx context.Context, arg GetBucketWebsiteParams) (S3Website, error) {
-	row := q.db.QueryRowContext(ctx, getBucketWebsite, arg.Partition, arg.BucketName)
+	row := q.queryRow(ctx, q.getBucketWebsiteStmt, getBucketWebsite, arg.Partition, arg.BucketName)
 	var i S3Website
 	err := row.Scan(
 		&i.Partition,
@@ -147,7 +147,7 @@ type GetBucketWebsiteRulesParams struct {
 }
 
 func (q *Queries) GetBucketWebsiteRules(ctx context.Context, arg GetBucketWebsiteRulesParams) ([]S3WebsiteRule, error) {
-	rows, err := q.db.QueryContext(ctx, getBucketWebsiteRules, arg.Partition, arg.BucketName)
+	rows, err := q.query(ctx, q.getBucketWebsiteRulesStmt, getBucketWebsiteRules, arg.Partition, arg.BucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +194,7 @@ type PutBucketCORSRuleParams struct {
 }
 
 func (q *Queries) PutBucketCORSRule(ctx context.Context, arg PutBucketCORSRuleParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketCORSRule,
+	_, err := q.exec(ctx, q.putBucketCORSRuleStmt, putBucketCORSRule,
 		arg.Partition,
 		arg.BucketName,
 		arg.Position,
@@ -218,7 +218,7 @@ type PutBucketCORSValueParams struct {
 }
 
 func (q *Queries) PutBucketCORSValue(ctx context.Context, arg PutBucketCORSValueParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketCORSValue,
+	_, err := q.exec(ctx, q.putBucketCORSValueStmt, putBucketCORSValue,
 		arg.Partition,
 		arg.BucketName,
 		arg.RulePosition,
@@ -243,7 +243,7 @@ type PutBucketWebsiteParams struct {
 }
 
 func (q *Queries) PutBucketWebsite(ctx context.Context, arg PutBucketWebsiteParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketWebsite,
+	_, err := q.exec(ctx, q.putBucketWebsiteStmt, putBucketWebsite,
 		arg.Partition,
 		arg.BucketName,
 		arg.IndexSuffix,
@@ -275,7 +275,7 @@ type PutBucketWebsiteRuleParams struct {
 }
 
 func (q *Queries) PutBucketWebsiteRule(ctx context.Context, arg PutBucketWebsiteRuleParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketWebsiteRule,
+	_, err := q.exec(ctx, q.putBucketWebsiteRuleStmt, putBucketWebsiteRule,
 		arg.Partition,
 		arg.BucketName,
 		arg.Position,

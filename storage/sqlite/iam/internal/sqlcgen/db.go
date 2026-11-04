@@ -7,6 +7,7 @@ package sqlcgen
 import (
 	"context"
 	"database/sql"
+	"fmt"
 )
 
 type DBTX interface {
@@ -20,12 +21,2028 @@ func New(db DBTX) *Queries {
 	return &Queries{db: db}
 }
 
+func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
+	q := Queries{db: db}
+	var err error
+	if q.accessReportScopesStmt, err = db.PrepareContext(ctx, accessReportScopes); err != nil {
+		return nil, fmt.Errorf("error preparing query AccessReportScopes: %w", err)
+	}
+	if q.accountAliasOwnerStmt, err = db.PrepareContext(ctx, accountAliasOwner); err != nil {
+		return nil, fmt.Errorf("error preparing query AccountAliasOwner: %w", err)
+	}
+	if q.credentialReportScopesStmt, err = db.PrepareContext(ctx, credentialReportScopes); err != nil {
+		return nil, fmt.Errorf("error preparing query CredentialReportScopes: %w", err)
+	}
+	if q.deleteAccessReportStmt, err = db.PrepareContext(ctx, deleteAccessReport); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteAccessReport: %w", err)
+	}
+	if q.deleteAccountMetadataStmt, err = db.PrepareContext(ctx, deleteAccountMetadata); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteAccountMetadata: %w", err)
+	}
+	if q.deleteAccountSettingsStmt, err = db.PrepareContext(ctx, deleteAccountSettings); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteAccountSettings: %w", err)
+	}
+	if q.deleteCredentialStmt, err = db.PrepareContext(ctx, deleteCredential); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteCredential: %w", err)
+	}
+	if q.deleteCredentialReportStmt, err = db.PrepareContext(ctx, deleteCredentialReport); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteCredentialReport: %w", err)
+	}
+	if q.deleteGroupStmt, err = db.PrepareContext(ctx, deleteGroup); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteGroup: %w", err)
+	}
+	if q.deleteInstanceProfileStmt, err = db.PrepareContext(ctx, deleteInstanceProfile); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteInstanceProfile: %w", err)
+	}
+	if q.deleteLoginProfileStmt, err = db.PrepareContext(ctx, deleteLoginProfile); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteLoginProfile: %w", err)
+	}
+	if q.deleteMFADeviceStmt, err = db.PrepareContext(ctx, deleteMFADevice); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteMFADevice: %w", err)
+	}
+	if q.deleteManagedPolicyStmt, err = db.PrepareContext(ctx, deleteManagedPolicy); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteManagedPolicy: %w", err)
+	}
+	if q.deleteOIDCProviderStmt, err = db.PrepareContext(ctx, deleteOIDCProvider); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteOIDCProvider: %w", err)
+	}
+	if q.deletePrincipalActivityStmt, err = db.PrepareContext(ctx, deletePrincipalActivity); err != nil {
+		return nil, fmt.Errorf("error preparing query DeletePrincipalActivity: %w", err)
+	}
+	if q.deleteRoleStmt, err = db.PrepareContext(ctx, deleteRole); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteRole: %w", err)
+	}
+	if q.deleteSAMLProviderStmt, err = db.PrepareContext(ctx, deleteSAMLProvider); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteSAMLProvider: %w", err)
+	}
+	if q.deleteSSHPublicKeyStmt, err = db.PrepareContext(ctx, deleteSSHPublicKey); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteSSHPublicKey: %w", err)
+	}
+	if q.deleteServerCertificateStmt, err = db.PrepareContext(ctx, deleteServerCertificate); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteServerCertificate: %w", err)
+	}
+	if q.deleteServiceCredentialStmt, err = db.PrepareContext(ctx, deleteServiceCredential); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteServiceCredential: %w", err)
+	}
+	if q.deleteServiceLinkedRoleDeletionStmt, err = db.PrepareContext(ctx, deleteServiceLinkedRoleDeletion); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteServiceLinkedRoleDeletion: %w", err)
+	}
+	if q.deleteSigningCertificateStmt, err = db.PrepareContext(ctx, deleteSigningCertificate); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteSigningCertificate: %w", err)
+	}
+	if q.deleteUserStmt, err = db.PrepareContext(ctx, deleteUser); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteUser: %w", err)
+	}
+	if q.ensureScopeStmt, err = db.PrepareContext(ctx, ensureScope); err != nil {
+		return nil, fmt.Errorf("error preparing query EnsureScope: %w", err)
+	}
+	if q.getAccessReportStmt, err = db.PrepareContext(ctx, getAccessReport); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAccessReport: %w", err)
+	}
+	if q.getAccessReportOrganizationStmt, err = db.PrepareContext(ctx, getAccessReportOrganization); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAccessReportOrganization: %w", err)
+	}
+	if q.getAccessReportOrganizationErrorStmt, err = db.PrepareContext(ctx, getAccessReportOrganizationError); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAccessReportOrganizationError: %w", err)
+	}
+	if q.getAccessReportOrganizationServicesLastActivityStmt, err = db.PrepareContext(ctx, getAccessReportOrganizationServicesLastActivity); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAccessReportOrganizationServicesLastActivity: %w", err)
+	}
+	if q.getAccessReportServicesActionsLastActivityStmt, err = db.PrepareContext(ctx, getAccessReportServicesActionsLastActivity); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAccessReportServicesActionsLastActivity: %w", err)
+	}
+	if q.getAccessReportServicesEntitiesLastActivityStmt, err = db.PrepareContext(ctx, getAccessReportServicesEntitiesLastActivity); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAccessReportServicesEntitiesLastActivity: %w", err)
+	}
+	if q.getAccessReportServicesLastActivityStmt, err = db.PrepareContext(ctx, getAccessReportServicesLastActivity); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAccessReportServicesLastActivity: %w", err)
+	}
+	if q.getAccountMetadataStmt, err = db.PrepareContext(ctx, getAccountMetadata); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAccountMetadata: %w", err)
+	}
+	if q.getAccountSettingsStmt, err = db.PrepareContext(ctx, getAccountSettings); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAccountSettings: %w", err)
+	}
+	if q.getAccountSettingsOutboundWebIdentityStmt, err = db.PrepareContext(ctx, getAccountSettingsOutboundWebIdentity); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAccountSettingsOutboundWebIdentity: %w", err)
+	}
+	if q.getAccountSettingsPasswordPolicyStmt, err = db.PrepareContext(ctx, getAccountSettingsPasswordPolicy); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAccountSettingsPasswordPolicy: %w", err)
+	}
+	if q.getAccountSettingsRootLoginProfileStmt, err = db.PrepareContext(ctx, getAccountSettingsRootLoginProfile); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAccountSettingsRootLoginProfile: %w", err)
+	}
+	if q.getCredentialStmt, err = db.PrepareContext(ctx, getCredential); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCredential: %w", err)
+	}
+	if q.getCredentialReportStmt, err = db.PrepareContext(ctx, getCredentialReport); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCredentialReport: %w", err)
+	}
+	if q.getGroupStmt, err = db.PrepareContext(ctx, getGroup); err != nil {
+		return nil, fmt.Errorf("error preparing query GetGroup: %w", err)
+	}
+	if q.getInstanceProfileStmt, err = db.PrepareContext(ctx, getInstanceProfile); err != nil {
+		return nil, fmt.Errorf("error preparing query GetInstanceProfile: %w", err)
+	}
+	if q.getLoginProfileStmt, err = db.PrepareContext(ctx, getLoginProfile); err != nil {
+		return nil, fmt.Errorf("error preparing query GetLoginProfile: %w", err)
+	}
+	if q.getMFADeviceStmt, err = db.PrepareContext(ctx, getMFADevice); err != nil {
+		return nil, fmt.Errorf("error preparing query GetMFADevice: %w", err)
+	}
+	if q.getManagedPolicyStmt, err = db.PrepareContext(ctx, getManagedPolicy); err != nil {
+		return nil, fmt.Errorf("error preparing query GetManagedPolicy: %w", err)
+	}
+	if q.getOIDCProviderStmt, err = db.PrepareContext(ctx, getOIDCProvider); err != nil {
+		return nil, fmt.Errorf("error preparing query GetOIDCProvider: %w", err)
+	}
+	if q.getPrincipalActivityStmt, err = db.PrepareContext(ctx, getPrincipalActivity); err != nil {
+		return nil, fmt.Errorf("error preparing query GetPrincipalActivity: %w", err)
+	}
+	if q.getRoleStmt, err = db.PrepareContext(ctx, getRole); err != nil {
+		return nil, fmt.Errorf("error preparing query GetRole: %w", err)
+	}
+	if q.getRoleLastUseStmt, err = db.PrepareContext(ctx, getRoleLastUse); err != nil {
+		return nil, fmt.Errorf("error preparing query GetRoleLastUse: %w", err)
+	}
+	if q.getRolePermissionsBoundaryStmt, err = db.PrepareContext(ctx, getRolePermissionsBoundary); err != nil {
+		return nil, fmt.Errorf("error preparing query GetRolePermissionsBoundary: %w", err)
+	}
+	if q.getRoleSourceRoleTemplateStmt, err = db.PrepareContext(ctx, getRoleSourceRoleTemplate); err != nil {
+		return nil, fmt.Errorf("error preparing query GetRoleSourceRoleTemplate: %w", err)
+	}
+	if q.getSAMLProviderStmt, err = db.PrepareContext(ctx, getSAMLProvider); err != nil {
+		return nil, fmt.Errorf("error preparing query GetSAMLProvider: %w", err)
+	}
+	if q.getSSHPublicKeyStmt, err = db.PrepareContext(ctx, getSSHPublicKey); err != nil {
+		return nil, fmt.Errorf("error preparing query GetSSHPublicKey: %w", err)
+	}
+	if q.getServerCertificateStmt, err = db.PrepareContext(ctx, getServerCertificate); err != nil {
+		return nil, fmt.Errorf("error preparing query GetServerCertificate: %w", err)
+	}
+	if q.getServiceCredentialStmt, err = db.PrepareContext(ctx, getServiceCredential); err != nil {
+		return nil, fmt.Errorf("error preparing query GetServiceCredential: %w", err)
+	}
+	if q.getServiceLinkedRoleDeletionStmt, err = db.PrepareContext(ctx, getServiceLinkedRoleDeletion); err != nil {
+		return nil, fmt.Errorf("error preparing query GetServiceLinkedRoleDeletion: %w", err)
+	}
+	if q.getSigningCertificateStmt, err = db.PrepareContext(ctx, getSigningCertificate); err != nil {
+		return nil, fmt.Errorf("error preparing query GetSigningCertificate: %w", err)
+	}
+	if q.getUserStmt, err = db.PrepareContext(ctx, getUser); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUser: %w", err)
+	}
+	if q.getUserIdentityIDStmt, err = db.PrepareContext(ctx, getUserIdentityID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserIdentityID: %w", err)
+	}
+	if q.getUserPermissionsBoundaryStmt, err = db.PrepareContext(ctx, getUserPermissionsBoundary); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserPermissionsBoundary: %w", err)
+	}
+	if q.insertAccessReportStmt, err = db.PrepareContext(ctx, insertAccessReport); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertAccessReport: %w", err)
+	}
+	if q.insertAccessReportOrganizationStmt, err = db.PrepareContext(ctx, insertAccessReportOrganization); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertAccessReportOrganization: %w", err)
+	}
+	if q.insertAccessReportOrganizationErrorStmt, err = db.PrepareContext(ctx, insertAccessReportOrganizationError); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertAccessReportOrganizationError: %w", err)
+	}
+	if q.insertAccessReportOrganizationServicesStmt, err = db.PrepareContext(ctx, insertAccessReportOrganizationServices); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertAccessReportOrganizationServices: %w", err)
+	}
+	if q.insertAccessReportOrganizationServicesLastActivityStmt, err = db.PrepareContext(ctx, insertAccessReportOrganizationServicesLastActivity); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertAccessReportOrganizationServicesLastActivity: %w", err)
+	}
+	if q.insertAccessReportServicesStmt, err = db.PrepareContext(ctx, insertAccessReportServices); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertAccessReportServices: %w", err)
+	}
+	if q.insertAccessReportServicesActionsStmt, err = db.PrepareContext(ctx, insertAccessReportServicesActions); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertAccessReportServicesActions: %w", err)
+	}
+	if q.insertAccessReportServicesActionsLastActivityStmt, err = db.PrepareContext(ctx, insertAccessReportServicesActionsLastActivity); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertAccessReportServicesActionsLastActivity: %w", err)
+	}
+	if q.insertAccessReportServicesEntitiesStmt, err = db.PrepareContext(ctx, insertAccessReportServicesEntities); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertAccessReportServicesEntities: %w", err)
+	}
+	if q.insertAccessReportServicesEntitiesLastActivityStmt, err = db.PrepareContext(ctx, insertAccessReportServicesEntitiesLastActivity); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertAccessReportServicesEntitiesLastActivity: %w", err)
+	}
+	if q.insertAccessReportServicesLastActivityStmt, err = db.PrepareContext(ctx, insertAccessReportServicesLastActivity); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertAccessReportServicesLastActivity: %w", err)
+	}
+	if q.insertAccountMetadataStmt, err = db.PrepareContext(ctx, insertAccountMetadata); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertAccountMetadata: %w", err)
+	}
+	if q.insertAccountSettingsStmt, err = db.PrepareContext(ctx, insertAccountSettings); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertAccountSettings: %w", err)
+	}
+	if q.insertAccountSettingsGlobalEndpointAllRegionsStmt, err = db.PrepareContext(ctx, insertAccountSettingsGlobalEndpointAllRegions); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertAccountSettingsGlobalEndpointAllRegions: %w", err)
+	}
+	if q.insertAccountSettingsOutboundWebIdentityStmt, err = db.PrepareContext(ctx, insertAccountSettingsOutboundWebIdentity); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertAccountSettingsOutboundWebIdentity: %w", err)
+	}
+	if q.insertAccountSettingsOutboundWebIdentityEnabledStmt, err = db.PrepareContext(ctx, insertAccountSettingsOutboundWebIdentityEnabled); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertAccountSettingsOutboundWebIdentityEnabled: %w", err)
+	}
+	if q.insertAccountSettingsPasswordPolicyStmt, err = db.PrepareContext(ctx, insertAccountSettingsPasswordPolicy); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertAccountSettingsPasswordPolicy: %w", err)
+	}
+	if q.insertAccountSettingsRootLoginProfileStmt, err = db.PrepareContext(ctx, insertAccountSettingsRootLoginProfile); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertAccountSettingsRootLoginProfile: %w", err)
+	}
+	if q.insertCredentialStmt, err = db.PrepareContext(ctx, insertCredential); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertCredential: %w", err)
+	}
+	if q.insertCredentialReportStmt, err = db.PrepareContext(ctx, insertCredentialReport); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertCredentialReport: %w", err)
+	}
+	if q.insertCredentialSessionContextStmt, err = db.PrepareContext(ctx, insertCredentialSessionContext); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertCredentialSessionContext: %w", err)
+	}
+	if q.insertCredentialSessionContextValuesStmt, err = db.PrepareContext(ctx, insertCredentialSessionContextValues); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertCredentialSessionContextValues: %w", err)
+	}
+	if q.insertCredentialSessionPoliciesStmt, err = db.PrepareContext(ctx, insertCredentialSessionPolicies); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertCredentialSessionPolicies: %w", err)
+	}
+	if q.insertCredentialSessionPolicyARNsStmt, err = db.PrepareContext(ctx, insertCredentialSessionPolicyARNs); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertCredentialSessionPolicyARNs: %w", err)
+	}
+	if q.insertCredentialSessionTagsStmt, err = db.PrepareContext(ctx, insertCredentialSessionTags); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertCredentialSessionTags: %w", err)
+	}
+	if q.insertCredentialTransitiveTagKeysStmt, err = db.PrepareContext(ctx, insertCredentialTransitiveTagKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertCredentialTransitiveTagKeys: %w", err)
+	}
+	if q.insertGroupStmt, err = db.PrepareContext(ctx, insertGroup); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertGroup: %w", err)
+	}
+	if q.insertGroupAttachedStmt, err = db.PrepareContext(ctx, insertGroupAttached); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertGroupAttached: %w", err)
+	}
+	if q.insertGroupInlineStmt, err = db.PrepareContext(ctx, insertGroupInline); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertGroupInline: %w", err)
+	}
+	if q.insertGroupMembersStmt, err = db.PrepareContext(ctx, insertGroupMembers); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertGroupMembers: %w", err)
+	}
+	if q.insertInstanceProfileStmt, err = db.PrepareContext(ctx, insertInstanceProfile); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertInstanceProfile: %w", err)
+	}
+	if q.insertInstanceProfileTagsStmt, err = db.PrepareContext(ctx, insertInstanceProfileTags); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertInstanceProfileTags: %w", err)
+	}
+	if q.insertLoginProfileStmt, err = db.PrepareContext(ctx, insertLoginProfile); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertLoginProfile: %w", err)
+	}
+	if q.insertLoginProfilePreviousPasswordsStmt, err = db.PrepareContext(ctx, insertLoginProfilePreviousPasswords); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertLoginProfilePreviousPasswords: %w", err)
+	}
+	if q.insertMFADeviceStmt, err = db.PrepareContext(ctx, insertMFADevice); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertMFADevice: %w", err)
+	}
+	if q.insertMFADeviceBindingPendingStmt, err = db.PrepareContext(ctx, insertMFADeviceBindingPending); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertMFADeviceBindingPending: %w", err)
+	}
+	if q.insertMFADeviceTagsStmt, err = db.PrepareContext(ctx, insertMFADeviceTags); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertMFADeviceTags: %w", err)
+	}
+	if q.insertMFADeviceUsedCodesStmt, err = db.PrepareContext(ctx, insertMFADeviceUsedCodes); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertMFADeviceUsedCodes: %w", err)
+	}
+	if q.insertManagedPolicyStmt, err = db.PrepareContext(ctx, insertManagedPolicy); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertManagedPolicy: %w", err)
+	}
+	if q.insertManagedPolicyTagsStmt, err = db.PrepareContext(ctx, insertManagedPolicyTags); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertManagedPolicyTags: %w", err)
+	}
+	if q.insertManagedPolicyVersionsStmt, err = db.PrepareContext(ctx, insertManagedPolicyVersions); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertManagedPolicyVersions: %w", err)
+	}
+	if q.insertOIDCProviderStmt, err = db.PrepareContext(ctx, insertOIDCProvider); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertOIDCProvider: %w", err)
+	}
+	if q.insertOIDCProviderClientIDsStmt, err = db.PrepareContext(ctx, insertOIDCProviderClientIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertOIDCProviderClientIDs: %w", err)
+	}
+	if q.insertOIDCProviderTagsStmt, err = db.PrepareContext(ctx, insertOIDCProviderTags); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertOIDCProviderTags: %w", err)
+	}
+	if q.insertOIDCProviderThumbprintsStmt, err = db.PrepareContext(ctx, insertOIDCProviderThumbprints); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertOIDCProviderThumbprints: %w", err)
+	}
+	if q.insertPrincipalActivityStmt, err = db.PrepareContext(ctx, insertPrincipalActivity); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertPrincipalActivity: %w", err)
+	}
+	if q.insertRoleStmt, err = db.PrepareContext(ctx, insertRole); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertRole: %w", err)
+	}
+	if q.insertRoleAttachedStmt, err = db.PrepareContext(ctx, insertRoleAttached); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertRoleAttached: %w", err)
+	}
+	if q.insertRoleInlineStmt, err = db.PrepareContext(ctx, insertRoleInline); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertRoleInline: %w", err)
+	}
+	if q.insertRolePermissionsBoundaryStmt, err = db.PrepareContext(ctx, insertRolePermissionsBoundary); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertRolePermissionsBoundary: %w", err)
+	}
+	if q.insertRoleSourceRoleTemplateStmt, err = db.PrepareContext(ctx, insertRoleSourceRoleTemplate); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertRoleSourceRoleTemplate: %w", err)
+	}
+	if q.insertRoleSourceRoleTemplateParametersStmt, err = db.PrepareContext(ctx, insertRoleSourceRoleTemplateParameters); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertRoleSourceRoleTemplateParameters: %w", err)
+	}
+	if q.insertRoleSourceRoleTemplateParametersValuesStmt, err = db.PrepareContext(ctx, insertRoleSourceRoleTemplateParametersValues); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertRoleSourceRoleTemplateParametersValues: %w", err)
+	}
+	if q.insertRoleTagsStmt, err = db.PrepareContext(ctx, insertRoleTags); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertRoleTags: %w", err)
+	}
+	if q.insertRoleTrustPrincipalIDsStmt, err = db.PrepareContext(ctx, insertRoleTrustPrincipalIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertRoleTrustPrincipalIDs: %w", err)
+	}
+	if q.insertSAMLProviderStmt, err = db.PrepareContext(ctx, insertSAMLProvider); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertSAMLProvider: %w", err)
+	}
+	if q.insertSAMLProviderIssuersStmt, err = db.PrepareContext(ctx, insertSAMLProviderIssuers); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertSAMLProviderIssuers: %w", err)
+	}
+	if q.insertSAMLProviderIssuersSigningCertificatesStmt, err = db.PrepareContext(ctx, insertSAMLProviderIssuersSigningCertificates); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertSAMLProviderIssuersSigningCertificates: %w", err)
+	}
+	if q.insertSAMLProviderPrivateKeysStmt, err = db.PrepareContext(ctx, insertSAMLProviderPrivateKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertSAMLProviderPrivateKeys: %w", err)
+	}
+	if q.insertSAMLProviderTagsStmt, err = db.PrepareContext(ctx, insertSAMLProviderTags); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertSAMLProviderTags: %w", err)
+	}
+	if q.insertSSHPublicKeyStmt, err = db.PrepareContext(ctx, insertSSHPublicKey); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertSSHPublicKey: %w", err)
+	}
+	if q.insertServerCertificateStmt, err = db.PrepareContext(ctx, insertServerCertificate); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertServerCertificate: %w", err)
+	}
+	if q.insertServerCertificateTagsStmt, err = db.PrepareContext(ctx, insertServerCertificateTags); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertServerCertificateTags: %w", err)
+	}
+	if q.insertServiceCredentialStmt, err = db.PrepareContext(ctx, insertServiceCredential); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertServiceCredential: %w", err)
+	}
+	if q.insertServiceLinkedRoleDeletionStmt, err = db.PrepareContext(ctx, insertServiceLinkedRoleDeletion); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertServiceLinkedRoleDeletion: %w", err)
+	}
+	if q.insertServiceLinkedRoleDeletionUsageStmt, err = db.PrepareContext(ctx, insertServiceLinkedRoleDeletionUsage); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertServiceLinkedRoleDeletionUsage: %w", err)
+	}
+	if q.insertServiceLinkedRoleDeletionUsageResourceARNsStmt, err = db.PrepareContext(ctx, insertServiceLinkedRoleDeletionUsageResourceARNs); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertServiceLinkedRoleDeletionUsageResourceARNs: %w", err)
+	}
+	if q.insertSigningCertificateStmt, err = db.PrepareContext(ctx, insertSigningCertificate); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertSigningCertificate: %w", err)
+	}
+	if q.insertUserStmt, err = db.PrepareContext(ctx, insertUser); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertUser: %w", err)
+	}
+	if q.insertUserAttachedStmt, err = db.PrepareContext(ctx, insertUserAttached); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertUserAttached: %w", err)
+	}
+	if q.insertUserInlineStmt, err = db.PrepareContext(ctx, insertUserInline); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertUserInline: %w", err)
+	}
+	if q.insertUserPermissionsBoundaryStmt, err = db.PrepareContext(ctx, insertUserPermissionsBoundary); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertUserPermissionsBoundary: %w", err)
+	}
+	if q.insertUserTagsStmt, err = db.PrepareContext(ctx, insertUserTags); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertUserTags: %w", err)
+	}
+	if q.listAccessReportOrganizationServicesStmt, err = db.PrepareContext(ctx, listAccessReportOrganizationServices); err != nil {
+		return nil, fmt.Errorf("error preparing query ListAccessReportOrganizationServices: %w", err)
+	}
+	if q.listAccessReportServicesStmt, err = db.PrepareContext(ctx, listAccessReportServices); err != nil {
+		return nil, fmt.Errorf("error preparing query ListAccessReportServices: %w", err)
+	}
+	if q.listAccessReportServicesActionsStmt, err = db.PrepareContext(ctx, listAccessReportServicesActions); err != nil {
+		return nil, fmt.Errorf("error preparing query ListAccessReportServicesActions: %w", err)
+	}
+	if q.listAccessReportServicesEntitiesStmt, err = db.PrepareContext(ctx, listAccessReportServicesEntities); err != nil {
+		return nil, fmt.Errorf("error preparing query ListAccessReportServicesEntities: %w", err)
+	}
+	if q.listAccountSettingsGlobalEndpointAllRegionsStmt, err = db.PrepareContext(ctx, listAccountSettingsGlobalEndpointAllRegions); err != nil {
+		return nil, fmt.Errorf("error preparing query ListAccountSettingsGlobalEndpointAllRegions: %w", err)
+	}
+	if q.listAccountSettingsOutboundWebIdentityEnabledStmt, err = db.PrepareContext(ctx, listAccountSettingsOutboundWebIdentityEnabled); err != nil {
+		return nil, fmt.Errorf("error preparing query ListAccountSettingsOutboundWebIdentityEnabled: %w", err)
+	}
+	if q.listCredentialKeysStmt, err = db.PrepareContext(ctx, listCredentialKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query ListCredentialKeys: %w", err)
+	}
+	if q.listCredentialSessionContextStmt, err = db.PrepareContext(ctx, listCredentialSessionContext); err != nil {
+		return nil, fmt.Errorf("error preparing query ListCredentialSessionContext: %w", err)
+	}
+	if q.listCredentialSessionContextValuesStmt, err = db.PrepareContext(ctx, listCredentialSessionContextValues); err != nil {
+		return nil, fmt.Errorf("error preparing query ListCredentialSessionContextValues: %w", err)
+	}
+	if q.listCredentialSessionPoliciesStmt, err = db.PrepareContext(ctx, listCredentialSessionPolicies); err != nil {
+		return nil, fmt.Errorf("error preparing query ListCredentialSessionPolicies: %w", err)
+	}
+	if q.listCredentialSessionPolicyARNsStmt, err = db.PrepareContext(ctx, listCredentialSessionPolicyARNs); err != nil {
+		return nil, fmt.Errorf("error preparing query ListCredentialSessionPolicyARNs: %w", err)
+	}
+	if q.listCredentialSessionTagsStmt, err = db.PrepareContext(ctx, listCredentialSessionTags); err != nil {
+		return nil, fmt.Errorf("error preparing query ListCredentialSessionTags: %w", err)
+	}
+	if q.listCredentialTransitiveTagKeysStmt, err = db.PrepareContext(ctx, listCredentialTransitiveTagKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query ListCredentialTransitiveTagKeys: %w", err)
+	}
+	if q.listGroupAttachedStmt, err = db.PrepareContext(ctx, listGroupAttached); err != nil {
+		return nil, fmt.Errorf("error preparing query ListGroupAttached: %w", err)
+	}
+	if q.listGroupInlineStmt, err = db.PrepareContext(ctx, listGroupInline); err != nil {
+		return nil, fmt.Errorf("error preparing query ListGroupInline: %w", err)
+	}
+	if q.listGroupKeysStmt, err = db.PrepareContext(ctx, listGroupKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query ListGroupKeys: %w", err)
+	}
+	if q.listGroupMembersStmt, err = db.PrepareContext(ctx, listGroupMembers); err != nil {
+		return nil, fmt.Errorf("error preparing query ListGroupMembers: %w", err)
+	}
+	if q.listInstanceProfileKeysStmt, err = db.PrepareContext(ctx, listInstanceProfileKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query ListInstanceProfileKeys: %w", err)
+	}
+	if q.listInstanceProfileTagsStmt, err = db.PrepareContext(ctx, listInstanceProfileTags); err != nil {
+		return nil, fmt.Errorf("error preparing query ListInstanceProfileTags: %w", err)
+	}
+	if q.listLoginProfileKeysStmt, err = db.PrepareContext(ctx, listLoginProfileKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query ListLoginProfileKeys: %w", err)
+	}
+	if q.listLoginProfilePreviousPasswordsStmt, err = db.PrepareContext(ctx, listLoginProfilePreviousPasswords); err != nil {
+		return nil, fmt.Errorf("error preparing query ListLoginProfilePreviousPasswords: %w", err)
+	}
+	if q.listMFADeviceBindingPendingStmt, err = db.PrepareContext(ctx, listMFADeviceBindingPending); err != nil {
+		return nil, fmt.Errorf("error preparing query ListMFADeviceBindingPending: %w", err)
+	}
+	if q.listMFADeviceKeysStmt, err = db.PrepareContext(ctx, listMFADeviceKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query ListMFADeviceKeys: %w", err)
+	}
+	if q.listMFADeviceTagsStmt, err = db.PrepareContext(ctx, listMFADeviceTags); err != nil {
+		return nil, fmt.Errorf("error preparing query ListMFADeviceTags: %w", err)
+	}
+	if q.listMFADeviceUsedCodesStmt, err = db.PrepareContext(ctx, listMFADeviceUsedCodes); err != nil {
+		return nil, fmt.Errorf("error preparing query ListMFADeviceUsedCodes: %w", err)
+	}
+	if q.listManagedPolicyKeysStmt, err = db.PrepareContext(ctx, listManagedPolicyKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query ListManagedPolicyKeys: %w", err)
+	}
+	if q.listManagedPolicyTagsStmt, err = db.PrepareContext(ctx, listManagedPolicyTags); err != nil {
+		return nil, fmt.Errorf("error preparing query ListManagedPolicyTags: %w", err)
+	}
+	if q.listManagedPolicyVersionsStmt, err = db.PrepareContext(ctx, listManagedPolicyVersions); err != nil {
+		return nil, fmt.Errorf("error preparing query ListManagedPolicyVersions: %w", err)
+	}
+	if q.listOIDCProviderClientIDsStmt, err = db.PrepareContext(ctx, listOIDCProviderClientIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query ListOIDCProviderClientIDs: %w", err)
+	}
+	if q.listOIDCProviderKeysStmt, err = db.PrepareContext(ctx, listOIDCProviderKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query ListOIDCProviderKeys: %w", err)
+	}
+	if q.listOIDCProviderTagsStmt, err = db.PrepareContext(ctx, listOIDCProviderTags); err != nil {
+		return nil, fmt.Errorf("error preparing query ListOIDCProviderTags: %w", err)
+	}
+	if q.listOIDCProviderThumbprintsStmt, err = db.PrepareContext(ctx, listOIDCProviderThumbprints); err != nil {
+		return nil, fmt.Errorf("error preparing query ListOIDCProviderThumbprints: %w", err)
+	}
+	if q.listPrincipalActivityKeysStmt, err = db.PrepareContext(ctx, listPrincipalActivityKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query ListPrincipalActivityKeys: %w", err)
+	}
+	if q.listRoleAttachedStmt, err = db.PrepareContext(ctx, listRoleAttached); err != nil {
+		return nil, fmt.Errorf("error preparing query ListRoleAttached: %w", err)
+	}
+	if q.listRoleInlineStmt, err = db.PrepareContext(ctx, listRoleInline); err != nil {
+		return nil, fmt.Errorf("error preparing query ListRoleInline: %w", err)
+	}
+	if q.listRoleKeysStmt, err = db.PrepareContext(ctx, listRoleKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query ListRoleKeys: %w", err)
+	}
+	if q.listRoleSourceRoleTemplateParametersStmt, err = db.PrepareContext(ctx, listRoleSourceRoleTemplateParameters); err != nil {
+		return nil, fmt.Errorf("error preparing query ListRoleSourceRoleTemplateParameters: %w", err)
+	}
+	if q.listRoleSourceRoleTemplateParametersValuesStmt, err = db.PrepareContext(ctx, listRoleSourceRoleTemplateParametersValues); err != nil {
+		return nil, fmt.Errorf("error preparing query ListRoleSourceRoleTemplateParametersValues: %w", err)
+	}
+	if q.listRoleTagsStmt, err = db.PrepareContext(ctx, listRoleTags); err != nil {
+		return nil, fmt.Errorf("error preparing query ListRoleTags: %w", err)
+	}
+	if q.listRoleTrustPrincipalIDsStmt, err = db.PrepareContext(ctx, listRoleTrustPrincipalIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query ListRoleTrustPrincipalIDs: %w", err)
+	}
+	if q.listSAMLProviderIssuersStmt, err = db.PrepareContext(ctx, listSAMLProviderIssuers); err != nil {
+		return nil, fmt.Errorf("error preparing query ListSAMLProviderIssuers: %w", err)
+	}
+	if q.listSAMLProviderIssuersSigningCertificatesStmt, err = db.PrepareContext(ctx, listSAMLProviderIssuersSigningCertificates); err != nil {
+		return nil, fmt.Errorf("error preparing query ListSAMLProviderIssuersSigningCertificates: %w", err)
+	}
+	if q.listSAMLProviderKeysStmt, err = db.PrepareContext(ctx, listSAMLProviderKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query ListSAMLProviderKeys: %w", err)
+	}
+	if q.listSAMLProviderPrivateKeysStmt, err = db.PrepareContext(ctx, listSAMLProviderPrivateKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query ListSAMLProviderPrivateKeys: %w", err)
+	}
+	if q.listSAMLProviderTagsStmt, err = db.PrepareContext(ctx, listSAMLProviderTags); err != nil {
+		return nil, fmt.Errorf("error preparing query ListSAMLProviderTags: %w", err)
+	}
+	if q.listSSHPublicKeyKeysStmt, err = db.PrepareContext(ctx, listSSHPublicKeyKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query ListSSHPublicKeyKeys: %w", err)
+	}
+	if q.listServerCertificateKeysStmt, err = db.PrepareContext(ctx, listServerCertificateKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query ListServerCertificateKeys: %w", err)
+	}
+	if q.listServerCertificateTagsStmt, err = db.PrepareContext(ctx, listServerCertificateTags); err != nil {
+		return nil, fmt.Errorf("error preparing query ListServerCertificateTags: %w", err)
+	}
+	if q.listServiceCredentialKeysStmt, err = db.PrepareContext(ctx, listServiceCredentialKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query ListServiceCredentialKeys: %w", err)
+	}
+	if q.listServiceLinkedRoleDeletionKeysStmt, err = db.PrepareContext(ctx, listServiceLinkedRoleDeletionKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query ListServiceLinkedRoleDeletionKeys: %w", err)
+	}
+	if q.listServiceLinkedRoleDeletionUsageStmt, err = db.PrepareContext(ctx, listServiceLinkedRoleDeletionUsage); err != nil {
+		return nil, fmt.Errorf("error preparing query ListServiceLinkedRoleDeletionUsage: %w", err)
+	}
+	if q.listServiceLinkedRoleDeletionUsageResourceARNsStmt, err = db.PrepareContext(ctx, listServiceLinkedRoleDeletionUsageResourceARNs); err != nil {
+		return nil, fmt.Errorf("error preparing query ListServiceLinkedRoleDeletionUsageResourceARNs: %w", err)
+	}
+	if q.listSigningCertificateKeysStmt, err = db.PrepareContext(ctx, listSigningCertificateKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query ListSigningCertificateKeys: %w", err)
+	}
+	if q.listUserAttachedStmt, err = db.PrepareContext(ctx, listUserAttached); err != nil {
+		return nil, fmt.Errorf("error preparing query ListUserAttached: %w", err)
+	}
+	if q.listUserGroupKeysStmt, err = db.PrepareContext(ctx, listUserGroupKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query ListUserGroupKeys: %w", err)
+	}
+	if q.listUserInlineStmt, err = db.PrepareContext(ctx, listUserInline); err != nil {
+		return nil, fmt.Errorf("error preparing query ListUserInline: %w", err)
+	}
+	if q.listUserKeysStmt, err = db.PrepareContext(ctx, listUserKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query ListUserKeys: %w", err)
+	}
+	if q.listUserTagsStmt, err = db.PrepareContext(ctx, listUserTags); err != nil {
+		return nil, fmt.Errorf("error preparing query ListUserTags: %w", err)
+	}
+	if q.organizationAccessReportCandidatesStmt, err = db.PrepareContext(ctx, organizationAccessReportCandidates); err != nil {
+		return nil, fmt.Errorf("error preparing query OrganizationAccessReportCandidates: %w", err)
+	}
+	if q.pendingAccessReportKeysStmt, err = db.PrepareContext(ctx, pendingAccessReportKeys); err != nil {
+		return nil, fmt.Errorf("error preparing query PendingAccessReportKeys: %w", err)
+	}
+	if q.readGroupMembershipClaimsStmt, err = db.PrepareContext(ctx, readGroupMembershipClaims); err != nil {
+		return nil, fmt.Errorf("error preparing query ReadGroupMembershipClaims: %w", err)
+	}
+	if q.scopesStmt, err = db.PrepareContext(ctx, scopes); err != nil {
+		return nil, fmt.Errorf("error preparing query Scopes: %w", err)
+	}
+	if q.serviceLinkedRoleDeletionScopesStmt, err = db.PrepareContext(ctx, serviceLinkedRoleDeletionScopes); err != nil {
+		return nil, fmt.Errorf("error preparing query ServiceLinkedRoleDeletionScopes: %w", err)
+	}
+	if q.updateCredentialLastUseStmt, err = db.PrepareContext(ctx, updateCredentialLastUse); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCredentialLastUse: %w", err)
+	}
+	if q.updateRoleLastUseStmt, err = db.PrepareContext(ctx, updateRoleLastUse); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateRoleLastUse: %w", err)
+	}
+	if q.writeGroupMembershipClaimStmt, err = db.PrepareContext(ctx, writeGroupMembershipClaim); err != nil {
+		return nil, fmt.Errorf("error preparing query WriteGroupMembershipClaim: %w", err)
+	}
+	return &q, nil
+}
+
+func (q *Queries) Close() error {
+	var err error
+	if q.accessReportScopesStmt != nil {
+		if cerr := q.accessReportScopesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing accessReportScopesStmt: %w", cerr)
+		}
+	}
+	if q.accountAliasOwnerStmt != nil {
+		if cerr := q.accountAliasOwnerStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing accountAliasOwnerStmt: %w", cerr)
+		}
+	}
+	if q.credentialReportScopesStmt != nil {
+		if cerr := q.credentialReportScopesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing credentialReportScopesStmt: %w", cerr)
+		}
+	}
+	if q.deleteAccessReportStmt != nil {
+		if cerr := q.deleteAccessReportStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteAccessReportStmt: %w", cerr)
+		}
+	}
+	if q.deleteAccountMetadataStmt != nil {
+		if cerr := q.deleteAccountMetadataStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteAccountMetadataStmt: %w", cerr)
+		}
+	}
+	if q.deleteAccountSettingsStmt != nil {
+		if cerr := q.deleteAccountSettingsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteAccountSettingsStmt: %w", cerr)
+		}
+	}
+	if q.deleteCredentialStmt != nil {
+		if cerr := q.deleteCredentialStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteCredentialStmt: %w", cerr)
+		}
+	}
+	if q.deleteCredentialReportStmt != nil {
+		if cerr := q.deleteCredentialReportStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteCredentialReportStmt: %w", cerr)
+		}
+	}
+	if q.deleteGroupStmt != nil {
+		if cerr := q.deleteGroupStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteGroupStmt: %w", cerr)
+		}
+	}
+	if q.deleteInstanceProfileStmt != nil {
+		if cerr := q.deleteInstanceProfileStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteInstanceProfileStmt: %w", cerr)
+		}
+	}
+	if q.deleteLoginProfileStmt != nil {
+		if cerr := q.deleteLoginProfileStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteLoginProfileStmt: %w", cerr)
+		}
+	}
+	if q.deleteMFADeviceStmt != nil {
+		if cerr := q.deleteMFADeviceStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteMFADeviceStmt: %w", cerr)
+		}
+	}
+	if q.deleteManagedPolicyStmt != nil {
+		if cerr := q.deleteManagedPolicyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteManagedPolicyStmt: %w", cerr)
+		}
+	}
+	if q.deleteOIDCProviderStmt != nil {
+		if cerr := q.deleteOIDCProviderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteOIDCProviderStmt: %w", cerr)
+		}
+	}
+	if q.deletePrincipalActivityStmt != nil {
+		if cerr := q.deletePrincipalActivityStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deletePrincipalActivityStmt: %w", cerr)
+		}
+	}
+	if q.deleteRoleStmt != nil {
+		if cerr := q.deleteRoleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteRoleStmt: %w", cerr)
+		}
+	}
+	if q.deleteSAMLProviderStmt != nil {
+		if cerr := q.deleteSAMLProviderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteSAMLProviderStmt: %w", cerr)
+		}
+	}
+	if q.deleteSSHPublicKeyStmt != nil {
+		if cerr := q.deleteSSHPublicKeyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteSSHPublicKeyStmt: %w", cerr)
+		}
+	}
+	if q.deleteServerCertificateStmt != nil {
+		if cerr := q.deleteServerCertificateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteServerCertificateStmt: %w", cerr)
+		}
+	}
+	if q.deleteServiceCredentialStmt != nil {
+		if cerr := q.deleteServiceCredentialStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteServiceCredentialStmt: %w", cerr)
+		}
+	}
+	if q.deleteServiceLinkedRoleDeletionStmt != nil {
+		if cerr := q.deleteServiceLinkedRoleDeletionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteServiceLinkedRoleDeletionStmt: %w", cerr)
+		}
+	}
+	if q.deleteSigningCertificateStmt != nil {
+		if cerr := q.deleteSigningCertificateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteSigningCertificateStmt: %w", cerr)
+		}
+	}
+	if q.deleteUserStmt != nil {
+		if cerr := q.deleteUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteUserStmt: %w", cerr)
+		}
+	}
+	if q.ensureScopeStmt != nil {
+		if cerr := q.ensureScopeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing ensureScopeStmt: %w", cerr)
+		}
+	}
+	if q.getAccessReportStmt != nil {
+		if cerr := q.getAccessReportStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAccessReportStmt: %w", cerr)
+		}
+	}
+	if q.getAccessReportOrganizationStmt != nil {
+		if cerr := q.getAccessReportOrganizationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAccessReportOrganizationStmt: %w", cerr)
+		}
+	}
+	if q.getAccessReportOrganizationErrorStmt != nil {
+		if cerr := q.getAccessReportOrganizationErrorStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAccessReportOrganizationErrorStmt: %w", cerr)
+		}
+	}
+	if q.getAccessReportOrganizationServicesLastActivityStmt != nil {
+		if cerr := q.getAccessReportOrganizationServicesLastActivityStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAccessReportOrganizationServicesLastActivityStmt: %w", cerr)
+		}
+	}
+	if q.getAccessReportServicesActionsLastActivityStmt != nil {
+		if cerr := q.getAccessReportServicesActionsLastActivityStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAccessReportServicesActionsLastActivityStmt: %w", cerr)
+		}
+	}
+	if q.getAccessReportServicesEntitiesLastActivityStmt != nil {
+		if cerr := q.getAccessReportServicesEntitiesLastActivityStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAccessReportServicesEntitiesLastActivityStmt: %w", cerr)
+		}
+	}
+	if q.getAccessReportServicesLastActivityStmt != nil {
+		if cerr := q.getAccessReportServicesLastActivityStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAccessReportServicesLastActivityStmt: %w", cerr)
+		}
+	}
+	if q.getAccountMetadataStmt != nil {
+		if cerr := q.getAccountMetadataStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAccountMetadataStmt: %w", cerr)
+		}
+	}
+	if q.getAccountSettingsStmt != nil {
+		if cerr := q.getAccountSettingsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAccountSettingsStmt: %w", cerr)
+		}
+	}
+	if q.getAccountSettingsOutboundWebIdentityStmt != nil {
+		if cerr := q.getAccountSettingsOutboundWebIdentityStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAccountSettingsOutboundWebIdentityStmt: %w", cerr)
+		}
+	}
+	if q.getAccountSettingsPasswordPolicyStmt != nil {
+		if cerr := q.getAccountSettingsPasswordPolicyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAccountSettingsPasswordPolicyStmt: %w", cerr)
+		}
+	}
+	if q.getAccountSettingsRootLoginProfileStmt != nil {
+		if cerr := q.getAccountSettingsRootLoginProfileStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAccountSettingsRootLoginProfileStmt: %w", cerr)
+		}
+	}
+	if q.getCredentialStmt != nil {
+		if cerr := q.getCredentialStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCredentialStmt: %w", cerr)
+		}
+	}
+	if q.getCredentialReportStmt != nil {
+		if cerr := q.getCredentialReportStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCredentialReportStmt: %w", cerr)
+		}
+	}
+	if q.getGroupStmt != nil {
+		if cerr := q.getGroupStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getGroupStmt: %w", cerr)
+		}
+	}
+	if q.getInstanceProfileStmt != nil {
+		if cerr := q.getInstanceProfileStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getInstanceProfileStmt: %w", cerr)
+		}
+	}
+	if q.getLoginProfileStmt != nil {
+		if cerr := q.getLoginProfileStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getLoginProfileStmt: %w", cerr)
+		}
+	}
+	if q.getMFADeviceStmt != nil {
+		if cerr := q.getMFADeviceStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getMFADeviceStmt: %w", cerr)
+		}
+	}
+	if q.getManagedPolicyStmt != nil {
+		if cerr := q.getManagedPolicyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getManagedPolicyStmt: %w", cerr)
+		}
+	}
+	if q.getOIDCProviderStmt != nil {
+		if cerr := q.getOIDCProviderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getOIDCProviderStmt: %w", cerr)
+		}
+	}
+	if q.getPrincipalActivityStmt != nil {
+		if cerr := q.getPrincipalActivityStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getPrincipalActivityStmt: %w", cerr)
+		}
+	}
+	if q.getRoleStmt != nil {
+		if cerr := q.getRoleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getRoleStmt: %w", cerr)
+		}
+	}
+	if q.getRoleLastUseStmt != nil {
+		if cerr := q.getRoleLastUseStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getRoleLastUseStmt: %w", cerr)
+		}
+	}
+	if q.getRolePermissionsBoundaryStmt != nil {
+		if cerr := q.getRolePermissionsBoundaryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getRolePermissionsBoundaryStmt: %w", cerr)
+		}
+	}
+	if q.getRoleSourceRoleTemplateStmt != nil {
+		if cerr := q.getRoleSourceRoleTemplateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getRoleSourceRoleTemplateStmt: %w", cerr)
+		}
+	}
+	if q.getSAMLProviderStmt != nil {
+		if cerr := q.getSAMLProviderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getSAMLProviderStmt: %w", cerr)
+		}
+	}
+	if q.getSSHPublicKeyStmt != nil {
+		if cerr := q.getSSHPublicKeyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getSSHPublicKeyStmt: %w", cerr)
+		}
+	}
+	if q.getServerCertificateStmt != nil {
+		if cerr := q.getServerCertificateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getServerCertificateStmt: %w", cerr)
+		}
+	}
+	if q.getServiceCredentialStmt != nil {
+		if cerr := q.getServiceCredentialStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getServiceCredentialStmt: %w", cerr)
+		}
+	}
+	if q.getServiceLinkedRoleDeletionStmt != nil {
+		if cerr := q.getServiceLinkedRoleDeletionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getServiceLinkedRoleDeletionStmt: %w", cerr)
+		}
+	}
+	if q.getSigningCertificateStmt != nil {
+		if cerr := q.getSigningCertificateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getSigningCertificateStmt: %w", cerr)
+		}
+	}
+	if q.getUserStmt != nil {
+		if cerr := q.getUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserStmt: %w", cerr)
+		}
+	}
+	if q.getUserIdentityIDStmt != nil {
+		if cerr := q.getUserIdentityIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserIdentityIDStmt: %w", cerr)
+		}
+	}
+	if q.getUserPermissionsBoundaryStmt != nil {
+		if cerr := q.getUserPermissionsBoundaryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserPermissionsBoundaryStmt: %w", cerr)
+		}
+	}
+	if q.insertAccessReportStmt != nil {
+		if cerr := q.insertAccessReportStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertAccessReportStmt: %w", cerr)
+		}
+	}
+	if q.insertAccessReportOrganizationStmt != nil {
+		if cerr := q.insertAccessReportOrganizationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertAccessReportOrganizationStmt: %w", cerr)
+		}
+	}
+	if q.insertAccessReportOrganizationErrorStmt != nil {
+		if cerr := q.insertAccessReportOrganizationErrorStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertAccessReportOrganizationErrorStmt: %w", cerr)
+		}
+	}
+	if q.insertAccessReportOrganizationServicesStmt != nil {
+		if cerr := q.insertAccessReportOrganizationServicesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertAccessReportOrganizationServicesStmt: %w", cerr)
+		}
+	}
+	if q.insertAccessReportOrganizationServicesLastActivityStmt != nil {
+		if cerr := q.insertAccessReportOrganizationServicesLastActivityStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertAccessReportOrganizationServicesLastActivityStmt: %w", cerr)
+		}
+	}
+	if q.insertAccessReportServicesStmt != nil {
+		if cerr := q.insertAccessReportServicesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertAccessReportServicesStmt: %w", cerr)
+		}
+	}
+	if q.insertAccessReportServicesActionsStmt != nil {
+		if cerr := q.insertAccessReportServicesActionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertAccessReportServicesActionsStmt: %w", cerr)
+		}
+	}
+	if q.insertAccessReportServicesActionsLastActivityStmt != nil {
+		if cerr := q.insertAccessReportServicesActionsLastActivityStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertAccessReportServicesActionsLastActivityStmt: %w", cerr)
+		}
+	}
+	if q.insertAccessReportServicesEntitiesStmt != nil {
+		if cerr := q.insertAccessReportServicesEntitiesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertAccessReportServicesEntitiesStmt: %w", cerr)
+		}
+	}
+	if q.insertAccessReportServicesEntitiesLastActivityStmt != nil {
+		if cerr := q.insertAccessReportServicesEntitiesLastActivityStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertAccessReportServicesEntitiesLastActivityStmt: %w", cerr)
+		}
+	}
+	if q.insertAccessReportServicesLastActivityStmt != nil {
+		if cerr := q.insertAccessReportServicesLastActivityStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertAccessReportServicesLastActivityStmt: %w", cerr)
+		}
+	}
+	if q.insertAccountMetadataStmt != nil {
+		if cerr := q.insertAccountMetadataStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertAccountMetadataStmt: %w", cerr)
+		}
+	}
+	if q.insertAccountSettingsStmt != nil {
+		if cerr := q.insertAccountSettingsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertAccountSettingsStmt: %w", cerr)
+		}
+	}
+	if q.insertAccountSettingsGlobalEndpointAllRegionsStmt != nil {
+		if cerr := q.insertAccountSettingsGlobalEndpointAllRegionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertAccountSettingsGlobalEndpointAllRegionsStmt: %w", cerr)
+		}
+	}
+	if q.insertAccountSettingsOutboundWebIdentityStmt != nil {
+		if cerr := q.insertAccountSettingsOutboundWebIdentityStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertAccountSettingsOutboundWebIdentityStmt: %w", cerr)
+		}
+	}
+	if q.insertAccountSettingsOutboundWebIdentityEnabledStmt != nil {
+		if cerr := q.insertAccountSettingsOutboundWebIdentityEnabledStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertAccountSettingsOutboundWebIdentityEnabledStmt: %w", cerr)
+		}
+	}
+	if q.insertAccountSettingsPasswordPolicyStmt != nil {
+		if cerr := q.insertAccountSettingsPasswordPolicyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertAccountSettingsPasswordPolicyStmt: %w", cerr)
+		}
+	}
+	if q.insertAccountSettingsRootLoginProfileStmt != nil {
+		if cerr := q.insertAccountSettingsRootLoginProfileStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertAccountSettingsRootLoginProfileStmt: %w", cerr)
+		}
+	}
+	if q.insertCredentialStmt != nil {
+		if cerr := q.insertCredentialStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertCredentialStmt: %w", cerr)
+		}
+	}
+	if q.insertCredentialReportStmt != nil {
+		if cerr := q.insertCredentialReportStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertCredentialReportStmt: %w", cerr)
+		}
+	}
+	if q.insertCredentialSessionContextStmt != nil {
+		if cerr := q.insertCredentialSessionContextStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertCredentialSessionContextStmt: %w", cerr)
+		}
+	}
+	if q.insertCredentialSessionContextValuesStmt != nil {
+		if cerr := q.insertCredentialSessionContextValuesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertCredentialSessionContextValuesStmt: %w", cerr)
+		}
+	}
+	if q.insertCredentialSessionPoliciesStmt != nil {
+		if cerr := q.insertCredentialSessionPoliciesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertCredentialSessionPoliciesStmt: %w", cerr)
+		}
+	}
+	if q.insertCredentialSessionPolicyARNsStmt != nil {
+		if cerr := q.insertCredentialSessionPolicyARNsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertCredentialSessionPolicyARNsStmt: %w", cerr)
+		}
+	}
+	if q.insertCredentialSessionTagsStmt != nil {
+		if cerr := q.insertCredentialSessionTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertCredentialSessionTagsStmt: %w", cerr)
+		}
+	}
+	if q.insertCredentialTransitiveTagKeysStmt != nil {
+		if cerr := q.insertCredentialTransitiveTagKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertCredentialTransitiveTagKeysStmt: %w", cerr)
+		}
+	}
+	if q.insertGroupStmt != nil {
+		if cerr := q.insertGroupStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertGroupStmt: %w", cerr)
+		}
+	}
+	if q.insertGroupAttachedStmt != nil {
+		if cerr := q.insertGroupAttachedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertGroupAttachedStmt: %w", cerr)
+		}
+	}
+	if q.insertGroupInlineStmt != nil {
+		if cerr := q.insertGroupInlineStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertGroupInlineStmt: %w", cerr)
+		}
+	}
+	if q.insertGroupMembersStmt != nil {
+		if cerr := q.insertGroupMembersStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertGroupMembersStmt: %w", cerr)
+		}
+	}
+	if q.insertInstanceProfileStmt != nil {
+		if cerr := q.insertInstanceProfileStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertInstanceProfileStmt: %w", cerr)
+		}
+	}
+	if q.insertInstanceProfileTagsStmt != nil {
+		if cerr := q.insertInstanceProfileTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertInstanceProfileTagsStmt: %w", cerr)
+		}
+	}
+	if q.insertLoginProfileStmt != nil {
+		if cerr := q.insertLoginProfileStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertLoginProfileStmt: %w", cerr)
+		}
+	}
+	if q.insertLoginProfilePreviousPasswordsStmt != nil {
+		if cerr := q.insertLoginProfilePreviousPasswordsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertLoginProfilePreviousPasswordsStmt: %w", cerr)
+		}
+	}
+	if q.insertMFADeviceStmt != nil {
+		if cerr := q.insertMFADeviceStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertMFADeviceStmt: %w", cerr)
+		}
+	}
+	if q.insertMFADeviceBindingPendingStmt != nil {
+		if cerr := q.insertMFADeviceBindingPendingStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertMFADeviceBindingPendingStmt: %w", cerr)
+		}
+	}
+	if q.insertMFADeviceTagsStmt != nil {
+		if cerr := q.insertMFADeviceTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertMFADeviceTagsStmt: %w", cerr)
+		}
+	}
+	if q.insertMFADeviceUsedCodesStmt != nil {
+		if cerr := q.insertMFADeviceUsedCodesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertMFADeviceUsedCodesStmt: %w", cerr)
+		}
+	}
+	if q.insertManagedPolicyStmt != nil {
+		if cerr := q.insertManagedPolicyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertManagedPolicyStmt: %w", cerr)
+		}
+	}
+	if q.insertManagedPolicyTagsStmt != nil {
+		if cerr := q.insertManagedPolicyTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertManagedPolicyTagsStmt: %w", cerr)
+		}
+	}
+	if q.insertManagedPolicyVersionsStmt != nil {
+		if cerr := q.insertManagedPolicyVersionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertManagedPolicyVersionsStmt: %w", cerr)
+		}
+	}
+	if q.insertOIDCProviderStmt != nil {
+		if cerr := q.insertOIDCProviderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertOIDCProviderStmt: %w", cerr)
+		}
+	}
+	if q.insertOIDCProviderClientIDsStmt != nil {
+		if cerr := q.insertOIDCProviderClientIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertOIDCProviderClientIDsStmt: %w", cerr)
+		}
+	}
+	if q.insertOIDCProviderTagsStmt != nil {
+		if cerr := q.insertOIDCProviderTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertOIDCProviderTagsStmt: %w", cerr)
+		}
+	}
+	if q.insertOIDCProviderThumbprintsStmt != nil {
+		if cerr := q.insertOIDCProviderThumbprintsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertOIDCProviderThumbprintsStmt: %w", cerr)
+		}
+	}
+	if q.insertPrincipalActivityStmt != nil {
+		if cerr := q.insertPrincipalActivityStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertPrincipalActivityStmt: %w", cerr)
+		}
+	}
+	if q.insertRoleStmt != nil {
+		if cerr := q.insertRoleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertRoleStmt: %w", cerr)
+		}
+	}
+	if q.insertRoleAttachedStmt != nil {
+		if cerr := q.insertRoleAttachedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertRoleAttachedStmt: %w", cerr)
+		}
+	}
+	if q.insertRoleInlineStmt != nil {
+		if cerr := q.insertRoleInlineStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertRoleInlineStmt: %w", cerr)
+		}
+	}
+	if q.insertRolePermissionsBoundaryStmt != nil {
+		if cerr := q.insertRolePermissionsBoundaryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertRolePermissionsBoundaryStmt: %w", cerr)
+		}
+	}
+	if q.insertRoleSourceRoleTemplateStmt != nil {
+		if cerr := q.insertRoleSourceRoleTemplateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertRoleSourceRoleTemplateStmt: %w", cerr)
+		}
+	}
+	if q.insertRoleSourceRoleTemplateParametersStmt != nil {
+		if cerr := q.insertRoleSourceRoleTemplateParametersStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertRoleSourceRoleTemplateParametersStmt: %w", cerr)
+		}
+	}
+	if q.insertRoleSourceRoleTemplateParametersValuesStmt != nil {
+		if cerr := q.insertRoleSourceRoleTemplateParametersValuesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertRoleSourceRoleTemplateParametersValuesStmt: %w", cerr)
+		}
+	}
+	if q.insertRoleTagsStmt != nil {
+		if cerr := q.insertRoleTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertRoleTagsStmt: %w", cerr)
+		}
+	}
+	if q.insertRoleTrustPrincipalIDsStmt != nil {
+		if cerr := q.insertRoleTrustPrincipalIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertRoleTrustPrincipalIDsStmt: %w", cerr)
+		}
+	}
+	if q.insertSAMLProviderStmt != nil {
+		if cerr := q.insertSAMLProviderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertSAMLProviderStmt: %w", cerr)
+		}
+	}
+	if q.insertSAMLProviderIssuersStmt != nil {
+		if cerr := q.insertSAMLProviderIssuersStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertSAMLProviderIssuersStmt: %w", cerr)
+		}
+	}
+	if q.insertSAMLProviderIssuersSigningCertificatesStmt != nil {
+		if cerr := q.insertSAMLProviderIssuersSigningCertificatesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertSAMLProviderIssuersSigningCertificatesStmt: %w", cerr)
+		}
+	}
+	if q.insertSAMLProviderPrivateKeysStmt != nil {
+		if cerr := q.insertSAMLProviderPrivateKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertSAMLProviderPrivateKeysStmt: %w", cerr)
+		}
+	}
+	if q.insertSAMLProviderTagsStmt != nil {
+		if cerr := q.insertSAMLProviderTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertSAMLProviderTagsStmt: %w", cerr)
+		}
+	}
+	if q.insertSSHPublicKeyStmt != nil {
+		if cerr := q.insertSSHPublicKeyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertSSHPublicKeyStmt: %w", cerr)
+		}
+	}
+	if q.insertServerCertificateStmt != nil {
+		if cerr := q.insertServerCertificateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertServerCertificateStmt: %w", cerr)
+		}
+	}
+	if q.insertServerCertificateTagsStmt != nil {
+		if cerr := q.insertServerCertificateTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertServerCertificateTagsStmt: %w", cerr)
+		}
+	}
+	if q.insertServiceCredentialStmt != nil {
+		if cerr := q.insertServiceCredentialStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertServiceCredentialStmt: %w", cerr)
+		}
+	}
+	if q.insertServiceLinkedRoleDeletionStmt != nil {
+		if cerr := q.insertServiceLinkedRoleDeletionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertServiceLinkedRoleDeletionStmt: %w", cerr)
+		}
+	}
+	if q.insertServiceLinkedRoleDeletionUsageStmt != nil {
+		if cerr := q.insertServiceLinkedRoleDeletionUsageStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertServiceLinkedRoleDeletionUsageStmt: %w", cerr)
+		}
+	}
+	if q.insertServiceLinkedRoleDeletionUsageResourceARNsStmt != nil {
+		if cerr := q.insertServiceLinkedRoleDeletionUsageResourceARNsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertServiceLinkedRoleDeletionUsageResourceARNsStmt: %w", cerr)
+		}
+	}
+	if q.insertSigningCertificateStmt != nil {
+		if cerr := q.insertSigningCertificateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertSigningCertificateStmt: %w", cerr)
+		}
+	}
+	if q.insertUserStmt != nil {
+		if cerr := q.insertUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertUserStmt: %w", cerr)
+		}
+	}
+	if q.insertUserAttachedStmt != nil {
+		if cerr := q.insertUserAttachedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertUserAttachedStmt: %w", cerr)
+		}
+	}
+	if q.insertUserInlineStmt != nil {
+		if cerr := q.insertUserInlineStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertUserInlineStmt: %w", cerr)
+		}
+	}
+	if q.insertUserPermissionsBoundaryStmt != nil {
+		if cerr := q.insertUserPermissionsBoundaryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertUserPermissionsBoundaryStmt: %w", cerr)
+		}
+	}
+	if q.insertUserTagsStmt != nil {
+		if cerr := q.insertUserTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertUserTagsStmt: %w", cerr)
+		}
+	}
+	if q.listAccessReportOrganizationServicesStmt != nil {
+		if cerr := q.listAccessReportOrganizationServicesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listAccessReportOrganizationServicesStmt: %w", cerr)
+		}
+	}
+	if q.listAccessReportServicesStmt != nil {
+		if cerr := q.listAccessReportServicesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listAccessReportServicesStmt: %w", cerr)
+		}
+	}
+	if q.listAccessReportServicesActionsStmt != nil {
+		if cerr := q.listAccessReportServicesActionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listAccessReportServicesActionsStmt: %w", cerr)
+		}
+	}
+	if q.listAccessReportServicesEntitiesStmt != nil {
+		if cerr := q.listAccessReportServicesEntitiesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listAccessReportServicesEntitiesStmt: %w", cerr)
+		}
+	}
+	if q.listAccountSettingsGlobalEndpointAllRegionsStmt != nil {
+		if cerr := q.listAccountSettingsGlobalEndpointAllRegionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listAccountSettingsGlobalEndpointAllRegionsStmt: %w", cerr)
+		}
+	}
+	if q.listAccountSettingsOutboundWebIdentityEnabledStmt != nil {
+		if cerr := q.listAccountSettingsOutboundWebIdentityEnabledStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listAccountSettingsOutboundWebIdentityEnabledStmt: %w", cerr)
+		}
+	}
+	if q.listCredentialKeysStmt != nil {
+		if cerr := q.listCredentialKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listCredentialKeysStmt: %w", cerr)
+		}
+	}
+	if q.listCredentialSessionContextStmt != nil {
+		if cerr := q.listCredentialSessionContextStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listCredentialSessionContextStmt: %w", cerr)
+		}
+	}
+	if q.listCredentialSessionContextValuesStmt != nil {
+		if cerr := q.listCredentialSessionContextValuesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listCredentialSessionContextValuesStmt: %w", cerr)
+		}
+	}
+	if q.listCredentialSessionPoliciesStmt != nil {
+		if cerr := q.listCredentialSessionPoliciesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listCredentialSessionPoliciesStmt: %w", cerr)
+		}
+	}
+	if q.listCredentialSessionPolicyARNsStmt != nil {
+		if cerr := q.listCredentialSessionPolicyARNsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listCredentialSessionPolicyARNsStmt: %w", cerr)
+		}
+	}
+	if q.listCredentialSessionTagsStmt != nil {
+		if cerr := q.listCredentialSessionTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listCredentialSessionTagsStmt: %w", cerr)
+		}
+	}
+	if q.listCredentialTransitiveTagKeysStmt != nil {
+		if cerr := q.listCredentialTransitiveTagKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listCredentialTransitiveTagKeysStmt: %w", cerr)
+		}
+	}
+	if q.listGroupAttachedStmt != nil {
+		if cerr := q.listGroupAttachedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listGroupAttachedStmt: %w", cerr)
+		}
+	}
+	if q.listGroupInlineStmt != nil {
+		if cerr := q.listGroupInlineStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listGroupInlineStmt: %w", cerr)
+		}
+	}
+	if q.listGroupKeysStmt != nil {
+		if cerr := q.listGroupKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listGroupKeysStmt: %w", cerr)
+		}
+	}
+	if q.listGroupMembersStmt != nil {
+		if cerr := q.listGroupMembersStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listGroupMembersStmt: %w", cerr)
+		}
+	}
+	if q.listInstanceProfileKeysStmt != nil {
+		if cerr := q.listInstanceProfileKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listInstanceProfileKeysStmt: %w", cerr)
+		}
+	}
+	if q.listInstanceProfileTagsStmt != nil {
+		if cerr := q.listInstanceProfileTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listInstanceProfileTagsStmt: %w", cerr)
+		}
+	}
+	if q.listLoginProfileKeysStmt != nil {
+		if cerr := q.listLoginProfileKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listLoginProfileKeysStmt: %w", cerr)
+		}
+	}
+	if q.listLoginProfilePreviousPasswordsStmt != nil {
+		if cerr := q.listLoginProfilePreviousPasswordsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listLoginProfilePreviousPasswordsStmt: %w", cerr)
+		}
+	}
+	if q.listMFADeviceBindingPendingStmt != nil {
+		if cerr := q.listMFADeviceBindingPendingStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listMFADeviceBindingPendingStmt: %w", cerr)
+		}
+	}
+	if q.listMFADeviceKeysStmt != nil {
+		if cerr := q.listMFADeviceKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listMFADeviceKeysStmt: %w", cerr)
+		}
+	}
+	if q.listMFADeviceTagsStmt != nil {
+		if cerr := q.listMFADeviceTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listMFADeviceTagsStmt: %w", cerr)
+		}
+	}
+	if q.listMFADeviceUsedCodesStmt != nil {
+		if cerr := q.listMFADeviceUsedCodesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listMFADeviceUsedCodesStmt: %w", cerr)
+		}
+	}
+	if q.listManagedPolicyKeysStmt != nil {
+		if cerr := q.listManagedPolicyKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listManagedPolicyKeysStmt: %w", cerr)
+		}
+	}
+	if q.listManagedPolicyTagsStmt != nil {
+		if cerr := q.listManagedPolicyTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listManagedPolicyTagsStmt: %w", cerr)
+		}
+	}
+	if q.listManagedPolicyVersionsStmt != nil {
+		if cerr := q.listManagedPolicyVersionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listManagedPolicyVersionsStmt: %w", cerr)
+		}
+	}
+	if q.listOIDCProviderClientIDsStmt != nil {
+		if cerr := q.listOIDCProviderClientIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listOIDCProviderClientIDsStmt: %w", cerr)
+		}
+	}
+	if q.listOIDCProviderKeysStmt != nil {
+		if cerr := q.listOIDCProviderKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listOIDCProviderKeysStmt: %w", cerr)
+		}
+	}
+	if q.listOIDCProviderTagsStmt != nil {
+		if cerr := q.listOIDCProviderTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listOIDCProviderTagsStmt: %w", cerr)
+		}
+	}
+	if q.listOIDCProviderThumbprintsStmt != nil {
+		if cerr := q.listOIDCProviderThumbprintsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listOIDCProviderThumbprintsStmt: %w", cerr)
+		}
+	}
+	if q.listPrincipalActivityKeysStmt != nil {
+		if cerr := q.listPrincipalActivityKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listPrincipalActivityKeysStmt: %w", cerr)
+		}
+	}
+	if q.listRoleAttachedStmt != nil {
+		if cerr := q.listRoleAttachedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listRoleAttachedStmt: %w", cerr)
+		}
+	}
+	if q.listRoleInlineStmt != nil {
+		if cerr := q.listRoleInlineStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listRoleInlineStmt: %w", cerr)
+		}
+	}
+	if q.listRoleKeysStmt != nil {
+		if cerr := q.listRoleKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listRoleKeysStmt: %w", cerr)
+		}
+	}
+	if q.listRoleSourceRoleTemplateParametersStmt != nil {
+		if cerr := q.listRoleSourceRoleTemplateParametersStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listRoleSourceRoleTemplateParametersStmt: %w", cerr)
+		}
+	}
+	if q.listRoleSourceRoleTemplateParametersValuesStmt != nil {
+		if cerr := q.listRoleSourceRoleTemplateParametersValuesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listRoleSourceRoleTemplateParametersValuesStmt: %w", cerr)
+		}
+	}
+	if q.listRoleTagsStmt != nil {
+		if cerr := q.listRoleTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listRoleTagsStmt: %w", cerr)
+		}
+	}
+	if q.listRoleTrustPrincipalIDsStmt != nil {
+		if cerr := q.listRoleTrustPrincipalIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listRoleTrustPrincipalIDsStmt: %w", cerr)
+		}
+	}
+	if q.listSAMLProviderIssuersStmt != nil {
+		if cerr := q.listSAMLProviderIssuersStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listSAMLProviderIssuersStmt: %w", cerr)
+		}
+	}
+	if q.listSAMLProviderIssuersSigningCertificatesStmt != nil {
+		if cerr := q.listSAMLProviderIssuersSigningCertificatesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listSAMLProviderIssuersSigningCertificatesStmt: %w", cerr)
+		}
+	}
+	if q.listSAMLProviderKeysStmt != nil {
+		if cerr := q.listSAMLProviderKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listSAMLProviderKeysStmt: %w", cerr)
+		}
+	}
+	if q.listSAMLProviderPrivateKeysStmt != nil {
+		if cerr := q.listSAMLProviderPrivateKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listSAMLProviderPrivateKeysStmt: %w", cerr)
+		}
+	}
+	if q.listSAMLProviderTagsStmt != nil {
+		if cerr := q.listSAMLProviderTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listSAMLProviderTagsStmt: %w", cerr)
+		}
+	}
+	if q.listSSHPublicKeyKeysStmt != nil {
+		if cerr := q.listSSHPublicKeyKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listSSHPublicKeyKeysStmt: %w", cerr)
+		}
+	}
+	if q.listServerCertificateKeysStmt != nil {
+		if cerr := q.listServerCertificateKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listServerCertificateKeysStmt: %w", cerr)
+		}
+	}
+	if q.listServerCertificateTagsStmt != nil {
+		if cerr := q.listServerCertificateTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listServerCertificateTagsStmt: %w", cerr)
+		}
+	}
+	if q.listServiceCredentialKeysStmt != nil {
+		if cerr := q.listServiceCredentialKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listServiceCredentialKeysStmt: %w", cerr)
+		}
+	}
+	if q.listServiceLinkedRoleDeletionKeysStmt != nil {
+		if cerr := q.listServiceLinkedRoleDeletionKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listServiceLinkedRoleDeletionKeysStmt: %w", cerr)
+		}
+	}
+	if q.listServiceLinkedRoleDeletionUsageStmt != nil {
+		if cerr := q.listServiceLinkedRoleDeletionUsageStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listServiceLinkedRoleDeletionUsageStmt: %w", cerr)
+		}
+	}
+	if q.listServiceLinkedRoleDeletionUsageResourceARNsStmt != nil {
+		if cerr := q.listServiceLinkedRoleDeletionUsageResourceARNsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listServiceLinkedRoleDeletionUsageResourceARNsStmt: %w", cerr)
+		}
+	}
+	if q.listSigningCertificateKeysStmt != nil {
+		if cerr := q.listSigningCertificateKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listSigningCertificateKeysStmt: %w", cerr)
+		}
+	}
+	if q.listUserAttachedStmt != nil {
+		if cerr := q.listUserAttachedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listUserAttachedStmt: %w", cerr)
+		}
+	}
+	if q.listUserGroupKeysStmt != nil {
+		if cerr := q.listUserGroupKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listUserGroupKeysStmt: %w", cerr)
+		}
+	}
+	if q.listUserInlineStmt != nil {
+		if cerr := q.listUserInlineStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listUserInlineStmt: %w", cerr)
+		}
+	}
+	if q.listUserKeysStmt != nil {
+		if cerr := q.listUserKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listUserKeysStmt: %w", cerr)
+		}
+	}
+	if q.listUserTagsStmt != nil {
+		if cerr := q.listUserTagsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listUserTagsStmt: %w", cerr)
+		}
+	}
+	if q.organizationAccessReportCandidatesStmt != nil {
+		if cerr := q.organizationAccessReportCandidatesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing organizationAccessReportCandidatesStmt: %w", cerr)
+		}
+	}
+	if q.pendingAccessReportKeysStmt != nil {
+		if cerr := q.pendingAccessReportKeysStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing pendingAccessReportKeysStmt: %w", cerr)
+		}
+	}
+	if q.readGroupMembershipClaimsStmt != nil {
+		if cerr := q.readGroupMembershipClaimsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing readGroupMembershipClaimsStmt: %w", cerr)
+		}
+	}
+	if q.scopesStmt != nil {
+		if cerr := q.scopesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing scopesStmt: %w", cerr)
+		}
+	}
+	if q.serviceLinkedRoleDeletionScopesStmt != nil {
+		if cerr := q.serviceLinkedRoleDeletionScopesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing serviceLinkedRoleDeletionScopesStmt: %w", cerr)
+		}
+	}
+	if q.updateCredentialLastUseStmt != nil {
+		if cerr := q.updateCredentialLastUseStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCredentialLastUseStmt: %w", cerr)
+		}
+	}
+	if q.updateRoleLastUseStmt != nil {
+		if cerr := q.updateRoleLastUseStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateRoleLastUseStmt: %w", cerr)
+		}
+	}
+	if q.writeGroupMembershipClaimStmt != nil {
+		if cerr := q.writeGroupMembershipClaimStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing writeGroupMembershipClaimStmt: %w", cerr)
+		}
+	}
+	return err
+}
+
+func (q *Queries) exec(ctx context.Context, stmt *sql.Stmt, query string, args ...interface{}) (sql.Result, error) {
+	switch {
+	case stmt != nil && q.tx != nil:
+		return q.tx.StmtContext(ctx, stmt).ExecContext(ctx, args...)
+	case stmt != nil:
+		return stmt.ExecContext(ctx, args...)
+	default:
+		return q.db.ExecContext(ctx, query, args...)
+	}
+}
+
+func (q *Queries) query(ctx context.Context, stmt *sql.Stmt, query string, args ...interface{}) (*sql.Rows, error) {
+	switch {
+	case stmt != nil && q.tx != nil:
+		return q.tx.StmtContext(ctx, stmt).QueryContext(ctx, args...)
+	case stmt != nil:
+		return stmt.QueryContext(ctx, args...)
+	default:
+		return q.db.QueryContext(ctx, query, args...)
+	}
+}
+
+func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, args ...interface{}) *sql.Row {
+	switch {
+	case stmt != nil && q.tx != nil:
+		return q.tx.StmtContext(ctx, stmt).QueryRowContext(ctx, args...)
+	case stmt != nil:
+		return stmt.QueryRowContext(ctx, args...)
+	default:
+		return q.db.QueryRowContext(ctx, query, args...)
+	}
+}
+
 type Queries struct {
-	db DBTX
+	db                                                     DBTX
+	tx                                                     *sql.Tx
+	accessReportScopesStmt                                 *sql.Stmt
+	accountAliasOwnerStmt                                  *sql.Stmt
+	credentialReportScopesStmt                             *sql.Stmt
+	deleteAccessReportStmt                                 *sql.Stmt
+	deleteAccountMetadataStmt                              *sql.Stmt
+	deleteAccountSettingsStmt                              *sql.Stmt
+	deleteCredentialStmt                                   *sql.Stmt
+	deleteCredentialReportStmt                             *sql.Stmt
+	deleteGroupStmt                                        *sql.Stmt
+	deleteInstanceProfileStmt                              *sql.Stmt
+	deleteLoginProfileStmt                                 *sql.Stmt
+	deleteMFADeviceStmt                                    *sql.Stmt
+	deleteManagedPolicyStmt                                *sql.Stmt
+	deleteOIDCProviderStmt                                 *sql.Stmt
+	deletePrincipalActivityStmt                            *sql.Stmt
+	deleteRoleStmt                                         *sql.Stmt
+	deleteSAMLProviderStmt                                 *sql.Stmt
+	deleteSSHPublicKeyStmt                                 *sql.Stmt
+	deleteServerCertificateStmt                            *sql.Stmt
+	deleteServiceCredentialStmt                            *sql.Stmt
+	deleteServiceLinkedRoleDeletionStmt                    *sql.Stmt
+	deleteSigningCertificateStmt                           *sql.Stmt
+	deleteUserStmt                                         *sql.Stmt
+	ensureScopeStmt                                        *sql.Stmt
+	getAccessReportStmt                                    *sql.Stmt
+	getAccessReportOrganizationStmt                        *sql.Stmt
+	getAccessReportOrganizationErrorStmt                   *sql.Stmt
+	getAccessReportOrganizationServicesLastActivityStmt    *sql.Stmt
+	getAccessReportServicesActionsLastActivityStmt         *sql.Stmt
+	getAccessReportServicesEntitiesLastActivityStmt        *sql.Stmt
+	getAccessReportServicesLastActivityStmt                *sql.Stmt
+	getAccountMetadataStmt                                 *sql.Stmt
+	getAccountSettingsStmt                                 *sql.Stmt
+	getAccountSettingsOutboundWebIdentityStmt              *sql.Stmt
+	getAccountSettingsPasswordPolicyStmt                   *sql.Stmt
+	getAccountSettingsRootLoginProfileStmt                 *sql.Stmt
+	getCredentialStmt                                      *sql.Stmt
+	getCredentialReportStmt                                *sql.Stmt
+	getGroupStmt                                           *sql.Stmt
+	getInstanceProfileStmt                                 *sql.Stmt
+	getLoginProfileStmt                                    *sql.Stmt
+	getMFADeviceStmt                                       *sql.Stmt
+	getManagedPolicyStmt                                   *sql.Stmt
+	getOIDCProviderStmt                                    *sql.Stmt
+	getPrincipalActivityStmt                               *sql.Stmt
+	getRoleStmt                                            *sql.Stmt
+	getRoleLastUseStmt                                     *sql.Stmt
+	getRolePermissionsBoundaryStmt                         *sql.Stmt
+	getRoleSourceRoleTemplateStmt                          *sql.Stmt
+	getSAMLProviderStmt                                    *sql.Stmt
+	getSSHPublicKeyStmt                                    *sql.Stmt
+	getServerCertificateStmt                               *sql.Stmt
+	getServiceCredentialStmt                               *sql.Stmt
+	getServiceLinkedRoleDeletionStmt                       *sql.Stmt
+	getSigningCertificateStmt                              *sql.Stmt
+	getUserStmt                                            *sql.Stmt
+	getUserIdentityIDStmt                                  *sql.Stmt
+	getUserPermissionsBoundaryStmt                         *sql.Stmt
+	insertAccessReportStmt                                 *sql.Stmt
+	insertAccessReportOrganizationStmt                     *sql.Stmt
+	insertAccessReportOrganizationErrorStmt                *sql.Stmt
+	insertAccessReportOrganizationServicesStmt             *sql.Stmt
+	insertAccessReportOrganizationServicesLastActivityStmt *sql.Stmt
+	insertAccessReportServicesStmt                         *sql.Stmt
+	insertAccessReportServicesActionsStmt                  *sql.Stmt
+	insertAccessReportServicesActionsLastActivityStmt      *sql.Stmt
+	insertAccessReportServicesEntitiesStmt                 *sql.Stmt
+	insertAccessReportServicesEntitiesLastActivityStmt     *sql.Stmt
+	insertAccessReportServicesLastActivityStmt             *sql.Stmt
+	insertAccountMetadataStmt                              *sql.Stmt
+	insertAccountSettingsStmt                              *sql.Stmt
+	insertAccountSettingsGlobalEndpointAllRegionsStmt      *sql.Stmt
+	insertAccountSettingsOutboundWebIdentityStmt           *sql.Stmt
+	insertAccountSettingsOutboundWebIdentityEnabledStmt    *sql.Stmt
+	insertAccountSettingsPasswordPolicyStmt                *sql.Stmt
+	insertAccountSettingsRootLoginProfileStmt              *sql.Stmt
+	insertCredentialStmt                                   *sql.Stmt
+	insertCredentialReportStmt                             *sql.Stmt
+	insertCredentialSessionContextStmt                     *sql.Stmt
+	insertCredentialSessionContextValuesStmt               *sql.Stmt
+	insertCredentialSessionPoliciesStmt                    *sql.Stmt
+	insertCredentialSessionPolicyARNsStmt                  *sql.Stmt
+	insertCredentialSessionTagsStmt                        *sql.Stmt
+	insertCredentialTransitiveTagKeysStmt                  *sql.Stmt
+	insertGroupStmt                                        *sql.Stmt
+	insertGroupAttachedStmt                                *sql.Stmt
+	insertGroupInlineStmt                                  *sql.Stmt
+	insertGroupMembersStmt                                 *sql.Stmt
+	insertInstanceProfileStmt                              *sql.Stmt
+	insertInstanceProfileTagsStmt                          *sql.Stmt
+	insertLoginProfileStmt                                 *sql.Stmt
+	insertLoginProfilePreviousPasswordsStmt                *sql.Stmt
+	insertMFADeviceStmt                                    *sql.Stmt
+	insertMFADeviceBindingPendingStmt                      *sql.Stmt
+	insertMFADeviceTagsStmt                                *sql.Stmt
+	insertMFADeviceUsedCodesStmt                           *sql.Stmt
+	insertManagedPolicyStmt                                *sql.Stmt
+	insertManagedPolicyTagsStmt                            *sql.Stmt
+	insertManagedPolicyVersionsStmt                        *sql.Stmt
+	insertOIDCProviderStmt                                 *sql.Stmt
+	insertOIDCProviderClientIDsStmt                        *sql.Stmt
+	insertOIDCProviderTagsStmt                             *sql.Stmt
+	insertOIDCProviderThumbprintsStmt                      *sql.Stmt
+	insertPrincipalActivityStmt                            *sql.Stmt
+	insertRoleStmt                                         *sql.Stmt
+	insertRoleAttachedStmt                                 *sql.Stmt
+	insertRoleInlineStmt                                   *sql.Stmt
+	insertRolePermissionsBoundaryStmt                      *sql.Stmt
+	insertRoleSourceRoleTemplateStmt                       *sql.Stmt
+	insertRoleSourceRoleTemplateParametersStmt             *sql.Stmt
+	insertRoleSourceRoleTemplateParametersValuesStmt       *sql.Stmt
+	insertRoleTagsStmt                                     *sql.Stmt
+	insertRoleTrustPrincipalIDsStmt                        *sql.Stmt
+	insertSAMLProviderStmt                                 *sql.Stmt
+	insertSAMLProviderIssuersStmt                          *sql.Stmt
+	insertSAMLProviderIssuersSigningCertificatesStmt       *sql.Stmt
+	insertSAMLProviderPrivateKeysStmt                      *sql.Stmt
+	insertSAMLProviderTagsStmt                             *sql.Stmt
+	insertSSHPublicKeyStmt                                 *sql.Stmt
+	insertServerCertificateStmt                            *sql.Stmt
+	insertServerCertificateTagsStmt                        *sql.Stmt
+	insertServiceCredentialStmt                            *sql.Stmt
+	insertServiceLinkedRoleDeletionStmt                    *sql.Stmt
+	insertServiceLinkedRoleDeletionUsageStmt               *sql.Stmt
+	insertServiceLinkedRoleDeletionUsageResourceARNsStmt   *sql.Stmt
+	insertSigningCertificateStmt                           *sql.Stmt
+	insertUserStmt                                         *sql.Stmt
+	insertUserAttachedStmt                                 *sql.Stmt
+	insertUserInlineStmt                                   *sql.Stmt
+	insertUserPermissionsBoundaryStmt                      *sql.Stmt
+	insertUserTagsStmt                                     *sql.Stmt
+	listAccessReportOrganizationServicesStmt               *sql.Stmt
+	listAccessReportServicesStmt                           *sql.Stmt
+	listAccessReportServicesActionsStmt                    *sql.Stmt
+	listAccessReportServicesEntitiesStmt                   *sql.Stmt
+	listAccountSettingsGlobalEndpointAllRegionsStmt        *sql.Stmt
+	listAccountSettingsOutboundWebIdentityEnabledStmt      *sql.Stmt
+	listCredentialKeysStmt                                 *sql.Stmt
+	listCredentialSessionContextStmt                       *sql.Stmt
+	listCredentialSessionContextValuesStmt                 *sql.Stmt
+	listCredentialSessionPoliciesStmt                      *sql.Stmt
+	listCredentialSessionPolicyARNsStmt                    *sql.Stmt
+	listCredentialSessionTagsStmt                          *sql.Stmt
+	listCredentialTransitiveTagKeysStmt                    *sql.Stmt
+	listGroupAttachedStmt                                  *sql.Stmt
+	listGroupInlineStmt                                    *sql.Stmt
+	listGroupKeysStmt                                      *sql.Stmt
+	listGroupMembersStmt                                   *sql.Stmt
+	listInstanceProfileKeysStmt                            *sql.Stmt
+	listInstanceProfileTagsStmt                            *sql.Stmt
+	listLoginProfileKeysStmt                               *sql.Stmt
+	listLoginProfilePreviousPasswordsStmt                  *sql.Stmt
+	listMFADeviceBindingPendingStmt                        *sql.Stmt
+	listMFADeviceKeysStmt                                  *sql.Stmt
+	listMFADeviceTagsStmt                                  *sql.Stmt
+	listMFADeviceUsedCodesStmt                             *sql.Stmt
+	listManagedPolicyKeysStmt                              *sql.Stmt
+	listManagedPolicyTagsStmt                              *sql.Stmt
+	listManagedPolicyVersionsStmt                          *sql.Stmt
+	listOIDCProviderClientIDsStmt                          *sql.Stmt
+	listOIDCProviderKeysStmt                               *sql.Stmt
+	listOIDCProviderTagsStmt                               *sql.Stmt
+	listOIDCProviderThumbprintsStmt                        *sql.Stmt
+	listPrincipalActivityKeysStmt                          *sql.Stmt
+	listRoleAttachedStmt                                   *sql.Stmt
+	listRoleInlineStmt                                     *sql.Stmt
+	listRoleKeysStmt                                       *sql.Stmt
+	listRoleSourceRoleTemplateParametersStmt               *sql.Stmt
+	listRoleSourceRoleTemplateParametersValuesStmt         *sql.Stmt
+	listRoleTagsStmt                                       *sql.Stmt
+	listRoleTrustPrincipalIDsStmt                          *sql.Stmt
+	listSAMLProviderIssuersStmt                            *sql.Stmt
+	listSAMLProviderIssuersSigningCertificatesStmt         *sql.Stmt
+	listSAMLProviderKeysStmt                               *sql.Stmt
+	listSAMLProviderPrivateKeysStmt                        *sql.Stmt
+	listSAMLProviderTagsStmt                               *sql.Stmt
+	listSSHPublicKeyKeysStmt                               *sql.Stmt
+	listServerCertificateKeysStmt                          *sql.Stmt
+	listServerCertificateTagsStmt                          *sql.Stmt
+	listServiceCredentialKeysStmt                          *sql.Stmt
+	listServiceLinkedRoleDeletionKeysStmt                  *sql.Stmt
+	listServiceLinkedRoleDeletionUsageStmt                 *sql.Stmt
+	listServiceLinkedRoleDeletionUsageResourceARNsStmt     *sql.Stmt
+	listSigningCertificateKeysStmt                         *sql.Stmt
+	listUserAttachedStmt                                   *sql.Stmt
+	listUserGroupKeysStmt                                  *sql.Stmt
+	listUserInlineStmt                                     *sql.Stmt
+	listUserKeysStmt                                       *sql.Stmt
+	listUserTagsStmt                                       *sql.Stmt
+	organizationAccessReportCandidatesStmt                 *sql.Stmt
+	pendingAccessReportKeysStmt                            *sql.Stmt
+	readGroupMembershipClaimsStmt                          *sql.Stmt
+	scopesStmt                                             *sql.Stmt
+	serviceLinkedRoleDeletionScopesStmt                    *sql.Stmt
+	updateCredentialLastUseStmt                            *sql.Stmt
+	updateRoleLastUseStmt                                  *sql.Stmt
+	writeGroupMembershipClaimStmt                          *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
-		db: tx,
+		db:                                   tx,
+		tx:                                   tx,
+		accessReportScopesStmt:               q.accessReportScopesStmt,
+		accountAliasOwnerStmt:                q.accountAliasOwnerStmt,
+		credentialReportScopesStmt:           q.credentialReportScopesStmt,
+		deleteAccessReportStmt:               q.deleteAccessReportStmt,
+		deleteAccountMetadataStmt:            q.deleteAccountMetadataStmt,
+		deleteAccountSettingsStmt:            q.deleteAccountSettingsStmt,
+		deleteCredentialStmt:                 q.deleteCredentialStmt,
+		deleteCredentialReportStmt:           q.deleteCredentialReportStmt,
+		deleteGroupStmt:                      q.deleteGroupStmt,
+		deleteInstanceProfileStmt:            q.deleteInstanceProfileStmt,
+		deleteLoginProfileStmt:               q.deleteLoginProfileStmt,
+		deleteMFADeviceStmt:                  q.deleteMFADeviceStmt,
+		deleteManagedPolicyStmt:              q.deleteManagedPolicyStmt,
+		deleteOIDCProviderStmt:               q.deleteOIDCProviderStmt,
+		deletePrincipalActivityStmt:          q.deletePrincipalActivityStmt,
+		deleteRoleStmt:                       q.deleteRoleStmt,
+		deleteSAMLProviderStmt:               q.deleteSAMLProviderStmt,
+		deleteSSHPublicKeyStmt:               q.deleteSSHPublicKeyStmt,
+		deleteServerCertificateStmt:          q.deleteServerCertificateStmt,
+		deleteServiceCredentialStmt:          q.deleteServiceCredentialStmt,
+		deleteServiceLinkedRoleDeletionStmt:  q.deleteServiceLinkedRoleDeletionStmt,
+		deleteSigningCertificateStmt:         q.deleteSigningCertificateStmt,
+		deleteUserStmt:                       q.deleteUserStmt,
+		ensureScopeStmt:                      q.ensureScopeStmt,
+		getAccessReportStmt:                  q.getAccessReportStmt,
+		getAccessReportOrganizationStmt:      q.getAccessReportOrganizationStmt,
+		getAccessReportOrganizationErrorStmt: q.getAccessReportOrganizationErrorStmt,
+		getAccessReportOrganizationServicesLastActivityStmt:    q.getAccessReportOrganizationServicesLastActivityStmt,
+		getAccessReportServicesActionsLastActivityStmt:         q.getAccessReportServicesActionsLastActivityStmt,
+		getAccessReportServicesEntitiesLastActivityStmt:        q.getAccessReportServicesEntitiesLastActivityStmt,
+		getAccessReportServicesLastActivityStmt:                q.getAccessReportServicesLastActivityStmt,
+		getAccountMetadataStmt:                                 q.getAccountMetadataStmt,
+		getAccountSettingsStmt:                                 q.getAccountSettingsStmt,
+		getAccountSettingsOutboundWebIdentityStmt:              q.getAccountSettingsOutboundWebIdentityStmt,
+		getAccountSettingsPasswordPolicyStmt:                   q.getAccountSettingsPasswordPolicyStmt,
+		getAccountSettingsRootLoginProfileStmt:                 q.getAccountSettingsRootLoginProfileStmt,
+		getCredentialStmt:                                      q.getCredentialStmt,
+		getCredentialReportStmt:                                q.getCredentialReportStmt,
+		getGroupStmt:                                           q.getGroupStmt,
+		getInstanceProfileStmt:                                 q.getInstanceProfileStmt,
+		getLoginProfileStmt:                                    q.getLoginProfileStmt,
+		getMFADeviceStmt:                                       q.getMFADeviceStmt,
+		getManagedPolicyStmt:                                   q.getManagedPolicyStmt,
+		getOIDCProviderStmt:                                    q.getOIDCProviderStmt,
+		getPrincipalActivityStmt:                               q.getPrincipalActivityStmt,
+		getRoleStmt:                                            q.getRoleStmt,
+		getRoleLastUseStmt:                                     q.getRoleLastUseStmt,
+		getRolePermissionsBoundaryStmt:                         q.getRolePermissionsBoundaryStmt,
+		getRoleSourceRoleTemplateStmt:                          q.getRoleSourceRoleTemplateStmt,
+		getSAMLProviderStmt:                                    q.getSAMLProviderStmt,
+		getSSHPublicKeyStmt:                                    q.getSSHPublicKeyStmt,
+		getServerCertificateStmt:                               q.getServerCertificateStmt,
+		getServiceCredentialStmt:                               q.getServiceCredentialStmt,
+		getServiceLinkedRoleDeletionStmt:                       q.getServiceLinkedRoleDeletionStmt,
+		getSigningCertificateStmt:                              q.getSigningCertificateStmt,
+		getUserStmt:                                            q.getUserStmt,
+		getUserIdentityIDStmt:                                  q.getUserIdentityIDStmt,
+		getUserPermissionsBoundaryStmt:                         q.getUserPermissionsBoundaryStmt,
+		insertAccessReportStmt:                                 q.insertAccessReportStmt,
+		insertAccessReportOrganizationStmt:                     q.insertAccessReportOrganizationStmt,
+		insertAccessReportOrganizationErrorStmt:                q.insertAccessReportOrganizationErrorStmt,
+		insertAccessReportOrganizationServicesStmt:             q.insertAccessReportOrganizationServicesStmt,
+		insertAccessReportOrganizationServicesLastActivityStmt: q.insertAccessReportOrganizationServicesLastActivityStmt,
+		insertAccessReportServicesStmt:                         q.insertAccessReportServicesStmt,
+		insertAccessReportServicesActionsStmt:                  q.insertAccessReportServicesActionsStmt,
+		insertAccessReportServicesActionsLastActivityStmt:      q.insertAccessReportServicesActionsLastActivityStmt,
+		insertAccessReportServicesEntitiesStmt:                 q.insertAccessReportServicesEntitiesStmt,
+		insertAccessReportServicesEntitiesLastActivityStmt:     q.insertAccessReportServicesEntitiesLastActivityStmt,
+		insertAccessReportServicesLastActivityStmt:             q.insertAccessReportServicesLastActivityStmt,
+		insertAccountMetadataStmt:                              q.insertAccountMetadataStmt,
+		insertAccountSettingsStmt:                              q.insertAccountSettingsStmt,
+		insertAccountSettingsGlobalEndpointAllRegionsStmt:      q.insertAccountSettingsGlobalEndpointAllRegionsStmt,
+		insertAccountSettingsOutboundWebIdentityStmt:           q.insertAccountSettingsOutboundWebIdentityStmt,
+		insertAccountSettingsOutboundWebIdentityEnabledStmt:    q.insertAccountSettingsOutboundWebIdentityEnabledStmt,
+		insertAccountSettingsPasswordPolicyStmt:                q.insertAccountSettingsPasswordPolicyStmt,
+		insertAccountSettingsRootLoginProfileStmt:              q.insertAccountSettingsRootLoginProfileStmt,
+		insertCredentialStmt:                                   q.insertCredentialStmt,
+		insertCredentialReportStmt:                             q.insertCredentialReportStmt,
+		insertCredentialSessionContextStmt:                     q.insertCredentialSessionContextStmt,
+		insertCredentialSessionContextValuesStmt:               q.insertCredentialSessionContextValuesStmt,
+		insertCredentialSessionPoliciesStmt:                    q.insertCredentialSessionPoliciesStmt,
+		insertCredentialSessionPolicyARNsStmt:                  q.insertCredentialSessionPolicyARNsStmt,
+		insertCredentialSessionTagsStmt:                        q.insertCredentialSessionTagsStmt,
+		insertCredentialTransitiveTagKeysStmt:                  q.insertCredentialTransitiveTagKeysStmt,
+		insertGroupStmt:                                        q.insertGroupStmt,
+		insertGroupAttachedStmt:                                q.insertGroupAttachedStmt,
+		insertGroupInlineStmt:                                  q.insertGroupInlineStmt,
+		insertGroupMembersStmt:                                 q.insertGroupMembersStmt,
+		insertInstanceProfileStmt:                              q.insertInstanceProfileStmt,
+		insertInstanceProfileTagsStmt:                          q.insertInstanceProfileTagsStmt,
+		insertLoginProfileStmt:                                 q.insertLoginProfileStmt,
+		insertLoginProfilePreviousPasswordsStmt:                q.insertLoginProfilePreviousPasswordsStmt,
+		insertMFADeviceStmt:                                    q.insertMFADeviceStmt,
+		insertMFADeviceBindingPendingStmt:                      q.insertMFADeviceBindingPendingStmt,
+		insertMFADeviceTagsStmt:                                q.insertMFADeviceTagsStmt,
+		insertMFADeviceUsedCodesStmt:                           q.insertMFADeviceUsedCodesStmt,
+		insertManagedPolicyStmt:                                q.insertManagedPolicyStmt,
+		insertManagedPolicyTagsStmt:                            q.insertManagedPolicyTagsStmt,
+		insertManagedPolicyVersionsStmt:                        q.insertManagedPolicyVersionsStmt,
+		insertOIDCProviderStmt:                                 q.insertOIDCProviderStmt,
+		insertOIDCProviderClientIDsStmt:                        q.insertOIDCProviderClientIDsStmt,
+		insertOIDCProviderTagsStmt:                             q.insertOIDCProviderTagsStmt,
+		insertOIDCProviderThumbprintsStmt:                      q.insertOIDCProviderThumbprintsStmt,
+		insertPrincipalActivityStmt:                            q.insertPrincipalActivityStmt,
+		insertRoleStmt:                                         q.insertRoleStmt,
+		insertRoleAttachedStmt:                                 q.insertRoleAttachedStmt,
+		insertRoleInlineStmt:                                   q.insertRoleInlineStmt,
+		insertRolePermissionsBoundaryStmt:                      q.insertRolePermissionsBoundaryStmt,
+		insertRoleSourceRoleTemplateStmt:                       q.insertRoleSourceRoleTemplateStmt,
+		insertRoleSourceRoleTemplateParametersStmt:             q.insertRoleSourceRoleTemplateParametersStmt,
+		insertRoleSourceRoleTemplateParametersValuesStmt:       q.insertRoleSourceRoleTemplateParametersValuesStmt,
+		insertRoleTagsStmt:                                     q.insertRoleTagsStmt,
+		insertRoleTrustPrincipalIDsStmt:                        q.insertRoleTrustPrincipalIDsStmt,
+		insertSAMLProviderStmt:                                 q.insertSAMLProviderStmt,
+		insertSAMLProviderIssuersStmt:                          q.insertSAMLProviderIssuersStmt,
+		insertSAMLProviderIssuersSigningCertificatesStmt:       q.insertSAMLProviderIssuersSigningCertificatesStmt,
+		insertSAMLProviderPrivateKeysStmt:                      q.insertSAMLProviderPrivateKeysStmt,
+		insertSAMLProviderTagsStmt:                             q.insertSAMLProviderTagsStmt,
+		insertSSHPublicKeyStmt:                                 q.insertSSHPublicKeyStmt,
+		insertServerCertificateStmt:                            q.insertServerCertificateStmt,
+		insertServerCertificateTagsStmt:                        q.insertServerCertificateTagsStmt,
+		insertServiceCredentialStmt:                            q.insertServiceCredentialStmt,
+		insertServiceLinkedRoleDeletionStmt:                    q.insertServiceLinkedRoleDeletionStmt,
+		insertServiceLinkedRoleDeletionUsageStmt:               q.insertServiceLinkedRoleDeletionUsageStmt,
+		insertServiceLinkedRoleDeletionUsageResourceARNsStmt:   q.insertServiceLinkedRoleDeletionUsageResourceARNsStmt,
+		insertSigningCertificateStmt:                           q.insertSigningCertificateStmt,
+		insertUserStmt:                                         q.insertUserStmt,
+		insertUserAttachedStmt:                                 q.insertUserAttachedStmt,
+		insertUserInlineStmt:                                   q.insertUserInlineStmt,
+		insertUserPermissionsBoundaryStmt:                      q.insertUserPermissionsBoundaryStmt,
+		insertUserTagsStmt:                                     q.insertUserTagsStmt,
+		listAccessReportOrganizationServicesStmt:               q.listAccessReportOrganizationServicesStmt,
+		listAccessReportServicesStmt:                           q.listAccessReportServicesStmt,
+		listAccessReportServicesActionsStmt:                    q.listAccessReportServicesActionsStmt,
+		listAccessReportServicesEntitiesStmt:                   q.listAccessReportServicesEntitiesStmt,
+		listAccountSettingsGlobalEndpointAllRegionsStmt:        q.listAccountSettingsGlobalEndpointAllRegionsStmt,
+		listAccountSettingsOutboundWebIdentityEnabledStmt:      q.listAccountSettingsOutboundWebIdentityEnabledStmt,
+		listCredentialKeysStmt:                                 q.listCredentialKeysStmt,
+		listCredentialSessionContextStmt:                       q.listCredentialSessionContextStmt,
+		listCredentialSessionContextValuesStmt:                 q.listCredentialSessionContextValuesStmt,
+		listCredentialSessionPoliciesStmt:                      q.listCredentialSessionPoliciesStmt,
+		listCredentialSessionPolicyARNsStmt:                    q.listCredentialSessionPolicyARNsStmt,
+		listCredentialSessionTagsStmt:                          q.listCredentialSessionTagsStmt,
+		listCredentialTransitiveTagKeysStmt:                    q.listCredentialTransitiveTagKeysStmt,
+		listGroupAttachedStmt:                                  q.listGroupAttachedStmt,
+		listGroupInlineStmt:                                    q.listGroupInlineStmt,
+		listGroupKeysStmt:                                      q.listGroupKeysStmt,
+		listGroupMembersStmt:                                   q.listGroupMembersStmt,
+		listInstanceProfileKeysStmt:                            q.listInstanceProfileKeysStmt,
+		listInstanceProfileTagsStmt:                            q.listInstanceProfileTagsStmt,
+		listLoginProfileKeysStmt:                               q.listLoginProfileKeysStmt,
+		listLoginProfilePreviousPasswordsStmt:                  q.listLoginProfilePreviousPasswordsStmt,
+		listMFADeviceBindingPendingStmt:                        q.listMFADeviceBindingPendingStmt,
+		listMFADeviceKeysStmt:                                  q.listMFADeviceKeysStmt,
+		listMFADeviceTagsStmt:                                  q.listMFADeviceTagsStmt,
+		listMFADeviceUsedCodesStmt:                             q.listMFADeviceUsedCodesStmt,
+		listManagedPolicyKeysStmt:                              q.listManagedPolicyKeysStmt,
+		listManagedPolicyTagsStmt:                              q.listManagedPolicyTagsStmt,
+		listManagedPolicyVersionsStmt:                          q.listManagedPolicyVersionsStmt,
+		listOIDCProviderClientIDsStmt:                          q.listOIDCProviderClientIDsStmt,
+		listOIDCProviderKeysStmt:                               q.listOIDCProviderKeysStmt,
+		listOIDCProviderTagsStmt:                               q.listOIDCProviderTagsStmt,
+		listOIDCProviderThumbprintsStmt:                        q.listOIDCProviderThumbprintsStmt,
+		listPrincipalActivityKeysStmt:                          q.listPrincipalActivityKeysStmt,
+		listRoleAttachedStmt:                                   q.listRoleAttachedStmt,
+		listRoleInlineStmt:                                     q.listRoleInlineStmt,
+		listRoleKeysStmt:                                       q.listRoleKeysStmt,
+		listRoleSourceRoleTemplateParametersStmt:               q.listRoleSourceRoleTemplateParametersStmt,
+		listRoleSourceRoleTemplateParametersValuesStmt:         q.listRoleSourceRoleTemplateParametersValuesStmt,
+		listRoleTagsStmt:                                       q.listRoleTagsStmt,
+		listRoleTrustPrincipalIDsStmt:                          q.listRoleTrustPrincipalIDsStmt,
+		listSAMLProviderIssuersStmt:                            q.listSAMLProviderIssuersStmt,
+		listSAMLProviderIssuersSigningCertificatesStmt:         q.listSAMLProviderIssuersSigningCertificatesStmt,
+		listSAMLProviderKeysStmt:                               q.listSAMLProviderKeysStmt,
+		listSAMLProviderPrivateKeysStmt:                        q.listSAMLProviderPrivateKeysStmt,
+		listSAMLProviderTagsStmt:                               q.listSAMLProviderTagsStmt,
+		listSSHPublicKeyKeysStmt:                               q.listSSHPublicKeyKeysStmt,
+		listServerCertificateKeysStmt:                          q.listServerCertificateKeysStmt,
+		listServerCertificateTagsStmt:                          q.listServerCertificateTagsStmt,
+		listServiceCredentialKeysStmt:                          q.listServiceCredentialKeysStmt,
+		listServiceLinkedRoleDeletionKeysStmt:                  q.listServiceLinkedRoleDeletionKeysStmt,
+		listServiceLinkedRoleDeletionUsageStmt:                 q.listServiceLinkedRoleDeletionUsageStmt,
+		listServiceLinkedRoleDeletionUsageResourceARNsStmt:     q.listServiceLinkedRoleDeletionUsageResourceARNsStmt,
+		listSigningCertificateKeysStmt:                         q.listSigningCertificateKeysStmt,
+		listUserAttachedStmt:                                   q.listUserAttachedStmt,
+		listUserGroupKeysStmt:                                  q.listUserGroupKeysStmt,
+		listUserInlineStmt:                                     q.listUserInlineStmt,
+		listUserKeysStmt:                                       q.listUserKeysStmt,
+		listUserTagsStmt:                                       q.listUserTagsStmt,
+		organizationAccessReportCandidatesStmt:                 q.organizationAccessReportCandidatesStmt,
+		pendingAccessReportKeysStmt:                            q.pendingAccessReportKeysStmt,
+		readGroupMembershipClaimsStmt:                          q.readGroupMembershipClaimsStmt,
+		scopesStmt:                                             q.scopesStmt,
+		serviceLinkedRoleDeletionScopesStmt:                    q.serviceLinkedRoleDeletionScopesStmt,
+		updateCredentialLastUseStmt:                            q.updateCredentialLastUseStmt,
+		updateRoleLastUseStmt:                                  q.updateRoleLastUseStmt,
+		writeGroupMembershipClaimStmt:                          q.writeGroupMembershipClaimStmt,
 	}
 }

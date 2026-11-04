@@ -85,6 +85,7 @@ func Rules(name string, network Specification, policy Policy, peer string, optio
 		// public-address installer moves an address to another attachment.
 		fmt.Fprintf(&b, "chain public_%s {\n", direction)
 		if !policy.PublicEgress || !policy.PublicIPv4.Is4() {
+			writePodAdmission(&b, policy.PodRoutes, direction)
 			writeNATAdmission(&b, policy.NATRoutes, direction, flow)
 		}
 		b.WriteString("}\n")

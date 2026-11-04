@@ -27,7 +27,17 @@ type Config struct {
 	AdvertiseHost       string
 	WorkerAdvertiseHost string
 	WorkerNetworks      WorkerNetworks
-	PodIdentityCA       []byte
+	// StorageReserveGiB sets creation-time nodefs/imagefs reserves for native
+	// Docker workers. Zero selects DefaultStorageReserveGiB; changes require
+	// cluster recreation and never rewrite retained workers.
+	StorageReserveGiB int64
+	PodIdentityCA     []byte
+	// ECR configuration is private node execution material. New clusters copy a
+	// Linux-compatible provider into owned state; retained clusters validate and
+	// reuse it even if this creation-time source is absent or has changed.
+	ECRCredentialProvider string
+	ECRCredentialsFile    string
+	ECRCA                 []byte
 }
 
 // K3d owns one schedulable k3s server per cluster and an authenticated TLS proxy.
@@ -59,7 +69,17 @@ type nativeCluster struct {
 }
 
 func NewK3d(config Config) (*K3d, error) {
+	if config.StorageReserveGiB == 0 {
+		config.StorageReserveGiB = DefaultStorageReserveGiB
+	}
+	if err := validateStorageReserve(config.StorageReserveGiB); err != nil {
+		return nil, err
+	}
 	config.PodIdentityCA = slices.Clone(config.PodIdentityCA)
+	config.ECRCA = slices.Clone(config.ECRCA)
+	if err := configureECR(&config); err != nil {
+		return nil, err
+	}
 	if config.DataDir == "" {
 		return nil, errors.New("eks: DataDir is required")
 	}
@@ -139,6 +159,14 @@ func (k *K3d) Ensure(ctx context.Context, specification Specification, handler h
 		return Endpoint{}, errors.New("eks: runtime is closed")
 	}
 	if existing != nil {
+		if err := k.prepareECR(&existing.state, existing.dir, false); err != nil {
+			return Endpoint{}, err
+		}
+		if existing.state.ECRProvider != nil {
+			if _, err := k.ownedContainers(ctx, existing.state); err != nil {
+				return Endpoint{}, err
+			}
+		}
 		existing.bridge.auditMu.Lock()
 		existing.bridge.auditSink = specification.AuditSink
 		existing.bridge.auditMu.Unlock()
@@ -294,7 +322,7 @@ func (k *K3d) Delete(ctx context.Context, id string) error {
 	if state.DockerHost != k.config.DockerHost {
 		return errors.New("eks: DockerHost differs from persisted native ownership")
 	}
-	containers, err := k.ownedContainers(ctx, state)
+	containers, err := k.inspectOwnedContainers(ctx, state, false)
 	if err != nil {
 		return err
 	}
@@ -348,13 +376,13 @@ func (k *K3d) Delete(ctx context.Context, id string) error {
 	}
 	for _, file := range files {
 		switch file.Name() {
-		case "owner.json", "admin.kubeconfig", "proxy.crt", "proxy.key", "ca.crt", "bridge-ca.crt", "bridge.crt", "bridge.key", "audit-policy.yaml", "audit-webhook.kubeconfig", "native-logging.yaml", "native-irsa.yaml", "log-cursor.json", "authenticator.jsonl", "audit.events", "upgrade-k3s", "stackd-flannel.json", "control-plane-entrypoint.sh":
+		case "owner.json", "admin.kubeconfig", "proxy.crt", "proxy.key", "ca.crt", "bridge-ca.crt", "bridge.crt", "bridge.key", "audit-policy.yaml", "audit-webhook.kubeconfig", "native-logging.yaml", "native-irsa.yaml", "log-cursor.json", "authenticator.jsonl", "audit.events", "upgrade-k3s", "stackd-flannel.json", "control-plane-entrypoint.sh", "ecr-ca.pem", "ecr-provider.json", "ecr-registries.yaml", ecrProviderName, providerPendingName:
 		default:
 			return fmt.Errorf("eks: refusing to remove unexpected resource file %q", file.Name())
 		}
 	}
 	// Remove only our explicit files; an unexpected file prevents directory removal.
-	for _, name := range []string{"admin.kubeconfig", "proxy.crt", "proxy.key", "ca.crt", "bridge-ca.crt", "bridge.crt", "bridge.key", "audit-policy.yaml", "audit-webhook.kubeconfig", "native-logging.yaml", "native-irsa.yaml", "log-cursor.json", "authenticator.jsonl", "audit.events", "upgrade-k3s", "stackd-flannel.json", "control-plane-entrypoint.sh"} {
+	for _, name := range []string{"admin.kubeconfig", "proxy.crt", "proxy.key", "ca.crt", "bridge-ca.crt", "bridge.crt", "bridge.key", "audit-policy.yaml", "audit-webhook.kubeconfig", "native-logging.yaml", "native-irsa.yaml", "log-cursor.json", "authenticator.jsonl", "audit.events", "upgrade-k3s", "stackd-flannel.json", "control-plane-entrypoint.sh", "ecr-ca.pem", "ecr-provider.json", "ecr-registries.yaml", ecrProviderName, providerPendingName} {
 		if err = os.Remove(filepath.Join(dir, name)); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}

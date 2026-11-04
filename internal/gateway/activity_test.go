@@ -61,7 +61,7 @@ func TestActivityBoundaryAuthenticationAndDecodedOperation(t *testing.T) {
 				{name: "invalid signature", action: "Known", secret: "wrong", wantStatus: 403},
 				{name: "unknown action", action: "Unknown", secret: "test", wantStatus: 400},
 				{name: "invalid modeled input", action: "Known", secret: "test", invalid: true, wantStatus: 400, wantCalls: 1},
-				{name: "record failure", action: "Known", secret: "test", fail: true, wantStatus: 500, wantCalls: 1},
+				{name: "reporting failure", action: "Known", secret: "test", fail: true, wantStatus: 204, wantCalls: 1, wantEffect: 1},
 			} {
 				t.Run(tc.name, func(t *testing.T) {
 					capture := &activityCapture{}
@@ -106,7 +106,7 @@ func TestActivityBoundaryAuthenticationAndDecodedOperation(t *testing.T) {
 						t.Fatalf("status=%d activity=%d effects=%d body=%s", w.Code, capture.calls, provider.calls, w.Body.String())
 					}
 					if store.uses != 0 {
-						t.Fatal("activity recorder and legacy credential recorder both ran")
+						t.Fatal("gateway invoked credential-only usage persistence")
 					}
 					if capture.calls > 0 && (capture.service != "canonical-namespace" || capture.action != "Known" || capture.metadata.Region != "eu-west-1" || capture.metadata.PrincipalID != "123456789012" || capture.metadata.AccessKeyID != "test") {
 						t.Fatalf("recorded wrong operation or trusted identity: %+v", capture)
@@ -120,7 +120,7 @@ func TestActivityBoundaryAuthenticationAndDecodedOperation(t *testing.T) {
 	}
 }
 
-func TestActivityBoundaryCredentialOnlyFallback(t *testing.T) {
+func TestActivityBoundaryWithoutRecorderDoesNotPersistUsage(t *testing.T) {
 	store := &activityUsageStore{Store: identity.NewStore("123456789012")}
 	provider := &activityProvider{}
 	registry := &Registry{}
@@ -139,7 +139,7 @@ func TestActivityBoundaryCredentialOnlyFallback(t *testing.T) {
 	}
 	w := httptest.NewRecorder()
 	g.ServeHTTP(w, r)
-	if w.Code != 204 || store.uses != 1 || provider.calls != 1 {
+	if w.Code != 204 || store.uses != 0 || provider.calls != 1 {
 		t.Fatalf("status=%d usage=%d effects=%d", w.Code, store.uses, provider.calls)
 	}
 }

@@ -338,7 +338,123 @@ docker pull apache/spark@sha256:9b0a6c2c860f5e7d18dd5270286fef32a09c7f5a7e2b0dbe
 
 Enable either boolean independently and omit the other engine's pulls if unused. The defaults are Glue Spark 3.5.4-amzn-0/Python 3.11, Python-shell Python 3.9 (not the full Glue analytics library bundle), Trino 476 and Spark 4.1.3 used **only** as a native Hive-DDL parser. Upstream installation references: [Trino Docker](https://trino.io/docs/current/installation/containers.html), [Apache Spark](https://spark.apache.org/docs/latest/). Immutable installed overrides are `-glue-spark-image`, `-glue-python-image`, `-athena-image` and `-athena-hive-ddl-image`.
 
-Athena defaults: `-athena-endpoint-host 127.0.0.1` is the controller-visible Docker-host SQL address; `-athena-callback-listen 0.0.0.0:0` and `-athena-callback-host host.docker.internal` expose owned Glue/S3 callbacks to engine containers. Permit these callback connections without exposing them to untrusted networks. They do not replace the main compute/public endpoints.
+Athena selects its network boundary at adapter initialization, before queries.
+On Linux it runs the installed Trino image's `curl` once in Docker host-network
+mode against a random capability on a controller-owned loopback listener. A
+matching response proves shared loopback; a Unix socket path alone does not
+(it may forward to a remote daemon or Docker Desktop VM). Rootless/user-namespace
+engines and non-Linux controllers retain bridge mode. Engine/helper/cancellation
+failures are errors, not permission to silently select bridge mode.
+
+For a witnessed local Linux daemon, every query uses host networking: no bridge
+attachment, veth, published port, or host address change, including the first cold
+query. Trino's actual HTTP bind is `node.bind-ip=127.0.0.1`; its advertised
+internal/external addresses and discovery URI also use loopback. Stackd reserves
+an OS-allocated loopback port through container creation and releases the socket
+immediately before start, since Trino cannot inherit it. A competing bind fails
+startup; a private JMX worker probe must return the unpredictable execution's
+`node.id` before customer SQL is submitted. There is no port-conflict retry or
+fixed host port 8080. The controller-visible SQL host is derived as `127.0.0.1`;
+`-athena-endpoint-host` is used only for bridge mode.
+
+Local callbacks default to `127.0.0.1:0` and host `127.0.0.1`. Explicit
+`-athena-callback-listen` and `-athena-callback-host` values remain unchanged,
+including an existing container-reachable host address. Other daemons retain
+loopback-published bridge SQL (`-athena-endpoint-host 127.0.0.1` by default),
+`-athena-callback-listen 0.0.0.0:0`, and
+`-athena-callback-host host.docker.internal`. Remote operators must provide
+controller-to-daemon SQL routing and daemon-to-controller callback routing.
+Permit callbacks without exposing them to untrusted networks; these endpoints
+do not replace the main compute/public endpoints.
+
+Admission remains one active query per adapter; this change adds no parallel-query
+feature and no result cache. An exact-owned Trino engine stays warm per
+partition/account/region, with a two-minute idle deadline. Each query gets its own
+random cancellation handle, callback listener, capability and immutable caller
+handler. The JMX-only bootstrap contains no caller credentials. Native Trino 476
+`CREATE CATALOG`/`DROP CATALOG` installs fresh per-query Hive/Iceberg/Delta catalogs
+under the existing logical names, so explicit catalog SQL, database context and
+prepared statements do not need SQL rewriting. The old callback is revoked
+before later catalog publication: retained/background connector requests can
+never acquire a later caller. Only the private manager has catalog `owner`
+access; customer `all` access cannot create/drop catalogs or read the JMX probe.
+Before each reuse, stackd checks the running Docker incarnation, owner labels,
+immutable image and endpoint, then checks the native JMX node identity before
+publishing a new capability. It checks ownership again at query teardown.
+Failed witnesses retire the incarnation. Cleanup failures remain infrastructure
+errors even when a native SQL error occurred; an unremoved parser keeps its
+original ownership receipt for recovery.
+
+An explicit Glue catalog keeps its name and semantics when it collides with an
+internal connector alias. Only the private redirect aliases move; customer SQL
+is not rewritten.
+
+The runtime uses dynamic **file** catalog storage in container tmpfs; memory
+storage ignores startup files and would omit the JMX bootstrap. Native DROP does
+not interrupt running queries and some object-storage connectors do not release
+all resources immediately. In addition to idle teardown, stackd retires an
+engine after 64 queries to bound retained connector resources. A changed workgroup
+scan limit also retires its scoped engine: the physical-byte limit stays an
+unraisable cluster setting, not a customer-mutable session override. Cancellation
+addresses the observed native query ID; transport/cancellation ambiguity retires
+the current engine incarnation rather than sharing uncertain work with a later
+query. Stale completed-query handles never remove a later query's engine.
+Legacy bare cancellation handles cannot remove receipt-owned warm engines.
+
+Private fsynced ownership receipts precede native creation, and an exclusive
+kernel lock fences controller replacement. With SQLite, the CLI keeps them in
+`<database>.athena`; memory-only controllers use the user cache directory under
+`stackd/athena-<daemon-and-configured-listener-hash>`. Preserve that directory
+alongside controller state. Embedded callers must supply a private, durable
+`DockerConfig.StateDirectory` and close the runtime after the stack. Reopening
+that directory removes only matching engine/parser names, random owner labels
+and immutable image identities; it never adopts or replays interrupted SQL.
+Graceful Close cancels active work and removes idle engines. Its wait is bounded
+at 30 seconds; an uncooperative callback keeps the ownership lock until background
+native cleanup joins, rather than permitting a successor to race late effects.
+
+The Hive-DDL parser retains its separate `none` network. Host networking grants
+trusted Trino access to host-network services; dropping capabilities does not
+provide network isolation from local peers. Use the trusted-host deployment
+boundary described below, not an untrusted multi-tenant host. Native dynamic
+catalog SQL includes the ephemeral callback capability in Trino query history;
+it is not an AWS credential and is revoked at query completion.
+
+See [issue #9](https://github.com/radkawar/stackd/issues/9) for the co-located
+Chromium address-change failure this boundary addresses. Source contracts:
+[Trino 476 image tools](https://github.com/trinodb/trino/blob/476/core/docker/Dockerfile),
+[Airlift 336 bind configuration](https://github.com/airlift/airlift/blob/336/node/src/main/java/io/airlift/node/NodeConfig.java),
+[actual HTTP bind](https://github.com/airlift/airlift/blob/336/http-server/src/main/java/io/airlift/http/server/HttpServer.java),
+and [Trino JMX node identity](https://github.com/trinodb/trino/blob/476/plugin/trino-jmx/src/main/java/io/trino/plugin/jmx/JmxRecordSetProvider.java).
+
+The package regressions cover local/remote configuration, scoped engine reuse,
+caller/callback isolation, explicit catalog/session contracts, idle/shutdown
+cleanup, queued and native query-ID cancellation, late create cleanup, locked
+restart/orphan recovery, receipt path/foreign ownership rejection, foreign-worker
+rejection and witness errors. The opt-in fixtures execute real metadata queries
+with different callback capabilities on one pinned engine, test catalog-owner
+denial, and cancel an observed native query ID. They also check interface/address
+stability, loopback-only SQL access, idle expiry, Hive parsing, orphan recovery,
+foreign-port rejection and exact removal. Run on a quiet dedicated local Linux
+Docker host with both pinned images installed:
+
+```sh
+go test ./engine/athena -run '^(TestDockerNetwork|TestWarmEngine)' -count=1 -timeout 2m
+go test -race ./engine/athena -run '^(TestDockerNetwork|TestWarmEngine)' -count=1 -timeout 3m
+STACKD_ATHENA_NETWORK_DOCKER_HOST=unix:///var/run/docker.sock \
+  go test ./engine/athena -run '^(TestDockerNetworkNative|TestWarmEngineNativeLifecycle)$' -count=1 -timeout 15m -v
+```
+
+Pinned upstream support and cautions:
+[Trino 476 catalog management](https://github.com/trinodb/trino/blob/476/docs/src/main/sphinx/admin/properties-catalog.md),
+[CREATE CATALOG syntax](https://github.com/trinodb/trino/blob/476/docs/src/main/sphinx/sql/create-catalog.md),
+and [catalog owner/all access modes](https://github.com/trinodb/trino/blob/476/lib/trino-plugin-toolkit/src/main/java/io/trino/plugin/base/security/CatalogAccessControlRule.java).
+Dynamic management is experimental in 476, not a claim about an arbitrary newer
+engine. [Issue #16](https://github.com/radkawar/stackd/issues/16) describes the
+per-query startup cost addressed by scoped engine reuse; query timeouts and
+result-cache behavior are unchanged. The pinned file store reads its separate
+`etc/catalog-store.properties` from the launcher data directory, rather than the
+main server configuration. The managed bootstrap makes both paths explicit.
 
 Provision S3 scripts/data/output locations and IAM roles, then Glue `CreateJob`/`StartJobRun` or Athena `StartQueryExecution`. Poll `GetJobRun`/`GetQueryExecution` and retrieve real output rather than treating API acceptance as completion. The [analytics service guide](behavior-references.md#glue-and-athena-engines-evidence-and-boundaries) covers supported catalogs, job types and SQL boundaries. AWS-specific bookmarks, Lake Formation vending, Glue Parquet writer and Data Quality are not established by running ordinary Spark/Trino. SQLite keeps control state; preserve S3 data/output and native state too.
 
@@ -351,7 +467,7 @@ docker pull mysql@sha256:0744ee5ef89ce6ccfa13de3e579fe6b9e27f93dd70da9c06d2c908b
   -docker-host unix:///var/run/docker.sock -rds-runtime
 ```
 
-These Docker Official Images run PostgreSQL 17.11 and MySQL 8.4.11; see their upstream [PostgreSQL](https://hub.docker.com/_/postgres) and [MySQL](https://hub.docker.com/_/mysql) image contracts. `-rds-postgres-image`/`-rds-mysql-image` are immutable installed overrides with the required native layout. `-rds-endpoint-host` defaults to `127.0.0.1`; database ports bind daemon loopback, so native clients belong on this host unless you deliberately provide a secure forwarding arrangement. Changing the advertised host does not change that bind.
+These Docker Official Images run PostgreSQL 17.11 and MySQL 8.4.11; see their upstream [PostgreSQL](https://hub.docker.com/_/postgres) and [MySQL](https://hub.docker.com/_/mysql) image contracts. `-rds-postgres-image`/`-rds-mysql-image` are immutable installed overrides with the required native layout. `-rds-endpoint-host` defaults to `127.0.0.1` and sets the advertised address and PostgreSQL certificate identity. `-rds-publish-address` independently sets the daemon-side IP for SQL port bindings and reservations, defaulting to `127.0.0.1` to preserve loopback-only access. For trusted EKS pods with a route to the host bridge, for example, set both to `172.17.0.1` (use your actual bridge IP). A wildcard publish address such as `0.0.0.0` does not become the endpoint or a certificate SAN. Non-loopback publication exposes SQL to that network; restrict access at the host firewall. Export the per-incarnation PostgreSQL public CA and use `sslmode=verify-full`; this flag does not add MySQL TLS or VPC security-group enforcement. Existing containers must match the configured bind address, and changing the endpoint host must still verify against retained trust. `-native-ports` bounds only new automatic endpoints, not explicit or retained ports; omit an explicit RDS port to use that pool. See [RDS native setup](rds.md#running-the-native-engines).
 
 Create the supported instance/cluster through RDS APIs; wait for its Describe status and connect using the returned real PostgreSQL/MySQL endpoint and credentials. [RDS native setup](rds.md#running-the-native-engines), [lifecycle](rds.md#ownership-and-lifecycle) and [Data API](rds.md#rds-data-api) define supported provisioning and SQL operations. This is not AWS managed storage, topology or engine parity. Preserve database and snapshot Docker volumes; SQLite alone does not contain SQL bytes. Stop/start APIs affect native processes; delete APIs remove owned data.
 

@@ -2,6 +2,7 @@ package iam
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -29,21 +30,19 @@ func (s *Service) IdentityPolicies(ctx context.Context) (authorization.PolicySet
 	m := awsctx.FromContext(ctx)
 	var result authorization.PolicySet
 	err := s.view(ctx, func(tx ReadTx) error {
-		a, err := loadAccount(tx, Scope{Partition: m.Partition, AccountID: m.AccountID})
-		if err != nil {
-			return err
-		}
-		result, err = identityPolicySnapshot(a, m)
+		var err error
+		result, err = identityPolicySnapshot(tx, m)
 		return err
 	})
 	return result, err
 }
 
-func identityPolicySnapshot(a *account, m awsctx.Metadata) (authorization.PolicySet, error) {
+func identityPolicySnapshot(tx ReadTx, m awsctx.Metadata) (authorization.PolicySet, error) {
 	principalARN, principalID := m.PrincipalARN, m.PrincipalID
 	if strings.HasPrefix(m.PrincipalARN, "arn:"+m.Partition+":sts:") {
 		principalARN, principalID = m.IssuerARN, m.IssuerID
 	}
+	scope := Scope{Partition: m.Partition, AccountID: m.AccountID}
 	type identitySource struct {
 		owner    string
 		policies identityPolicies
@@ -52,40 +51,48 @@ func identityPolicySnapshot(a *account, m awsctx.Metadata) (authorization.Policy
 	var permissionsBoundary *boundary
 	var tags []tag
 	serviceLinkedRole := false
-	found := false
-	if principalARN == "arn:"+m.Partition+":iam::"+m.AccountID+":root" && principalID == m.AccountID {
-		found = true
+	prefix := "arn:" + m.Partition + ":iam::" + m.AccountID + ":"
+	resource := strings.TrimPrefix(principalARN, prefix)
+	name := resource[strings.LastIndexByte(resource, '/')+1:]
+	switch {
+	case principalARN == prefix+"root" && principalID == m.AccountID:
 		identities = append(identities, identitySource{principalARN, identityPolicies{Inline: map[string]string{"root": `{"Statement":{"Effect":"Allow","Action":"*","Resource":"*"}}`}}})
-	}
-	for _, u := range a.users {
-		if u.Arn != principalARN || u.UserId != principalID {
-			continue
+	case strings.HasPrefix(principalARN, prefix+"user/"):
+		u, err := tx.User(scope, name)
+		if err != nil && !errors.Is(err, ErrRecordNotFound) {
+			return authorization.PolicySet{}, err
 		}
-		found = true
+		if err != nil || u.Arn != principalARN || u.UserId != principalID {
+			return authorization.PolicySet{}, fmt.Errorf("IAM principal does not exist or its identity has changed")
+		}
 		identities = append(identities, identitySource{u.Arn, u.IdentityPolicies})
-		if a.settings.PasswordPolicy != nil && a.settings.PasswordPolicy.AllowUsersToChangePassword {
+		settings, err := tx.AccountSettings(scope)
+		if err != nil {
+			return authorization.PolicySet{}, err
+		}
+		if settings.PasswordPolicy != nil && settings.PasswordPolicy.AllowUsersToChangePassword {
 			identities = append(identities, identitySource{u.Arn, passwordSelfManagementPolicies(u.Arn)})
 		}
 		permissionsBoundary, tags = u.PermissionsBoundary, u.Tags
-		for _, g := range a.groups {
-			if _, member := g.Members[strings.ToLower(u.UserName)]; member {
-				identities = append(identities, identitySource{g.Arn, g.IdentityPolicies})
-			}
+		groups, err := tx.UserGroups(scope, u.UserName)
+		if err != nil {
+			return authorization.PolicySet{}, err
 		}
-		break
-	}
-	if !found {
-		for _, role := range a.roles {
-			if role.Arn == principalARN && role.RoleId == principalID {
-				found = true
-				identities = append(identities, identitySource{role.Arn, role.IdentityPolicies})
-				permissionsBoundary, tags = role.PermissionsBoundary, role.Tags
-				serviceLinkedRole = role.ServiceLinkedService != ""
-				break
-			}
+		for _, g := range groups {
+			identities = append(identities, identitySource{g.Arn, g.IdentityPolicies})
 		}
-	}
-	if !found {
+	case strings.HasPrefix(principalARN, prefix+"role/"):
+		role, err := tx.Role(scope, name)
+		if err != nil && !errors.Is(err, ErrRecordNotFound) {
+			return authorization.PolicySet{}, err
+		}
+		if err != nil || role.Arn != principalARN || role.RoleId != principalID {
+			return authorization.PolicySet{}, fmt.Errorf("IAM principal does not exist or its identity has changed")
+		}
+		identities = append(identities, identitySource{role.Arn, role.IdentityPolicies})
+		permissionsBoundary, tags = role.PermissionsBoundary, role.Tags
+		serviceLinkedRole = role.ServiceLinkedService != ""
+	default:
 		return authorization.PolicySet{}, fmt.Errorf("IAM principal does not exist or its identity has changed")
 	}
 	set := authorization.PolicySet{HasBoundary: permissionsBoundary != nil, PrincipalTags: make(map[string]string, len(tags)), ServiceLinkedRole: serviceLinkedRole}
@@ -97,7 +104,7 @@ func identityPolicySnapshot(a *account, m awsctx.Metadata) (authorization.Policy
 			set.Identity = append(set.Identity, iampolicy.Policy{Source: identity.owner + "#" + name, Document: document})
 		}
 		for arn := range identity.policies.Attached {
-			document, err := currentPolicySnapshot(a, arn)
+			document, err := currentIdentityPolicySnapshot(tx, scope, arn)
 			if err != nil {
 				return authorization.PolicySet{}, err
 			}
@@ -105,14 +112,14 @@ func identityPolicySnapshot(a *account, m awsctx.Metadata) (authorization.Policy
 		}
 	}
 	if permissionsBoundary != nil {
-		document, err := currentPolicySnapshot(a, permissionsBoundary.PermissionsBoundaryArn)
+		document, err := currentIdentityPolicySnapshot(tx, scope, permissionsBoundary.PermissionsBoundaryArn)
 		if err != nil {
 			return authorization.PolicySet{}, err
 		}
 		set.Boundary = []iampolicy.Policy{document}
 	}
 	for _, arn := range m.SessionPolicyARNs {
-		doc, err := currentPolicySnapshot(a, arn)
+		doc, err := currentIdentityPolicySnapshot(tx, scope, arn)
 		if err != nil {
 			return authorization.PolicySet{}, err
 		}
@@ -120,6 +127,24 @@ func identityPolicySnapshot(a *account, m awsctx.Metadata) (authorization.Policy
 	}
 	slices.SortFunc(set.Identity, func(a, b iampolicy.Policy) int { return strings.Compare(a.Source, b.Source) })
 	return set, nil
+}
+
+func currentIdentityPolicySnapshot(tx ReadTx, scope Scope, arn string) (iampolicy.Policy, error) {
+	p, err := tx.ManagedPolicy(scope, arn)
+	if errors.Is(err, ErrRecordNotFound) {
+		var ok bool
+		p, ok = lookupAWSManagedPolicy(scope.Partition, arn)
+		if !ok {
+			return iampolicy.Policy{}, fmt.Errorf("attached managed policy does not exist")
+		}
+	} else if err != nil {
+		return iampolicy.Policy{}, err
+	}
+	version := p.Versions[p.DefaultVersionId]
+	if version == nil {
+		return iampolicy.Policy{}, fmt.Errorf("managed policy default version does not exist")
+	}
+	return iampolicy.Policy{Source: arn, Version: p.DefaultVersionId, Document: version.Document}, nil
 }
 
 func currentPolicySnapshot(a *account, arn string) (iampolicy.Policy, error) {

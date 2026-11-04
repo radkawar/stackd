@@ -32,6 +32,7 @@ type APIEvents struct {
 }
 
 func (s APIEvents) AppendAPICallCompleted(ctx context.Context, envelope journal.Envelope, call journal.APICallCompleted) error {
+	matched := false
 	err := s.Repository.Update(ctx, func(tx Transaction) error {
 		if call.EventSource == "organizations.amazonaws.com" {
 			if err := reconcileOrganization(tx, s.Organizations, envelope.Partition, envelope.AccountID); err != nil {
@@ -83,7 +84,6 @@ func (s APIEvents) AppendAPICallCompleted(ctx context.Context, envelope journal.
 		if err != nil {
 			return err
 		}
-		matched := false
 		now := s.Clock.Now()
 		for _, trail := range trails {
 			logging := trail.Logging || trail.StopAfter != nil && now.Before(*trail.StopAfter)
@@ -120,7 +120,9 @@ func (s APIEvents) AppendAPICallCompleted(ctx context.Context, envelope journal.
 		}
 		return nil
 	})
-	if err == nil && s.Jobs != nil {
+	if err == nil && matched && s.Jobs != nil {
+		// Journaling an unmatched outcome creates no delivery work. Waking the
+		// shared driver would scan every service for each ordinary API read.
 		// A borrowed outer transaction may still be publishing. The driver's
 		// repository read waits for that same domain and sees only its outcome.
 		s.Jobs.Wake()

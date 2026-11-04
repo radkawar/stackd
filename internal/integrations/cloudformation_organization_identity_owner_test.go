@@ -21,7 +21,6 @@ import (
 	orgservice "stackd/internal/services/organizations"
 	"stackd/storage/memory"
 	"stackd/storage/sqlite"
-	sqlidentity "stackd/storage/sqlite/iam"
 	sqlcenter "stackd/storage/sqlite/identitycenter"
 	sqldirectory "stackd/storage/sqlite/identitystore"
 	sqlorg "stackd/storage/sqlite/organizations"
@@ -72,7 +71,7 @@ func (f *cfnOrgSSOOwnerFixture) open(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.db, f.orgs, f.center, f.directory = db, sqlorg.New(db), sqlcenter.New(db), sqldirectory.New(db)
-	f.identity = sqlidentity.New(db)
+	f.identity = newSQLiteIAMRepository(t, db)
 }
 
 // Account initialization delegates to IAM's native joined transaction. These

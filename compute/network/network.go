@@ -53,6 +53,7 @@ type Policy struct {
 	ACLIngress, ACLEgress           []ACLRule
 	NATRoutes                       []NATRoute
 	PrivateRoutes                   []PrivateRoute
+	PodRoutes                       []PodRoute
 	// PublicIPv4 is allocated by EC2. PublicEgress additionally requires an
 	// active IGW route; neither a route nor assignment alone grants admission.
 	PublicIPv4   netip.Addr
@@ -67,5 +68,6 @@ func (p Policy) Equal(other Policy) bool {
 		slices.Equal(p.ACLIngress, other.ACLIngress) &&
 		slices.Equal(p.ACLEgress, other.ACLEgress) &&
 		equalNATRoutes(p.NATRoutes, other.NATRoutes) &&
-		slices.Equal(p.PrivateRoutes, other.PrivateRoutes)
+		slices.Equal(p.PrivateRoutes, other.PrivateRoutes) &&
+		slices.Equal(p.PodRoutes, other.PodRoutes)
 }

@@ -15,7 +15,7 @@ DELETE FROM s3_access_log_deliveries WHERE id = ?
 `
 
 func (q *Queries) DeleteAccessLogDelivery(ctx context.Context, id string) error {
-	_, err := q.db.ExecContext(ctx, deleteAccessLogDelivery, id)
+	_, err := q.exec(ctx, q.deleteAccessLogDeliveryStmt, deleteAccessLogDelivery, id)
 	return err
 }
 
@@ -24,7 +24,7 @@ SELECT id, "partition", bucket_name, account_id, region, target_bucket, target_p
 `
 
 func (q *Queries) GetAccessLogDelivery(ctx context.Context, id string) (S3AccessLogDelivery, error) {
-	row := q.db.QueryRowContext(ctx, getAccessLogDelivery, id)
+	row := q.queryRow(ctx, q.getAccessLogDeliveryStmt, getAccessLogDelivery, id)
 	var i S3AccessLogDelivery
 	err := row.Scan(
 		&i.ID,
@@ -48,7 +48,7 @@ SELECT delivery_id, position, grantee_type, grantee_id, grantee_uri, permission 
 `
 
 func (q *Queries) GetAccessLogDeliveryGrants(ctx context.Context, deliveryID string) ([]S3AccessLogDeliveryGrant, error) {
-	rows, err := q.db.QueryContext(ctx, getAccessLogDeliveryGrants, deliveryID)
+	rows, err := q.query(ctx, q.getAccessLogDeliveryGrantsStmt, getAccessLogDeliveryGrants, deliveryID)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,7 @@ type InsertAccessLogDeliveryParams struct {
 }
 
 func (q *Queries) InsertAccessLogDelivery(ctx context.Context, arg InsertAccessLogDeliveryParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, insertAccessLogDelivery,
+	result, err := q.exec(ctx, q.insertAccessLogDeliveryStmt, insertAccessLogDelivery,
 		arg.ID,
 		arg.Partition,
 		arg.BucketName,
@@ -129,7 +129,7 @@ type NextAccessLogDeliveryRow struct {
 }
 
 func (q *Queries) NextAccessLogDelivery(ctx context.Context) (NextAccessLogDeliveryRow, error) {
-	row := q.db.QueryRowContext(ctx, nextAccessLogDelivery)
+	row := q.queryRow(ctx, q.nextAccessLogDeliveryStmt, nextAccessLogDelivery)
 	var i NextAccessLogDeliveryRow
 	err := row.Scan(&i.ID, &i.Due)
 	return i, err
@@ -150,7 +150,7 @@ type PutAccessLogDeliveryGrantParams struct {
 }
 
 func (q *Queries) PutAccessLogDeliveryGrant(ctx context.Context, arg PutAccessLogDeliveryGrantParams) error {
-	_, err := q.db.ExecContext(ctx, putAccessLogDeliveryGrant,
+	_, err := q.exec(ctx, q.putAccessLogDeliveryGrantStmt, putAccessLogDeliveryGrant,
 		arg.DeliveryID,
 		arg.Position,
 		arg.GranteeType,
@@ -171,6 +171,6 @@ type UpdateAccessLogDeliveryDueParams struct {
 }
 
 func (q *Queries) UpdateAccessLogDeliveryDue(ctx context.Context, arg UpdateAccessLogDeliveryDueParams) error {
-	_, err := q.db.ExecContext(ctx, updateAccessLogDeliveryDue, arg.Due, arg.ID)
+	_, err := q.exec(ctx, q.updateAccessLogDeliveryDueStmt, updateAccessLogDeliveryDue, arg.Due, arg.ID)
 	return err
 }

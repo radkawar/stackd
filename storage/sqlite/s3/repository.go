@@ -11,25 +11,36 @@ import (
 	"stackd/storage/sqlite/s3/internal/sqlcgen"
 )
 
-type Repository struct{ db *sql.DB }
+type Repository struct {
+	db      *sql.DB
+	queries *sqlcgen.Queries
+}
 
-func New(db *sql.DB) *Repository { return &Repository{db: db} }
+// New prepares the service-owned queries before any repository transaction.
+// The caller owns db; closing it releases the underlying prepared statements.
+func New(ctx context.Context, db *sql.DB) (*Repository, error) {
+	queries, err := sqlcgen.Prepare(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	return &Repository{db: db, queries: queries}, nil
+}
 
 func (r *Repository) View(ctx context.Context, fn func(domain.Reader) error) error {
 	return sqlite.Transact(ctx, r.db, true, func(ctx context.Context, tx *sql.Tx) error {
-		return fn(reader{ctx: ctx, q: sqlcgen.New(tx)})
+		return fn(reader{ctx: ctx, q: r.queries.WithTx(tx)})
 	})
 }
 
 func (r *Repository) Update(ctx context.Context, fn func(domain.Transaction) error) error {
 	return sqlite.Transact(ctx, r.db, false, func(ctx context.Context, tx *sql.Tx) error {
-		return fn(writer{reader{ctx: ctx, q: sqlcgen.New(tx)}})
+		return fn(writer{reader{ctx: ctx, q: r.queries.WithTx(tx)}})
 	})
 }
 
 func (r *Repository) Attempt(ctx context.Context, fn func(domain.Transaction) error) error {
 	return sqlite.Attempt(ctx, r.db, func(ctx context.Context, tx *sql.Tx) error {
-		return fn(writer{reader{ctx: ctx, q: sqlcgen.New(tx)}})
+		return fn(writer{reader{ctx: ctx, q: r.queries.WithTx(tx)}})
 	})
 }
 
@@ -443,6 +454,11 @@ func (r reader) object(row sqlcgen.S3ObjectVersion) (domain.ObjectRecord, error)
 	return out, nil
 }
 
+// S3 keys are validated UTF-8. No valid continuation starts with 0xff, so this
+// exclusive binary bound includes every key with prefix without scanning names
+// outside it. It also bounds an empty prefix without an unindexable SQL OR.
+func objectPrefixEnd(prefix string) string { return prefix + "\xff" }
+
 func (r reader) Objects(query domain.ObjectQuery) ([]domain.ObjectRecord, error) {
 	if err := r.ctx.Err(); err != nil {
 		return nil, err
@@ -450,9 +466,11 @@ func (r reader) Objects(query domain.ObjectQuery) ([]domain.ObjectRecord, error)
 	if query.Limit <= 0 {
 		return []domain.ObjectRecord{}, nil
 	}
+	// NUL is the smallest byte suffix after the exclusive key cursor. Combining
+	// it with the prefix leaves one seekable lower bound, including later pages.
 	rows, err := r.q.ListObjects(r.ctx, sqlcgen.ListObjectsParams{
 		Partition: query.Bucket.Partition, BucketName: query.Bucket.Name,
-		AfterKey: query.After, Prefix: []byte(query.Prefix), RowLimit: int64(query.Limit),
+		StartKey: max(query.Prefix, query.After+"\x00"), PrefixEnd: objectPrefixEnd(query.Prefix), RowLimit: int64(query.Limit),
 	})
 	if err != nil {
 		return nil, err
@@ -481,7 +499,7 @@ func (r reader) ObjectVersions(query domain.VersionQuery) ([]domain.ObjectRecord
 	}
 	rows, err := r.q.ListObjectVersions(r.ctx, sqlcgen.ListObjectVersionsParams{
 		Partition: query.Bucket.Partition, BucketName: query.Bucket.Name,
-		AfterKey: query.AfterKey, AfterVersion: query.AfterVersion, Prefix: []byte(query.Prefix), RowLimit: int64(query.Limit),
+		AfterKey: query.AfterKey, AfterVersion: query.AfterVersion, StartKey: max(query.Prefix, query.AfterKey), PrefixEnd: objectPrefixEnd(query.Prefix), RowLimit: int64(query.Limit),
 		AfterOrder: after,
 	})
 	if err != nil {

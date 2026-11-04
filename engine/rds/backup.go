@@ -45,7 +45,7 @@ func (d *Docker) Snapshot(ctx context.Context, spec Specification, snapshot stri
 	if state.State.Running {
 		kind, _ := family(spec.Engine)
 		if kind == "mysql" {
-			endpoint, err := state.endpoint(d.endpointHost, spec.Engine)
+			endpoint, err := state.endpoint(d.endpointHost, d.publishAddress, spec.Engine)
 			if err != nil {
 				return err
 			}
@@ -152,7 +152,7 @@ func (d *Docker) Restore(ctx context.Context, spec Specification, snapshot strin
 				if err := d.checkDatabase(retained, spec); err != nil {
 					return Endpoint{}, err
 				}
-				spec.Port, err = retained.retainedPort(spec.Engine)
+				spec.Port, err = retained.retainedPort(d.publishAddress, spec.Engine)
 				wire, _, _ := nativeLayout(spec.Engine)
 				binding := retained.HostConfig.PortBindings[wire][0]
 				if err != nil && !retained.State.Running && (binding.HostPort == "" || binding.HostPort == "0") && spec.RetainedPort != 0 {

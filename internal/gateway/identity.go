@@ -36,10 +36,6 @@ type CredentialResolver interface {
 	Resolve(context.Context, string) (identity.Credential, error)
 }
 
-type usageRecorder interface {
-	RecordUsage(context.Context, string, string, string) error
-}
-
 type credentialScope struct {
 	accessKey string
 	date      string

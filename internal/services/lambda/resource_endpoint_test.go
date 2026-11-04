@@ -16,10 +16,18 @@ import (
 	"stackd/internal/gateway"
 )
 
-type unavailableURLActivity struct{}
+type unavailableURLActivity struct{ calls int }
 
-func (unavailableURLActivity) RecordActivity(context.Context, string, string) error {
-	return errors.New("activity authority unavailable")
+func (a *unavailableURLActivity) RecordActivity(context.Context, string, string) error {
+	a.calls++
+	return errors.New("activity reporting unavailable")
+}
+
+type unavailableURLOrganizations struct{ calls int }
+
+func (o *unavailableURLOrganizations) PrincipalOrganization(context.Context) (string, string, error) {
+	o.calls++
+	return "", "", errors.New("organization authority unavailable")
 }
 
 func TestFunctionResourceHostUsesLiveURLAndPublicOrigin(t *testing.T) {
@@ -43,7 +51,9 @@ func TestFunctionResourceHostUsesLiveURLAndPublicOrigin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := NewFunctionURLHandler(s, g, unavailableURLActivity{}, nil)
+	activity := &unavailableURLActivity{}
+	organizations := &unavailableURLOrganizations{}
+	h := NewFunctionURLHandler(s, g, activity, organizations)
 	r := httptest.NewRequest("POST", "https://current-id.lambda-url.us-east-1.dev.example:4566/a%2Fb/%E2%98%83?dup=one&dup=two&plus=a+b", strings.NewReader("payload"))
 	digest := sha256.Sum256([]byte("payload"))
 	if err := v4.NewSigner().SignHTTP(t.Context(), aws.Credentials{AccessKeyID: "test", SecretAccessKey: "test"}, r, hex.EncodeToString(digest[:]), "lambda", "us-east-1", time.Now()); err != nil {
@@ -51,8 +61,8 @@ func TestFunctionResourceHostUsesLiveURLAndPublicOrigin(t *testing.T) {
 	}
 	originalHost, originalURI := r.Host, r.URL.RequestURI()
 	w := httptest.NewRecorder()
-	if !h.ServeFunctionURL(w, r) || w.Code != http.StatusInternalServerError {
-		t.Fatalf("signed hostname did not pass unchanged-byte authentication to unavailable activity authority: %d %s", w.Code, w.Body.String())
+	if !h.ServeFunctionURL(w, r) || w.Code != http.StatusInternalServerError || activity.calls != 1 || organizations.calls != 1 {
+		t.Fatalf("signed hostname did not reach organization authorization independently of activity reporting: status=%d activity=%d organizations=%d body=%s", w.Code, activity.calls, organizations.calls, w.Body.String())
 	}
 	if r.Host != originalHost || r.URL.RequestURI() != originalURI {
 		t.Fatal("hostname routing mutated signed request bytes")

@@ -24,7 +24,7 @@ type CountAccessPointsParams struct {
 }
 
 func (q *Queries) CountAccessPoints(ctx context.Context, arg CountAccessPointsParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countAccessPoints, arg.Partition, arg.AccountID, arg.Region)
+	row := q.queryRow(ctx, q.countAccessPointsStmt, countAccessPoints, arg.Partition, arg.AccountID, arg.Region)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -42,7 +42,7 @@ type DeleteAccessPointParams struct {
 }
 
 func (q *Queries) DeleteAccessPoint(ctx context.Context, arg DeleteAccessPointParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteAccessPoint,
+	result, err := q.exec(ctx, q.deleteAccessPointStmt, deleteAccessPoint,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -66,7 +66,7 @@ type DeleteAccessPointPolicyPrincipalsParams struct {
 }
 
 func (q *Queries) DeleteAccessPointPolicyPrincipals(ctx context.Context, arg DeleteAccessPointPolicyPrincipalsParams) error {
-	_, err := q.db.ExecContext(ctx, deleteAccessPointPolicyPrincipals,
+	_, err := q.exec(ctx, q.deleteAccessPointPolicyPrincipalsStmt, deleteAccessPointPolicyPrincipals,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -87,7 +87,7 @@ type DeleteAccessPointTagsParams struct {
 }
 
 func (q *Queries) DeleteAccessPointTags(ctx context.Context, arg DeleteAccessPointTagsParams) error {
-	_, err := q.db.ExecContext(ctx, deleteAccessPointTags,
+	_, err := q.exec(ctx, q.deleteAccessPointTagsStmt, deleteAccessPointTags,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -106,7 +106,7 @@ type DeleteAccountPublicAccessBlockParams struct {
 }
 
 func (q *Queries) DeleteAccountPublicAccessBlock(ctx context.Context, arg DeleteAccountPublicAccessBlockParams) error {
-	_, err := q.db.ExecContext(ctx, deleteAccountPublicAccessBlock, arg.Partition, arg.AccountID)
+	_, err := q.exec(ctx, q.deleteAccountPublicAccessBlockStmt, deleteAccountPublicAccessBlock, arg.Partition, arg.AccountID)
 	return err
 }
 
@@ -120,7 +120,7 @@ type DeleteBucketParams struct {
 }
 
 func (q *Queries) DeleteBucket(ctx context.Context, arg DeleteBucketParams) error {
-	_, err := q.db.ExecContext(ctx, deleteBucket, arg.Partition, arg.Name)
+	_, err := q.exec(ctx, q.deleteBucketStmt, deleteBucket, arg.Partition, arg.Name)
 	return err
 }
 
@@ -134,7 +134,7 @@ type DeleteBucketACLGrantsParams struct {
 }
 
 func (q *Queries) DeleteBucketACLGrants(ctx context.Context, arg DeleteBucketACLGrantsParams) error {
-	_, err := q.db.ExecContext(ctx, deleteBucketACLGrants, arg.Partition, arg.BucketName)
+	_, err := q.exec(ctx, q.deleteBucketACLGrantsStmt, deleteBucketACLGrants, arg.Partition, arg.BucketName)
 	return err
 }
 
@@ -148,7 +148,7 @@ type DeleteBucketPolicyPrincipalsParams struct {
 }
 
 func (q *Queries) DeleteBucketPolicyPrincipals(ctx context.Context, arg DeleteBucketPolicyPrincipalsParams) error {
-	_, err := q.db.ExecContext(ctx, deleteBucketPolicyPrincipals, arg.Partition, arg.BucketName)
+	_, err := q.exec(ctx, q.deleteBucketPolicyPrincipalsStmt, deleteBucketPolicyPrincipals, arg.Partition, arg.BucketName)
 	return err
 }
 
@@ -162,7 +162,7 @@ type DeleteBucketPublicAccessParams struct {
 }
 
 func (q *Queries) DeleteBucketPublicAccess(ctx context.Context, arg DeleteBucketPublicAccessParams) error {
-	_, err := q.db.ExecContext(ctx, deleteBucketPublicAccess, arg.Partition, arg.BucketName)
+	_, err := q.exec(ctx, q.deleteBucketPublicAccessStmt, deleteBucketPublicAccess, arg.Partition, arg.BucketName)
 	return err
 }
 
@@ -176,7 +176,7 @@ type DeleteBucketTagsParams struct {
 }
 
 func (q *Queries) DeleteBucketTags(ctx context.Context, arg DeleteBucketTagsParams) error {
-	_, err := q.db.ExecContext(ctx, deleteBucketTags, arg.Partition, arg.BucketName)
+	_, err := q.exec(ctx, q.deleteBucketTagsStmt, deleteBucketTags, arg.Partition, arg.BucketName)
 	return err
 }
 
@@ -192,7 +192,7 @@ type DeleteMultipartUploadParams struct {
 }
 
 func (q *Queries) DeleteMultipartUpload(ctx context.Context, arg DeleteMultipartUploadParams) error {
-	_, err := q.db.ExecContext(ctx, deleteMultipartUpload,
+	_, err := q.exec(ctx, q.deleteMultipartUploadStmt, deleteMultipartUpload,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -206,7 +206,7 @@ DELETE FROM s3_notification_deliveries WHERE id = ?
 `
 
 func (q *Queries) DeleteNotificationDelivery(ctx context.Context, id string) error {
-	_, err := q.db.ExecContext(ctx, deleteNotificationDelivery, id)
+	_, err := q.exec(ctx, q.deleteNotificationDeliveryStmt, deleteNotificationDelivery, id)
 	return err
 }
 
@@ -220,7 +220,7 @@ type DeleteNotificationRulesParams struct {
 }
 
 func (q *Queries) DeleteNotificationRules(ctx context.Context, arg DeleteNotificationRulesParams) error {
-	_, err := q.db.ExecContext(ctx, deleteNotificationRules, arg.Partition, arg.BucketName)
+	_, err := q.exec(ctx, q.deleteNotificationRulesStmt, deleteNotificationRules, arg.Partition, arg.BucketName)
 	return err
 }
 
@@ -237,7 +237,7 @@ type DeleteObjectTagsParams struct {
 }
 
 func (q *Queries) DeleteObjectTags(ctx context.Context, arg DeleteObjectTagsParams) error {
-	_, err := q.db.ExecContext(ctx, deleteObjectTags,
+	_, err := q.exec(ctx, q.deleteObjectTagsStmt, deleteObjectTags,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -258,7 +258,7 @@ type DeleteObjectVersionParams struct {
 }
 
 func (q *Queries) DeleteObjectVersion(ctx context.Context, arg DeleteObjectVersionParams) error {
-	_, err := q.db.ExecContext(ctx, deleteObjectVersion,
+	_, err := q.exec(ctx, q.deleteObjectVersionStmt, deleteObjectVersion,
 		arg.Partition,
 		arg.BucketName,
 		arg.Name,
@@ -279,7 +279,7 @@ type DeleteObjectVersionACLGrantsParams struct {
 }
 
 func (q *Queries) DeleteObjectVersionACLGrants(ctx context.Context, arg DeleteObjectVersionACLGrantsParams) error {
-	_, err := q.db.ExecContext(ctx, deleteObjectVersionACLGrants,
+	_, err := q.exec(ctx, q.deleteObjectVersionACLGrantsStmt, deleteObjectVersionACLGrants,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -301,7 +301,7 @@ type DeleteObjectVersionEncryptionContextParams struct {
 }
 
 func (q *Queries) DeleteObjectVersionEncryptionContext(ctx context.Context, arg DeleteObjectVersionEncryptionContextParams) error {
-	_, err := q.db.ExecContext(ctx, deleteObjectVersionEncryptionContext,
+	_, err := q.exec(ctx, q.deleteObjectVersionEncryptionContextStmt, deleteObjectVersionEncryptionContext,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -322,7 +322,7 @@ type GetAccessPointParams struct {
 }
 
 func (q *Queries) GetAccessPoint(ctx context.Context, arg GetAccessPointParams) (S3AccessPoint, error) {
-	row := q.db.QueryRowContext(ctx, getAccessPoint,
+	row := q.queryRow(ctx, q.getAccessPointStmt, getAccessPoint,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -361,7 +361,7 @@ type GetAccessPointAliasParams struct {
 }
 
 func (q *Queries) GetAccessPointAlias(ctx context.Context, arg GetAccessPointAliasParams) (S3AccessPoint, error) {
-	row := q.db.QueryRowContext(ctx, getAccessPointAlias, arg.Partition, arg.Alias)
+	row := q.queryRow(ctx, q.getAccessPointAliasStmt, getAccessPointAlias, arg.Partition, arg.Alias)
 	var i S3AccessPoint
 	err := row.Scan(
 		&i.Partition,
@@ -403,7 +403,7 @@ type GetAccessPointPolicyPrincipalsRow struct {
 }
 
 func (q *Queries) GetAccessPointPolicyPrincipals(ctx context.Context, arg GetAccessPointPolicyPrincipalsParams) ([]GetAccessPointPolicyPrincipalsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getAccessPointPolicyPrincipals,
+	rows, err := q.query(ctx, q.getAccessPointPolicyPrincipalsStmt, getAccessPointPolicyPrincipals,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -448,7 +448,7 @@ type GetAccessPointTagsRow struct {
 }
 
 func (q *Queries) GetAccessPointTags(ctx context.Context, arg GetAccessPointTagsParams) ([]GetAccessPointTagsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getAccessPointTags,
+	rows, err := q.query(ctx, q.getAccessPointTagsStmt, getAccessPointTags,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -485,7 +485,7 @@ type GetAccountPublicAccessBlockParams struct {
 }
 
 func (q *Queries) GetAccountPublicAccessBlock(ctx context.Context, arg GetAccountPublicAccessBlockParams) (S3AccountPublicAccess, error) {
-	row := q.db.QueryRowContext(ctx, getAccountPublicAccessBlock, arg.Partition, arg.AccountID)
+	row := q.queryRow(ctx, q.getAccountPublicAccessBlockStmt, getAccountPublicAccessBlock, arg.Partition, arg.AccountID)
 	var i S3AccountPublicAccess
 	err := row.Scan(
 		&i.Partition,
@@ -508,7 +508,7 @@ type GetBucketParams struct {
 }
 
 func (q *Queries) GetBucket(ctx context.Context, arg GetBucketParams) (S3Bucket, error) {
-	row := q.db.QueryRowContext(ctx, getBucket, arg.Partition, arg.Name)
+	row := q.queryRow(ctx, q.getBucketStmt, getBucket, arg.Partition, arg.Name)
 	var i S3Bucket
 	err := row.Scan(
 		&i.Partition,
@@ -561,7 +561,7 @@ type GetBucketACLGrantsRow struct {
 }
 
 func (q *Queries) GetBucketACLGrants(ctx context.Context, arg GetBucketACLGrantsParams) ([]GetBucketACLGrantsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getBucketACLGrants, arg.Partition, arg.BucketName)
+	rows, err := q.query(ctx, q.getBucketACLGrantsStmt, getBucketACLGrants, arg.Partition, arg.BucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -603,7 +603,7 @@ type GetBucketPolicyPrincipalsRow struct {
 }
 
 func (q *Queries) GetBucketPolicyPrincipals(ctx context.Context, arg GetBucketPolicyPrincipalsParams) ([]GetBucketPolicyPrincipalsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getBucketPolicyPrincipals, arg.Partition, arg.BucketName)
+	rows, err := q.query(ctx, q.getBucketPolicyPrincipalsStmt, getBucketPolicyPrincipals, arg.Partition, arg.BucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -635,7 +635,7 @@ type GetBucketPublicAccessParams struct {
 }
 
 func (q *Queries) GetBucketPublicAccess(ctx context.Context, arg GetBucketPublicAccessParams) (S3BucketPublicAccess, error) {
-	row := q.db.QueryRowContext(ctx, getBucketPublicAccess, arg.Partition, arg.BucketName)
+	row := q.queryRow(ctx, q.getBucketPublicAccessStmt, getBucketPublicAccess, arg.Partition, arg.BucketName)
 	var i S3BucketPublicAccess
 	err := row.Scan(
 		&i.Partition,
@@ -663,7 +663,7 @@ type GetBucketTagsRow struct {
 }
 
 func (q *Queries) GetBucketTags(ctx context.Context, arg GetBucketTagsParams) ([]GetBucketTagsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getBucketTags, arg.Partition, arg.BucketName)
+	rows, err := q.query(ctx, q.getBucketTagsStmt, getBucketTags, arg.Partition, arg.BucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -697,7 +697,7 @@ type GetCompletedMultipartUploadParams struct {
 }
 
 func (q *Queries) GetCompletedMultipartUpload(ctx context.Context, arg GetCompletedMultipartUploadParams) (S3ObjectVersion, error) {
-	row := q.db.QueryRowContext(ctx, getCompletedMultipartUpload,
+	row := q.queryRow(ctx, q.getCompletedMultipartUploadStmt, getCompletedMultipartUpload,
 		arg.Partition,
 		arg.BucketName,
 		arg.Name,
@@ -761,7 +761,7 @@ type GetMultipartObjectDataParams struct {
 }
 
 func (q *Queries) GetMultipartObjectData(ctx context.Context, arg GetMultipartObjectDataParams) ([][]byte, error) {
-	rows, err := q.db.QueryContext(ctx, getMultipartObjectData,
+	rows, err := q.query(ctx, q.getMultipartObjectDataStmt, getMultipartObjectData,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -800,7 +800,7 @@ type GetMultipartUploadParams struct {
 }
 
 func (q *Queries) GetMultipartUpload(ctx context.Context, arg GetMultipartUploadParams) (S3MultipartUpload, error) {
-	row := q.db.QueryRowContext(ctx, getMultipartUpload,
+	row := q.queryRow(ctx, q.getMultipartUploadStmt, getMultipartUpload,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -866,7 +866,7 @@ type GetMultipartUploadACLGrantsRow struct {
 }
 
 func (q *Queries) GetMultipartUploadACLGrants(ctx context.Context, arg GetMultipartUploadACLGrantsParams) ([]GetMultipartUploadACLGrantsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getMultipartUploadACLGrants,
+	rows, err := q.query(ctx, q.getMultipartUploadACLGrantsStmt, getMultipartUploadACLGrants,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -915,7 +915,7 @@ type GetMultipartUploadEncryptionContextRow struct {
 }
 
 func (q *Queries) GetMultipartUploadEncryptionContext(ctx context.Context, arg GetMultipartUploadEncryptionContextParams) ([]GetMultipartUploadEncryptionContextRow, error) {
-	rows, err := q.db.QueryContext(ctx, getMultipartUploadEncryptionContext,
+	rows, err := q.query(ctx, q.getMultipartUploadEncryptionContextStmt, getMultipartUploadEncryptionContext,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -962,7 +962,7 @@ type GetMultipartUploadEncryptionMetadataRow struct {
 }
 
 func (q *Queries) GetMultipartUploadEncryptionMetadata(ctx context.Context, arg GetMultipartUploadEncryptionMetadataParams) (GetMultipartUploadEncryptionMetadataRow, error) {
-	row := q.db.QueryRowContext(ctx, getMultipartUploadEncryptionMetadata,
+	row := q.queryRow(ctx, q.getMultipartUploadEncryptionMetadataStmt, getMultipartUploadEncryptionMetadata,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -995,7 +995,7 @@ type GetMultipartUploadMetadataRow struct {
 }
 
 func (q *Queries) GetMultipartUploadMetadata(ctx context.Context, arg GetMultipartUploadMetadataParams) ([]GetMultipartUploadMetadataRow, error) {
-	rows, err := q.db.QueryContext(ctx, getMultipartUploadMetadata,
+	rows, err := q.query(ctx, q.getMultipartUploadMetadataStmt, getMultipartUploadMetadata,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -1039,7 +1039,7 @@ type GetMultipartUploadTagsRow struct {
 }
 
 func (q *Queries) GetMultipartUploadTags(ctx context.Context, arg GetMultipartUploadTagsParams) ([]GetMultipartUploadTagsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getMultipartUploadTags,
+	rows, err := q.query(ctx, q.getMultipartUploadTagsStmt, getMultipartUploadTags,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -1071,7 +1071,7 @@ SELECT id, "partition", bucket_name, account_id, region, protocol, destination_a
 `
 
 func (q *Queries) GetNotificationDelivery(ctx context.Context, id string) (S3NotificationDelivery, error) {
-	row := q.db.QueryRowContext(ctx, getNotificationDelivery, id)
+	row := q.queryRow(ctx, q.getNotificationDeliveryStmt, getNotificationDelivery, id)
 	var i S3NotificationDelivery
 	err := row.Scan(
 		&i.ID,
@@ -1101,7 +1101,7 @@ type GetNotificationStateParams struct {
 }
 
 func (q *Queries) GetNotificationState(ctx context.Context, arg GetNotificationStateParams) (S3NotificationState, error) {
-	row := q.db.QueryRowContext(ctx, getNotificationState, arg.Partition, arg.BucketName)
+	row := q.queryRow(ctx, q.getNotificationStateStmt, getNotificationState, arg.Partition, arg.BucketName)
 	var i S3NotificationState
 	err := row.Scan(
 		&i.Partition,
@@ -1126,7 +1126,7 @@ type GetObjectParams struct {
 }
 
 func (q *Queries) GetObject(ctx context.Context, arg GetObjectParams) (S3ObjectVersion, error) {
-	row := q.db.QueryRowContext(ctx, getObject, arg.Partition, arg.BucketName, arg.Name)
+	row := q.queryRow(ctx, q.getObjectStmt, getObject, arg.Partition, arg.BucketName, arg.Name)
 	var i S3ObjectVersion
 	err := row.Scan(
 		&i.Partition,
@@ -1191,7 +1191,7 @@ type GetObjectTagsRow struct {
 }
 
 func (q *Queries) GetObjectTags(ctx context.Context, arg GetObjectTagsParams) ([]GetObjectTagsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getObjectTags,
+	rows, err := q.query(ctx, q.getObjectTagsStmt, getObjectTags,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -1230,7 +1230,7 @@ type GetObjectVersionParams struct {
 }
 
 func (q *Queries) GetObjectVersion(ctx context.Context, arg GetObjectVersionParams) (S3ObjectVersion, error) {
-	row := q.db.QueryRowContext(ctx, getObjectVersion,
+	row := q.queryRow(ctx, q.getObjectVersionStmt, getObjectVersion,
 		arg.Partition,
 		arg.BucketName,
 		arg.Name,
@@ -1301,7 +1301,7 @@ type GetObjectVersionACLGrantsRow struct {
 }
 
 func (q *Queries) GetObjectVersionACLGrants(ctx context.Context, arg GetObjectVersionACLGrantsParams) ([]GetObjectVersionACLGrantsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getObjectVersionACLGrants,
+	rows, err := q.query(ctx, q.getObjectVersionACLGrantsStmt, getObjectVersionACLGrants,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -1345,7 +1345,7 @@ type GetObjectVersionDataParams struct {
 }
 
 func (q *Queries) GetObjectVersionData(ctx context.Context, arg GetObjectVersionDataParams) ([]byte, error) {
-	row := q.db.QueryRowContext(ctx, getObjectVersionData,
+	row := q.queryRow(ctx, q.getObjectVersionDataStmt, getObjectVersionData,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -1373,7 +1373,7 @@ type GetObjectVersionEncryptionContextRow struct {
 }
 
 func (q *Queries) GetObjectVersionEncryptionContext(ctx context.Context, arg GetObjectVersionEncryptionContextParams) ([]GetObjectVersionEncryptionContextRow, error) {
-	rows, err := q.db.QueryContext(ctx, getObjectVersionEncryptionContext,
+	rows, err := q.query(ctx, q.getObjectVersionEncryptionContextStmt, getObjectVersionEncryptionContext,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -1420,7 +1420,7 @@ type GetObjectVersionEncryptionMetadataRow struct {
 }
 
 func (q *Queries) GetObjectVersionEncryptionMetadata(ctx context.Context, arg GetObjectVersionEncryptionMetadataParams) (GetObjectVersionEncryptionMetadataRow, error) {
-	row := q.db.QueryRowContext(ctx, getObjectVersionEncryptionMetadata,
+	row := q.queryRow(ctx, q.getObjectVersionEncryptionMetadataStmt, getObjectVersionEncryptionMetadata,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -1453,7 +1453,7 @@ type GetObjectVersionMetadataRow struct {
 }
 
 func (q *Queries) GetObjectVersionMetadata(ctx context.Context, arg GetObjectVersionMetadataParams) ([]GetObjectVersionMetadataRow, error) {
-	rows, err := q.db.QueryContext(ctx, getObjectVersionMetadata,
+	rows, err := q.query(ctx, q.getObjectVersionMetadataStmt, getObjectVersionMetadata,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -1498,7 +1498,7 @@ type ListAccessPointsParams struct {
 }
 
 func (q *Queries) ListAccessPoints(ctx context.Context, arg ListAccessPointsParams) ([]S3AccessPoint, error) {
-	rows, err := q.db.QueryContext(ctx, listAccessPoints,
+	rows, err := q.query(ctx, q.listAccessPointsStmt, listAccessPoints,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -1555,7 +1555,7 @@ type ListBucketsParams struct {
 }
 
 func (q *Queries) ListBuckets(ctx context.Context, arg ListBucketsParams) ([]S3Bucket, error) {
-	rows, err := q.db.QueryContext(ctx, listBuckets, arg.Partition, arg.AccountID)
+	rows, err := q.query(ctx, q.listBucketsStmt, listBuckets, arg.Partition, arg.AccountID)
 	if err != nil {
 		return nil, err
 	}
@@ -1631,7 +1631,7 @@ type ListMultipartPartsRow struct {
 }
 
 func (q *Queries) ListMultipartParts(ctx context.Context, arg ListMultipartPartsParams) ([]ListMultipartPartsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listMultipartParts,
+	rows, err := q.query(ctx, q.listMultipartPartsStmt, listMultipartParts,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -1669,27 +1669,30 @@ func (q *Queries) ListMultipartParts(ctx context.Context, arg ListMultipartParts
 const listMultipartUploads = `-- name: ListMultipartUploads :many
 SELECT u."partition", u.bucket_name, u.object_name, u.upload_id, u.created_order, u.modified, u.initiator, u.superseded, u.size, u.etag, u.checksum_algorithm, u.checksum, u.checksum_type, u.content_type, u.content_encoding, u.content_language, u.content_disposition, u.cache_control, u.expires, u.website_redirect_location, u.encryption_algorithm, u.kms_key_arn, u.owner_account_id, u.owner_id, u.acl_legacy, u.retention_mode, u.retain_until, u.retention_modified, u.event_hold, u.event_hold_days, u.event_hold_years, u.legal_hold, u.legal_hold_modified, u.storage_class FROM s3_multipart_uploads AS u
 WHERE u.partition = ?1 AND u.bucket_name = ?2
-AND substr(CAST(u.object_name AS BLOB), 1, length(CAST(?3 AS BLOB))) = CAST(?3 AS BLOB)
-AND (u.object_name > ?4 COLLATE BINARY OR (
-    u.object_name = ?4 COLLATE BINARY AND u.created_order > ?5
+AND u.object_name >= ?3 COLLATE BINARY
+AND u.object_name < ?4 COLLATE BINARY
+AND (u.object_name > ?5 COLLATE BINARY OR (
+    u.object_name = ?5 COLLATE BINARY AND u.created_order > ?6
 ))
-ORDER BY u.object_name COLLATE BINARY, u.created_order LIMIT ?6
+ORDER BY u.object_name COLLATE BINARY, u.created_order LIMIT ?7
 `
 
 type ListMultipartUploadsParams struct {
 	Partition  string
 	BucketName string
-	Prefix     []byte
+	StartKey   string
+	PrefixEnd  string
 	AfterKey   string
 	AfterOrder sql.NullInt64
 	RowLimit   int64
 }
 
 func (q *Queries) ListMultipartUploads(ctx context.Context, arg ListMultipartUploadsParams) ([]S3MultipartUpload, error) {
-	rows, err := q.db.QueryContext(ctx, listMultipartUploads,
+	rows, err := q.query(ctx, q.listMultipartUploadsStmt, listMultipartUploads,
 		arg.Partition,
 		arg.BucketName,
-		arg.Prefix,
+		arg.StartKey,
+		arg.PrefixEnd,
 		arg.AfterKey,
 		arg.AfterOrder,
 		arg.RowLimit,
@@ -1762,7 +1765,7 @@ type ListNotificationEventsParams struct {
 }
 
 func (q *Queries) ListNotificationEvents(ctx context.Context, arg ListNotificationEventsParams) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, listNotificationEvents,
+	rows, err := q.query(ctx, q.listNotificationEventsStmt, listNotificationEvents,
 		arg.Partition,
 		arg.BucketName,
 		arg.Applied,
@@ -1806,7 +1809,7 @@ type ListNotificationFiltersRow struct {
 }
 
 func (q *Queries) ListNotificationFilters(ctx context.Context, arg ListNotificationFiltersParams) ([]ListNotificationFiltersRow, error) {
-	rows, err := q.db.QueryContext(ctx, listNotificationFilters,
+	rows, err := q.query(ctx, q.listNotificationFiltersStmt, listNotificationFilters,
 		arg.Partition,
 		arg.BucketName,
 		arg.Applied,
@@ -1844,7 +1847,7 @@ type ListNotificationRulesParams struct {
 }
 
 func (q *Queries) ListNotificationRules(ctx context.Context, arg ListNotificationRulesParams) ([]S3NotificationRule, error) {
-	rows, err := q.db.QueryContext(ctx, listNotificationRules, arg.Partition, arg.BucketName, arg.Applied)
+	rows, err := q.query(ctx, q.listNotificationRulesStmt, listNotificationRules, arg.Partition, arg.BucketName, arg.Applied)
 	if err != nil {
 		return nil, err
 	}
@@ -1896,7 +1899,7 @@ type ListObjectPartsRow struct {
 }
 
 func (q *Queries) ListObjectParts(ctx context.Context, arg ListObjectPartsParams) ([]ListObjectPartsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listObjectParts,
+	rows, err := q.query(ctx, q.listObjectPartsStmt, listObjectParts,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -1932,22 +1935,24 @@ func (q *Queries) ListObjectParts(ctx context.Context, arg ListObjectPartsParams
 const listObjectVersions = `-- name: ListObjectVersions :many
 SELECT v."partition", v.bucket_name, v.name, v.version_id, v.sequence, v.delete_marker, v.modified, v.size, v.etag, v.checksum_algorithm, v.checksum, v.content_type, v.content_encoding, v.content_language, v.content_disposition, v.cache_control, v.expires, v.encryption_algorithm, v.kms_key_arn, v.website_redirect_location, v.created_order, v.upload_id, v.checksum_type, v.owner_account_id, v.owner_id, v.acl_legacy, v.retention_mode, v.retain_until, v.retention_modified, v.event_hold, v.event_hold_days, v.event_hold_years, v.legal_hold, v.legal_hold_modified, v.storage_class, v.replica, v.tiering_accessed, v.archive_tier, v.multipart_checksum_explicit FROM s3_object_versions AS v
 WHERE v.partition = ?1 AND v.bucket_name = ?2
-AND substr(CAST(v.name AS BLOB), 1, length(CAST(?3 AS BLOB))) = CAST(?3 AS BLOB)
-AND (v.name > ?4 COLLATE BINARY OR (
-    v.name = ?4 COLLATE BINARY
-    AND v.created_order < COALESCE(?5, (
+AND v.name >= ?3 COLLATE BINARY
+AND v.name < ?4 COLLATE BINARY
+AND (v.name > ?5 COLLATE BINARY OR (
+    v.name = ?5 COLLATE BINARY
+    AND v.created_order < COALESCE(?6, (
         SELECT cursor.created_order FROM s3_object_versions AS cursor
         WHERE cursor.partition = ?1 AND cursor.bucket_name = ?2
-        AND cursor.name = ?4 AND cursor.version_id = ?6
+        AND cursor.name = ?5 AND cursor.version_id = ?7
     ))
 ))
-ORDER BY v.name COLLATE BINARY, v.created_order DESC LIMIT ?7
+ORDER BY v.name COLLATE BINARY, v.created_order DESC LIMIT ?8
 `
 
 type ListObjectVersionsParams struct {
 	Partition    string
 	BucketName   string
-	Prefix       []byte
+	StartKey     string
+	PrefixEnd    string
 	AfterKey     string
 	AfterOrder   sql.NullInt64
 	AfterVersion string
@@ -1955,10 +1960,11 @@ type ListObjectVersionsParams struct {
 }
 
 func (q *Queries) ListObjectVersions(ctx context.Context, arg ListObjectVersionsParams) ([]S3ObjectVersion, error) {
-	rows, err := q.db.QueryContext(ctx, listObjectVersions,
+	rows, err := q.query(ctx, q.listObjectVersionsStmt, listObjectVersions,
 		arg.Partition,
 		arg.BucketName,
-		arg.Prefix,
+		arg.StartKey,
+		arg.PrefixEnd,
 		arg.AfterKey,
 		arg.AfterOrder,
 		arg.AfterVersion,
@@ -2028,8 +2034,8 @@ func (q *Queries) ListObjectVersions(ctx context.Context, arg ListObjectVersions
 const listObjects = `-- name: ListObjects :many
 SELECT v."partition", v.bucket_name, v.name, v.version_id, v.sequence, v.delete_marker, v.modified, v.size, v.etag, v.checksum_algorithm, v.checksum, v.content_type, v.content_encoding, v.content_language, v.content_disposition, v.cache_control, v.expires, v.encryption_algorithm, v.kms_key_arn, v.website_redirect_location, v.created_order, v.upload_id, v.checksum_type, v.owner_account_id, v.owner_id, v.acl_legacy, v.retention_mode, v.retain_until, v.retention_modified, v.event_hold, v.event_hold_days, v.event_hold_years, v.legal_hold, v.legal_hold_modified, v.storage_class, v.replica, v.tiering_accessed, v.archive_tier, v.multipart_checksum_explicit FROM s3_object_versions AS v
 WHERE v.partition = ?1 AND v.bucket_name = ?2
-AND v.name > ?3 COLLATE BINARY
-AND substr(CAST(v.name AS BLOB), 1, length(CAST(?4 AS BLOB))) = CAST(?4 AS BLOB)
+AND v.name >= ?3 COLLATE BINARY
+AND v.name < ?4 COLLATE BINARY
 AND NOT v.delete_marker
 AND NOT EXISTS (
     SELECT 1 FROM s3_object_versions AS newer
@@ -2041,17 +2047,17 @@ ORDER BY v.name COLLATE BINARY LIMIT ?5
 type ListObjectsParams struct {
 	Partition  string
 	BucketName string
-	AfterKey   string
-	Prefix     []byte
+	StartKey   string
+	PrefixEnd  string
 	RowLimit   int64
 }
 
 func (q *Queries) ListObjects(ctx context.Context, arg ListObjectsParams) ([]S3ObjectVersion, error) {
-	rows, err := q.db.QueryContext(ctx, listObjects,
+	rows, err := q.query(ctx, q.listObjectsStmt, listObjects,
 		arg.Partition,
 		arg.BucketName,
-		arg.AfterKey,
-		arg.Prefix,
+		arg.StartKey,
+		arg.PrefixEnd,
 		arg.RowLimit,
 	)
 	if err != nil {
@@ -2128,7 +2134,7 @@ type NextNotificationChangeRow struct {
 }
 
 func (q *Queries) NextNotificationChange(ctx context.Context) (NextNotificationChangeRow, error) {
-	row := q.db.QueryRowContext(ctx, nextNotificationChange)
+	row := q.queryRow(ctx, q.nextNotificationChangeStmt, nextNotificationChange)
 	var i NextNotificationChangeRow
 	err := row.Scan(
 		&i.Partition,
@@ -2150,7 +2156,7 @@ type NextNotificationDeliveryRow struct {
 }
 
 func (q *Queries) NextNotificationDelivery(ctx context.Context) (NextNotificationDeliveryRow, error) {
-	row := q.db.QueryRowContext(ctx, nextNotificationDelivery)
+	row := q.queryRow(ctx, q.nextNotificationDeliveryStmt, nextNotificationDelivery)
 	var i NextNotificationDeliveryRow
 	err := row.Scan(&i.ID, &i.Due, &i.Version)
 	return i, err
@@ -2161,7 +2167,7 @@ UPDATE s3_object_version_sequence SET sequence = sequence + 1 WHERE singleton = 
 `
 
 func (q *Queries) NextObjectSequence(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, nextObjectSequence)
+	row := q.queryRow(ctx, q.nextObjectSequenceStmt, nextObjectSequence)
 	var sequence int64
 	err := row.Scan(&sequence)
 	return sequence, err
@@ -2182,7 +2188,7 @@ type PublishMultipartPartParams struct {
 }
 
 func (q *Queries) PublishMultipartPart(ctx context.Context, arg PublishMultipartPartParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, publishMultipartPart,
+	result, err := q.exec(ctx, q.publishMultipartPartStmt, publishMultipartPart,
 		arg.VersionID,
 		arg.Partition,
 		arg.BucketName,
@@ -2211,7 +2217,7 @@ type PublishMultipartUploadTagsParams struct {
 }
 
 func (q *Queries) PublishMultipartUploadTags(ctx context.Context, arg PublishMultipartUploadTagsParams) error {
-	_, err := q.db.ExecContext(ctx, publishMultipartUploadTags,
+	_, err := q.exec(ctx, q.publishMultipartUploadTagsStmt, publishMultipartUploadTags,
 		arg.VersionID,
 		arg.Partition,
 		arg.BucketName,
@@ -2257,7 +2263,7 @@ type PutAccessPointParams struct {
 }
 
 func (q *Queries) PutAccessPoint(ctx context.Context, arg PutAccessPointParams) error {
-	_, err := q.db.ExecContext(ctx, putAccessPoint,
+	_, err := q.exec(ctx, q.putAccessPointStmt, putAccessPoint,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -2294,7 +2300,7 @@ type PutAccessPointPolicyPrincipalParams struct {
 }
 
 func (q *Queries) PutAccessPointPolicyPrincipal(ctx context.Context, arg PutAccessPointPolicyPrincipalParams) error {
-	_, err := q.db.ExecContext(ctx, putAccessPointPolicyPrincipal,
+	_, err := q.exec(ctx, q.putAccessPointPolicyPrincipalStmt, putAccessPointPolicyPrincipal,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -2320,7 +2326,7 @@ type PutAccessPointTagParams struct {
 }
 
 func (q *Queries) PutAccessPointTag(ctx context.Context, arg PutAccessPointTagParams) error {
-	_, err := q.db.ExecContext(ctx, putAccessPointTag,
+	_, err := q.exec(ctx, q.putAccessPointTagStmt, putAccessPointTag,
 		arg.Partition,
 		arg.AccountID,
 		arg.Region,
@@ -2348,7 +2354,7 @@ type PutAccountPublicAccessBlockParams struct {
 }
 
 func (q *Queries) PutAccountPublicAccessBlock(ctx context.Context, arg PutAccountPublicAccessBlockParams) error {
-	_, err := q.db.ExecContext(ctx, putAccountPublicAccessBlock,
+	_, err := q.exec(ctx, q.putAccountPublicAccessBlockStmt, putAccountPublicAccessBlock,
 		arg.Partition,
 		arg.AccountID,
 		arg.BlockPublicAcls,
@@ -2404,7 +2410,7 @@ type PutBucketParams struct {
 }
 
 func (q *Queries) PutBucket(ctx context.Context, arg PutBucketParams) error {
-	_, err := q.db.ExecContext(ctx, putBucket,
+	_, err := q.exec(ctx, q.putBucketStmt, putBucket,
 		arg.Partition,
 		arg.Name,
 		arg.AccountID,
@@ -2452,7 +2458,7 @@ type PutBucketACLGrantParams struct {
 }
 
 func (q *Queries) PutBucketACLGrant(ctx context.Context, arg PutBucketACLGrantParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketACLGrant,
+	_, err := q.exec(ctx, q.putBucketACLGrantStmt, putBucketACLGrant,
 		arg.Partition,
 		arg.BucketName,
 		arg.Position,
@@ -2476,7 +2482,7 @@ type PutBucketPolicyPrincipalParams struct {
 }
 
 func (q *Queries) PutBucketPolicyPrincipal(ctx context.Context, arg PutBucketPolicyPrincipalParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketPolicyPrincipal,
+	_, err := q.exec(ctx, q.putBucketPolicyPrincipalStmt, putBucketPolicyPrincipal,
 		arg.Partition,
 		arg.BucketName,
 		arg.Principal,
@@ -2502,7 +2508,7 @@ type PutBucketPublicAccessParams struct {
 }
 
 func (q *Queries) PutBucketPublicAccess(ctx context.Context, arg PutBucketPublicAccessParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketPublicAccess,
+	_, err := q.exec(ctx, q.putBucketPublicAccessStmt, putBucketPublicAccess,
 		arg.Partition,
 		arg.BucketName,
 		arg.BlockPublicAcls,
@@ -2525,7 +2531,7 @@ type PutBucketTagParams struct {
 }
 
 func (q *Queries) PutBucketTag(ctx context.Context, arg PutBucketTagParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketTag,
+	_, err := q.exec(ctx, q.putBucketTagStmt, putBucketTag,
 		arg.Partition,
 		arg.BucketName,
 		arg.Key,
@@ -2555,7 +2561,7 @@ type PutMultipartPartParams struct {
 }
 
 func (q *Queries) PutMultipartPart(ctx context.Context, arg PutMultipartPartParams) error {
-	_, err := q.db.ExecContext(ctx, putMultipartPart,
+	_, err := q.exec(ctx, q.putMultipartPartStmt, putMultipartPart,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -2616,7 +2622,7 @@ type PutMultipartUploadParams struct {
 }
 
 func (q *Queries) PutMultipartUpload(ctx context.Context, arg PutMultipartUploadParams) error {
-	_, err := q.db.ExecContext(ctx, putMultipartUpload,
+	_, err := q.exec(ctx, q.putMultipartUploadStmt, putMultipartUpload,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -2672,7 +2678,7 @@ type PutMultipartUploadACLGrantParams struct {
 }
 
 func (q *Queries) PutMultipartUploadACLGrant(ctx context.Context, arg PutMultipartUploadACLGrantParams) error {
-	_, err := q.db.ExecContext(ctx, putMultipartUploadACLGrant,
+	_, err := q.exec(ctx, q.putMultipartUploadACLGrantStmt, putMultipartUploadACLGrant,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -2700,7 +2706,7 @@ type PutMultipartUploadEncryptionContextParams struct {
 }
 
 func (q *Queries) PutMultipartUploadEncryptionContext(ctx context.Context, arg PutMultipartUploadEncryptionContextParams) error {
-	_, err := q.db.ExecContext(ctx, putMultipartUploadEncryptionContext,
+	_, err := q.exec(ctx, q.putMultipartUploadEncryptionContextStmt, putMultipartUploadEncryptionContext,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -2728,7 +2734,7 @@ type PutMultipartUploadEncryptionMetadataParams struct {
 }
 
 func (q *Queries) PutMultipartUploadEncryptionMetadata(ctx context.Context, arg PutMultipartUploadEncryptionMetadataParams) error {
-	_, err := q.db.ExecContext(ctx, putMultipartUploadEncryptionMetadata,
+	_, err := q.exec(ctx, q.putMultipartUploadEncryptionMetadataStmt, putMultipartUploadEncryptionMetadata,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -2755,7 +2761,7 @@ type PutMultipartUploadMetadataParams struct {
 }
 
 func (q *Queries) PutMultipartUploadMetadata(ctx context.Context, arg PutMultipartUploadMetadataParams) error {
-	_, err := q.db.ExecContext(ctx, putMultipartUploadMetadata,
+	_, err := q.exec(ctx, q.putMultipartUploadMetadataStmt, putMultipartUploadMetadata,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -2780,7 +2786,7 @@ type PutMultipartUploadTagParams struct {
 }
 
 func (q *Queries) PutMultipartUploadTag(ctx context.Context, arg PutMultipartUploadTagParams) error {
-	_, err := q.db.ExecContext(ctx, putMultipartUploadTag,
+	_, err := q.exec(ctx, q.putMultipartUploadTagStmt, putMultipartUploadTag,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -2814,7 +2820,7 @@ type PutNotificationDeliveryParams struct {
 }
 
 func (q *Queries) PutNotificationDelivery(ctx context.Context, arg PutNotificationDeliveryParams) error {
-	_, err := q.db.ExecContext(ctx, putNotificationDelivery,
+	_, err := q.exec(ctx, q.putNotificationDeliveryStmt, putNotificationDelivery,
 		arg.ID,
 		arg.Partition,
 		arg.BucketName,
@@ -2847,7 +2853,7 @@ type PutNotificationEventParams struct {
 }
 
 func (q *Queries) PutNotificationEvent(ctx context.Context, arg PutNotificationEventParams) error {
-	_, err := q.db.ExecContext(ctx, putNotificationEvent,
+	_, err := q.exec(ctx, q.putNotificationEventStmt, putNotificationEvent,
 		arg.Partition,
 		arg.BucketName,
 		arg.Applied,
@@ -2874,7 +2880,7 @@ type PutNotificationFilterParams struct {
 }
 
 func (q *Queries) PutNotificationFilter(ctx context.Context, arg PutNotificationFilterParams) error {
-	_, err := q.db.ExecContext(ctx, putNotificationFilter,
+	_, err := q.exec(ctx, q.putNotificationFilterStmt, putNotificationFilter,
 		arg.Partition,
 		arg.BucketName,
 		arg.Applied,
@@ -2902,7 +2908,7 @@ type PutNotificationRuleParams struct {
 }
 
 func (q *Queries) PutNotificationRule(ctx context.Context, arg PutNotificationRuleParams) error {
-	_, err := q.db.ExecContext(ctx, putNotificationRule,
+	_, err := q.exec(ctx, q.putNotificationRuleStmt, putNotificationRule,
 		arg.Partition,
 		arg.BucketName,
 		arg.Applied,
@@ -2931,7 +2937,7 @@ type PutNotificationStateParams struct {
 }
 
 func (q *Queries) PutNotificationState(ctx context.Context, arg PutNotificationStateParams) error {
-	_, err := q.db.ExecContext(ctx, putNotificationState,
+	_, err := q.exec(ctx, q.putNotificationStateStmt, putNotificationState,
 		arg.Partition,
 		arg.BucketName,
 		arg.DesiredEventBridge,
@@ -2957,7 +2963,7 @@ type PutObjectTagParams struct {
 }
 
 func (q *Queries) PutObjectTag(ctx context.Context, arg PutObjectTagParams) error {
-	_, err := q.db.ExecContext(ctx, putObjectTag,
+	_, err := q.exec(ctx, q.putObjectTagStmt, putObjectTag,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -3019,7 +3025,7 @@ type PutObjectVersionParams struct {
 }
 
 func (q *Queries) PutObjectVersion(ctx context.Context, arg PutObjectVersionParams) error {
-	_, err := q.db.ExecContext(ctx, putObjectVersion,
+	_, err := q.exec(ctx, q.putObjectVersionStmt, putObjectVersion,
 		arg.Partition,
 		arg.BucketName,
 		arg.Name,
@@ -3080,7 +3086,7 @@ type PutObjectVersionACLGrantParams struct {
 }
 
 func (q *Queries) PutObjectVersionACLGrant(ctx context.Context, arg PutObjectVersionACLGrantParams) error {
-	_, err := q.db.ExecContext(ctx, putObjectVersionACLGrant,
+	_, err := q.exec(ctx, q.putObjectVersionACLGrantStmt, putObjectVersionACLGrant,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -3112,7 +3118,7 @@ type PutObjectVersionDataParams struct {
 }
 
 func (q *Queries) PutObjectVersionData(ctx context.Context, arg PutObjectVersionDataParams) error {
-	_, err := q.db.ExecContext(ctx, putObjectVersionData,
+	_, err := q.exec(ctx, q.putObjectVersionDataStmt, putObjectVersionData,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -3140,7 +3146,7 @@ type PutObjectVersionEncryptionContextParams struct {
 }
 
 func (q *Queries) PutObjectVersionEncryptionContext(ctx context.Context, arg PutObjectVersionEncryptionContextParams) error {
-	_, err := q.db.ExecContext(ctx, putObjectVersionEncryptionContext,
+	_, err := q.exec(ctx, q.putObjectVersionEncryptionContextStmt, putObjectVersionEncryptionContext,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -3165,7 +3171,7 @@ type PutObjectVersionMetadataParams struct {
 }
 
 func (q *Queries) PutObjectVersionMetadata(ctx context.Context, arg PutObjectVersionMetadataParams) error {
-	_, err := q.db.ExecContext(ctx, putObjectVersionMetadata,
+	_, err := q.exec(ctx, q.putObjectVersionMetadataStmt, putObjectVersionMetadata,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -3191,7 +3197,7 @@ type ReplaceObjectVersionACLOwnerParams struct {
 }
 
 func (q *Queries) ReplaceObjectVersionACLOwner(ctx context.Context, arg ReplaceObjectVersionACLOwnerParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, replaceObjectVersionACLOwner,
+	result, err := q.exec(ctx, q.replaceObjectVersionACLOwnerStmt, replaceObjectVersionACLOwner,
 		arg.OwnerAccountID,
 		arg.OwnerID,
 		arg.Partition,
@@ -3220,7 +3226,7 @@ type ReplaceObjectVersionEncryptionParams struct {
 }
 
 func (q *Queries) ReplaceObjectVersionEncryption(ctx context.Context, arg ReplaceObjectVersionEncryptionParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, replaceObjectVersionEncryption,
+	result, err := q.exec(ctx, q.replaceObjectVersionEncryptionStmt, replaceObjectVersionEncryption,
 		arg.EncryptionAlgorithm,
 		arg.KmsKeyArn,
 		arg.Partition,
@@ -3248,7 +3254,7 @@ type ReplaceObjectVersionEncryptionKeyParams struct {
 }
 
 func (q *Queries) ReplaceObjectVersionEncryptionKey(ctx context.Context, arg ReplaceObjectVersionEncryptionKeyParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, replaceObjectVersionEncryptionKey,
+	result, err := q.exec(ctx, q.replaceObjectVersionEncryptionKeyStmt, replaceObjectVersionEncryptionKey,
 		arg.EncryptionKey,
 		arg.Partition,
 		arg.BucketName,
@@ -3276,7 +3282,7 @@ type ReplaceObjectVersionLegalHoldParams struct {
 }
 
 func (q *Queries) ReplaceObjectVersionLegalHold(ctx context.Context, arg ReplaceObjectVersionLegalHoldParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, replaceObjectVersionLegalHold,
+	result, err := q.exec(ctx, q.replaceObjectVersionLegalHoldStmt, replaceObjectVersionLegalHold,
 		arg.LegalHold,
 		arg.LegalHoldModified,
 		arg.Partition,
@@ -3309,7 +3315,7 @@ type ReplaceObjectVersionRetentionParams struct {
 }
 
 func (q *Queries) ReplaceObjectVersionRetention(ctx context.Context, arg ReplaceObjectVersionRetentionParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, replaceObjectVersionRetention,
+	result, err := q.exec(ctx, q.replaceObjectVersionRetentionStmt, replaceObjectVersionRetention,
 		arg.RetentionMode,
 		arg.RetainUntil,
 		arg.EventHold,
@@ -3359,7 +3365,7 @@ type SupersedeDeletedMultipartUploadsParams struct {
 }
 
 func (q *Queries) SupersedeDeletedMultipartUploads(ctx context.Context, arg SupersedeDeletedMultipartUploadsParams) error {
-	_, err := q.db.ExecContext(ctx, supersedeDeletedMultipartUploads,
+	_, err := q.exec(ctx, q.supersedeDeletedMultipartUploadsStmt, supersedeDeletedMultipartUploads,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -3381,7 +3387,7 @@ type SupersedeOlderMultipartUploadsParams struct {
 }
 
 func (q *Queries) SupersedeOlderMultipartUploads(ctx context.Context, arg SupersedeOlderMultipartUploadsParams) error {
-	_, err := q.db.ExecContext(ctx, supersedeOlderMultipartUploads,
+	_, err := q.exec(ctx, q.supersedeOlderMultipartUploadsStmt, supersedeOlderMultipartUploads,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,

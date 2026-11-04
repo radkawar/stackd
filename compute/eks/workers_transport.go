@@ -16,6 +16,18 @@ func (k *K3d) workerArguments(state diskState, dir string) ([]string, error) {
 	token := sha256.Sum256([]byte(state.Token + "/managed-workers"))
 	agentToken := hex.EncodeToString(token[:])
 	args := []string{"--k3s-arg", "--agent-token=" + agentToken + "@server:0", "--k3s-arg", "--token=" + agentToken + "@agent:0"}
+	storageArgs, err := state.StoragePolicy.kubeletArguments()
+	if err != nil {
+		return nil, err
+	}
+	for _, arg := range storageArgs {
+		args = append(args, "--k3s-arg", "--kubelet-arg="+arg+"@agent:0")
+	}
+	registryArgs, err := k.ecrWorkerArguments(state, dir)
+	if err != nil {
+		return nil, err
+	}
+	args = append(args, registryArgs...)
 	if state.WorkerAdvertiseHost == "" {
 		return args, nil
 	}

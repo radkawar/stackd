@@ -23,7 +23,12 @@ var publicPool = netip.MustParsePrefix("198.18.0.0/15")
 // an old assignment snapshot must not be submitted after its successor. EC2
 // lifecycle reconciliation supplies this ordering; native flock alone cannot
 // determine which control-plane snapshot is current.
-func (b *Bridges) ApplyPolicy(ctx context.Context, name string, spec Specification, policy Policy, peer string, options Options, bridge Bridge) error {
+func (b *Bridges) ApplyPolicy(ctx context.Context, name string, spec Specification, policy Policy, peer string, options Options, bridge Bridge) (resultErr error) {
+	defer func() {
+		if resultErr != nil && len(policy.PodRoutes) != 0 {
+			resultErr = &PodRouteInstallError{Err: resultErr}
+		}
+	}()
 	if !policyTableName.MatchString(name) {
 		return errors.New("invalid native attachment policy identity")
 	}
@@ -44,6 +49,13 @@ func (b *Bridges) ApplyPolicy(ctx context.Context, name string, spec Specificati
 		}
 		return err
 	}
+	podRoutes, err := podRouteEnvironment(policy.PodRoutes)
+	if err != nil {
+		if options.flow != nil {
+			b.retirePolicyFlow(ctx, options.flow.namespace, options.flow.registration)
+		}
+		return err
+	}
 	public, table := "", ""
 	if policy.PublicEgress && policy.PublicIPv4.Is4() {
 		public = policy.PublicIPv4.String()
@@ -54,6 +66,7 @@ func (b *Bridges) ApplyPolicy(ctx context.Context, name string, spec Specificati
 		"PRIVATE=" + spec.Address.String(), "POOL=" + spec.Pool.String(),
 		"BRIDGE=" + bridge.Device, "GATEWAY=" + spec.Gateway.String(),
 		"FLOW_CAPTURE=" + fmt.Sprint(options.flow != nil),
+		podRoutes,
 	}, spec.FlowCaptureNamespace, options.flow, false)
 }
 
@@ -241,7 +254,7 @@ fi
 // destination bridge still evaluates SG/NACL policy before guest delivery.
 // Docker's direct-routing raw guard also needs an exact tracked-reply exception.
 // It does not bypass the subsequent bridge SG/NACL evaluation.
-const nativePolicyScript = `
+const nativePolicyScript = nativePodRoutesPrepareScript + `
 fail() { printf '%s\n' "$*" >&2; exit 1; }
 tables=$(nft -j list tables)
 remember_flow() {
@@ -473,4 +486,4 @@ insert rule ip raw PREROUTING iifname \"$BRIDGE\" ip saddr $PRIVATE ct direction
 "
 fi
 printf '%s' "$finish" | nft -f -
-`
+` + nativePodRoutesFinishScript

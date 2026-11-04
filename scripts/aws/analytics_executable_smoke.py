@@ -1,10 +1,13 @@
 """Run the owned Glue -> S3 -> Athena workflow through the actual stackd binary.
 
-This is local-only runtime proof, not a native AWS probe. The caller supplies an
-empty owned state directory and preinstalled runtime images. No host AWS identity
-is forwarded. The retained report records observations, never access-key secrets.
+This is owned runtime proof, not a native AWS probe. The caller supplies an
+empty private state directory and preinstalled runtime images. Remote Docker
+requires explicit controller/native callback routes. No host AWS identity is
+forwarded. Receipts, container configuration and logs stay in the private state
+directory; do not publish that directory or the retained report.
 """
 import argparse
+import base64
 import csv
 import hashlib
 import io
@@ -13,10 +16,13 @@ import os
 from pathlib import Path
 import re
 import socket
+import sqlite3
 import subprocess
 import tempfile
+import tarfile
 import time
 import urllib.request
+from urllib.parse import urlsplit
 import uuid
 
 from aws_cli import run, result
@@ -45,6 +51,9 @@ class Application:
                         AWS_MAX_ATTEMPTS="1", AWS_PAGER="")
         self.controller = StackdProcess(self.state)
         self.owned_containers = set()
+        self.athena_containers = {}
+        self.query_handles = {}
+        self.native_http = urllib.request.build_opener(urllib.request.ProxyHandler({}))
         self.secrets = set()
         self.report = {"endpoint": self.endpoint, "observations": {}, "cleanup": {}, "controllers": self.controller.runs}
 
@@ -52,10 +61,15 @@ class Application:
         command = [str(Path(self.args.binary).resolve()), "-listen", f"0.0.0.0:{self.port}",
                    "-public-endpoint", self.endpoint, "-database", str(self.state / "analytics.sqlite"),
                    "-docker-host", self.args.docker_host, "-glue-runtime", "-athena-runtime",
-                   "-compute-endpoint", f"http://host.docker.internal:{self.port}"]
+                   "-compute-endpoint", self.args.compute_endpoint.replace("{port}", str(self.port))
+                   if self.args.compute_endpoint else f"http://host.docker.internal:{self.port}",
+                   "-athena-endpoint-host", self.args.athena_endpoint_host]
         for field, flag in (("glue_spark_image", "-glue-spark-image"),
                             ("glue_python_image", "-glue-python-image"),
-                            ("athena_image", "-athena-image")):
+                            ("athena_image", "-athena-image"),
+                            ("athena_hive_ddl_image", "-athena-hive-ddl-image"),
+                            ("athena_callback_listen", "-athena-callback-listen"),
+                            ("athena_callback_host", "-athena-callback-host")):
             value = getattr(self.args, field)
             if value:
                 command += [flag, value]
@@ -105,10 +119,8 @@ class Application:
         if service == "glue" and operation == "start-job-run":
             identity = f"arn:aws:glue:us-east-1:000000000000:job/{parameters['JobName']}/{observed['output']['JobRunId']}/attempt-0"
             self.owned_containers.add("stackd-glue-" + hashlib.sha256(identity.encode()).hexdigest())
-        elif service == "athena" and operation == "start-query-execution":
-            identity = "aws\x00" + "000000000000\x00us-east-1\x00" + observed["output"]["QueryExecutionId"]
-            handle = "stackd-athena-" + hashlib.sha256(identity.encode()).hexdigest()
-            self.owned_containers.update((handle, handle+"-hiveddl"))
+        if service == "athena":
+            self.remember_athena_receipts()
         return observed["output"]
 
     def put(self, bucket, key, body):
@@ -143,30 +155,168 @@ class Application:
         require(output.returncode == 0, "owned native job container was not found")
         return output.stdout.strip()
 
+    def remember_athena_receipts(self):
+        receipts = {}
+        directory = self.state / "analytics.sqlite.athena"
+        for path in directory.glob("stackd-athena-*.json"):
+            try:
+                metadata = path.lstat()
+                require(path.is_file() and not path.is_symlink() and metadata.st_mode & 0o077 == 0,
+                        "Athena ownership receipt is not a private regular file")
+                receipt = json.loads(path.read_text())
+            except FileNotFoundError:
+                continue  # Retirement can unlink a receipt between listing and reading.
+            engine = receipt.get("engine", "")
+            require(re.fullmatch(r"stackd-athena-[0-9a-f]{64}", engine) is not None
+                    and path.name == engine + ".json" and bool(receipt.get("owner"))
+                    and re.fullmatch(r"sha256:[0-9a-f]{64}", receipt.get("image", "")) is not None,
+                    "invalid Athena ownership receipt")
+            self.remember_athena_container(engine, engine, receipt["owner"], receipt["image"])
+            parser = receipt.get("parser", "")
+            if parser:
+                require(re.fullmatch(re.escape(engine) + r"-[0-9a-f]{64}", parser) is not None
+                        and re.fullmatch(r"sha256:[0-9a-f]{64}", receipt.get("parserImage", "")) is not None,
+                        "invalid Athena parser ownership receipt")
+                self.remember_athena_container(parser + "-hiveddl", parser, receipt["owner"], receipt["parserImage"])
+            receipts[engine] = receipt
+        return receipts
+
+    def remember_athena_container(self, name, execution, owner, image):
+        identity = {"execution": execution, "owner": owner, "image": image}
+        require(name not in self.athena_containers or self.athena_containers[name] == identity,
+                "Athena container ownership identity changed")
+        self.athena_containers[name] = identity
+        self.owned_containers.add(name)
+
+    def persisted_query_handle(self, query_id):
+        database = self.state / "analytics.sqlite"
+        with sqlite3.connect(database.as_uri() + "?mode=ro", uri=True, timeout=5) as connection:
+            row = connection.execute(
+                "SELECT engine_id FROM athena_queries WHERE key_scope_partition = ? "
+                "AND key_scope_account_id = ? AND key_scope_region = ? AND key_name = ?",
+                ("aws", "000000000000", "us-east-1", query_id)).fetchone()
+        require(row is not None, "owned Athena query was not persisted")
+        handle = row[0]
+        if handle:
+            require(re.fullmatch(r"stackd-athena-[0-9a-f]{64}/[0-9a-f]{64}", handle) is not None,
+                    "invalid persisted Athena execution identity")
+            require(query_id not in self.query_handles or self.query_handles[query_id] == handle,
+                    "Athena query execution identity changed")
+            self.query_handles[query_id] = handle
+        return handle
+
+    def inspect_athena_container(self, name, running=False):
+        output = subprocess.run(["docker", "--host", self.args.docker_host, "inspect", name],
+                                capture_output=True, text=True, timeout=10)
+        require(output.returncode == 0, "owned Athena container inspection failed")
+        states = json.loads(output.stdout)
+        require(len(states) == 1 and states[0].get("Name") == "/" + name,
+                "Athena inspection did not select the exact container")
+        state = states[0]
+        identity = self.athena_containers[name]
+        labels = state.get("Config", {}).get("Labels") or {}
+        require(labels.get("stackd.athena.execution") == identity["execution"]
+                and labels.get("stackd.athena.owner") == identity["owner"]
+                and labels.get("stackd.athena.engine") == "trino-476"
+                and state.get("Image") == identity["image"],
+                "Athena container does not match its ownership receipt")
+        if running:
+            require(state.get("State", {}).get("Running") is True, "owned Athena engine is not running")
+        return state
+
+    def athena_endpoint(self, engine):
+        state = self.inspect_athena_container(engine, running=True)
+        host_config = state.get("HostConfig", {})
+        ports = state.get("NetworkSettings", {}).get("Ports") or {}
+        if host_config.get("NetworkMode") == "host":
+            require(not host_config.get("PortBindings") and not any(ports.values()),
+                    "local Athena engine unexpectedly published ports")
+            encoded = [value.split("=", 1)[1] for value in state["Config"].get("Env", [])
+                       if value.startswith("STACKD_TRINO_CONFIG=")]
+            require(len(encoded) == 1, "owned Athena native configuration is absent")
+            # Decode only in memory: the archive can contain private capabilities.
+            with tarfile.open(fileobj=io.BytesIO(base64.b64decode(encoded[0], validate=True))) as archive:
+                properties = {}
+                for filename in ("config.properties", "node.properties"):
+                    members = [member for member in archive.getmembers()
+                               if member.isfile() and member.name.rsplit("/", 1)[-1] == filename]
+                    require(len(members) == 1, "owned Athena native properties are ambiguous")
+                    with archive.extractfile(members[0]) as source:
+                        properties[filename] = dict(line.strip().split("=", 1)
+                            for line in source.read().decode().splitlines()
+                            if "=" in line and not line.lstrip().startswith("#"))
+            require(properties["node.properties"].get("node.bind-ip") == "127.0.0.1",
+                    "local Athena native listener is not loopback-bound")
+            port = properties["config.properties"].get("http-server.http.port", "")
+            require(port.isdecimal() and 0 < int(port) <= 65535 and int(port) != 8080,
+                    "local Athena native port is not an owned ephemeral port")
+            host = "127.0.0.1"
+            self.report["observations"]["athena_topology"] = "host network; loopback ephemeral native port; no publication"
+        else:
+            require(self.args.athena_callback_listen and self.args.athena_callback_host
+                    and self.args.compute_endpoint,
+                    "bridged Athena topology requires explicit callback and Glue compute routes")
+            bindings = ports.get("8080/tcp") or []
+            configured = host_config.get("PortBindings") or {}
+            require(host_config.get("NetworkMode") == "bridge" and len(bindings) == 1
+                    and set(configured) == {"8080/tcp"}
+                    and len(configured["8080/tcp"]) == 1
+                    and configured["8080/tcp"][0].get("HostIp") == "127.0.0.1"
+                    and bindings[0].get("HostIp") == "127.0.0.1"
+                    and all(not value for key, value in ports.items() if key != "8080/tcp"),
+                    "remote Athena engine lacks its exact loopback publication")
+            host, port = self.args.athena_endpoint_host, bindings[0].get("HostPort", "")
+            require(port.isdecimal() and 0 < int(port) <= 65535, "invalid owned Athena published port")
+            self.report["observations"]["athena_topology"] = "bridge network; daemon loopback publication; explicit native route"
+        authority = "[" + host + "]" if ":" in host else host
+        return "http://" + authority + ":" + port
+
     def await_native_query(self, query_id, sql):
-        handle = "stackd-athena-" + hashlib.sha256(("aws\x00" + "000000000000\x00us-east-1\x00" + query_id).encode()).hexdigest()
         deadline = time.monotonic() + 150
         while time.monotonic() < deadline:
-            output = subprocess.run(["docker", "--host", self.args.docker_host, "inspect", "--format", "{{json .NetworkSettings.Ports}}", handle],
-                                    capture_output=True, text=True, timeout=10)
-            if output.returncode == 0:
-                ports = json.loads(output.stdout).get("8080/tcp") or []
-                if ports:
-                    request = urllib.request.Request("http://127.0.0.1:" + ports[0]["HostPort"] + "/v1/query", headers={"X-Trino-User": "athena"})
-                    try:
-                        with urllib.request.urlopen(request, timeout=2) as response:
-                            queries = json.load(response)
-                        if any(query.get("state") == "RUNNING" and query.get("query") == sql for query in queries):
-                            return
-                    except OSError:
-                        pass
             state = self.query_state(query_id)["Status"]["State"]
-            require(state not in {"FAILED", "SUCCEEDED", "CANCELLED"}, "query terminated before native cancellation proof")
+            require(state not in {"FAILED", "SUCCEEDED", "CANCELLED"},
+                    "query terminated before native cancellation proof")
+            handle = self.persisted_query_handle(query_id)
+            if handle:
+                engine, suffix = handle.split("/")
+                receipt = self.remember_athena_receipts().get(engine)
+                require(receipt is not None and receipt.get("parser") == engine + "-" + suffix,
+                        "persisted Athena query does not match its current owned receipt")
+                request = urllib.request.Request(self.athena_endpoint(engine) + "/v1/query",
+                                                 headers={"X-Trino-User": "athena"})
+                try:
+                    with self.native_http.open(request, timeout=2) as response:
+                        queries = json.load(response)
+                    matching = [query for query in queries if query.get("state") == "RUNNING"
+                                and query.get("query") == sql and query.get("queryId")]
+                    require(len(matching) <= 1, "native cancellation SQL selected multiple queries")
+                    if matching:
+                        return matching[0]["queryId"]
+                except OSError:
+                    pass
             time.sleep(0.5)
         raise TimeoutError("native SQL did not become RUNNING")
 
+    def assert_warm_queries(self, workgroup):
+        identities = []
+        for value in (1, 2):
+            require(self.query(f"SELECT {value} AS warm_value", "", workgroup)
+                    == [["warm_value"], [str(value)]], "warm Athena query result changed")
+            receipts = self.remember_athena_receipts()
+            require(len(receipts) == 1, "same-scope sequential SQL did not retain one warm engine")
+            receipt = next(iter(receipts.values()))
+            self.athena_endpoint(receipt["engine"])
+            identities.append(receipt)
+        require(all(identities[0][key] == identities[1][key] for key in ("engine", "owner", "image"))
+                and identities[0]["parser"] != identities[1]["parser"],
+                "sequential SQL did not reuse the exact engine with a fresh query identity")
+        self.report["observations"]["athena_warm_identity"] = "same owned engine/image; distinct random query suffixes"
+
     def query_state(self, query_id):
-        return self.call("athena", "get-query-execution", {"QueryExecutionId": query_id})["QueryExecution"]
+        value = self.call("athena", "get-query-execution", {"QueryExecutionId": query_id})["QueryExecution"]
+        self.persisted_query_handle(query_id)
+        return value
 
     def await_query(self, query_id, expected, timeout=180):
         deadline = time.monotonic() + timeout
@@ -323,6 +473,7 @@ def exercise(app):
         result_output = app.call("athena", "get-query-results", {"QueryExecutionId": query_id})
         rows = [[cell.get("VarCharValue") for cell in row["Data"]] for row in result_output["ResultSet"]["Rows"]]
         require(rows == [["label", "total"], ["alpha", "13"], ["beta", "3"]], "GetQueryResults differs from SQL/S3 consumer")
+        app.assert_warm_queries(workgroup)
         app.report["observations"]["query_rows"] = rows
         app.report["observations"]["query_columns"] = result_output["ResultSet"]["ResultSetMetadata"]["ColumnInfo"]
         app.report["observations"]["query_result_sha256"] = hashlib.sha256(result_bytes).hexdigest()
@@ -412,10 +563,23 @@ def exercise(app):
         native_job = "stackd-glue-" + hashlib.sha256(f"arn:aws:glue:us-east-1:000000000000:job/{job}/{retained_run}/attempt-{retained_state['Attempt']}".encode()).hexdigest()
         app.owned_containers.add(native_job)
         before_restart = app.native_container_started(native_job)
+        app.remember_athena_receipts()
+        athena_before_restart = set(app.athena_containers)
         app.controller.stop(kill_on_timeout=True)
+        for name in athena_before_restart:
+            output = subprocess.run(["docker", "--host", app.args.docker_host, "container", "ls", "--all",
+                                     "--filter", "name=^/" + name + "$", "--format", "{{.Names}}"],
+                                    capture_output=True, text=True, timeout=10)
+            require(output.returncode == 0 and not output.stdout.strip(),
+                    "controller shutdown retained an exact owned Athena container")
+        require(not app.remember_athena_receipts(), "controller shutdown retained Athena ownership receipts")
         app.start()
         require(app.native_container_started(native_job) == before_restart, "controller restart relaunched customer code")
         app.await_job(job, retained_run, {"SUCCEEDED"})
+        app.assert_warm_queries(workgroup)
+        require(not athena_before_restart.intersection(app.remember_athena_receipts()),
+                "controller restart reused a retired Athena engine incarnation")
+        app.report["observations"]["athena_restart_identity"] = "old exact-owned containers/receipts removed; fresh warm incarnation"
         app.report["observations"]["inflight_job_restart"] = "same native container start time; genuine script completed"
         workflow_deadline = time.monotonic() + 30
         while True:
@@ -534,7 +698,10 @@ def exercise(app):
                 except Exception as error:
                     app.report["cleanup"][cleanup_key] = type(error).__name__
         try:
-            app.controller.stop(kill_on_timeout=True)
+            try:
+                app.remember_athena_receipts()
+            finally:
+                app.controller.stop(kill_on_timeout=True)
         finally:
             native_cleanup = {}
             for name in sorted(app.owned_containers):
@@ -544,12 +711,22 @@ def exercise(app):
                 if output.returncode == 0 and not output.stdout.strip():
                     native_cleanup[name] = "removed"
                 elif output.returncode == 0 and output.stdout.strip() == name:
-                    removed = subprocess.run(["docker", "--host", app.args.docker_host, "rm", "-f", name],
+                    cleanup_target = name
+                    if name in app.athena_containers:
+                        try:
+                            cleanup_target = app.inspect_athena_container(name)["Id"]
+                            require(re.fullmatch(r"[0-9a-f]{64}", cleanup_target) is not None,
+                                    "owned Athena container has no immutable Docker ID")
+                        except Exception:
+                            native_cleanup[name] = "ownership_inspection_failed"
+                            continue
+                    removed = subprocess.run(["docker", "--host", app.args.docker_host, "rm", "-f", cleanup_target],
                                              capture_output=True, text=True, timeout=30)
                     native_cleanup[name] = "forced_cleanup" if removed.returncode == 0 else "cleanup_failed"
                 else:
                     native_cleanup[name] = "inspection_failed"
             app.report["native_cleanup"] = native_cleanup
+            app.report["athena_receipt_cleanup"] = "removed" if not app.remember_athena_receipts() else "retained"
             (app.state / "report.json").write_text(json.dumps(app.report, indent=2) + "\n")
 
 
@@ -561,13 +738,30 @@ def main():
     parser.add_argument("--glue-spark-image", default="")
     parser.add_argument("--glue-python-image", default="")
     parser.add_argument("--athena-image", default="")
+    parser.add_argument("--athena-hive-ddl-image", default="")
+    parser.add_argument("--athena-endpoint-host", default="127.0.0.1",
+                        help="controller-reachable route to the Docker daemon's loopback publication")
+    parser.add_argument("--athena-callback-listen", default="")
+    parser.add_argument("--athena-callback-host", default="")
+    parser.add_argument("--compute-endpoint", default="",
+                        help="controller AWS endpoint reachable by Glue containers; {port} expands to its chosen port")
     args = parser.parse_args()
+    native_route = urlsplit("//" + args.athena_endpoint_host)
+    require(bool(native_route.hostname) and native_route.port is None
+            and native_route.username is None and native_route.password is None
+            and not native_route.path and not native_route.query and not native_route.fragment,
+            "Athena endpoint host must be a hostname or bracketed IP without a port")
+    args.athena_endpoint_host = native_route.hostname
+    if not args.docker_host.startswith("unix://"):
+        require(args.athena_callback_listen and args.athena_callback_host and args.compute_endpoint,
+                "remote Docker requires explicit Athena callback listen/host and Glue compute endpoint routes")
     app = Application(args)
     exercise(app)
     app.check_controllers()
     require(all(value == ("scheduled_deletion" if name.startswith("key:") else "deleted")
                 for name, value in app.report["cleanup"].items()), "owned API resource cleanup failed")
     require(all(value == "removed" for value in app.report["native_cleanup"].values()), "controller left owned native resources requiring forced cleanup")
+    require(app.report["athena_receipt_cleanup"] == "removed", "controller retained Athena ownership receipts")
     print(json.dumps(app.report, indent=2))
 
 

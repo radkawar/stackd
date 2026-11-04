@@ -16,15 +16,15 @@ import (
 func TestRetainedSQLPortFromStoppedBindings(t *testing.T) {
 	var stopped containerState
 	stopped.HostConfig.PortBindings = map[string][]portBinding{"5432/tcp": {{HostIP: "127.0.0.1", HostPort: "15432"}}}
-	if port, err := stopped.retainedPort("postgres"); err != nil || port != 15432 {
+	if port, err := stopped.retainedPort("127.0.0.1", "postgres"); err != nil || port != 15432 {
 		t.Fatalf("logical SQL port confused with retained published port: %d, %v", port, err)
 	}
 	stopped.HostConfig.PortBindings["5432/tcp"][0].HostPort = ""
-	if _, err := stopped.retainedPort("postgres"); err == nil {
+	if _, err := stopped.retainedPort("127.0.0.1", "postgres"); err == nil {
 		t.Fatal("missing legacy dynamic port was invented")
 	}
 	stopped.NetworkSettings.Ports = map[string][]portBinding{"5432/tcp": {{HostIP: "127.0.0.1", HostPort: "15432"}}}
-	if port, err := stopped.retainedPort("postgres"); err != nil || port != 15432 {
+	if port, err := stopped.retainedPort("127.0.0.1", "postgres"); err != nil || port != 15432 {
 		t.Fatalf("legacy published SQL port not retained: %d, %v", port, err)
 	}
 }

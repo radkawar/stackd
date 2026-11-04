@@ -15,6 +15,7 @@ import (
 	"time"
 
 	native "stackd/compute/elbv2"
+	"stackd/compute/network"
 	metricsapi "stackd/internal/awsapi/cloudwatch"
 	api "stackd/internal/awsapi/elbv2"
 	"stackd/internal/awsctx"
@@ -240,6 +241,20 @@ func (r *runtimeController) reconcileLoadBalancer(ctx context.Context, arn strin
 			return r.finishReconcile(ctx, lb, errors.New("native http-desync-guardian classifier is unavailable: "+err.Error()))
 		}
 	}
+	var podRoutes []network.PodRoute
+	var podRouteErr error
+	revokePodRoutes := false
+	if authority, ok := r.service.networks.(podRouteNetworks); ok {
+		podRoutes, podRouteErr = authority.PodRoutes(ctx, lb.Scope, value(lb.Data.VpcId))
+		if podRouteErr != nil {
+			// Lost EKS authority revokes pod reachability, not unrelated EC2
+			// paths. Still install today's SG/NACL/public policy below.
+			podRoutes = nil
+		}
+		// Do not retain an authority-owned slice across EC2 calls or native
+		// installs. Every reconciliation replaces, rather than merges, routes.
+		podRoutes = slices.Clone(podRoutes)
+	}
 	groups := make([]string, len(lb.Data.SecurityGroups))
 	for i, g := range lb.Data.SecurityGroups {
 		groups[i] = string(g)
@@ -312,11 +327,22 @@ func (r *runtimeController) reconcileLoadBalancer(ctx context.Context, arn strin
 				return r.finishReconcile(ctx, lb, err)
 			}
 		}
+		// Compose only with the freshly allocated/observed EC2 policy. Native
+		// SetNetworkPolicy installs packet filters and routes as one revision.
+		attachment.Network.Policy.PodRoutes = slices.Clone(podRoutes)
 		if value(lb.Data.Scheme) == "internet-facing" && attachment.PublicAddress == "" {
 			return r.finishReconcile(ctx, lb, errors.New("internet-facing node has no current EC2 public IPv4 binding"))
 		}
 		if current == nil {
 			node, e := r.native.Prepare(ctx, native.Specification{LoadBalancerARN: arn, AttachmentID: attachment.ID, Network: attachment.Network})
+			var routeInstallErr *network.PodRouteInstallError
+			if errors.As(e, &routeInstallErr) {
+				podRouteErr = errors.Join(podRouteErr, e)
+				podRoutes = nil
+				revokePodRoutes = true
+				attachment.Network.Policy.PodRoutes = nil
+				node, e = r.native.Prepare(ctx, native.Specification{LoadBalancerARN: arn, AttachmentID: attachment.ID, Network: attachment.Network})
+			}
 			if e != nil {
 				return r.finishReconcile(ctx, lb, e)
 			}
@@ -344,7 +370,16 @@ func (r *runtimeController) reconcileLoadBalancer(ctx context.Context, arn strin
 		if current.attachment.ID != attachment.ID {
 			return r.finishReconcile(ctx, lb, errors.New("native node attachment identity changed"))
 		}
-		if err = current.node.SetNetworkPolicy(ctx, attachment.Network.Policy); err != nil {
+		err = current.node.SetNetworkPolicy(ctx, attachment.Network.Policy)
+		var routeInstallErr *network.PodRouteInstallError
+		if errors.As(err, &routeInstallErr) {
+			podRouteErr = errors.Join(podRouteErr, err)
+			podRoutes = nil
+			revokePodRoutes = true
+			attachment.Network.Policy.PodRoutes = nil
+			err = current.node.SetNetworkPolicy(ctx, attachment.Network.Policy)
+		}
+		if err != nil {
 			// Unenforceable current policy must not leave an unfiltered serving node.
 			_ = current.close()
 			r.mu.Lock()
@@ -371,7 +406,27 @@ func (r *runtimeController) reconcileLoadBalancer(ctx context.Context, arn strin
 			delete(lb.AttachmentGenerations, subnet)
 		}
 	}
-	return r.finishReconcile(ctx, lb, nil)
+	if revokePodRoutes {
+		// A worker may disappear between two node installs. Revoke the same
+		// snapshot from nodes already updated in this cycle as well.
+		for subnet := range wanted {
+			r.mu.RLock()
+			node := r.nodes[arn][subnet]
+			policy := node.attachment.Network.Policy
+			r.mu.RUnlock()
+			if len(policy.PodRoutes) == 0 {
+				continue
+			}
+			policy.PodRoutes = nil
+			if err := node.node.SetNetworkPolicy(ctx, policy); err != nil {
+				return r.finishReconcile(ctx, lb, err)
+			}
+			r.mu.Lock()
+			node.attachment.Network.Policy = policy
+			r.mu.Unlock()
+		}
+	}
+	return r.finishReconcileState(ctx, lb, podRouteErr)
 }
 func (r *runtimeController) finishReconcile(ctx context.Context, observed LoadBalancerRecord, effectErr error) error {
 	if effectErr != nil {
@@ -384,6 +439,12 @@ func (r *runtimeController) finishReconcile(ctx context.Context, observed LoadBa
 			_ = node.close()
 		}
 	}
+	return r.finishReconcileState(ctx, observed, effectErr)
+}
+
+// finishReconcileState reports degraded pod authority without tearing down
+// ordinary paths after their current EC2 policy was successfully installed.
+func (r *runtimeController) finishReconcileState(ctx context.Context, observed LoadBalancerRecord, effectErr error) error {
 	return r.service.repository.Update(ctx, func(tx Transaction) error {
 		current, err := tx.LoadBalancer(observed.Scope, value(observed.Data.LoadBalancerArn))
 		if errors.Is(err, ErrNotFound) {

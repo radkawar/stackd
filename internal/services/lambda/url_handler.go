@@ -128,10 +128,8 @@ func (h *FunctionURLHandler) serve(w http.ResponseWriter, r *http.Request, id, c
 			return
 		}
 		r = authenticated
-		if err := h.activity.RecordActivity(r.Context(), "lambda", "InvokeFunctionUrl"); err != nil {
-			writeFunctionURLFailure(response, http.StatusInternalServerError)
-			return
-		}
+		// Last-access reporting is not an authorization or execution boundary.
+		_ = h.activity.RecordActivity(r.Context(), "lambda", "InvokeFunctionUrl")
 	}
 	principalOrgID := ""
 	if settings.AuthType == "AWS_IAM" {

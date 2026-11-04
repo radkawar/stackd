@@ -26,9 +26,7 @@ func (k SchedulerKeys) Seal(ctx context.Context, key scheduler.ScheduleKey, keyI
 		return nil, nil, "", schedulerUnsupported("Scheduler KMS authority is not configured.")
 	}
 	ctx = kms.WithViaService(ctx, "scheduler")
-	if rejected := recordKMSActivity(ctx, k.Activity, "DescribeKey"); rejected != nil {
-		return nil, nil, "", schedulerKeyError(rejected)
-	}
+	recordKMSActivity(ctx, k.Activity, "DescribeKey")
 	meta, rejected := k.KMS.DescribeKey(ctx, keyID)
 	if rejected != nil {
 		return nil, nil, "", schedulerKeyError(rejected)
@@ -41,9 +39,7 @@ func (k SchedulerKeys) Seal(ctx context.Context, key scheduler.ScheduleKey, keyI
 	if err != nil || a.Region != key.Group.Region || a.Partition != key.Group.Partition {
 		return nil, nil, "", schedulerInvalid("KMS key must be in the same Region and partition.")
 	}
-	if rejected = recordKMSActivity(ctx, k.Activity, "GenerateDataKey"); rejected != nil {
-		return nil, nil, "", schedulerKeyError(rejected)
-	}
+	recordKMSActivity(ctx, k.Activity, "GenerateDataKey")
 	ec := map[string]string{"aws:scheduler:schedule:arn": key.ARN()}
 	data, wrapped, resolved, rejected := k.KMS.GenerateDataKey(ctx, resolved, ec)
 	if rejected != nil {
@@ -64,9 +60,7 @@ func (k SchedulerKeys) Seal(ctx context.Context, key scheduler.ScheduleKey, keyI
 	}
 	encrypted := gcm.Seal(nonce, nonce, plain, []byte(key.ARN()))
 	// Admission must also hold Decrypt, not only permission to mint data keys.
-	if rejected = recordKMSActivity(ctx, k.Activity, "Decrypt"); rejected != nil {
-		return nil, nil, "", schedulerKeyError(rejected)
-	}
+	recordKMSActivity(ctx, k.Activity, "Decrypt")
 	check, _, rejected := k.KMS.Decrypt(ctx, wrapped, ec)
 	clear(check)
 	if rejected != nil {
@@ -88,9 +82,7 @@ func (k SchedulerKeys) Open(ctx context.Context, key scheduler.ScheduleKey, role
 	} else {
 		ctx = kms.WithViaService(ctx, "scheduler")
 	}
-	if rejected := recordKMSActivity(ctx, k.Activity, "Decrypt"); rejected != nil {
-		return nil, schedulerKeyError(rejected)
-	}
+	recordKMSActivity(ctx, k.Activity, "Decrypt")
 	data, _, rejected := k.KMS.Decrypt(ctx, wrapped, map[string]string{"aws:scheduler:schedule:arn": key.ARN()})
 	if rejected != nil {
 		return nil, schedulerKeyError(rejected)

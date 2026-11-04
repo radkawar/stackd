@@ -93,9 +93,7 @@ func (k KinesisKeys) ResolveKey(ctx context.Context, stream kinesis.StreamKey, i
 	if err != nil {
 		return "", err
 	}
-	if err = recordKMSActivity(ctx, k.Activity, "DescribeKey"); err != nil {
-		return "", kinesisKeyError(err)
-	}
+	recordKMSActivity(ctx, k.Activity, "DescribeKey")
 	metadata, err := k.KMS.DescribeKey(ctx, id)
 	if err != nil {
 		return "", kinesisKeyError(err)
@@ -119,9 +117,7 @@ func (k KinesisKeys) GenerateDataKey(ctx context.Context, stream kinesis.StreamK
 	if err != nil {
 		return nil, nil, "", err
 	}
-	if err = recordKMSActivity(ctx, k.Activity, "GenerateDataKey"); err != nil {
-		return nil, nil, "", kinesisKeyError(err)
-	}
+	recordKMSActivity(ctx, k.Activity, "GenerateDataKey")
 	plain, wrapped, arn, err := k.KMS.GenerateDataKey(ctx, id, map[string]string{"aws:kinesis:arn": stream.ARN()})
 	if err != nil {
 		clear(plain)
@@ -136,9 +132,7 @@ func (k KinesisKeys) GenerateDataKey(ctx context.Context, stream kinesis.StreamK
 
 func (k KinesisKeys) Decrypt(ctx context.Context, stream kinesis.StreamKey, wrapped []byte) ([]byte, string, *awswire.Error) {
 	ctx = kinesisKMSContext(ctx, stream)
-	if err := recordKMSActivity(ctx, k.Activity, "Decrypt"); err != nil {
-		return nil, "", kinesisKeyError(err)
-	}
+	recordKMSActivity(ctx, k.Activity, "Decrypt")
 	plain, arn, err := k.KMS.Decrypt(ctx, wrapped, map[string]string{"aws:kinesis:arn": stream.ARN()})
 	if err != nil {
 		clear(plain)

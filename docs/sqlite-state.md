@@ -19,6 +19,34 @@ SNS/Lambda/SQS/EventBridge weighted samples, ECS utilization windows and CloudWa
 Broader event sources, service jobs and a PostgreSQL metadata repository remain unfinished.
 This is not a whole-cloud snapshot or fork.
 
+S3 and IAM reuse the existing SQLC prepared-query pattern used by Step Functions:
+repository construction prepares queries against the owning `*sql.DB`, before
+borrowing any transaction, and callbacks bind those statements with `WithTx`.
+Closing that database releases the prepared statements. A schema/preparation
+failure is returned at construction; there is no request-time one-shot fallback.
+This removes repeated SQL parsing/planning on object and authorization reads,
+not transaction serialization, current-policy checks, or durability: WAL and
+`synchronous=FULL` remain in force, and joined writes still commit or roll back
+together. The real-driver regression observes statement preparation and
+one-shot calls across concurrent callers and shared read/write transactions.
+
+Current-object, version and multipart-upload prefix listings seek a bounded
+binary key interval in their existing indexes, rather than applying `substr`
+to unrelated object keys. S3 validates UTF-8 object keys; `prefix + 0xff` is an
+exclusive byte bound beyond every valid suffix. The lower bound also includes
+the requested cursor, retaining version/upload tie ordering and delete markers.
+Real generated-query plan regressions require both indexed bounds, alongside
+memory/SQLite UTF-8 and single-row pagination parity. No schema rewrite or
+weaker transaction/durability setting is involved. See
+[S3 object key naming and sort order](https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-keys.html).
+
+The [signed CLI receipt](../testdata/integration/storage_identity_native.json)
+records current group, boundary and policy-version enforcement, stale-session
+denial after role recreation, exact ranged binary reads and scoped pagination.
+It also correlates actual HTTP outcomes with journal rows retained across a
+graceful SQLite controller restart. This is local behavioral evidence, not an
+AWS capture or a performance comparison.
+
 Schema `223_cloudformation.sql` adds scoped stacks and exports, immutable stack
 IDs, physical resource generations, monotonically ordered stack events, change
 sets with before/after property contexts, and retained operation steps/caller
@@ -1049,6 +1077,33 @@ SQLite owns locking, commit and crash recovery; there is no second commit protoc
 See the [driver contract](https://pkg.go.dev/modernc.org/sqlite),
 [WAL behavior](https://www.sqlite.org/wal.html) and
 [native transactions](https://sqlite.org/lang_transaction.html).
+
+IAM identity authorization reads only the verified user or role, that user's
+member groups, account password self-management settings when applicable, and
+the referenced managed policies, boundary and managed session policies. These
+reads share the existing transaction, including when authorization borrows an
+S3 read transaction. They do not reconstruct the account-wide IAM resource set
+or retain a policy cache; each request observes the current default policy
+versions and immutable principal identity. S3 payload decryption still runs
+outside the transaction, and successful reads still synchronously commit their
+durable read event before returning. The single-connection and FULL durability
+contracts are unchanged.
+See [stackd#8](https://github.com/radkawar/stackd/issues/8) for the scoped
+authorization-read contract.
+
+Credential usage has a typed scalar write: IAM's eventual reporting worker
+flushes accepted observations in a coalesced one-second batch, updating only the
+existing credential's last-used date, service and region together with
+immutable-issuer-fenced role usage and principal activity. Data-plane requests do
+not wait for this reporting transaction or its fsync. It does not delete/reinsert
+credentials or their session-policy, context, tag and ownership children.
+Monotonic timestamps and long-term-key fifteen-minute coalescing remain intact;
+accepted work is not reauthenticated. Explicit flush and graceful shutdown drain
+pending observations; crash loss is confined to unflushed reporting updates, as
+described in [IAM last-access reporting](iam-last-access.md).
+The single-connection, WAL/FULL resource-state and API-event durability contracts
+remain unchanged. [stackd#10](https://github.com/radkawar/stackd/issues/10)
+describes the reporting boundary and failure semantics.
 
 An owned transaction leases its native `sql.Conn` and closes that lease before
 returning. This joins cancellation-triggered rollback: `Tx.Rollback` alone can

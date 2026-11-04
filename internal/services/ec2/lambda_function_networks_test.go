@@ -17,7 +17,6 @@ import (
 	"stackd/storage/memory"
 	"stackd/storage/sqlite"
 	sqlec2 "stackd/storage/sqlite/ec2"
-	sqliam "stackd/storage/sqlite/iam"
 )
 
 func TestLambdaFunctionNetworkIncarnationAuthorityAndPersistence(t *testing.T) {
@@ -40,7 +39,7 @@ func TestLambdaFunctionNetworkIncarnationAuthorityAndPersistence(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					repository, identities = sqlec2.New(database), sqliam.New(database)
+					repository, identities = sqlec2.New(database), newSQLiteIAMRepository(t, database)
 				}
 				roles = iam.NewWithConfig(iam.Config{Repository: identities})
 				service = ec2.New(ec2.Config{Repository: repository, Authorizer: authorization.New(roles, nil)})

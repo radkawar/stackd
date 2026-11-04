@@ -27,7 +27,6 @@ import (
 	"stackd/storage/memory"
 	"stackd/storage/sqlite"
 	sqlec2 "stackd/storage/sqlite/ec2"
-	sqliam "stackd/storage/sqlite/iam"
 	sqlssm "stackd/storage/sqlite/ssm"
 )
 
@@ -134,7 +133,7 @@ func TestCFNEC2ComputePrivateControlOwnership(t *testing.T) {
 						}
 						repo = sqlec2.New(db)
 						parameters = sqlssm.New(db)
-						identities = sqliam.New(db)
+						identities = newSQLiteIAMRepository(t, db)
 					}
 					identity = iam.NewWithConfig(iam.Config{Repository: identities})
 					authorizer := authorization.New(identity, nil)

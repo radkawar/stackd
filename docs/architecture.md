@@ -252,11 +252,28 @@ its native Python/Spark containers do not inherit host AWS credentials. Athena
 forwards its admitted caller through ordinary Glue/S3 command boundaries, retaining
 caller policies, conditions and public audit scope in typed query persistence.
 Its private native callback capability is not a second AWS identity issuer.
+Native Trino engines are kept warm within partition/account/region scope, but
+their Glue/S3 catalogs and immutable caller callback capabilities are query-local.
+Native catalog-owner permissions remain private to the runtime. Locked durable
+receipts fence exact-owned engine/parser teardown on idle expiry, cancellation
+and controller recovery; an interrupted SQL write is never replayed. See the
+[warm-engine lifecycle](runtime-containers.md#glue-and-athena).
 Header signatures, aws-chunked framing and transfer checksums remain owned by the
 same gateway implementation used by public S3 transport. Trino executes SQL;
 Apache Spark's native parser supplies Hive-DDL syntax trees only, not query results.
 Native process cancellation/recovery and resource transactions are not a single
 atomic external transaction. See the [analytics evidence and limits](behavior-references.md#glue-and-athena-engines-evidence-and-boundaries).
+
+The SigV4 `glue` endpoint also exposes the separately specified Iceberg REST
+catalog at `/iceberg/v1`. Its warehouse/prefix selects the Glue account catalog;
+single-level namespaces are ordinary Glue databases. Table state is the same
+typed Glue table (`table_type=ICEBERG`, `metadata_location`) consumed by ordinary
+GetTable and Trino's Glue catalog. Server-created immutable metadata JSON lives
+in the existing S3 owner, under current caller/S3/KMS authority. Reads/writes of
+those bytes stay outside catalog transactions; publication repeats current IAM
+checks and fences both the native Glue version and previous metadata pointer.
+Requirement failures and concurrent publication return HTTP 409
+`CommitFailedException`. See the [REST catalog contract and boundaries](behavior-references.md#glue-iceberg-rest-catalog).
 
 Glue run inspection and cancellation resolve the job definition's current tags;
 deleting the definition does not delete retained runs or remove their ordinary
@@ -1379,6 +1396,16 @@ condition evaluator no longer reparses tags; generated validation owns structura
 constraints and resource handlers own tag rules after authorization. Query lists
 preserve positions and merge equivalent numeric index spellings. Native tag and
 collection evidence is recorded in [Query behavior](aws-query.md).
+
+Identity authorization takes a scoped repository snapshot of the verified
+principal, its member groups and referenced policies instead of loading every
+IAM resource in the account. User/role ARN and immutable ID must both match;
+STS identities resolve their current issuer. Attached policies, permission
+boundaries and managed session policies use current default versions from that
+same transaction, with partition-scoped pinned AWS-managed policy fallback.
+Returned policy strings and principal tags are detached; no authorization
+cache or additional transaction boundary is introduced.
+
 IAM resource selection also consumes generated name/ARN accessors and typed
 creation inputs. Current records own paths, tags, boundaries and credential
 ownership. AWS-owned policies and commercial role templates resolve their numeric
@@ -1749,9 +1776,13 @@ repository. Linked services hold their usage stable through the final IAM
 transaction; credential issuance also verifies the current issuer identity in
 that transaction domain. IAM credential generation records its intent in the
 request transaction, then commits the complete CSV artifact from one account
-snapshot. Last-access generation freezes permissions, membership IDs and actual
-authenticated activity when accepting the request, then schedules availability of
-that immutable snapshot. It does not add a separate integrity or receipt protocol.
+snapshot. Last-access generation freezes permissions, membership IDs and the
+latest flushed authenticated activity when accepting the request, then schedules
+availability of that immutable snapshot. IAM usage reporting is separately
+coalesced in memory and durably flushed every second and on shutdown, so data-plane
+requests never wait for its fsync. Unflushed usage observations can be lost on a
+crash; resource transitions and their journal events retain their existing
+transactional durability. See [IAM last-access reporting](iam-last-access.md).
 These job sources, Organizations account creation, SQS redrive, KMS lifecycles and
 EventBridge scheduled occurrences, archive expiration/replay and target delivery, Lambda attempts, Logs subscriptions, CloudTrail
 delivery and CloudWatch alarms join one `internal/scheduler` execution during

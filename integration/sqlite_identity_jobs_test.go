@@ -30,6 +30,14 @@ func TestSQLiteIAMRecoversPendingReportsAndActivity(t *testing.T) {
 	putUserPolicy(t, root, "report-subject", `{"Statement":{"Effect":"Allow","Action":"iam:GetUser","Resource":"*","Condition":{"StringEquals":{"aws:PrincipalTag/missing":"yes"}}}}`)
 	_, err := c.iam(key, secret, "").GetUser(t.Context(), &iam.GetUserInput{})
 	assertAPIError(t, err, "AccessDenied")
+	// Reports freeze the published reporting view, not the request queue.
+	waitActivityPublication(t, func() bool {
+		usage, err := root.GetAccessKeyLastUsed(t.Context(), &iam.GetAccessKeyLastUsedInput{AccessKeyId: &key})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return usage.AccessKeyLastUsed.LastUsedDate != nil && usage.AccessKeyLastUsed.LastUsedDate.Equal(start)
+	})
 	job, err := root.GenerateServiceLastAccessedDetails(t.Context(), &iam.GenerateServiceLastAccessedDetailsInput{Arn: &arn, Granularity: iamtypes.AccessAdvisorUsageGranularityTypeActionLevel})
 	if err != nil {
 		t.Fatal(err)

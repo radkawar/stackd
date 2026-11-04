@@ -20,7 +20,7 @@ type DeleteBucketReplicationParams struct {
 }
 
 func (q *Queries) DeleteBucketReplication(ctx context.Context, arg DeleteBucketReplicationParams) error {
-	_, err := q.db.ExecContext(ctx, deleteBucketReplication, arg.Partition, arg.BucketName)
+	_, err := q.exec(ctx, q.deleteBucketReplicationStmt, deleteBucketReplication, arg.Partition, arg.BucketName)
 	return err
 }
 
@@ -34,7 +34,7 @@ type GetBucketReplicationParams struct {
 }
 
 func (q *Queries) GetBucketReplication(ctx context.Context, arg GetBucketReplicationParams) (S3BucketReplication, error) {
-	row := q.db.QueryRowContext(ctx, getBucketReplication, arg.Partition, arg.BucketName)
+	row := q.queryRow(ctx, q.getBucketReplicationStmt, getBucketReplication, arg.Partition, arg.BucketName)
 	var i S3BucketReplication
 	err := row.Scan(&i.Partition, &i.BucketName, &i.RoleArn)
 	return i, err
@@ -50,7 +50,7 @@ type GetBucketReplicationFilterTagsParams struct {
 }
 
 func (q *Queries) GetBucketReplicationFilterTags(ctx context.Context, arg GetBucketReplicationFilterTagsParams) ([]S3ReplicationFilterTag, error) {
-	rows, err := q.db.QueryContext(ctx, getBucketReplicationFilterTags, arg.Partition, arg.BucketName)
+	rows, err := q.query(ctx, q.getBucketReplicationFilterTagsStmt, getBucketReplicationFilterTags, arg.Partition, arg.BucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +89,7 @@ type GetBucketReplicationRulesParams struct {
 }
 
 func (q *Queries) GetBucketReplicationRules(ctx context.Context, arg GetBucketReplicationRulesParams) ([]S3ReplicationRule, error) {
-	rows, err := q.db.QueryContext(ctx, getBucketReplicationRules, arg.Partition, arg.BucketName)
+	rows, err := q.query(ctx, q.getBucketReplicationRulesStmt, getBucketReplicationRules, arg.Partition, arg.BucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +146,7 @@ type PutBucketReplicationParams struct {
 }
 
 func (q *Queries) PutBucketReplication(ctx context.Context, arg PutBucketReplicationParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketReplication, arg.Partition, arg.BucketName, arg.RoleArn)
+	_, err := q.exec(ctx, q.putBucketReplicationStmt, putBucketReplication, arg.Partition, arg.BucketName, arg.RoleArn)
 	return err
 }
 
@@ -165,7 +165,7 @@ type PutBucketReplicationFilterTagParams struct {
 }
 
 func (q *Queries) PutBucketReplicationFilterTag(ctx context.Context, arg PutBucketReplicationFilterTagParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketReplicationFilterTag,
+	_, err := q.exec(ctx, q.putBucketReplicationFilterTagStmt, putBucketReplicationFilterTag,
 		arg.Partition,
 		arg.BucketName,
 		arg.RulePosition,
@@ -211,7 +211,7 @@ type PutBucketReplicationRuleParams struct {
 }
 
 func (q *Queries) PutBucketReplicationRule(ctx context.Context, arg PutBucketReplicationRuleParams) error {
-	_, err := q.db.ExecContext(ctx, putBucketReplicationRule,
+	_, err := q.exec(ctx, q.putBucketReplicationRuleStmt, putBucketReplicationRule,
 		arg.Partition,
 		arg.BucketName,
 		arg.Position,

@@ -23,6 +23,11 @@ func TestSDKIAMCredentialsAndSTSSession(t *testing.T) {
 		t.Fatal(err)
 	}
 	server := httptest.NewServer(handler)
+	t.Cleanup(func() {
+		if err := handler.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	t.Cleanup(server.Close)
 	iamClient := func(key, secret, token string) *iam.Client {
 		return iam.New(iam.Options{Region: "us-east-1", BaseEndpoint: aws.String(server.URL), Credentials: credentials.NewStaticCredentialsProvider(key, secret, token), HTTPClient: server.Client(), RetryMaxAttempts: 1})
@@ -71,13 +76,13 @@ func TestSDKIAMCredentialsAndSTSSession(t *testing.T) {
 	}
 	_, err = iamClient(aws.ToString(temporary.AccessKeyId), aws.ToString(temporary.SecretAccessKey), aws.ToString(temporary.SessionToken)).GetUser(ctx, &iam.GetUserInput{})
 	assertAPIError(t, err, "AccessDenied")
-	usage, err := root.GetAccessKeyLastUsed(ctx, &iam.GetAccessKeyLastUsedInput{AccessKeyId: aws.String(accessKey)})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if usage.AccessKeyLastUsed.LastUsedDate == nil || aws.ToString(usage.AccessKeyLastUsed.ServiceName) != "sts" {
-		t.Fatalf("missing usage: %#v", usage.AccessKeyLastUsed)
-	}
+	waitActivityPublication(t, func() bool {
+		usage, err := root.GetAccessKeyLastUsed(ctx, &iam.GetAccessKeyLastUsedInput{AccessKeyId: aws.String(accessKey)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return usage.AccessKeyLastUsed.LastUsedDate != nil && aws.ToString(usage.AccessKeyLastUsed.ServiceName) == "sts"
+	})
 	_, err = root.UpdateAccessKey(ctx, &iam.UpdateAccessKeyInput{UserName: aws.String("alice"), AccessKeyId: aws.String(accessKey), Status: iamtypes.StatusTypeInactive})
 	if err != nil {
 		t.Fatal(err)

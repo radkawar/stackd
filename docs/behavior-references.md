@@ -402,6 +402,75 @@ Both corrected proof controllers exit zero with clean logs. The original stuck
 baseline and its required owned-container force cleanup remain recorded rather
 than presented as a successful cleanup.
 
+#### Glue Iceberg REST catalog
+
+Primary contracts (consulted for this implementation):
+
+- [AWS Glue Iceberg REST endpoint and catalog/namespace mapping](https://docs.aws.amazon.com/glue/latest/dg/connect-glu-iceberg-rest.html).
+- [AWS Glue REST operations and IAM actions](https://docs.aws.amazon.com/glue/latest/dg/iceberg-rest-apis.html).
+- [Apache Iceberg REST OpenAPI, AWS-referenced 1.6.1 revision](https://github.com/apache/iceberg/blob/apache-iceberg-1.6.1/open-api/rest-catalog-open-api.yaml).
+- [Apache Iceberg table metadata and commit requirements](https://iceberg.apache.org/spec/#table-metadata).
+
+Configure a client with URI `http://127.0.0.1:4566/iceberg`, warehouse equal to the
+12-digit stackd account ID, SigV4 enabled, signing name `glue`, and the selected
+region. HTTPS uses the same URI suffix and the caller's normal trust store.
+No extra controller flag enables the catalog; Athena SQL additionally needs the
+existing `-athena-runtime` and prepared native Trino image.
+
+`GET /iceberg/v1/config` returns `prefix=catalogs/<account-id>`. The prefix selects
+the ordinary Glue catalog; it is not an S3 directory. Namespaces map to single-level
+Glue databases, including `location`/`comment` and database parameters. The REST
+surface supports namespace list/create/get/exists, empty-only delete and property
+updates; Iceberg table list/create/load/exists, requirement-checked commits, and
+nonpurging drop. Paginated listings use scope-bound deterministic tokens.
+Creation needs an explicit S3 table location or a namespace `location`.
+
+The server writes immutable metadata JSON through the current S3/KMS owner and
+publishes the S3 pointer on the **same** Glue table used by GetTable and Trino's
+`iceberg.catalog.type=glue`. Create assigns fresh schema field IDs. Commits validate
+Iceberg UUID, schema/spec/order/field-ID, ref/snapshot and create requirements.
+The final transaction checks both native Glue version and metadata location, so
+ordinary Glue/Trino and REST writers conflict rather than overwrite each other.
+Stale requirements/publication return HTTP 409 `CommitFailedException`; losing
+commits can leave unreferenced metadata objects, never a visible partial head.
+Catalog authorization requires `glue:GetCatalog`; operation authorization uses
+the native Glue action on catalog/database/table ancestors. All HTTP requests
+pass through genuine gateway SigV4 validation. S3 permissions remain separately
+effective for metadata files.
+
+`glue_iceberg_rest_test.go` contains signed protocol, optimistic-writer, IAM and
+shared Glue/S3 memory/SQLite fixtures. The opt-in runtime fixture
+`integration/glue_iceberg_rest_runtime_test.go` invokes the real PyIceberg client
+and native Athena/Trino consumer through `scripts/aws/glue_iceberg_rest_smoke.py`.
+These local fixtures are not native AWS captures or full Iceberg conformance.
+
+With a running native Athena controller and the external Python environment
+prepared as described in the smoke script, run the opt-in Go boundary test:
+
+```sh
+STACKD_GLUE_ICEBERG_REST_ENDPOINT=http://127.0.0.1:40500 \
+STACKD_GLUE_ICEBERG_REST_STATE_DIRECTORY=/tmp/stackd-smoke/catalog.sqlite.athena \
+STACKD_GLUE_ICEBERG_REST_PYTHON=/tmp/stackd-iceberg-client/bin/python \
+GOMAXPROCS=4 go test -p 2 ./integration \
+  -run '^TestGlueIcebergRESTPyIcebergAthenaRuntime$' -count=1 -timeout 12m -v
+```
+
+The fixture checks both directions: REST creates and appends a table read by
+Athena, then Athena appends rows read by PyIceberg. It also creates a table
+through Athena and loads it through REST. Ordinary Glue, REST responses and S3
+metadata must agree on the table UUID, snapshot, sequence and metadata location.
+The fixture removes only its own resources.
+It also checks native Hive parsing, a physical scan-limit cancellation, and
+current S3 IAM allow/deny/allow across fresh query capabilities on the same
+owned warm engine. Result reuse is disabled. Use only an isolated controller's
+private runtime directory; raw receipts and query history are not public evidence.
+
+Intentional boundaries: staged create/replace and multi-table transactions,
+manifest-aware purge, rename/register/views/metrics, Lake Formation credential
+vending/OAuth, S3 Tables and federated catalog execution are not implemented.
+Unsupported modes fail explicitly; the public Smithy operation inventory does
+not count the separately specified REST paths as additional SDK operations.
+
 #### Connection password settings: creation/update versus projection
 
 AWS's [ConnectionPasswordEncryption contract](https://docs.aws.amazon.com/glue/latest/webapi/API_ConnectionPasswordEncryption.html)
@@ -2015,6 +2084,17 @@ SDK replay manifests. [Encrypted object behavior](cloudtrail.md#s3-envelope-encr
 records native authorization/alias/checksum distinctions, source bounds, cleanup
 and executable CloudTrail/EventBridge recovery. This evidence does not establish
 Bucket Keys, DSSE, SSE-C, cross-account or native propagation/cache conformance.
+
+The read-only public S3
+[checksum-mode calibration](../testdata/aws/s3/checksum_mode_case_20261103.json)
+records anonymous native `GetObject` range reads: `enabled` and `ENABLED` both
+return 206, while an unrelated value (redacted in the capture) returns 400 `InvalidRequest` with
+`Value for x-amz-checksum-mode header is invalid.` The modeled HTTP binder
+canonicalizes only this header value after signature validation, preserving
+the original signed bytes and strict validation of unrelated enum fields.
+`TestGlueIcebergRESTNativeS3ChecksumModeCase` exercises genuinely signed SDK
+reads, returned checksum bytes and the native invalid-value error. This fixes
+the lowercase header sent by PyArrow 26 without pinning an older client.
 
 S3 [object-copy evidence](cloudtrail.md#s3-object-copies) adds owned native source
 version, metadata/tag, conditional-write and KMS controls, correlated CopyObject/

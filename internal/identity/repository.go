@@ -25,6 +25,9 @@ type Reader interface {
 type Transaction interface {
 	Reader
 	Put(Record) error
+	// PutUsage changes only LastUsed on an existing record read in this transaction.
+	// Credential material, status, session restrictions and ownership stay unchanged.
+	PutUsage(Record) error
 	Delete(accessKeyID string) error
 }
 

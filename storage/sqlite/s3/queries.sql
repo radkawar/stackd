@@ -127,8 +127,8 @@ SELECT * FROM s3_object_versions WHERE partition = ? AND bucket_name = ? AND nam
 -- name: ListObjects :many
 SELECT v.* FROM s3_object_versions AS v
 WHERE v.partition = sqlc.arg(partition) AND v.bucket_name = sqlc.arg(bucket_name)
-AND v.name > sqlc.arg(after_key) COLLATE BINARY
-AND substr(CAST(v.name AS BLOB), 1, length(CAST(sqlc.arg(prefix) AS BLOB))) = CAST(sqlc.arg(prefix) AS BLOB)
+AND v.name >= sqlc.arg(start_key) COLLATE BINARY
+AND v.name < sqlc.arg(prefix_end) COLLATE BINARY
 AND NOT v.delete_marker
 AND NOT EXISTS (
     SELECT 1 FROM s3_object_versions AS newer
@@ -139,7 +139,8 @@ ORDER BY v.name COLLATE BINARY LIMIT sqlc.arg(row_limit);
 -- name: ListObjectVersions :many
 SELECT v.* FROM s3_object_versions AS v
 WHERE v.partition = sqlc.arg(partition) AND v.bucket_name = sqlc.arg(bucket_name)
-AND substr(CAST(v.name AS BLOB), 1, length(CAST(sqlc.arg(prefix) AS BLOB))) = CAST(sqlc.arg(prefix) AS BLOB)
+AND v.name >= sqlc.arg(start_key) COLLATE BINARY
+AND v.name < sqlc.arg(prefix_end) COLLATE BINARY
 AND (v.name > sqlc.arg(after_key) COLLATE BINARY OR (
     v.name = sqlc.arg(after_key) COLLATE BINARY
     AND v.created_order < COALESCE(sqlc.narg(after_order), (
@@ -277,7 +278,8 @@ SELECT * FROM s3_multipart_uploads WHERE partition = ? AND bucket_name = ? AND o
 -- name: ListMultipartUploads :many
 SELECT u.* FROM s3_multipart_uploads AS u
 WHERE u.partition = sqlc.arg(partition) AND u.bucket_name = sqlc.arg(bucket_name)
-AND substr(CAST(u.object_name AS BLOB), 1, length(CAST(sqlc.arg(prefix) AS BLOB))) = CAST(sqlc.arg(prefix) AS BLOB)
+AND u.object_name >= sqlc.arg(start_key) COLLATE BINARY
+AND u.object_name < sqlc.arg(prefix_end) COLLATE BINARY
 AND (u.object_name > sqlc.arg(after_key) COLLATE BINARY OR (
     u.object_name = sqlc.arg(after_key) COLLATE BINARY AND u.created_order > sqlc.narg(after_order)
 ))

@@ -181,7 +181,7 @@ func (d *Docker) putPostgresSecurity(ctx context.Context, id string, files []pos
 // endpoint reads only public trust from a container whose identity and exact
 // durable mount have already been checked by the caller.
 func (d *Docker) endpoint(ctx context.Context, state containerState, engine string) (Endpoint, error) {
-	endpoint, err := state.endpoint(d.endpointHost, engine)
+	endpoint, err := state.endpoint(d.endpointHost, d.publishAddress, engine)
 	if err != nil {
 		return Endpoint{}, err
 	}

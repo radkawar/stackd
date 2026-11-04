@@ -141,7 +141,10 @@ func TestManagedScalingUsesCurrentIAMAuthority(t *testing.T) {
 	t.Cleanup(func() { _ = db.Close() })
 	db.SetMaxOpenConns(1)
 	groups := backend.New(db)
-	identities := iamdb.New(db)
+	identities, err := iamdb.New(t.Context(), db)
+	if err != nil {
+		t.Fatal(err)
+	}
 	group := managedGroup()
 	if err := groups.Update(t.Context(), func(tx domain.Transaction) error { return tx.PutGroup(group) }); err != nil {
 		t.Fatal(err)

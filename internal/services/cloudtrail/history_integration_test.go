@@ -2,6 +2,7 @@ package cloudtrail_test
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http/httptest"
@@ -39,6 +40,15 @@ import (
 	sqlitejournal "stackd/storage/sqlite/journal"
 )
 
+func newSQLiteIAMRepository(t *testing.T, db *sql.DB) *sqliteiam.Repository {
+	t.Helper()
+	repository, err := sqliteiam.New(t.Context(), db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return repository
+}
+
 type deployment struct {
 	journal journal.Storage
 	iam     *sdkiam.Client
@@ -49,7 +59,8 @@ type deployment struct {
 
 func deploy(t *testing.T, repo iam.Repository, events journal.Storage, source clock.Clock) deployment {
 	t.Helper()
-	creds := identity.NewWithConfig(identity.Config{Repository: iam.NewCredentialRepository(repo, events), Clock: source})
+	// A replacement server must reopen the same sandbox account, not mint a new one.
+	creds := identity.NewWithConfig(identity.Config{AccountID: "123456789012", Repository: iam.NewCredentialRepository(repo, events), Clock: source})
 	identityService := iam.NewWithConfig(iam.Config{Repository: repo, Credentials: creds, CredentialEvents: events, APICallEvents: apievents.New(events), Clock: source})
 	authorizer := authorization.NewWithClock(identityService, nil, source)
 	identityService.SetAuthorizer(authorizer)
@@ -127,7 +138,7 @@ func TestIAMHistorySDKNativeFieldsAndRecovery(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					repo = sqliteiam.New(db)
+					repo = newSQLiteIAMRepository(t, db)
 					events = sqlitejournal.New(db)
 					closeDB = func() { _ = db.Close() }
 				}
@@ -249,7 +260,14 @@ func TestIAMHistorySDKNativeFieldsAndRecovery(t *testing.T) {
 			d = deploy(t, repo, events, source)
 			retained := lookup(t, d.trail, trailtypes.LookupAttributeKeyEventSource, "iam.amazonaws.com")
 			if len(retained) != len(all) || *retained[0].EventId != *all[0].EventId {
-				t.Fatal("history changed after reopening")
+				ids := func(rows []trailtypes.Event) []string {
+					out := make([]string, len(rows))
+					for index, row := range rows {
+						out[index] = aws.ToString(row.EventName) + ":" + aws.ToString(row.EventId)
+					}
+					return out
+				}
+				t.Fatalf("history changed after reopening: before=%v after=%v", ids(all), ids(retained))
 			}
 			if len(lookup(t, d.client("111111111111", "test", "us-east-1"), trailtypes.LookupAttributeKeyEventSource, "iam.amazonaws.com")) != 0 {
 				t.Fatal("cross-account history exposed")
@@ -282,7 +300,7 @@ func TestAuditAppendFailureRollsBackIAM(t *testing.T) {
 					t.Fatal(err)
 				}
 				t.Cleanup(func() { _ = db.Close() })
-				repo = sqliteiam.New(db)
+				repo = newSQLiteIAMRepository(t, db)
 				events = sqlitejournal.New(db)
 			}
 			d := deploy(t, repo, failedAudit{events}, clock.NewManual(time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC)))
@@ -325,7 +343,7 @@ func TestHistorySDKPaginationTimeBoundsAndDenials(t *testing.T) {
 					t.Fatal(err)
 				}
 				t.Cleanup(func() { _ = db.Close() })
-				repo = sqliteiam.New(db)
+				repo = newSQLiteIAMRepository(t, db)
 				events = sqlitejournal.New(db)
 			}
 			epoch := time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC)

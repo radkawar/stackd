@@ -169,7 +169,11 @@ func TestPrivateRelationalObserverAndMutationRecheckCurrentIAM(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	databases, identities := backend.New(db), iamdb.New(db)
+	databases := backend.New(db)
+	identities, err := iamdb.New(t.Context(), db)
+	if err != nil {
+		t.Fatal(err)
+	}
 	scope := domain.Scope{Partition: "aws", AccountID: "111111111111", Region: "us-east-1"}
 	key := domain.Key{Scope: scope, Kind: "db", Name: "private-owner"}
 	owner := domain.CloudFormationOwner{StackID: "stack", LogicalID: "Database", Token: "exact-native-token"}

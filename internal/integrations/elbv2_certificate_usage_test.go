@@ -23,7 +23,6 @@ import (
 	"stackd/storage/memory"
 	"stackd/storage/sqlite"
 	elbdb "stackd/storage/sqlite/elbv2"
-	iamdb "stackd/storage/sqlite/iam"
 	journaldb "stackd/storage/sqlite/journal"
 )
 
@@ -87,7 +86,7 @@ func TestELBV2CertificateDeleteNativeDependency(t *testing.T) {
 						t.Error(err)
 					}
 				})
-				ir, er, events = iamdb.New(db), elbdb.New(db), journaldb.New(db)
+				ir, er, events = newSQLiteIAMRepository(t, db), elbdb.New(db), journaldb.New(db)
 			}
 			ctx := certificateUsageContext(t.Context(), "123456789012", "us-west-2")
 			account := iam.Scope{Partition: "aws", AccountID: "123456789012"}

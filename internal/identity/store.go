@@ -230,7 +230,7 @@ func (s *Store) RecordUsage(ctx context.Context, key, service, region string) er
 			region = "N/A"
 		}
 		r.LastUsed = LastUsed{Date: instant.UTC(), Service: service, Region: region}
-		return tx.Put(r)
+		return tx.PutUsage(r)
 	})
 }
 

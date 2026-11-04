@@ -67,9 +67,7 @@ func (k EC2DiskKeys) command(ctx context.Context, name string, input any) (any, 
 	// Service identities do not record caller credential activity. Forwarded
 	// calls retain the real caller's action, including ReEncrypt authority.
 	if !iam.IsEC2InfrastructureContext(ctx) {
-		if rejected := recordKMSActivity(ctx, k.Activity, name); rejected != nil {
-			return nil, rejected
-		}
+		recordKMSActivity(ctx, k.Activity, name)
 	}
 	model, _ := awscatalog.LookupService("kms")
 	operation, _ := model.Operation(name)
@@ -78,9 +76,7 @@ func (k EC2DiskKeys) command(ctx context.Context, name string, input any) (any, 
 
 func (k EC2DiskKeys) DescribeKey(ctx context.Context, keyID string) (*kmsapi.KeyMetadata, *awswire.Error) {
 	ctx = ec2SnapshotKMSCaller(ctx, "ec2-frontend-api")
-	if rejected := recordKMSActivity(ctx, k.Activity, "DescribeKey"); rejected != nil {
-		return nil, rejected
-	}
+	recordKMSActivity(ctx, k.Activity, "DescribeKey")
 	return k.KMS.DescribeKey(ctx, keyID)
 }
 

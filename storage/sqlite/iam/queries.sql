@@ -7,6 +7,9 @@ SELECT * FROM iam_scopes WHERE partition = ? ORDER BY account;
 -- name: GetUser :one
 SELECT * FROM iam_user WHERE partition = ? AND account = ? AND resource_key = ?;
 
+-- name: GetUserIdentityID :one
+SELECT user_id FROM iam_user WHERE partition = ? AND account = ? AND user_id = ? LIMIT 1;
+
 -- name: InsertUser :exec
 INSERT INTO iam_user (partition, account, resource_key, path, user_name, user_id, arn, create_date, password_last_used, cfn_owner)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
@@ -58,6 +61,12 @@ DELETE FROM iam_group WHERE partition = ? AND account = ? AND resource_key = ?;
 -- name: ListGroupKeys :many
 SELECT partition, account, resource_key FROM iam_group WHERE partition = ? AND account = ? ORDER BY group_name;
 
+-- name: ListUserGroupKeys :many
+SELECT g.partition, g.account, g.resource_key FROM iam_group AS g
+JOIN iam_group_members AS m USING (partition, account, resource_key)
+WHERE g.partition = ? AND g.account = ? AND m.entry_1 = ?
+ORDER BY g.group_name;
+
 -- name: ListGroupInline :many
 SELECT * FROM iam_group_inline WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1;
 
@@ -81,6 +90,14 @@ VALUES (?, ?, ?, ?, ?);
 
 -- name: GetRole :one
 SELECT * FROM iam_role WHERE partition = ? AND account = ? AND resource_key = ?;
+
+-- name: GetRoleLastUse :one
+SELECT last_used_date, last_used_region FROM iam_role
+WHERE partition = ? AND account = ? AND resource_key = ? AND role_id = ? AND arn = ?;
+
+-- name: UpdateRoleLastUse :exec
+UPDATE iam_role SET last_used_date = ?, last_used_region = ?
+WHERE partition = ? AND account = ? AND resource_key = ? AND role_id = ? AND arn = ?;
 
 -- name: InsertRole :exec
 INSERT INTO iam_role (partition, account, resource_key, path, role_name, role_id, arn, assume_role_policy_document, description, service_linked_service, last_used_region, create_date, last_used_date, max_session_duration, identity_center_instance_arn, identity_center_permission_set_arn, cfn_owner)
@@ -578,6 +595,10 @@ SELECT partition, account, key_principal_id, key_service_namespace, key_action_n
 
 -- name: GetCredential :one
 SELECT * FROM iam_credential WHERE resource_key = ?;
+
+-- name: UpdateCredentialLastUse :execrows
+UPDATE iam_credential SET last_used_date = ?, last_used_service = ?, last_used_region = ?
+WHERE resource_key = ?;
 
 -- name: InsertCredential :exec
 INSERT INTO iam_credential (resource_key, credential_access_key_id, credential_secret_access_key, credential_session_token, credential_account_id, credential_principal_arn, credential_principal_id, credential_user_name, credential_issuer_arn, credential_issuer_id, credential_federated_provider, credential_source_identity, last_used_service, last_used_region, credential_default_regions_only, credential_has_session_policy, credential_mfa_present, credential_expiration, credential_create_date, credential_mfa_authenticated_at, last_used_date, credential_session_type, status, credential_request_parent_event_id, credential_in_scope_of_issuer_type, credential_in_scope_of_credentials_issued_to, cfn_owner)

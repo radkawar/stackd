@@ -3,7 +3,9 @@ package integrations
 import (
 	"context"
 	"errors"
+	"slices"
 
+	"stackd/compute/network"
 	"stackd/internal/apievents"
 	api "stackd/internal/awsapi/elbv2"
 	"stackd/internal/awsctx"
@@ -16,13 +18,31 @@ import (
 // owns the linked role and the existing ServiceRoles authority issues sessions;
 // neither public callers nor retained ALB records receive copied EC2 authority.
 type ELBV2Networks struct {
-	EC2      *ec2.Service
-	Roles    *iam.Service
-	Sessions ServiceRoles
-	sessions serviceRoleSessions
+	EC2               *ec2.Service
+	Roles             *iam.Service
+	Sessions          ServiceRoles
+	PodRouteAuthority elbv2.PodRouteAuthority
+	sessions          serviceRoleSessions
 }
 
 var _ elbv2.NetworkAuthority = (*ELBV2Networks)(nil)
+
+// PodRoutes resolves live EKS authority outside EC2/ALB transactions. EC2
+// continues to own the rest of the packet policy; routes are never retained in
+// EC2 records or exposed through its public policy APIs.
+func (a *ELBV2Networks) PodRoutes(ctx context.Context, scope elbv2.Scope, vpcID string) ([]network.PodRoute, error) {
+	if err := elbv2ScopeContext(ctx, scope); err != nil {
+		return nil, err
+	}
+	if a.PodRouteAuthority == nil {
+		return nil, nil
+	}
+	routes, err := a.PodRouteAuthority.PodRoutes(ctx, scope.Partition, scope.AccountID, scope.Region, vpcID)
+	if err != nil {
+		return nil, err
+	}
+	return slices.Clone(routes), nil
+}
 
 func elbv2ScopeContext(ctx context.Context, scope elbv2.Scope) error {
 	m := awsctx.FromContext(ctx)

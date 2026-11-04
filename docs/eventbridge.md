@@ -964,11 +964,9 @@ and adds read-only complexity-boundary and equivalent-expression captures. The
 admission implementation follows these deployed AWS observations, including
 differences from newer Event Ruler state reuse and absent-field traversal.
 
-The matcher was compared with
-`/home/r/dev/minor/deceptiq/foundation/aws/eventmatcher` at revision
-`ca2fb209747b66f94f76d0f7ab517798566a3ffa` and AWS's
+The matcher was compared with AWS's
 [Event Ruler](https://github.com/aws/event-ruler) at revision
-`6efe434fdd7473b77ab35a891813fbd4b18537b3`. They inform the language audit;
+`6efe434fdd7473b77ab35a891813fbd4b18537b3`. This informs the language audit;
 native fixtures resolve differences such as numeric strings, case alternatives
 and array correlation. The official
 [pattern operators](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-create-pattern-operators.html)

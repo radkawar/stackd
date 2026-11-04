@@ -112,6 +112,7 @@ func TestAccessReportSnapshotDoesNotAgeWhenRead(t *testing.T) {
 	if _, err := f.client("eu-west-1", key).GetUser(t.Context(), &sdkiam.GetUserInput{}); err != nil {
 		t.Fatal(err)
 	}
+	f.flush(t)
 	generated, err := f.root.GenerateServiceLastAccessedDetails(t.Context(), &sdkiam.GenerateServiceLastAccessedDetailsInput{Arn: &key.PrincipalARN, Granularity: types.AccessAdvisorUsageGranularityTypeActionLevel})
 	if err != nil {
 		t.Fatal(err)

@@ -21,7 +21,7 @@ import (
 )
 
 func TestPostgresCertificatesVerifyConfiguredHost(t *testing.T) {
-	for _, host := range []string{"127.0.0.1", "::1", "native.stackd.test"} {
+	for _, host := range []string{"127.0.0.1", "172.17.0.1", "::1", "native.stackd.test"} {
 		t.Run(host, func(t *testing.T) {
 			ca, certificate, key, err := postgresCertificates(host)
 			if err != nil {
@@ -30,6 +30,20 @@ func TestPostgresCertificatesVerifyConfiguredHost(t *testing.T) {
 			pair, err := tls.X509KeyPair(certificate, key)
 			if err != nil {
 				t.Fatal(err)
+			}
+			if ip := net.ParseIP(host); ip != nil {
+				if len(pair.Leaf.IPAddresses) != 1 || !pair.Leaf.IPAddresses[0].Equal(ip) || len(pair.Leaf.DNSNames) != 0 {
+					t.Fatalf("IP endpoint did not receive exactly its IP SAN: %+v", pair.Leaf)
+				}
+			} else if len(pair.Leaf.DNSNames) != 1 || pair.Leaf.DNSNames[0] != host || len(pair.Leaf.IPAddresses) != 0 {
+				t.Fatalf("DNS endpoint did not receive exactly its DNS SAN: %+v", pair.Leaf)
+			}
+			if host == "172.17.0.1" {
+				for _, bind := range []string{"127.0.0.1", "0.0.0.0", "::"} {
+					if err := pair.Leaf.VerifyHostname(bind); err == nil {
+						t.Fatalf("bind address %s leaked into advertised endpoint SANs", bind)
+					}
+				}
 			}
 			roots := x509.NewCertPool()
 			if !roots.AppendCertsFromPEM(ca) {

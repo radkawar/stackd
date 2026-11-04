@@ -13,25 +13,36 @@ import (
 
 // Repository joins Account, Organizations, KMS and SQS transactions on the same
 // database. The caller owns the database and must close its stack first.
-type Repository struct{ db *sql.DB }
+type Repository struct {
+	db      *sql.DB
+	queries *sqlcgen.Queries
+}
 
-func New(db *sql.DB) *Repository { return &Repository{db: db} }
+// New prepares the service-owned queries before any repository transaction.
+// The caller owns db; closing it releases the underlying prepared statements.
+func New(ctx context.Context, db *sql.DB) (*Repository, error) {
+	queries, err := sqlcgen.Prepare(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	return &Repository{db: db, queries: queries}, nil
+}
 
 func (r *Repository) View(ctx context.Context, fn func(domain.ReadTx) error) error {
 	return sqlite.Transact(ctx, r.db, true, func(ctx context.Context, tx *sql.Tx) error {
-		return fn(reader{ctx, sqlcgen.New(tx)})
+		return fn(reader{ctx, r.queries.WithTx(tx)})
 	})
 }
 
 func (r *Repository) Update(ctx context.Context, fn func(domain.WriteTx) error) error {
 	return sqlite.Transact(ctx, r.db, false, func(ctx context.Context, tx *sql.Tx) error {
-		return fn(writer{reader{ctx, sqlcgen.New(tx)}})
+		return fn(writer{reader{ctx, r.queries.WithTx(tx)}})
 	})
 }
 
 func (r *Repository) Attempt(ctx context.Context, fn func(domain.WriteTx) error) error {
 	return sqlite.Attempt(ctx, r.db, func(ctx context.Context, tx *sql.Tx) error {
-		return fn(writer{reader{ctx, sqlcgen.New(tx)}})
+		return fn(writer{reader{ctx, r.queries.WithTx(tx)}})
 	})
 }
 

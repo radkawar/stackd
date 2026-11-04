@@ -128,7 +128,7 @@ func (d *Docker) databaseConfig(spec Specification) containerConfig {
 	config.HostConfig.LogConfig = docker.ContainerLogConfig{Type: "none"}
 	config.HostConfig.PidsLimit = 512
 	config.HostConfig.SecurityOpt = []string{"no-new-privileges"}
-	config.HostConfig.PortBindings = map[string][]portBinding{port: {{HostIP: "127.0.0.1", HostPort: strconv.Itoa(int(spec.Port))}}}
+	config.HostConfig.PortBindings = map[string][]portBinding{port: {{HostIP: d.publishAddress, HostPort: strconv.Itoa(int(spec.Port))}}}
 	return config
 }
 func (d *Docker) checkDatabase(state containerState, spec Specification) error {
@@ -146,16 +146,16 @@ func (d *Docker) checkDatabase(state containerState, spec Specification) error {
 		return errors.New("conflicting native database durable mounts")
 	}
 	bindings := state.HostConfig.PortBindings[port]
-	if len(state.HostConfig.PortBindings) != 1 || len(bindings) != 1 || bindings[0].HostIP != "127.0.0.1" {
-		return errors.New("native database must publish only its loopback SQL port")
+	if len(state.HostConfig.PortBindings) != 1 || len(bindings) != 1 || bindings[0].HostIP != d.publishAddress {
+		return errors.New("native database must publish only its configured SQL binding")
 	}
 	return nil
 }
-func (s containerState) endpoint(host, engine string) (Endpoint, error) {
+func (s containerState) endpoint(host, publishAddress, engine string) (Endpoint, error) {
 	port, _, _ := nativeLayout(engine)
 	bindings := s.NetworkSettings.Ports[port]
-	if len(bindings) != 1 || bindings[0].HostIP != "127.0.0.1" {
-		return Endpoint{}, errors.New("native database has no exclusive loopback endpoint")
+	if len(bindings) != 1 || bindings[0].HostIP != publishAddress {
+		return Endpoint{}, errors.New("native database has no exclusive configured SQL endpoint")
 	}
 	value, err := strconv.Atoi(bindings[0].HostPort)
 	if err != nil || value < 1 || value > 65535 {
@@ -166,14 +166,14 @@ func (s containerState) endpoint(host, engine string) (Endpoint, error) {
 
 // retainedPort uses immutable Docker bindings even while NetworkSettings is
 // cleared for a stopped container. Legacy dynamic bindings require a live port.
-func (s containerState) retainedPort(engine string) (int32, error) {
+func (s containerState) retainedPort(publishAddress, engine string) (int32, error) {
 	wire, _, _ := nativeLayout(engine)
 	bindings := s.HostConfig.PortBindings[wire]
-	if len(bindings) != 1 || bindings[0].HostIP != "127.0.0.1" {
-		return 0, errors.New("native database has no retained loopback SQL binding")
+	if len(s.HostConfig.PortBindings) != 1 || len(bindings) != 1 || bindings[0].HostIP != publishAddress {
+		return 0, errors.New("native database has no retained configured SQL binding")
 	}
 	if bindings[0].HostPort == "" || bindings[0].HostPort == "0" {
-		endpoint, err := s.endpoint("127.0.0.1", engine)
+		endpoint, err := s.endpoint(publishAddress, publishAddress, engine)
 		return endpoint.Port, err
 	}
 	value, err := strconv.ParseUint(bindings[0].HostPort, 10, 16)
@@ -331,7 +331,7 @@ func (d *Docker) ensure(ctx context.Context, spec Specification) (Endpoint, erro
 			return Endpoint{}, err
 		}
 		if spec.Port == 0 {
-			spec.Port, err = state.retainedPort(spec.Engine)
+			spec.Port, err = state.retainedPort(d.publishAddress, spec.Engine)
 			// Legacy dynamic Docker bindings disappear from NetworkSettings
 			// on stop. Only the exact committed owner endpoint can recover them.
 			wire, _, _ := nativeLayout(spec.Engine)
@@ -379,7 +379,7 @@ func (d *Docker) ensure(ctx context.Context, spec Specification) (Endpoint, erro
 	}
 	var reservation net.Listener
 	if !exists {
-		reservation, err = d.portRange.Listen(ctx, "127.0.0.1", uint16(spec.Port))
+		reservation, err = d.portRange.Listen(ctx, d.publishAddress, uint16(spec.Port))
 		if err != nil {
 			return Endpoint{}, err
 		}

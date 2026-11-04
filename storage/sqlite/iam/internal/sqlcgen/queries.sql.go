@@ -22,7 +22,7 @@ type AccessReportScopesRow struct {
 }
 
 func (q *Queries) AccessReportScopes(ctx context.Context) ([]AccessReportScopesRow, error) {
-	rows, err := q.db.QueryContext(ctx, accessReportScopes)
+	rows, err := q.query(ctx, q.accessReportScopesStmt, accessReportScopes)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ type AccountAliasOwnerParams struct {
 }
 
 func (q *Queries) AccountAliasOwner(ctx context.Context, arg AccountAliasOwnerParams) (string, error) {
-	row := q.db.QueryRowContext(ctx, accountAliasOwner, arg.Partition, arg.Alias)
+	row := q.queryRow(ctx, q.accountAliasOwnerStmt, accountAliasOwner, arg.Partition, arg.Alias)
 	var account string
 	err := row.Scan(&account)
 	return account, err
@@ -70,7 +70,7 @@ type CredentialReportScopesRow struct {
 }
 
 func (q *Queries) CredentialReportScopes(ctx context.Context) ([]CredentialReportScopesRow, error) {
-	rows, err := q.db.QueryContext(ctx, credentialReportScopes)
+	rows, err := q.query(ctx, q.credentialReportScopesStmt, credentialReportScopes)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ type DeleteAccessReportParams struct {
 }
 
 func (q *Queries) DeleteAccessReport(ctx context.Context, arg DeleteAccessReportParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteAccessReport, arg.Partition, arg.Account, arg.ResourceKey)
+	result, err := q.exec(ctx, q.deleteAccessReportStmt, deleteAccessReport, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return 0, err
 	}
@@ -120,7 +120,7 @@ type DeleteAccountMetadataParams struct {
 }
 
 func (q *Queries) DeleteAccountMetadata(ctx context.Context, arg DeleteAccountMetadataParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteAccountMetadata, arg.Partition, arg.Account)
+	result, err := q.exec(ctx, q.deleteAccountMetadataStmt, deleteAccountMetadata, arg.Partition, arg.Account)
 	if err != nil {
 		return 0, err
 	}
@@ -137,7 +137,7 @@ type DeleteAccountSettingsParams struct {
 }
 
 func (q *Queries) DeleteAccountSettings(ctx context.Context, arg DeleteAccountSettingsParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteAccountSettings, arg.Partition, arg.Account)
+	result, err := q.exec(ctx, q.deleteAccountSettingsStmt, deleteAccountSettings, arg.Partition, arg.Account)
 	if err != nil {
 		return 0, err
 	}
@@ -149,7 +149,7 @@ DELETE FROM iam_credential WHERE resource_key = ?
 `
 
 func (q *Queries) DeleteCredential(ctx context.Context, resourceKey string) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteCredential, resourceKey)
+	result, err := q.exec(ctx, q.deleteCredentialStmt, deleteCredential, resourceKey)
 	if err != nil {
 		return 0, err
 	}
@@ -166,7 +166,7 @@ type DeleteCredentialReportParams struct {
 }
 
 func (q *Queries) DeleteCredentialReport(ctx context.Context, arg DeleteCredentialReportParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteCredentialReport, arg.Partition, arg.Account)
+	result, err := q.exec(ctx, q.deleteCredentialReportStmt, deleteCredentialReport, arg.Partition, arg.Account)
 	if err != nil {
 		return 0, err
 	}
@@ -184,7 +184,7 @@ type DeleteGroupParams struct {
 }
 
 func (q *Queries) DeleteGroup(ctx context.Context, arg DeleteGroupParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteGroup, arg.Partition, arg.Account, arg.ResourceKey)
+	result, err := q.exec(ctx, q.deleteGroupStmt, deleteGroup, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return 0, err
 	}
@@ -202,7 +202,7 @@ type DeleteInstanceProfileParams struct {
 }
 
 func (q *Queries) DeleteInstanceProfile(ctx context.Context, arg DeleteInstanceProfileParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteInstanceProfile, arg.Partition, arg.Account, arg.ResourceKey)
+	result, err := q.exec(ctx, q.deleteInstanceProfileStmt, deleteInstanceProfile, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return 0, err
 	}
@@ -220,7 +220,7 @@ type DeleteLoginProfileParams struct {
 }
 
 func (q *Queries) DeleteLoginProfile(ctx context.Context, arg DeleteLoginProfileParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteLoginProfile, arg.Partition, arg.Account, arg.ResourceKey)
+	result, err := q.exec(ctx, q.deleteLoginProfileStmt, deleteLoginProfile, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return 0, err
 	}
@@ -238,7 +238,7 @@ type DeleteMFADeviceParams struct {
 }
 
 func (q *Queries) DeleteMFADevice(ctx context.Context, arg DeleteMFADeviceParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteMFADevice, arg.Partition, arg.Account, arg.ResourceKey)
+	result, err := q.exec(ctx, q.deleteMFADeviceStmt, deleteMFADevice, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return 0, err
 	}
@@ -256,7 +256,7 @@ type DeleteManagedPolicyParams struct {
 }
 
 func (q *Queries) DeleteManagedPolicy(ctx context.Context, arg DeleteManagedPolicyParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteManagedPolicy, arg.Partition, arg.Account, arg.ResourceKey)
+	result, err := q.exec(ctx, q.deleteManagedPolicyStmt, deleteManagedPolicy, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return 0, err
 	}
@@ -274,7 +274,7 @@ type DeleteOIDCProviderParams struct {
 }
 
 func (q *Queries) DeleteOIDCProvider(ctx context.Context, arg DeleteOIDCProviderParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteOIDCProvider, arg.Partition, arg.Account, arg.ResourceKey)
+	result, err := q.exec(ctx, q.deleteOIDCProviderStmt, deleteOIDCProvider, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return 0, err
 	}
@@ -295,7 +295,7 @@ type DeletePrincipalActivityParams struct {
 }
 
 func (q *Queries) DeletePrincipalActivity(ctx context.Context, arg DeletePrincipalActivityParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deletePrincipalActivity,
+	result, err := q.exec(ctx, q.deletePrincipalActivityStmt, deletePrincipalActivity,
 		arg.Partition,
 		arg.Account,
 		arg.KeyPrincipalID,
@@ -320,7 +320,7 @@ type DeleteRoleParams struct {
 }
 
 func (q *Queries) DeleteRole(ctx context.Context, arg DeleteRoleParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteRole, arg.Partition, arg.Account, arg.ResourceKey)
+	result, err := q.exec(ctx, q.deleteRoleStmt, deleteRole, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return 0, err
 	}
@@ -338,7 +338,7 @@ type DeleteSAMLProviderParams struct {
 }
 
 func (q *Queries) DeleteSAMLProvider(ctx context.Context, arg DeleteSAMLProviderParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteSAMLProvider, arg.Partition, arg.Account, arg.ResourceKey)
+	result, err := q.exec(ctx, q.deleteSAMLProviderStmt, deleteSAMLProvider, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return 0, err
 	}
@@ -356,7 +356,7 @@ type DeleteSSHPublicKeyParams struct {
 }
 
 func (q *Queries) DeleteSSHPublicKey(ctx context.Context, arg DeleteSSHPublicKeyParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteSSHPublicKey, arg.Partition, arg.Account, arg.ResourceKey)
+	result, err := q.exec(ctx, q.deleteSSHPublicKeyStmt, deleteSSHPublicKey, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return 0, err
 	}
@@ -374,7 +374,7 @@ type DeleteServerCertificateParams struct {
 }
 
 func (q *Queries) DeleteServerCertificate(ctx context.Context, arg DeleteServerCertificateParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteServerCertificate, arg.Partition, arg.Account, arg.ResourceKey)
+	result, err := q.exec(ctx, q.deleteServerCertificateStmt, deleteServerCertificate, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return 0, err
 	}
@@ -392,7 +392,7 @@ type DeleteServiceCredentialParams struct {
 }
 
 func (q *Queries) DeleteServiceCredential(ctx context.Context, arg DeleteServiceCredentialParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteServiceCredential, arg.Partition, arg.Account, arg.ResourceKey)
+	result, err := q.exec(ctx, q.deleteServiceCredentialStmt, deleteServiceCredential, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return 0, err
 	}
@@ -410,7 +410,7 @@ type DeleteServiceLinkedRoleDeletionParams struct {
 }
 
 func (q *Queries) DeleteServiceLinkedRoleDeletion(ctx context.Context, arg DeleteServiceLinkedRoleDeletionParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteServiceLinkedRoleDeletion, arg.Partition, arg.Account, arg.ResourceKey)
+	result, err := q.exec(ctx, q.deleteServiceLinkedRoleDeletionStmt, deleteServiceLinkedRoleDeletion, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return 0, err
 	}
@@ -428,7 +428,7 @@ type DeleteSigningCertificateParams struct {
 }
 
 func (q *Queries) DeleteSigningCertificate(ctx context.Context, arg DeleteSigningCertificateParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteSigningCertificate, arg.Partition, arg.Account, arg.ResourceKey)
+	result, err := q.exec(ctx, q.deleteSigningCertificateStmt, deleteSigningCertificate, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return 0, err
 	}
@@ -446,7 +446,7 @@ type DeleteUserParams struct {
 }
 
 func (q *Queries) DeleteUser(ctx context.Context, arg DeleteUserParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteUser, arg.Partition, arg.Account, arg.ResourceKey)
+	result, err := q.exec(ctx, q.deleteUserStmt, deleteUser, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return 0, err
 	}
@@ -463,7 +463,7 @@ type EnsureScopeParams struct {
 }
 
 func (q *Queries) EnsureScope(ctx context.Context, arg EnsureScopeParams) error {
-	_, err := q.db.ExecContext(ctx, ensureScope, arg.Partition, arg.Account)
+	_, err := q.exec(ctx, q.ensureScopeStmt, ensureScope, arg.Partition, arg.Account)
 	return err
 }
 
@@ -478,7 +478,7 @@ type GetAccessReportParams struct {
 }
 
 func (q *Queries) GetAccessReport(ctx context.Context, arg GetAccessReportParams) (IamAccessReport, error) {
-	row := q.db.QueryRowContext(ctx, getAccessReport, arg.Partition, arg.Account, arg.ResourceKey)
+	row := q.queryRow(ctx, q.getAccessReportStmt, getAccessReport, arg.Partition, arg.Account, arg.ResourceKey)
 	var i IamAccessReport
 	err := row.Scan(
 		&i.Partition,
@@ -504,7 +504,7 @@ type GetAccessReportOrganizationParams struct {
 }
 
 func (q *Queries) GetAccessReportOrganization(ctx context.Context, arg GetAccessReportOrganizationParams) (IamAccessReportOrganization, error) {
-	row := q.db.QueryRowContext(ctx, getAccessReportOrganization, arg.Partition, arg.Account, arg.ResourceKey)
+	row := q.queryRow(ctx, q.getAccessReportOrganizationStmt, getAccessReportOrganization, arg.Partition, arg.Account, arg.ResourceKey)
 	var i IamAccessReportOrganization
 	err := row.Scan(
 		&i.Partition,
@@ -527,7 +527,7 @@ type GetAccessReportOrganizationErrorParams struct {
 }
 
 func (q *Queries) GetAccessReportOrganizationError(ctx context.Context, arg GetAccessReportOrganizationErrorParams) (IamAccessReportOrganizationError, error) {
-	row := q.db.QueryRowContext(ctx, getAccessReportOrganizationError, arg.Partition, arg.Account, arg.ResourceKey)
+	row := q.queryRow(ctx, q.getAccessReportOrganizationErrorStmt, getAccessReportOrganizationError, arg.Partition, arg.Account, arg.ResourceKey)
 	var i IamAccessReportOrganizationError
 	err := row.Scan(
 		&i.Partition,
@@ -551,7 +551,7 @@ type GetAccessReportOrganizationServicesLastActivityParams struct {
 }
 
 func (q *Queries) GetAccessReportOrganizationServicesLastActivity(ctx context.Context, arg GetAccessReportOrganizationServicesLastActivityParams) (IamAccessReportOrganizationServicesLastActivity, error) {
-	row := q.db.QueryRowContext(ctx, getAccessReportOrganizationServicesLastActivity,
+	row := q.queryRow(ctx, q.getAccessReportOrganizationServicesLastActivityStmt, getAccessReportOrganizationServicesLastActivity,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -583,7 +583,7 @@ type GetAccessReportServicesActionsLastActivityParams struct {
 }
 
 func (q *Queries) GetAccessReportServicesActionsLastActivity(ctx context.Context, arg GetAccessReportServicesActionsLastActivityParams) (IamAccessReportServicesActionsLastActivity, error) {
-	row := q.db.QueryRowContext(ctx, getAccessReportServicesActionsLastActivity,
+	row := q.queryRow(ctx, q.getAccessReportServicesActionsLastActivityStmt, getAccessReportServicesActionsLastActivity,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -620,7 +620,7 @@ type GetAccessReportServicesEntitiesLastActivityParams struct {
 }
 
 func (q *Queries) GetAccessReportServicesEntitiesLastActivity(ctx context.Context, arg GetAccessReportServicesEntitiesLastActivityParams) (IamAccessReportServicesEntitiesLastActivity, error) {
-	row := q.db.QueryRowContext(ctx, getAccessReportServicesEntitiesLastActivity,
+	row := q.queryRow(ctx, q.getAccessReportServicesEntitiesLastActivityStmt, getAccessReportServicesEntitiesLastActivity,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -656,7 +656,7 @@ type GetAccessReportServicesLastActivityParams struct {
 }
 
 func (q *Queries) GetAccessReportServicesLastActivity(ctx context.Context, arg GetAccessReportServicesLastActivityParams) (IamAccessReportServicesLastActivity, error) {
-	row := q.db.QueryRowContext(ctx, getAccessReportServicesLastActivity,
+	row := q.queryRow(ctx, q.getAccessReportServicesLastActivityStmt, getAccessReportServicesLastActivity,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -688,7 +688,7 @@ type GetAccountMetadataParams struct {
 }
 
 func (q *Queries) GetAccountMetadata(ctx context.Context, arg GetAccountMetadataParams) (IamAccountMetadatum, error) {
-	row := q.db.QueryRowContext(ctx, getAccountMetadata, arg.Partition, arg.Account)
+	row := q.queryRow(ctx, q.getAccountMetadataStmt, getAccountMetadata, arg.Partition, arg.Account)
 	var i IamAccountMetadatum
 	err := row.Scan(&i.Partition, &i.Account, &i.CreatedAt)
 	return i, err
@@ -704,7 +704,7 @@ type GetAccountSettingsParams struct {
 }
 
 func (q *Queries) GetAccountSettings(ctx context.Context, arg GetAccountSettingsParams) (IamAccountSetting, error) {
-	row := q.db.QueryRowContext(ctx, getAccountSettings, arg.Partition, arg.Account)
+	row := q.queryRow(ctx, q.getAccountSettingsStmt, getAccountSettings, arg.Partition, arg.Account)
 	var i IamAccountSetting
 	err := row.Scan(
 		&i.Partition,
@@ -727,7 +727,7 @@ type GetAccountSettingsOutboundWebIdentityParams struct {
 }
 
 func (q *Queries) GetAccountSettingsOutboundWebIdentity(ctx context.Context, arg GetAccountSettingsOutboundWebIdentityParams) (IamAccountSettingsOutboundWebIdentity, error) {
-	row := q.db.QueryRowContext(ctx, getAccountSettingsOutboundWebIdentity, arg.Partition, arg.Account)
+	row := q.queryRow(ctx, q.getAccountSettingsOutboundWebIdentityStmt, getAccountSettingsOutboundWebIdentity, arg.Partition, arg.Account)
 	var i IamAccountSettingsOutboundWebIdentity
 	err := row.Scan(
 		&i.Partition,
@@ -754,7 +754,7 @@ type GetAccountSettingsPasswordPolicyParams struct {
 }
 
 func (q *Queries) GetAccountSettingsPasswordPolicy(ctx context.Context, arg GetAccountSettingsPasswordPolicyParams) (IamAccountSettingsPasswordPolicy, error) {
-	row := q.db.QueryRowContext(ctx, getAccountSettingsPasswordPolicy, arg.Partition, arg.Account)
+	row := q.queryRow(ctx, q.getAccountSettingsPasswordPolicyStmt, getAccountSettingsPasswordPolicy, arg.Partition, arg.Account)
 	var i IamAccountSettingsPasswordPolicy
 	err := row.Scan(
 		&i.Partition,
@@ -782,7 +782,7 @@ type GetAccountSettingsRootLoginProfileParams struct {
 }
 
 func (q *Queries) GetAccountSettingsRootLoginProfile(ctx context.Context, arg GetAccountSettingsRootLoginProfileParams) (IamAccountSettingsRootLoginProfile, error) {
-	row := q.db.QueryRowContext(ctx, getAccountSettingsRootLoginProfile, arg.Partition, arg.Account)
+	row := q.queryRow(ctx, q.getAccountSettingsRootLoginProfileStmt, getAccountSettingsRootLoginProfile, arg.Partition, arg.Account)
 	var i IamAccountSettingsRootLoginProfile
 	err := row.Scan(&i.Partition, &i.Account, &i.CreateDate)
 	return i, err
@@ -793,7 +793,7 @@ SELECT resource_key, credential_access_key_id, credential_secret_access_key, cre
 `
 
 func (q *Queries) GetCredential(ctx context.Context, resourceKey string) (IamCredential, error) {
-	row := q.db.QueryRowContext(ctx, getCredential, resourceKey)
+	row := q.queryRow(ctx, q.getCredentialStmt, getCredential, resourceKey)
 	var i IamCredential
 	err := row.Scan(
 		&i.ResourceKey,
@@ -837,7 +837,7 @@ type GetCredentialReportParams struct {
 }
 
 func (q *Queries) GetCredentialReport(ctx context.Context, arg GetCredentialReportParams) (IamCredentialReport, error) {
-	row := q.db.QueryRowContext(ctx, getCredentialReport, arg.Partition, arg.Account)
+	row := q.queryRow(ctx, q.getCredentialReportStmt, getCredentialReport, arg.Partition, arg.Account)
 	var i IamCredentialReport
 	err := row.Scan(
 		&i.Partition,
@@ -862,7 +862,7 @@ type GetGroupParams struct {
 }
 
 func (q *Queries) GetGroup(ctx context.Context, arg GetGroupParams) (IamGroup, error) {
-	row := q.db.QueryRowContext(ctx, getGroup, arg.Partition, arg.Account, arg.ResourceKey)
+	row := q.queryRow(ctx, q.getGroupStmt, getGroup, arg.Partition, arg.Account, arg.ResourceKey)
 	var i IamGroup
 	err := row.Scan(
 		&i.Partition,
@@ -889,7 +889,7 @@ type GetInstanceProfileParams struct {
 }
 
 func (q *Queries) GetInstanceProfile(ctx context.Context, arg GetInstanceProfileParams) (IamInstanceProfile, error) {
-	row := q.db.QueryRowContext(ctx, getInstanceProfile, arg.Partition, arg.Account, arg.ResourceKey)
+	row := q.queryRow(ctx, q.getInstanceProfileStmt, getInstanceProfile, arg.Partition, arg.Account, arg.ResourceKey)
 	var i IamInstanceProfile
 	err := row.Scan(
 		&i.Partition,
@@ -917,7 +917,7 @@ type GetLoginProfileParams struct {
 }
 
 func (q *Queries) GetLoginProfile(ctx context.Context, arg GetLoginProfileParams) (IamLoginProfile, error) {
-	row := q.db.QueryRowContext(ctx, getLoginProfile, arg.Partition, arg.Account, arg.ResourceKey)
+	row := q.queryRow(ctx, q.getLoginProfileStmt, getLoginProfile, arg.Partition, arg.Account, arg.ResourceKey)
 	var i IamLoginProfile
 	err := row.Scan(
 		&i.Partition,
@@ -946,7 +946,7 @@ type GetMFADeviceParams struct {
 }
 
 func (q *Queries) GetMFADevice(ctx context.Context, arg GetMFADeviceParams) (IamMfaDevice, error) {
-	row := q.db.QueryRowContext(ctx, getMFADevice, arg.Partition, arg.Account, arg.ResourceKey)
+	row := q.queryRow(ctx, q.getMFADeviceStmt, getMFADevice, arg.Partition, arg.Account, arg.ResourceKey)
 	var i IamMfaDevice
 	err := row.Scan(
 		&i.Partition,
@@ -980,7 +980,7 @@ type GetManagedPolicyParams struct {
 }
 
 func (q *Queries) GetManagedPolicy(ctx context.Context, arg GetManagedPolicyParams) (IamManagedPolicy, error) {
-	row := q.db.QueryRowContext(ctx, getManagedPolicy, arg.Partition, arg.Account, arg.ResourceKey)
+	row := q.queryRow(ctx, q.getManagedPolicyStmt, getManagedPolicy, arg.Partition, arg.Account, arg.ResourceKey)
 	var i IamManagedPolicy
 	err := row.Scan(
 		&i.Partition,
@@ -1014,7 +1014,7 @@ type GetOIDCProviderParams struct {
 }
 
 func (q *Queries) GetOIDCProvider(ctx context.Context, arg GetOIDCProviderParams) (IamOidcProvider, error) {
-	row := q.db.QueryRowContext(ctx, getOIDCProvider, arg.Partition, arg.Account, arg.ResourceKey)
+	row := q.queryRow(ctx, q.getOIDCProviderStmt, getOIDCProvider, arg.Partition, arg.Account, arg.ResourceKey)
 	var i IamOidcProvider
 	err := row.Scan(
 		&i.Partition,
@@ -1043,7 +1043,7 @@ type GetPrincipalActivityParams struct {
 }
 
 func (q *Queries) GetPrincipalActivity(ctx context.Context, arg GetPrincipalActivityParams) (IamPrincipalActivity, error) {
-	row := q.db.QueryRowContext(ctx, getPrincipalActivity,
+	row := q.queryRow(ctx, q.getPrincipalActivityStmt, getPrincipalActivity,
 		arg.Partition,
 		arg.Account,
 		arg.KeyPrincipalID,
@@ -1080,7 +1080,7 @@ type GetRoleParams struct {
 }
 
 func (q *Queries) GetRole(ctx context.Context, arg GetRoleParams) (IamRole, error) {
-	row := q.db.QueryRowContext(ctx, getRole, arg.Partition, arg.Account, arg.ResourceKey)
+	row := q.queryRow(ctx, q.getRoleStmt, getRole, arg.Partition, arg.Account, arg.ResourceKey)
 	var i IamRole
 	err := row.Scan(
 		&i.Partition,
@@ -1104,6 +1104,37 @@ func (q *Queries) GetRole(ctx context.Context, arg GetRoleParams) (IamRole, erro
 	return i, err
 }
 
+const getRoleLastUse = `-- name: GetRoleLastUse :one
+SELECT last_used_date, last_used_region FROM iam_role
+WHERE partition = ? AND account = ? AND resource_key = ? AND role_id = ? AND arn = ?
+`
+
+type GetRoleLastUseParams struct {
+	Partition   string
+	Account     string
+	ResourceKey string
+	RoleID      string
+	Arn         string
+}
+
+type GetRoleLastUseRow struct {
+	LastUsedDate   time.Time
+	LastUsedRegion string
+}
+
+func (q *Queries) GetRoleLastUse(ctx context.Context, arg GetRoleLastUseParams) (GetRoleLastUseRow, error) {
+	row := q.queryRow(ctx, q.getRoleLastUseStmt, getRoleLastUse,
+		arg.Partition,
+		arg.Account,
+		arg.ResourceKey,
+		arg.RoleID,
+		arg.Arn,
+	)
+	var i GetRoleLastUseRow
+	err := row.Scan(&i.LastUsedDate, &i.LastUsedRegion)
+	return i, err
+}
+
 const getRolePermissionsBoundary = `-- name: GetRolePermissionsBoundary :one
 SELECT "partition", account, resource_key, permissions_boundary_type, permissions_boundary_arn FROM iam_role_permissions_boundary WHERE partition = ? AND account = ? AND resource_key = ?
 `
@@ -1115,7 +1146,7 @@ type GetRolePermissionsBoundaryParams struct {
 }
 
 func (q *Queries) GetRolePermissionsBoundary(ctx context.Context, arg GetRolePermissionsBoundaryParams) (IamRolePermissionsBoundary, error) {
-	row := q.db.QueryRowContext(ctx, getRolePermissionsBoundary, arg.Partition, arg.Account, arg.ResourceKey)
+	row := q.queryRow(ctx, q.getRolePermissionsBoundaryStmt, getRolePermissionsBoundary, arg.Partition, arg.Account, arg.ResourceKey)
 	var i IamRolePermissionsBoundary
 	err := row.Scan(
 		&i.Partition,
@@ -1138,7 +1169,7 @@ type GetRoleSourceRoleTemplateParams struct {
 }
 
 func (q *Queries) GetRoleSourceRoleTemplate(ctx context.Context, arg GetRoleSourceRoleTemplateParams) (IamRoleSourceRoleTemplate, error) {
-	row := q.db.QueryRowContext(ctx, getRoleSourceRoleTemplate, arg.Partition, arg.Account, arg.ResourceKey)
+	row := q.queryRow(ctx, q.getRoleSourceRoleTemplateStmt, getRoleSourceRoleTemplate, arg.Partition, arg.Account, arg.ResourceKey)
 	var i IamRoleSourceRoleTemplate
 	err := row.Scan(
 		&i.Partition,
@@ -1161,7 +1192,7 @@ type GetSAMLProviderParams struct {
 }
 
 func (q *Queries) GetSAMLProvider(ctx context.Context, arg GetSAMLProviderParams) (IamSamlProvider, error) {
-	row := q.db.QueryRowContext(ctx, getSAMLProvider, arg.Partition, arg.Account, arg.ResourceKey)
+	row := q.queryRow(ctx, q.getSAMLProviderStmt, getSAMLProvider, arg.Partition, arg.Account, arg.ResourceKey)
 	var i IamSamlProvider
 	err := row.Scan(
 		&i.Partition,
@@ -1190,7 +1221,7 @@ type GetSSHPublicKeyParams struct {
 }
 
 func (q *Queries) GetSSHPublicKey(ctx context.Context, arg GetSSHPublicKeyParams) (IamSshPublicKey, error) {
-	row := q.db.QueryRowContext(ctx, getSSHPublicKey, arg.Partition, arg.Account, arg.ResourceKey)
+	row := q.queryRow(ctx, q.getSSHPublicKeyStmt, getSSHPublicKey, arg.Partition, arg.Account, arg.ResourceKey)
 	var i IamSshPublicKey
 	err := row.Scan(
 		&i.Partition,
@@ -1218,7 +1249,7 @@ type GetServerCertificateParams struct {
 }
 
 func (q *Queries) GetServerCertificate(ctx context.Context, arg GetServerCertificateParams) (IamServerCertificate, error) {
-	row := q.db.QueryRowContext(ctx, getServerCertificate, arg.Partition, arg.Account, arg.ResourceKey)
+	row := q.queryRow(ctx, q.getServerCertificateStmt, getServerCertificate, arg.Partition, arg.Account, arg.ResourceKey)
 	var i IamServerCertificate
 	err := row.Scan(
 		&i.Partition,
@@ -1250,7 +1281,7 @@ type GetServiceCredentialParams struct {
 }
 
 func (q *Queries) GetServiceCredential(ctx context.Context, arg GetServiceCredentialParams) (IamServiceCredential, error) {
-	row := q.db.QueryRowContext(ctx, getServiceCredential, arg.Partition, arg.Account, arg.ResourceKey)
+	row := q.queryRow(ctx, q.getServiceCredentialStmt, getServiceCredential, arg.Partition, arg.Account, arg.ResourceKey)
 	var i IamServiceCredential
 	err := row.Scan(
 		&i.Partition,
@@ -1282,7 +1313,7 @@ type GetServiceLinkedRoleDeletionParams struct {
 }
 
 func (q *Queries) GetServiceLinkedRoleDeletion(ctx context.Context, arg GetServiceLinkedRoleDeletionParams) (IamServiceLinkedRoleDeletion, error) {
-	row := q.db.QueryRowContext(ctx, getServiceLinkedRoleDeletion, arg.Partition, arg.Account, arg.ResourceKey)
+	row := q.queryRow(ctx, q.getServiceLinkedRoleDeletionStmt, getServiceLinkedRoleDeletion, arg.Partition, arg.Account, arg.ResourceKey)
 	var i IamServiceLinkedRoleDeletion
 	err := row.Scan(
 		&i.Partition,
@@ -1312,7 +1343,7 @@ type GetSigningCertificateParams struct {
 }
 
 func (q *Queries) GetSigningCertificate(ctx context.Context, arg GetSigningCertificateParams) (IamSigningCertificate, error) {
-	row := q.db.QueryRowContext(ctx, getSigningCertificate, arg.Partition, arg.Account, arg.ResourceKey)
+	row := q.queryRow(ctx, q.getSigningCertificateStmt, getSigningCertificate, arg.Partition, arg.Account, arg.ResourceKey)
 	var i IamSigningCertificate
 	err := row.Scan(
 		&i.Partition,
@@ -1339,7 +1370,7 @@ type GetUserParams struct {
 }
 
 func (q *Queries) GetUser(ctx context.Context, arg GetUserParams) (IamUser, error) {
-	row := q.db.QueryRowContext(ctx, getUser, arg.Partition, arg.Account, arg.ResourceKey)
+	row := q.queryRow(ctx, q.getUserStmt, getUser, arg.Partition, arg.Account, arg.ResourceKey)
 	var i IamUser
 	err := row.Scan(
 		&i.Partition,
@@ -1356,6 +1387,23 @@ func (q *Queries) GetUser(ctx context.Context, arg GetUserParams) (IamUser, erro
 	return i, err
 }
 
+const getUserIdentityID = `-- name: GetUserIdentityID :one
+SELECT user_id FROM iam_user WHERE partition = ? AND account = ? AND user_id = ? LIMIT 1
+`
+
+type GetUserIdentityIDParams struct {
+	Partition string
+	Account   string
+	UserID    string
+}
+
+func (q *Queries) GetUserIdentityID(ctx context.Context, arg GetUserIdentityIDParams) (string, error) {
+	row := q.queryRow(ctx, q.getUserIdentityIDStmt, getUserIdentityID, arg.Partition, arg.Account, arg.UserID)
+	var user_id string
+	err := row.Scan(&user_id)
+	return user_id, err
+}
+
 const getUserPermissionsBoundary = `-- name: GetUserPermissionsBoundary :one
 SELECT "partition", account, resource_key, permissions_boundary_type, permissions_boundary_arn FROM iam_user_permissions_boundary WHERE partition = ? AND account = ? AND resource_key = ?
 `
@@ -1367,7 +1415,7 @@ type GetUserPermissionsBoundaryParams struct {
 }
 
 func (q *Queries) GetUserPermissionsBoundary(ctx context.Context, arg GetUserPermissionsBoundaryParams) (IamUserPermissionsBoundary, error) {
-	row := q.db.QueryRowContext(ctx, getUserPermissionsBoundary, arg.Partition, arg.Account, arg.ResourceKey)
+	row := q.queryRow(ctx, q.getUserPermissionsBoundaryStmt, getUserPermissionsBoundary, arg.Partition, arg.Account, arg.ResourceKey)
 	var i IamUserPermissionsBoundary
 	err := row.Scan(
 		&i.Partition,
@@ -1396,7 +1444,7 @@ type InsertAccessReportParams struct {
 }
 
 func (q *Queries) InsertAccessReport(ctx context.Context, arg InsertAccessReportParams) error {
-	_, err := q.db.ExecContext(ctx, insertAccessReport,
+	_, err := q.exec(ctx, q.insertAccessReportStmt, insertAccessReport,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -1423,7 +1471,7 @@ type InsertAccessReportOrganizationParams struct {
 }
 
 func (q *Queries) InsertAccessReportOrganization(ctx context.Context, arg InsertAccessReportOrganizationParams) error {
-	_, err := q.db.ExecContext(ctx, insertAccessReportOrganization,
+	_, err := q.exec(ctx, q.insertAccessReportOrganizationStmt, insertAccessReportOrganization,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -1447,7 +1495,7 @@ type InsertAccessReportOrganizationErrorParams struct {
 }
 
 func (q *Queries) InsertAccessReportOrganizationError(ctx context.Context, arg InsertAccessReportOrganizationErrorParams) error {
-	_, err := q.db.ExecContext(ctx, insertAccessReportOrganizationError,
+	_, err := q.exec(ctx, q.insertAccessReportOrganizationErrorStmt, insertAccessReportOrganizationError,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -1473,7 +1521,7 @@ type InsertAccessReportOrganizationServicesParams struct {
 }
 
 func (q *Queries) InsertAccessReportOrganizationServices(ctx context.Context, arg InsertAccessReportOrganizationServicesParams) error {
-	_, err := q.db.ExecContext(ctx, insertAccessReportOrganizationServices,
+	_, err := q.exec(ctx, q.insertAccessReportOrganizationServicesStmt, insertAccessReportOrganizationServices,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -1501,7 +1549,7 @@ type InsertAccessReportOrganizationServicesLastActivityParams struct {
 }
 
 func (q *Queries) InsertAccessReportOrganizationServicesLastActivity(ctx context.Context, arg InsertAccessReportOrganizationServicesLastActivityParams) error {
-	_, err := q.db.ExecContext(ctx, insertAccessReportOrganizationServicesLastActivity,
+	_, err := q.exec(ctx, q.insertAccessReportOrganizationServicesLastActivityStmt, insertAccessReportOrganizationServicesLastActivity,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -1528,7 +1576,7 @@ type InsertAccessReportServicesParams struct {
 }
 
 func (q *Queries) InsertAccessReportServices(ctx context.Context, arg InsertAccessReportServicesParams) error {
-	_, err := q.db.ExecContext(ctx, insertAccessReportServices,
+	_, err := q.exec(ctx, q.insertAccessReportServicesStmt, insertAccessReportServices,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -1554,7 +1602,7 @@ type InsertAccessReportServicesActionsParams struct {
 }
 
 func (q *Queries) InsertAccessReportServicesActions(ctx context.Context, arg InsertAccessReportServicesActionsParams) error {
-	_, err := q.db.ExecContext(ctx, insertAccessReportServicesActions,
+	_, err := q.exec(ctx, q.insertAccessReportServicesActionsStmt, insertAccessReportServicesActions,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -1585,7 +1633,7 @@ type InsertAccessReportServicesActionsLastActivityParams struct {
 }
 
 func (q *Queries) InsertAccessReportServicesActionsLastActivity(ctx context.Context, arg InsertAccessReportServicesActionsLastActivityParams) error {
-	_, err := q.db.ExecContext(ctx, insertAccessReportServicesActionsLastActivity,
+	_, err := q.exec(ctx, q.insertAccessReportServicesActionsLastActivityStmt, insertAccessReportServicesActionsLastActivity,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -1616,7 +1664,7 @@ type InsertAccessReportServicesEntitiesParams struct {
 }
 
 func (q *Queries) InsertAccessReportServicesEntities(ctx context.Context, arg InsertAccessReportServicesEntitiesParams) error {
-	_, err := q.db.ExecContext(ctx, insertAccessReportServicesEntities,
+	_, err := q.exec(ctx, q.insertAccessReportServicesEntitiesStmt, insertAccessReportServicesEntities,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -1647,7 +1695,7 @@ type InsertAccessReportServicesEntitiesLastActivityParams struct {
 }
 
 func (q *Queries) InsertAccessReportServicesEntitiesLastActivity(ctx context.Context, arg InsertAccessReportServicesEntitiesLastActivityParams) error {
-	_, err := q.db.ExecContext(ctx, insertAccessReportServicesEntitiesLastActivity,
+	_, err := q.exec(ctx, q.insertAccessReportServicesEntitiesLastActivityStmt, insertAccessReportServicesEntitiesLastActivity,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -1682,7 +1730,7 @@ type InsertAccessReportServicesLastActivityParams struct {
 }
 
 func (q *Queries) InsertAccessReportServicesLastActivity(ctx context.Context, arg InsertAccessReportServicesLastActivityParams) error {
-	_, err := q.db.ExecContext(ctx, insertAccessReportServicesLastActivity,
+	_, err := q.exec(ctx, q.insertAccessReportServicesLastActivityStmt, insertAccessReportServicesLastActivity,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -1709,7 +1757,7 @@ type InsertAccountMetadataParams struct {
 }
 
 func (q *Queries) InsertAccountMetadata(ctx context.Context, arg InsertAccountMetadataParams) error {
-	_, err := q.db.ExecContext(ctx, insertAccountMetadata, arg.Partition, arg.Account, arg.CreatedAt)
+	_, err := q.exec(ctx, q.insertAccountMetadataStmt, insertAccountMetadata, arg.Partition, arg.Account, arg.CreatedAt)
 	return err
 }
 
@@ -1728,7 +1776,7 @@ type InsertAccountSettingsParams struct {
 }
 
 func (q *Queries) InsertAccountSettings(ctx context.Context, arg InsertAccountSettingsParams) error {
-	_, err := q.db.ExecContext(ctx, insertAccountSettings,
+	_, err := q.exec(ctx, q.insertAccountSettingsStmt, insertAccountSettings,
 		arg.Partition,
 		arg.Account,
 		arg.Alias,
@@ -1753,7 +1801,7 @@ type InsertAccountSettingsGlobalEndpointAllRegionsParams struct {
 }
 
 func (q *Queries) InsertAccountSettingsGlobalEndpointAllRegions(ctx context.Context, arg InsertAccountSettingsGlobalEndpointAllRegionsParams) error {
-	_, err := q.db.ExecContext(ctx, insertAccountSettingsGlobalEndpointAllRegions,
+	_, err := q.exec(ctx, q.insertAccountSettingsGlobalEndpointAllRegionsStmt, insertAccountSettingsGlobalEndpointAllRegions,
 		arg.Partition,
 		arg.Account,
 		arg.Position1,
@@ -1782,7 +1830,7 @@ type InsertAccountSettingsOutboundWebIdentityParams struct {
 }
 
 func (q *Queries) InsertAccountSettingsOutboundWebIdentity(ctx context.Context, arg InsertAccountSettingsOutboundWebIdentityParams) error {
-	_, err := q.db.ExecContext(ctx, insertAccountSettingsOutboundWebIdentity,
+	_, err := q.exec(ctx, q.insertAccountSettingsOutboundWebIdentityStmt, insertAccountSettingsOutboundWebIdentity,
 		arg.Partition,
 		arg.Account,
 		arg.IssuerID,
@@ -1811,7 +1859,7 @@ type InsertAccountSettingsOutboundWebIdentityEnabledParams struct {
 }
 
 func (q *Queries) InsertAccountSettingsOutboundWebIdentityEnabled(ctx context.Context, arg InsertAccountSettingsOutboundWebIdentityEnabledParams) error {
-	_, err := q.db.ExecContext(ctx, insertAccountSettingsOutboundWebIdentityEnabled,
+	_, err := q.exec(ctx, q.insertAccountSettingsOutboundWebIdentityEnabledStmt, insertAccountSettingsOutboundWebIdentityEnabled,
 		arg.Partition,
 		arg.Account,
 		arg.Position2,
@@ -1841,7 +1889,7 @@ type InsertAccountSettingsPasswordPolicyParams struct {
 }
 
 func (q *Queries) InsertAccountSettingsPasswordPolicy(ctx context.Context, arg InsertAccountSettingsPasswordPolicyParams) error {
-	_, err := q.db.ExecContext(ctx, insertAccountSettingsPasswordPolicy,
+	_, err := q.exec(ctx, q.insertAccountSettingsPasswordPolicyStmt, insertAccountSettingsPasswordPolicy,
 		arg.Partition,
 		arg.Account,
 		arg.MinimumPasswordLength,
@@ -1869,7 +1917,7 @@ type InsertAccountSettingsRootLoginProfileParams struct {
 }
 
 func (q *Queries) InsertAccountSettingsRootLoginProfile(ctx context.Context, arg InsertAccountSettingsRootLoginProfileParams) error {
-	_, err := q.db.ExecContext(ctx, insertAccountSettingsRootLoginProfile, arg.Partition, arg.Account, arg.CreateDate)
+	_, err := q.exec(ctx, q.insertAccountSettingsRootLoginProfileStmt, insertAccountSettingsRootLoginProfile, arg.Partition, arg.Account, arg.CreateDate)
 	return err
 }
 
@@ -1909,7 +1957,7 @@ type InsertCredentialParams struct {
 }
 
 func (q *Queries) InsertCredential(ctx context.Context, arg InsertCredentialParams) error {
-	_, err := q.db.ExecContext(ctx, insertCredential,
+	_, err := q.exec(ctx, q.insertCredentialStmt, insertCredential,
 		arg.ResourceKey,
 		arg.CredentialAccessKeyID,
 		arg.CredentialSecretAccessKey,
@@ -1957,7 +2005,7 @@ type InsertCredentialReportParams struct {
 }
 
 func (q *Queries) InsertCredentialReport(ctx context.Context, arg InsertCredentialReportParams) error {
-	_, err := q.db.ExecContext(ctx, insertCredentialReport,
+	_, err := q.exec(ctx, q.insertCredentialReportStmt, insertCredentialReport,
 		arg.Partition,
 		arg.Account,
 		arg.Generation,
@@ -1980,7 +2028,7 @@ type InsertCredentialSessionContextParams struct {
 }
 
 func (q *Queries) InsertCredentialSessionContext(ctx context.Context, arg InsertCredentialSessionContextParams) error {
-	_, err := q.db.ExecContext(ctx, insertCredentialSessionContext, arg.ResourceKey, arg.Entry1)
+	_, err := q.exec(ctx, q.insertCredentialSessionContextStmt, insertCredentialSessionContext, arg.ResourceKey, arg.Entry1)
 	return err
 }
 
@@ -1997,7 +2045,7 @@ type InsertCredentialSessionContextValuesParams struct {
 }
 
 func (q *Queries) InsertCredentialSessionContextValues(ctx context.Context, arg InsertCredentialSessionContextValuesParams) error {
-	_, err := q.db.ExecContext(ctx, insertCredentialSessionContextValues,
+	_, err := q.exec(ctx, q.insertCredentialSessionContextValuesStmt, insertCredentialSessionContextValues,
 		arg.ResourceKey,
 		arg.Entry1,
 		arg.Position2,
@@ -2018,7 +2066,7 @@ type InsertCredentialSessionPoliciesParams struct {
 }
 
 func (q *Queries) InsertCredentialSessionPolicies(ctx context.Context, arg InsertCredentialSessionPoliciesParams) error {
-	_, err := q.db.ExecContext(ctx, insertCredentialSessionPolicies, arg.ResourceKey, arg.Position1, arg.Value)
+	_, err := q.exec(ctx, q.insertCredentialSessionPoliciesStmt, insertCredentialSessionPolicies, arg.ResourceKey, arg.Position1, arg.Value)
 	return err
 }
 
@@ -2034,7 +2082,7 @@ type InsertCredentialSessionPolicyARNsParams struct {
 }
 
 func (q *Queries) InsertCredentialSessionPolicyARNs(ctx context.Context, arg InsertCredentialSessionPolicyARNsParams) error {
-	_, err := q.db.ExecContext(ctx, insertCredentialSessionPolicyARNs, arg.ResourceKey, arg.Position1, arg.Value)
+	_, err := q.exec(ctx, q.insertCredentialSessionPolicyARNsStmt, insertCredentialSessionPolicyARNs, arg.ResourceKey, arg.Position1, arg.Value)
 	return err
 }
 
@@ -2050,7 +2098,7 @@ type InsertCredentialSessionTagsParams struct {
 }
 
 func (q *Queries) InsertCredentialSessionTags(ctx context.Context, arg InsertCredentialSessionTagsParams) error {
-	_, err := q.db.ExecContext(ctx, insertCredentialSessionTags, arg.ResourceKey, arg.Entry1, arg.Value)
+	_, err := q.exec(ctx, q.insertCredentialSessionTagsStmt, insertCredentialSessionTags, arg.ResourceKey, arg.Entry1, arg.Value)
 	return err
 }
 
@@ -2066,7 +2114,7 @@ type InsertCredentialTransitiveTagKeysParams struct {
 }
 
 func (q *Queries) InsertCredentialTransitiveTagKeys(ctx context.Context, arg InsertCredentialTransitiveTagKeysParams) error {
-	_, err := q.db.ExecContext(ctx, insertCredentialTransitiveTagKeys, arg.ResourceKey, arg.Position1, arg.Value)
+	_, err := q.exec(ctx, q.insertCredentialTransitiveTagKeysStmt, insertCredentialTransitiveTagKeys, arg.ResourceKey, arg.Position1, arg.Value)
 	return err
 }
 
@@ -2088,7 +2136,7 @@ type InsertGroupParams struct {
 }
 
 func (q *Queries) InsertGroup(ctx context.Context, arg InsertGroupParams) error {
-	_, err := q.db.ExecContext(ctx, insertGroup,
+	_, err := q.exec(ctx, q.insertGroupStmt, insertGroup,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2116,7 +2164,7 @@ type InsertGroupAttachedParams struct {
 }
 
 func (q *Queries) InsertGroupAttached(ctx context.Context, arg InsertGroupAttachedParams) error {
-	_, err := q.db.ExecContext(ctx, insertGroupAttached,
+	_, err := q.exec(ctx, q.insertGroupAttachedStmt, insertGroupAttached,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2141,7 +2189,7 @@ type InsertGroupInlineParams struct {
 }
 
 func (q *Queries) InsertGroupInline(ctx context.Context, arg InsertGroupInlineParams) error {
-	_, err := q.db.ExecContext(ctx, insertGroupInline,
+	_, err := q.exec(ctx, q.insertGroupInlineStmt, insertGroupInline,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2166,7 +2214,7 @@ type InsertGroupMembersParams struct {
 }
 
 func (q *Queries) InsertGroupMembers(ctx context.Context, arg InsertGroupMembersParams) error {
-	_, err := q.db.ExecContext(ctx, insertGroupMembers,
+	_, err := q.exec(ctx, q.insertGroupMembersStmt, insertGroupMembers,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2195,7 +2243,7 @@ type InsertInstanceProfileParams struct {
 }
 
 func (q *Queries) InsertInstanceProfile(ctx context.Context, arg InsertInstanceProfileParams) error {
-	_, err := q.db.ExecContext(ctx, insertInstanceProfile,
+	_, err := q.exec(ctx, q.insertInstanceProfileStmt, insertInstanceProfile,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2225,7 +2273,7 @@ type InsertInstanceProfileTagsParams struct {
 }
 
 func (q *Queries) InsertInstanceProfileTags(ctx context.Context, arg InsertInstanceProfileTagsParams) error {
-	_, err := q.db.ExecContext(ctx, insertInstanceProfileTags,
+	_, err := q.exec(ctx, q.insertInstanceProfileTagsStmt, insertInstanceProfileTags,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2256,7 +2304,7 @@ type InsertLoginProfileParams struct {
 }
 
 func (q *Queries) InsertLoginProfile(ctx context.Context, arg InsertLoginProfileParams) error {
-	_, err := q.db.ExecContext(ctx, insertLoginProfile,
+	_, err := q.exec(ctx, q.insertLoginProfileStmt, insertLoginProfile,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2289,7 +2337,7 @@ type InsertLoginProfilePreviousPasswordsParams struct {
 }
 
 func (q *Queries) InsertLoginProfilePreviousPasswords(ctx context.Context, arg InsertLoginProfilePreviousPasswordsParams) error {
-	_, err := q.db.ExecContext(ctx, insertLoginProfilePreviousPasswords,
+	_, err := q.exec(ctx, q.insertLoginProfilePreviousPasswordsStmt, insertLoginProfilePreviousPasswords,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2327,7 +2375,7 @@ type InsertMFADeviceParams struct {
 }
 
 func (q *Queries) InsertMFADevice(ctx context.Context, arg InsertMFADeviceParams) error {
-	_, err := q.db.ExecContext(ctx, insertMFADevice,
+	_, err := q.exec(ctx, q.insertMFADeviceStmt, insertMFADevice,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2365,7 +2413,7 @@ type InsertMFADeviceBindingPendingParams struct {
 }
 
 func (q *Queries) InsertMFADeviceBindingPending(ctx context.Context, arg InsertMFADeviceBindingPendingParams) error {
-	_, err := q.db.ExecContext(ctx, insertMFADeviceBindingPending,
+	_, err := q.exec(ctx, q.insertMFADeviceBindingPendingStmt, insertMFADeviceBindingPending,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2393,7 +2441,7 @@ type InsertMFADeviceTagsParams struct {
 }
 
 func (q *Queries) InsertMFADeviceTags(ctx context.Context, arg InsertMFADeviceTagsParams) error {
-	_, err := q.db.ExecContext(ctx, insertMFADeviceTags,
+	_, err := q.exec(ctx, q.insertMFADeviceTagsStmt, insertMFADeviceTags,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2419,7 +2467,7 @@ type InsertMFADeviceUsedCodesParams struct {
 }
 
 func (q *Queries) InsertMFADeviceUsedCodes(ctx context.Context, arg InsertMFADeviceUsedCodesParams) error {
-	_, err := q.db.ExecContext(ctx, insertMFADeviceUsedCodes,
+	_, err := q.exec(ctx, q.insertMFADeviceUsedCodesStmt, insertMFADeviceUsedCodes,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2455,7 +2503,7 @@ type InsertManagedPolicyParams struct {
 }
 
 func (q *Queries) InsertManagedPolicy(ctx context.Context, arg InsertManagedPolicyParams) error {
-	_, err := q.db.ExecContext(ctx, insertManagedPolicy,
+	_, err := q.exec(ctx, q.insertManagedPolicyStmt, insertManagedPolicy,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2491,7 +2539,7 @@ type InsertManagedPolicyTagsParams struct {
 }
 
 func (q *Queries) InsertManagedPolicyTags(ctx context.Context, arg InsertManagedPolicyTagsParams) error {
-	_, err := q.db.ExecContext(ctx, insertManagedPolicyTags,
+	_, err := q.exec(ctx, q.insertManagedPolicyTagsStmt, insertManagedPolicyTags,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2519,7 +2567,7 @@ type InsertManagedPolicyVersionsParams struct {
 }
 
 func (q *Queries) InsertManagedPolicyVersions(ctx context.Context, arg InsertManagedPolicyVersionsParams) error {
-	_, err := q.db.ExecContext(ctx, insertManagedPolicyVersions,
+	_, err := q.exec(ctx, q.insertManagedPolicyVersionsStmt, insertManagedPolicyVersions,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2549,7 +2597,7 @@ type InsertOIDCProviderParams struct {
 }
 
 func (q *Queries) InsertOIDCProvider(ctx context.Context, arg InsertOIDCProviderParams) error {
-	_, err := q.db.ExecContext(ctx, insertOIDCProvider,
+	_, err := q.exec(ctx, q.insertOIDCProviderStmt, insertOIDCProvider,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2576,7 +2624,7 @@ type InsertOIDCProviderClientIDsParams struct {
 }
 
 func (q *Queries) InsertOIDCProviderClientIDs(ctx context.Context, arg InsertOIDCProviderClientIDsParams) error {
-	_, err := q.db.ExecContext(ctx, insertOIDCProviderClientIDs,
+	_, err := q.exec(ctx, q.insertOIDCProviderClientIDsStmt, insertOIDCProviderClientIDs,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2601,7 +2649,7 @@ type InsertOIDCProviderTagsParams struct {
 }
 
 func (q *Queries) InsertOIDCProviderTags(ctx context.Context, arg InsertOIDCProviderTagsParams) error {
-	_, err := q.db.ExecContext(ctx, insertOIDCProviderTags,
+	_, err := q.exec(ctx, q.insertOIDCProviderTagsStmt, insertOIDCProviderTags,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2626,7 +2674,7 @@ type InsertOIDCProviderThumbprintsParams struct {
 }
 
 func (q *Queries) InsertOIDCProviderThumbprints(ctx context.Context, arg InsertOIDCProviderThumbprintsParams) error {
-	_, err := q.db.ExecContext(ctx, insertOIDCProviderThumbprints,
+	_, err := q.exec(ctx, q.insertOIDCProviderThumbprintsStmt, insertOIDCProviderThumbprints,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2657,7 +2705,7 @@ type InsertPrincipalActivityParams struct {
 }
 
 func (q *Queries) InsertPrincipalActivity(ctx context.Context, arg InsertPrincipalActivityParams) error {
-	_, err := q.db.ExecContext(ctx, insertPrincipalActivity,
+	_, err := q.exec(ctx, q.insertPrincipalActivityStmt, insertPrincipalActivity,
 		arg.Partition,
 		arg.Account,
 		arg.KeyPrincipalID,
@@ -2700,7 +2748,7 @@ type InsertRoleParams struct {
 }
 
 func (q *Queries) InsertRole(ctx context.Context, arg InsertRoleParams) error {
-	_, err := q.db.ExecContext(ctx, insertRole,
+	_, err := q.exec(ctx, q.insertRoleStmt, insertRole,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2736,7 +2784,7 @@ type InsertRoleAttachedParams struct {
 }
 
 func (q *Queries) InsertRoleAttached(ctx context.Context, arg InsertRoleAttachedParams) error {
-	_, err := q.db.ExecContext(ctx, insertRoleAttached,
+	_, err := q.exec(ctx, q.insertRoleAttachedStmt, insertRoleAttached,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2761,7 +2809,7 @@ type InsertRoleInlineParams struct {
 }
 
 func (q *Queries) InsertRoleInline(ctx context.Context, arg InsertRoleInlineParams) error {
-	_, err := q.db.ExecContext(ctx, insertRoleInline,
+	_, err := q.exec(ctx, q.insertRoleInlineStmt, insertRoleInline,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2786,7 +2834,7 @@ type InsertRolePermissionsBoundaryParams struct {
 }
 
 func (q *Queries) InsertRolePermissionsBoundary(ctx context.Context, arg InsertRolePermissionsBoundaryParams) error {
-	_, err := q.db.ExecContext(ctx, insertRolePermissionsBoundary,
+	_, err := q.exec(ctx, q.insertRolePermissionsBoundaryStmt, insertRolePermissionsBoundary,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2810,7 +2858,7 @@ type InsertRoleSourceRoleTemplateParams struct {
 }
 
 func (q *Queries) InsertRoleSourceRoleTemplate(ctx context.Context, arg InsertRoleSourceRoleTemplateParams) error {
-	_, err := q.db.ExecContext(ctx, insertRoleSourceRoleTemplate,
+	_, err := q.exec(ctx, q.insertRoleSourceRoleTemplateStmt, insertRoleSourceRoleTemplate,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2833,7 +2881,7 @@ type InsertRoleSourceRoleTemplateParametersParams struct {
 }
 
 func (q *Queries) InsertRoleSourceRoleTemplateParameters(ctx context.Context, arg InsertRoleSourceRoleTemplateParametersParams) error {
-	_, err := q.db.ExecContext(ctx, insertRoleSourceRoleTemplateParameters,
+	_, err := q.exec(ctx, q.insertRoleSourceRoleTemplateParametersStmt, insertRoleSourceRoleTemplateParameters,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2857,7 +2905,7 @@ type InsertRoleSourceRoleTemplateParametersValuesParams struct {
 }
 
 func (q *Queries) InsertRoleSourceRoleTemplateParametersValues(ctx context.Context, arg InsertRoleSourceRoleTemplateParametersValuesParams) error {
-	_, err := q.db.ExecContext(ctx, insertRoleSourceRoleTemplateParametersValues,
+	_, err := q.exec(ctx, q.insertRoleSourceRoleTemplateParametersValuesStmt, insertRoleSourceRoleTemplateParametersValues,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2883,7 +2931,7 @@ type InsertRoleTagsParams struct {
 }
 
 func (q *Queries) InsertRoleTags(ctx context.Context, arg InsertRoleTagsParams) error {
-	_, err := q.db.ExecContext(ctx, insertRoleTags,
+	_, err := q.exec(ctx, q.insertRoleTagsStmt, insertRoleTags,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2908,7 +2956,7 @@ type InsertRoleTrustPrincipalIDsParams struct {
 }
 
 func (q *Queries) InsertRoleTrustPrincipalIDs(ctx context.Context, arg InsertRoleTrustPrincipalIDsParams) error {
-	_, err := q.db.ExecContext(ctx, insertRoleTrustPrincipalIDs,
+	_, err := q.exec(ctx, q.insertRoleTrustPrincipalIDsStmt, insertRoleTrustPrincipalIDs,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2938,7 +2986,7 @@ type InsertSAMLProviderParams struct {
 }
 
 func (q *Queries) InsertSAMLProvider(ctx context.Context, arg InsertSAMLProviderParams) error {
-	_, err := q.db.ExecContext(ctx, insertSAMLProvider,
+	_, err := q.exec(ctx, q.insertSAMLProviderStmt, insertSAMLProvider,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2968,7 +3016,7 @@ type InsertSAMLProviderIssuersParams struct {
 }
 
 func (q *Queries) InsertSAMLProviderIssuers(ctx context.Context, arg InsertSAMLProviderIssuersParams) error {
-	_, err := q.db.ExecContext(ctx, insertSAMLProviderIssuers,
+	_, err := q.exec(ctx, q.insertSAMLProviderIssuersStmt, insertSAMLProviderIssuers,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -2993,7 +3041,7 @@ type InsertSAMLProviderIssuersSigningCertificatesParams struct {
 }
 
 func (q *Queries) InsertSAMLProviderIssuersSigningCertificates(ctx context.Context, arg InsertSAMLProviderIssuersSigningCertificatesParams) error {
-	_, err := q.db.ExecContext(ctx, insertSAMLProviderIssuersSigningCertificates,
+	_, err := q.exec(ctx, q.insertSAMLProviderIssuersSigningCertificatesStmt, insertSAMLProviderIssuersSigningCertificates,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -3020,7 +3068,7 @@ type InsertSAMLProviderPrivateKeysParams struct {
 }
 
 func (q *Queries) InsertSAMLProviderPrivateKeys(ctx context.Context, arg InsertSAMLProviderPrivateKeysParams) error {
-	_, err := q.db.ExecContext(ctx, insertSAMLProviderPrivateKeys,
+	_, err := q.exec(ctx, q.insertSAMLProviderPrivateKeysStmt, insertSAMLProviderPrivateKeys,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -3047,7 +3095,7 @@ type InsertSAMLProviderTagsParams struct {
 }
 
 func (q *Queries) InsertSAMLProviderTags(ctx context.Context, arg InsertSAMLProviderTagsParams) error {
-	_, err := q.db.ExecContext(ctx, insertSAMLProviderTags,
+	_, err := q.exec(ctx, q.insertSAMLProviderTagsStmt, insertSAMLProviderTags,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -3077,7 +3125,7 @@ type InsertSSHPublicKeyParams struct {
 }
 
 func (q *Queries) InsertSSHPublicKey(ctx context.Context, arg InsertSSHPublicKeyParams) error {
-	_, err := q.db.ExecContext(ctx, insertSSHPublicKey,
+	_, err := q.exec(ctx, q.insertSSHPublicKeyStmt, insertSSHPublicKey,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -3115,7 +3163,7 @@ type InsertServerCertificateParams struct {
 }
 
 func (q *Queries) InsertServerCertificate(ctx context.Context, arg InsertServerCertificateParams) error {
-	_, err := q.db.ExecContext(ctx, insertServerCertificate,
+	_, err := q.exec(ctx, q.insertServerCertificateStmt, insertServerCertificate,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -3149,7 +3197,7 @@ type InsertServerCertificateTagsParams struct {
 }
 
 func (q *Queries) InsertServerCertificateTags(ctx context.Context, arg InsertServerCertificateTagsParams) error {
-	_, err := q.db.ExecContext(ctx, insertServerCertificateTags,
+	_, err := q.exec(ctx, q.insertServerCertificateTagsStmt, insertServerCertificateTags,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -3183,7 +3231,7 @@ type InsertServiceCredentialParams struct {
 }
 
 func (q *Queries) InsertServiceCredential(ctx context.Context, arg InsertServiceCredentialParams) error {
-	_, err := q.db.ExecContext(ctx, insertServiceCredential,
+	_, err := q.exec(ctx, q.insertServiceCredentialStmt, insertServiceCredential,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -3223,7 +3271,7 @@ type InsertServiceLinkedRoleDeletionParams struct {
 }
 
 func (q *Queries) InsertServiceLinkedRoleDeletion(ctx context.Context, arg InsertServiceLinkedRoleDeletionParams) error {
-	_, err := q.db.ExecContext(ctx, insertServiceLinkedRoleDeletion,
+	_, err := q.exec(ctx, q.insertServiceLinkedRoleDeletionStmt, insertServiceLinkedRoleDeletion,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -3254,7 +3302,7 @@ type InsertServiceLinkedRoleDeletionUsageParams struct {
 }
 
 func (q *Queries) InsertServiceLinkedRoleDeletionUsage(ctx context.Context, arg InsertServiceLinkedRoleDeletionUsageParams) error {
-	_, err := q.db.ExecContext(ctx, insertServiceLinkedRoleDeletionUsage,
+	_, err := q.exec(ctx, q.insertServiceLinkedRoleDeletionUsageStmt, insertServiceLinkedRoleDeletionUsage,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -3279,7 +3327,7 @@ type InsertServiceLinkedRoleDeletionUsageResourceARNsParams struct {
 }
 
 func (q *Queries) InsertServiceLinkedRoleDeletionUsageResourceARNs(ctx context.Context, arg InsertServiceLinkedRoleDeletionUsageResourceARNsParams) error {
-	_, err := q.db.ExecContext(ctx, insertServiceLinkedRoleDeletionUsageResourceARNs,
+	_, err := q.exec(ctx, q.insertServiceLinkedRoleDeletionUsageResourceARNsStmt, insertServiceLinkedRoleDeletionUsageResourceARNs,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -3308,7 +3356,7 @@ type InsertSigningCertificateParams struct {
 }
 
 func (q *Queries) InsertSigningCertificate(ctx context.Context, arg InsertSigningCertificateParams) error {
-	_, err := q.db.ExecContext(ctx, insertSigningCertificate,
+	_, err := q.exec(ctx, q.insertSigningCertificateStmt, insertSigningCertificate,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -3341,7 +3389,7 @@ type InsertUserParams struct {
 }
 
 func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) error {
-	_, err := q.db.ExecContext(ctx, insertUser,
+	_, err := q.exec(ctx, q.insertUserStmt, insertUser,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -3370,7 +3418,7 @@ type InsertUserAttachedParams struct {
 }
 
 func (q *Queries) InsertUserAttached(ctx context.Context, arg InsertUserAttachedParams) error {
-	_, err := q.db.ExecContext(ctx, insertUserAttached,
+	_, err := q.exec(ctx, q.insertUserAttachedStmt, insertUserAttached,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -3395,7 +3443,7 @@ type InsertUserInlineParams struct {
 }
 
 func (q *Queries) InsertUserInline(ctx context.Context, arg InsertUserInlineParams) error {
-	_, err := q.db.ExecContext(ctx, insertUserInline,
+	_, err := q.exec(ctx, q.insertUserInlineStmt, insertUserInline,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -3420,7 +3468,7 @@ type InsertUserPermissionsBoundaryParams struct {
 }
 
 func (q *Queries) InsertUserPermissionsBoundary(ctx context.Context, arg InsertUserPermissionsBoundaryParams) error {
-	_, err := q.db.ExecContext(ctx, insertUserPermissionsBoundary,
+	_, err := q.exec(ctx, q.insertUserPermissionsBoundaryStmt, insertUserPermissionsBoundary,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -3445,7 +3493,7 @@ type InsertUserTagsParams struct {
 }
 
 func (q *Queries) InsertUserTags(ctx context.Context, arg InsertUserTagsParams) error {
-	_, err := q.db.ExecContext(ctx, insertUserTags,
+	_, err := q.exec(ctx, q.insertUserTagsStmt, insertUserTags,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -3467,7 +3515,7 @@ type ListAccessReportOrganizationServicesParams struct {
 }
 
 func (q *Queries) ListAccessReportOrganizationServices(ctx context.Context, arg ListAccessReportOrganizationServicesParams) ([]IamAccessReportOrganizationService, error) {
-	rows, err := q.db.QueryContext(ctx, listAccessReportOrganizationServices, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listAccessReportOrganizationServicesStmt, listAccessReportOrganizationServices, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -3508,7 +3556,7 @@ type ListAccessReportServicesParams struct {
 }
 
 func (q *Queries) ListAccessReportServices(ctx context.Context, arg ListAccessReportServicesParams) ([]IamAccessReportService, error) {
-	rows, err := q.db.QueryContext(ctx, listAccessReportServices, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listAccessReportServicesStmt, listAccessReportServices, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -3549,7 +3597,7 @@ type ListAccessReportServicesActionsParams struct {
 }
 
 func (q *Queries) ListAccessReportServicesActions(ctx context.Context, arg ListAccessReportServicesActionsParams) ([]IamAccessReportServicesAction, error) {
-	rows, err := q.db.QueryContext(ctx, listAccessReportServicesActions,
+	rows, err := q.query(ctx, q.listAccessReportServicesActionsStmt, listAccessReportServicesActions,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -3595,7 +3643,7 @@ type ListAccessReportServicesEntitiesParams struct {
 }
 
 func (q *Queries) ListAccessReportServicesEntities(ctx context.Context, arg ListAccessReportServicesEntitiesParams) ([]IamAccessReportServicesEntity, error) {
-	rows, err := q.db.QueryContext(ctx, listAccessReportServicesEntities,
+	rows, err := q.query(ctx, q.listAccessReportServicesEntitiesStmt, listAccessReportServicesEntities,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -3639,7 +3687,7 @@ type ListAccountSettingsGlobalEndpointAllRegionsParams struct {
 }
 
 func (q *Queries) ListAccountSettingsGlobalEndpointAllRegions(ctx context.Context, arg ListAccountSettingsGlobalEndpointAllRegionsParams) ([]IamAccountSettingsGlobalEndpointAllRegion, error) {
-	rows, err := q.db.QueryContext(ctx, listAccountSettingsGlobalEndpointAllRegions, arg.Partition, arg.Account)
+	rows, err := q.query(ctx, q.listAccountSettingsGlobalEndpointAllRegionsStmt, listAccountSettingsGlobalEndpointAllRegions, arg.Partition, arg.Account)
 	if err != nil {
 		return nil, err
 	}
@@ -3677,7 +3725,7 @@ type ListAccountSettingsOutboundWebIdentityEnabledParams struct {
 }
 
 func (q *Queries) ListAccountSettingsOutboundWebIdentityEnabled(ctx context.Context, arg ListAccountSettingsOutboundWebIdentityEnabledParams) ([]IamAccountSettingsOutboundWebIdentityEnabled, error) {
-	rows, err := q.db.QueryContext(ctx, listAccountSettingsOutboundWebIdentityEnabled, arg.Partition, arg.Account)
+	rows, err := q.query(ctx, q.listAccountSettingsOutboundWebIdentityEnabledStmt, listAccountSettingsOutboundWebIdentityEnabled, arg.Partition, arg.Account)
 	if err != nil {
 		return nil, err
 	}
@@ -3716,7 +3764,7 @@ type ListCredentialKeysParams struct {
 }
 
 func (q *Queries) ListCredentialKeys(ctx context.Context, arg ListCredentialKeysParams) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, listCredentialKeys, arg.CredentialAccountID, arg.CredentialPrincipalID, arg.CredentialIssuerID)
+	rows, err := q.query(ctx, q.listCredentialKeysStmt, listCredentialKeys, arg.CredentialAccountID, arg.CredentialPrincipalID, arg.CredentialIssuerID)
 	if err != nil {
 		return nil, err
 	}
@@ -3743,7 +3791,7 @@ SELECT resource_key, entry_1 FROM iam_credential_session_context WHERE resource_
 `
 
 func (q *Queries) ListCredentialSessionContext(ctx context.Context, resourceKey string) ([]IamCredentialSessionContext, error) {
-	rows, err := q.db.QueryContext(ctx, listCredentialSessionContext, resourceKey)
+	rows, err := q.query(ctx, q.listCredentialSessionContextStmt, listCredentialSessionContext, resourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -3775,7 +3823,7 @@ type ListCredentialSessionContextValuesParams struct {
 }
 
 func (q *Queries) ListCredentialSessionContextValues(ctx context.Context, arg ListCredentialSessionContextValuesParams) ([]IamCredentialSessionContextValue, error) {
-	rows, err := q.db.QueryContext(ctx, listCredentialSessionContextValues, arg.ResourceKey, arg.Entry1)
+	rows, err := q.query(ctx, q.listCredentialSessionContextValuesStmt, listCredentialSessionContextValues, arg.ResourceKey, arg.Entry1)
 	if err != nil {
 		return nil, err
 	}
@@ -3807,7 +3855,7 @@ SELECT resource_key, position_1, value FROM iam_credential_session_policies WHER
 `
 
 func (q *Queries) ListCredentialSessionPolicies(ctx context.Context, resourceKey string) ([]IamCredentialSessionPolicy, error) {
-	rows, err := q.db.QueryContext(ctx, listCredentialSessionPolicies, resourceKey)
+	rows, err := q.query(ctx, q.listCredentialSessionPoliciesStmt, listCredentialSessionPolicies, resourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -3834,7 +3882,7 @@ SELECT resource_key, position_1, value FROM iam_credential_session_policy_ar_ns 
 `
 
 func (q *Queries) ListCredentialSessionPolicyARNs(ctx context.Context, resourceKey string) ([]IamCredentialSessionPolicyArN, error) {
-	rows, err := q.db.QueryContext(ctx, listCredentialSessionPolicyARNs, resourceKey)
+	rows, err := q.query(ctx, q.listCredentialSessionPolicyARNsStmt, listCredentialSessionPolicyARNs, resourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -3861,7 +3909,7 @@ SELECT resource_key, entry_1, value FROM iam_credential_session_tags WHERE resou
 `
 
 func (q *Queries) ListCredentialSessionTags(ctx context.Context, resourceKey string) ([]IamCredentialSessionTag, error) {
-	rows, err := q.db.QueryContext(ctx, listCredentialSessionTags, resourceKey)
+	rows, err := q.query(ctx, q.listCredentialSessionTagsStmt, listCredentialSessionTags, resourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -3888,7 +3936,7 @@ SELECT resource_key, position_1, value FROM iam_credential_transitive_tag_keys W
 `
 
 func (q *Queries) ListCredentialTransitiveTagKeys(ctx context.Context, resourceKey string) ([]IamCredentialTransitiveTagKey, error) {
-	rows, err := q.db.QueryContext(ctx, listCredentialTransitiveTagKeys, resourceKey)
+	rows, err := q.query(ctx, q.listCredentialTransitiveTagKeysStmt, listCredentialTransitiveTagKeys, resourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -3921,7 +3969,7 @@ type ListGroupAttachedParams struct {
 }
 
 func (q *Queries) ListGroupAttached(ctx context.Context, arg ListGroupAttachedParams) ([]IamGroupAttached, error) {
-	rows, err := q.db.QueryContext(ctx, listGroupAttached, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listGroupAttachedStmt, listGroupAttached, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -3960,7 +4008,7 @@ type ListGroupInlineParams struct {
 }
 
 func (q *Queries) ListGroupInline(ctx context.Context, arg ListGroupInlineParams) ([]IamGroupInline, error) {
-	rows, err := q.db.QueryContext(ctx, listGroupInline, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listGroupInlineStmt, listGroupInline, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -4005,7 +4053,7 @@ type ListGroupKeysRow struct {
 }
 
 func (q *Queries) ListGroupKeys(ctx context.Context, arg ListGroupKeysParams) ([]ListGroupKeysRow, error) {
-	rows, err := q.db.QueryContext(ctx, listGroupKeys, arg.Partition, arg.Account)
+	rows, err := q.query(ctx, q.listGroupKeysStmt, listGroupKeys, arg.Partition, arg.Account)
 	if err != nil {
 		return nil, err
 	}
@@ -4038,7 +4086,7 @@ type ListGroupMembersParams struct {
 }
 
 func (q *Queries) ListGroupMembers(ctx context.Context, arg ListGroupMembersParams) ([]IamGroupMember, error) {
-	rows, err := q.db.QueryContext(ctx, listGroupMembers, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listGroupMembersStmt, listGroupMembers, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -4082,7 +4130,7 @@ type ListInstanceProfileKeysRow struct {
 }
 
 func (q *Queries) ListInstanceProfileKeys(ctx context.Context, arg ListInstanceProfileKeysParams) ([]ListInstanceProfileKeysRow, error) {
-	rows, err := q.db.QueryContext(ctx, listInstanceProfileKeys, arg.Partition, arg.Account)
+	rows, err := q.query(ctx, q.listInstanceProfileKeysStmt, listInstanceProfileKeys, arg.Partition, arg.Account)
 	if err != nil {
 		return nil, err
 	}
@@ -4115,7 +4163,7 @@ type ListInstanceProfileTagsParams struct {
 }
 
 func (q *Queries) ListInstanceProfileTags(ctx context.Context, arg ListInstanceProfileTagsParams) ([]IamInstanceProfileTag, error) {
-	rows, err := q.db.QueryContext(ctx, listInstanceProfileTags, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listInstanceProfileTagsStmt, listInstanceProfileTags, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -4160,7 +4208,7 @@ type ListLoginProfileKeysRow struct {
 }
 
 func (q *Queries) ListLoginProfileKeys(ctx context.Context, arg ListLoginProfileKeysParams) ([]ListLoginProfileKeysRow, error) {
-	rows, err := q.db.QueryContext(ctx, listLoginProfileKeys, arg.Partition, arg.Account)
+	rows, err := q.query(ctx, q.listLoginProfileKeysStmt, listLoginProfileKeys, arg.Partition, arg.Account)
 	if err != nil {
 		return nil, err
 	}
@@ -4193,7 +4241,7 @@ type ListLoginProfilePreviousPasswordsParams struct {
 }
 
 func (q *Queries) ListLoginProfilePreviousPasswords(ctx context.Context, arg ListLoginProfilePreviousPasswordsParams) ([]IamLoginProfilePreviousPassword, error) {
-	rows, err := q.db.QueryContext(ctx, listLoginProfilePreviousPasswords, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listLoginProfilePreviousPasswordsStmt, listLoginProfilePreviousPasswords, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -4235,7 +4283,7 @@ type ListMFADeviceBindingPendingParams struct {
 }
 
 func (q *Queries) ListMFADeviceBindingPending(ctx context.Context, arg ListMFADeviceBindingPendingParams) ([]IamMfaDeviceBindingPending, error) {
-	rows, err := q.db.QueryContext(ctx, listMFADeviceBindingPending, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listMFADeviceBindingPendingStmt, listMFADeviceBindingPending, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -4282,7 +4330,7 @@ type ListMFADeviceKeysRow struct {
 }
 
 func (q *Queries) ListMFADeviceKeys(ctx context.Context, arg ListMFADeviceKeysParams) ([]ListMFADeviceKeysRow, error) {
-	rows, err := q.db.QueryContext(ctx, listMFADeviceKeys, arg.Partition, arg.Account)
+	rows, err := q.query(ctx, q.listMFADeviceKeysStmt, listMFADeviceKeys, arg.Partition, arg.Account)
 	if err != nil {
 		return nil, err
 	}
@@ -4315,7 +4363,7 @@ type ListMFADeviceTagsParams struct {
 }
 
 func (q *Queries) ListMFADeviceTags(ctx context.Context, arg ListMFADeviceTagsParams) ([]IamMfaDeviceTag, error) {
-	rows, err := q.db.QueryContext(ctx, listMFADeviceTags, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listMFADeviceTagsStmt, listMFADeviceTags, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -4355,7 +4403,7 @@ type ListMFADeviceUsedCodesParams struct {
 }
 
 func (q *Queries) ListMFADeviceUsedCodes(ctx context.Context, arg ListMFADeviceUsedCodesParams) ([]IamMfaDeviceUsedCode, error) {
-	rows, err := q.db.QueryContext(ctx, listMFADeviceUsedCodes, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listMFADeviceUsedCodesStmt, listMFADeviceUsedCodes, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -4400,7 +4448,7 @@ type ListManagedPolicyKeysRow struct {
 }
 
 func (q *Queries) ListManagedPolicyKeys(ctx context.Context, arg ListManagedPolicyKeysParams) ([]ListManagedPolicyKeysRow, error) {
-	rows, err := q.db.QueryContext(ctx, listManagedPolicyKeys, arg.Partition, arg.Account)
+	rows, err := q.query(ctx, q.listManagedPolicyKeysStmt, listManagedPolicyKeys, arg.Partition, arg.Account)
 	if err != nil {
 		return nil, err
 	}
@@ -4433,7 +4481,7 @@ type ListManagedPolicyTagsParams struct {
 }
 
 func (q *Queries) ListManagedPolicyTags(ctx context.Context, arg ListManagedPolicyTagsParams) ([]IamManagedPolicyTag, error) {
-	rows, err := q.db.QueryContext(ctx, listManagedPolicyTags, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listManagedPolicyTagsStmt, listManagedPolicyTags, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -4473,7 +4521,7 @@ type ListManagedPolicyVersionsParams struct {
 }
 
 func (q *Queries) ListManagedPolicyVersions(ctx context.Context, arg ListManagedPolicyVersionsParams) ([]IamManagedPolicyVersion, error) {
-	rows, err := q.db.QueryContext(ctx, listManagedPolicyVersions, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listManagedPolicyVersionsStmt, listManagedPolicyVersions, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -4515,7 +4563,7 @@ type ListOIDCProviderClientIDsParams struct {
 }
 
 func (q *Queries) ListOIDCProviderClientIDs(ctx context.Context, arg ListOIDCProviderClientIDsParams) ([]IamOidcProviderClientID, error) {
-	rows, err := q.db.QueryContext(ctx, listOIDCProviderClientIDs, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listOIDCProviderClientIDsStmt, listOIDCProviderClientIDs, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -4559,7 +4607,7 @@ type ListOIDCProviderKeysRow struct {
 }
 
 func (q *Queries) ListOIDCProviderKeys(ctx context.Context, arg ListOIDCProviderKeysParams) ([]ListOIDCProviderKeysRow, error) {
-	rows, err := q.db.QueryContext(ctx, listOIDCProviderKeys, arg.Partition, arg.Account)
+	rows, err := q.query(ctx, q.listOIDCProviderKeysStmt, listOIDCProviderKeys, arg.Partition, arg.Account)
 	if err != nil {
 		return nil, err
 	}
@@ -4592,7 +4640,7 @@ type ListOIDCProviderTagsParams struct {
 }
 
 func (q *Queries) ListOIDCProviderTags(ctx context.Context, arg ListOIDCProviderTagsParams) ([]IamOidcProviderTag, error) {
-	rows, err := q.db.QueryContext(ctx, listOIDCProviderTags, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listOIDCProviderTagsStmt, listOIDCProviderTags, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -4632,7 +4680,7 @@ type ListOIDCProviderThumbprintsParams struct {
 }
 
 func (q *Queries) ListOIDCProviderThumbprints(ctx context.Context, arg ListOIDCProviderThumbprintsParams) ([]IamOidcProviderThumbprint, error) {
-	rows, err := q.db.QueryContext(ctx, listOIDCProviderThumbprints, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listOIDCProviderThumbprintsStmt, listOIDCProviderThumbprints, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -4679,7 +4727,7 @@ type ListPrincipalActivityKeysRow struct {
 }
 
 func (q *Queries) ListPrincipalActivityKeys(ctx context.Context, arg ListPrincipalActivityKeysParams) ([]ListPrincipalActivityKeysRow, error) {
-	rows, err := q.db.QueryContext(ctx, listPrincipalActivityKeys, arg.Partition, arg.Account)
+	rows, err := q.query(ctx, q.listPrincipalActivityKeysStmt, listPrincipalActivityKeys, arg.Partition, arg.Account)
 	if err != nil {
 		return nil, err
 	}
@@ -4719,7 +4767,7 @@ type ListRoleAttachedParams struct {
 }
 
 func (q *Queries) ListRoleAttached(ctx context.Context, arg ListRoleAttachedParams) ([]IamRoleAttached, error) {
-	rows, err := q.db.QueryContext(ctx, listRoleAttached, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listRoleAttachedStmt, listRoleAttached, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -4758,7 +4806,7 @@ type ListRoleInlineParams struct {
 }
 
 func (q *Queries) ListRoleInline(ctx context.Context, arg ListRoleInlineParams) ([]IamRoleInline, error) {
-	rows, err := q.db.QueryContext(ctx, listRoleInline, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listRoleInlineStmt, listRoleInline, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -4803,7 +4851,7 @@ type ListRoleKeysRow struct {
 }
 
 func (q *Queries) ListRoleKeys(ctx context.Context, arg ListRoleKeysParams) ([]ListRoleKeysRow, error) {
-	rows, err := q.db.QueryContext(ctx, listRoleKeys, arg.Partition, arg.Account)
+	rows, err := q.query(ctx, q.listRoleKeysStmt, listRoleKeys, arg.Partition, arg.Account)
 	if err != nil {
 		return nil, err
 	}
@@ -4836,7 +4884,7 @@ type ListRoleSourceRoleTemplateParametersParams struct {
 }
 
 func (q *Queries) ListRoleSourceRoleTemplateParameters(ctx context.Context, arg ListRoleSourceRoleTemplateParametersParams) ([]IamRoleSourceRoleTemplateParameter, error) {
-	rows, err := q.db.QueryContext(ctx, listRoleSourceRoleTemplateParameters, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listRoleSourceRoleTemplateParametersStmt, listRoleSourceRoleTemplateParameters, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -4875,7 +4923,7 @@ type ListRoleSourceRoleTemplateParametersValuesParams struct {
 }
 
 func (q *Queries) ListRoleSourceRoleTemplateParametersValues(ctx context.Context, arg ListRoleSourceRoleTemplateParametersValuesParams) ([]IamRoleSourceRoleTemplateParametersValue, error) {
-	rows, err := q.db.QueryContext(ctx, listRoleSourceRoleTemplateParametersValues,
+	rows, err := q.query(ctx, q.listRoleSourceRoleTemplateParametersValuesStmt, listRoleSourceRoleTemplateParametersValues,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -4920,7 +4968,7 @@ type ListRoleTagsParams struct {
 }
 
 func (q *Queries) ListRoleTags(ctx context.Context, arg ListRoleTagsParams) ([]IamRoleTag, error) {
-	rows, err := q.db.QueryContext(ctx, listRoleTags, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listRoleTagsStmt, listRoleTags, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -4960,7 +5008,7 @@ type ListRoleTrustPrincipalIDsParams struct {
 }
 
 func (q *Queries) ListRoleTrustPrincipalIDs(ctx context.Context, arg ListRoleTrustPrincipalIDsParams) ([]IamRoleTrustPrincipalID, error) {
-	rows, err := q.db.QueryContext(ctx, listRoleTrustPrincipalIDs, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listRoleTrustPrincipalIDsStmt, listRoleTrustPrincipalIDs, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -4999,7 +5047,7 @@ type ListSAMLProviderIssuersParams struct {
 }
 
 func (q *Queries) ListSAMLProviderIssuers(ctx context.Context, arg ListSAMLProviderIssuersParams) ([]IamSamlProviderIssuer, error) {
-	rows, err := q.db.QueryContext(ctx, listSAMLProviderIssuers, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listSAMLProviderIssuersStmt, listSAMLProviderIssuers, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -5039,7 +5087,7 @@ type ListSAMLProviderIssuersSigningCertificatesParams struct {
 }
 
 func (q *Queries) ListSAMLProviderIssuersSigningCertificates(ctx context.Context, arg ListSAMLProviderIssuersSigningCertificatesParams) ([]IamSamlProviderIssuersSigningCertificate, error) {
-	rows, err := q.db.QueryContext(ctx, listSAMLProviderIssuersSigningCertificates,
+	rows, err := q.query(ctx, q.listSAMLProviderIssuersSigningCertificatesStmt, listSAMLProviderIssuersSigningCertificates,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -5089,7 +5137,7 @@ type ListSAMLProviderKeysRow struct {
 }
 
 func (q *Queries) ListSAMLProviderKeys(ctx context.Context, arg ListSAMLProviderKeysParams) ([]ListSAMLProviderKeysRow, error) {
-	rows, err := q.db.QueryContext(ctx, listSAMLProviderKeys, arg.Partition, arg.Account)
+	rows, err := q.query(ctx, q.listSAMLProviderKeysStmt, listSAMLProviderKeys, arg.Partition, arg.Account)
 	if err != nil {
 		return nil, err
 	}
@@ -5122,7 +5170,7 @@ type ListSAMLProviderPrivateKeysParams struct {
 }
 
 func (q *Queries) ListSAMLProviderPrivateKeys(ctx context.Context, arg ListSAMLProviderPrivateKeysParams) ([]IamSamlProviderPrivateKey, error) {
-	rows, err := q.db.QueryContext(ctx, listSAMLProviderPrivateKeys, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listSAMLProviderPrivateKeysStmt, listSAMLProviderPrivateKeys, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -5163,7 +5211,7 @@ type ListSAMLProviderTagsParams struct {
 }
 
 func (q *Queries) ListSAMLProviderTags(ctx context.Context, arg ListSAMLProviderTagsParams) ([]IamSamlProviderTag, error) {
-	rows, err := q.db.QueryContext(ctx, listSAMLProviderTags, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listSAMLProviderTagsStmt, listSAMLProviderTags, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -5208,7 +5256,7 @@ type ListSSHPublicKeyKeysRow struct {
 }
 
 func (q *Queries) ListSSHPublicKeyKeys(ctx context.Context, arg ListSSHPublicKeyKeysParams) ([]ListSSHPublicKeyKeysRow, error) {
-	rows, err := q.db.QueryContext(ctx, listSSHPublicKeyKeys, arg.Partition, arg.Account)
+	rows, err := q.query(ctx, q.listSSHPublicKeyKeysStmt, listSSHPublicKeyKeys, arg.Partition, arg.Account)
 	if err != nil {
 		return nil, err
 	}
@@ -5246,7 +5294,7 @@ type ListServerCertificateKeysRow struct {
 }
 
 func (q *Queries) ListServerCertificateKeys(ctx context.Context, arg ListServerCertificateKeysParams) ([]ListServerCertificateKeysRow, error) {
-	rows, err := q.db.QueryContext(ctx, listServerCertificateKeys, arg.Partition, arg.Account)
+	rows, err := q.query(ctx, q.listServerCertificateKeysStmt, listServerCertificateKeys, arg.Partition, arg.Account)
 	if err != nil {
 		return nil, err
 	}
@@ -5279,7 +5327,7 @@ type ListServerCertificateTagsParams struct {
 }
 
 func (q *Queries) ListServerCertificateTags(ctx context.Context, arg ListServerCertificateTagsParams) ([]IamServerCertificateTag, error) {
-	rows, err := q.db.QueryContext(ctx, listServerCertificateTags, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listServerCertificateTagsStmt, listServerCertificateTags, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -5324,7 +5372,7 @@ type ListServiceCredentialKeysRow struct {
 }
 
 func (q *Queries) ListServiceCredentialKeys(ctx context.Context, arg ListServiceCredentialKeysParams) ([]ListServiceCredentialKeysRow, error) {
-	rows, err := q.db.QueryContext(ctx, listServiceCredentialKeys, arg.Partition, arg.Account)
+	rows, err := q.query(ctx, q.listServiceCredentialKeysStmt, listServiceCredentialKeys, arg.Partition, arg.Account)
 	if err != nil {
 		return nil, err
 	}
@@ -5362,7 +5410,7 @@ type ListServiceLinkedRoleDeletionKeysRow struct {
 }
 
 func (q *Queries) ListServiceLinkedRoleDeletionKeys(ctx context.Context, arg ListServiceLinkedRoleDeletionKeysParams) ([]ListServiceLinkedRoleDeletionKeysRow, error) {
-	rows, err := q.db.QueryContext(ctx, listServiceLinkedRoleDeletionKeys, arg.Partition, arg.Account)
+	rows, err := q.query(ctx, q.listServiceLinkedRoleDeletionKeysStmt, listServiceLinkedRoleDeletionKeys, arg.Partition, arg.Account)
 	if err != nil {
 		return nil, err
 	}
@@ -5395,7 +5443,7 @@ type ListServiceLinkedRoleDeletionUsageParams struct {
 }
 
 func (q *Queries) ListServiceLinkedRoleDeletionUsage(ctx context.Context, arg ListServiceLinkedRoleDeletionUsageParams) ([]IamServiceLinkedRoleDeletionUsage, error) {
-	rows, err := q.db.QueryContext(ctx, listServiceLinkedRoleDeletionUsage, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listServiceLinkedRoleDeletionUsageStmt, listServiceLinkedRoleDeletionUsage, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -5435,7 +5483,7 @@ type ListServiceLinkedRoleDeletionUsageResourceARNsParams struct {
 }
 
 func (q *Queries) ListServiceLinkedRoleDeletionUsageResourceARNs(ctx context.Context, arg ListServiceLinkedRoleDeletionUsageResourceARNsParams) ([]IamServiceLinkedRoleDeletionUsageResourceArN, error) {
-	rows, err := q.db.QueryContext(ctx, listServiceLinkedRoleDeletionUsageResourceARNs,
+	rows, err := q.query(ctx, q.listServiceLinkedRoleDeletionUsageResourceARNsStmt, listServiceLinkedRoleDeletionUsageResourceARNs,
 		arg.Partition,
 		arg.Account,
 		arg.ResourceKey,
@@ -5485,7 +5533,7 @@ type ListSigningCertificateKeysRow struct {
 }
 
 func (q *Queries) ListSigningCertificateKeys(ctx context.Context, arg ListSigningCertificateKeysParams) ([]ListSigningCertificateKeysRow, error) {
-	rows, err := q.db.QueryContext(ctx, listSigningCertificateKeys, arg.Partition, arg.Account)
+	rows, err := q.query(ctx, q.listSigningCertificateKeysStmt, listSigningCertificateKeys, arg.Partition, arg.Account)
 	if err != nil {
 		return nil, err
 	}
@@ -5518,7 +5566,7 @@ type ListUserAttachedParams struct {
 }
 
 func (q *Queries) ListUserAttached(ctx context.Context, arg ListUserAttachedParams) ([]IamUserAttached, error) {
-	rows, err := q.db.QueryContext(ctx, listUserAttached, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listUserAttachedStmt, listUserAttached, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -5546,6 +5594,48 @@ func (q *Queries) ListUserAttached(ctx context.Context, arg ListUserAttachedPara
 	return items, nil
 }
 
+const listUserGroupKeys = `-- name: ListUserGroupKeys :many
+SELECT g.partition, g.account, g.resource_key FROM iam_group AS g
+JOIN iam_group_members AS m USING (partition, account, resource_key)
+WHERE g.partition = ? AND g.account = ? AND m.entry_1 = ?
+ORDER BY g.group_name
+`
+
+type ListUserGroupKeysParams struct {
+	Partition string
+	Account   string
+	Entry1    string
+}
+
+type ListUserGroupKeysRow struct {
+	Partition   string
+	Account     string
+	ResourceKey string
+}
+
+func (q *Queries) ListUserGroupKeys(ctx context.Context, arg ListUserGroupKeysParams) ([]ListUserGroupKeysRow, error) {
+	rows, err := q.query(ctx, q.listUserGroupKeysStmt, listUserGroupKeys, arg.Partition, arg.Account, arg.Entry1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListUserGroupKeysRow{}
+	for rows.Next() {
+		var i ListUserGroupKeysRow
+		if err := rows.Scan(&i.Partition, &i.Account, &i.ResourceKey); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUserInline = `-- name: ListUserInline :many
 SELECT "partition", account, resource_key, entry_1, value, cfn_owner FROM iam_user_inline WHERE partition = ? AND account = ? AND resource_key = ? ORDER BY entry_1
 `
@@ -5557,7 +5647,7 @@ type ListUserInlineParams struct {
 }
 
 func (q *Queries) ListUserInline(ctx context.Context, arg ListUserInlineParams) ([]IamUserInline, error) {
-	rows, err := q.db.QueryContext(ctx, listUserInline, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listUserInlineStmt, listUserInline, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -5602,7 +5692,7 @@ type ListUserKeysRow struct {
 }
 
 func (q *Queries) ListUserKeys(ctx context.Context, arg ListUserKeysParams) ([]ListUserKeysRow, error) {
-	rows, err := q.db.QueryContext(ctx, listUserKeys, arg.Partition, arg.Account)
+	rows, err := q.query(ctx, q.listUserKeysStmt, listUserKeys, arg.Partition, arg.Account)
 	if err != nil {
 		return nil, err
 	}
@@ -5635,7 +5725,7 @@ type ListUserTagsParams struct {
 }
 
 func (q *Queries) ListUserTags(ctx context.Context, arg ListUserTagsParams) ([]IamUserTag, error) {
-	rows, err := q.db.QueryContext(ctx, listUserTags, arg.Partition, arg.Account, arg.ResourceKey)
+	rows, err := q.query(ctx, q.listUserTagsStmt, listUserTags, arg.Partition, arg.Account, arg.ResourceKey)
 	if err != nil {
 		return nil, err
 	}
@@ -5684,7 +5774,7 @@ type OrganizationAccessReportCandidatesRow struct {
 }
 
 func (q *Queries) OrganizationAccessReportCandidates(ctx context.Context, arg OrganizationAccessReportCandidatesParams) ([]OrganizationAccessReportCandidatesRow, error) {
-	rows, err := q.db.QueryContext(ctx, organizationAccessReportCandidates,
+	rows, err := q.query(ctx, q.organizationAccessReportCandidatesStmt, organizationAccessReportCandidates,
 		arg.Partition,
 		arg.Account,
 		arg.Owner,
@@ -5722,7 +5812,7 @@ type PendingAccessReportKeysParams struct {
 }
 
 func (q *Queries) PendingAccessReportKeys(ctx context.Context, arg PendingAccessReportKeysParams) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, pendingAccessReportKeys, arg.Partition, arg.Account)
+	rows, err := q.query(ctx, q.pendingAccessReportKeysStmt, pendingAccessReportKeys, arg.Partition, arg.Account)
 	if err != nil {
 		return nil, err
 	}
@@ -5749,7 +5839,7 @@ SELECT "partition", account FROM iam_scopes WHERE partition = ? ORDER BY account
 `
 
 func (q *Queries) Scopes(ctx context.Context, partition string) ([]IamScope, error) {
-	rows, err := q.db.QueryContext(ctx, scopes, partition)
+	rows, err := q.query(ctx, q.scopesStmt, scopes, partition)
 	if err != nil {
 		return nil, err
 	}
@@ -5781,7 +5871,7 @@ type ServiceLinkedRoleDeletionScopesRow struct {
 }
 
 func (q *Queries) ServiceLinkedRoleDeletionScopes(ctx context.Context) ([]ServiceLinkedRoleDeletionScopesRow, error) {
-	rows, err := q.db.QueryContext(ctx, serviceLinkedRoleDeletionScopes)
+	rows, err := q.query(ctx, q.serviceLinkedRoleDeletionScopesStmt, serviceLinkedRoleDeletionScopes)
 	if err != nil {
 		return nil, err
 	}
@@ -5801,4 +5891,57 @@ func (q *Queries) ServiceLinkedRoleDeletionScopes(ctx context.Context) ([]Servic
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateCredentialLastUse = `-- name: UpdateCredentialLastUse :execrows
+UPDATE iam_credential SET last_used_date = ?, last_used_service = ?, last_used_region = ?
+WHERE resource_key = ?
+`
+
+type UpdateCredentialLastUseParams struct {
+	LastUsedDate    time.Time
+	LastUsedService string
+	LastUsedRegion  string
+	ResourceKey     string
+}
+
+func (q *Queries) UpdateCredentialLastUse(ctx context.Context, arg UpdateCredentialLastUseParams) (int64, error) {
+	result, err := q.exec(ctx, q.updateCredentialLastUseStmt, updateCredentialLastUse,
+		arg.LastUsedDate,
+		arg.LastUsedService,
+		arg.LastUsedRegion,
+		arg.ResourceKey,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const updateRoleLastUse = `-- name: UpdateRoleLastUse :exec
+UPDATE iam_role SET last_used_date = ?, last_used_region = ?
+WHERE partition = ? AND account = ? AND resource_key = ? AND role_id = ? AND arn = ?
+`
+
+type UpdateRoleLastUseParams struct {
+	LastUsedDate   time.Time
+	LastUsedRegion string
+	Partition      string
+	Account        string
+	ResourceKey    string
+	RoleID         string
+	Arn            string
+}
+
+func (q *Queries) UpdateRoleLastUse(ctx context.Context, arg UpdateRoleLastUseParams) error {
+	_, err := q.exec(ctx, q.updateRoleLastUseStmt, updateRoleLastUse,
+		arg.LastUsedDate,
+		arg.LastUsedRegion,
+		arg.Partition,
+		arg.Account,
+		arg.ResourceKey,
+		arg.RoleID,
+		arg.Arn,
+	)
+	return err
 }

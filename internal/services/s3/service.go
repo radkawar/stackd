@@ -209,6 +209,9 @@ func (s *Service) RequestError(name string, err error) *awswire.Error {
 	}
 	var validation *awsapi.ValidationError
 	if errors.As(err, &validation) {
+		if validation.Path == "ChecksumMode" && validation.Constraint == "enum" {
+			return failure("InvalidRequest", "Value for x-amz-checksum-mode header is invalid.", 400)
+		}
 		if name == "UpdateObjectEncryption" && validation.Constraint == "required" && (validation.Path == "ObjectEncryption" || validation.Path == "ObjectEncryption.SSEKMS.KMSKeyArn") {
 			return encryptionUpdateInvalid("An SSE-KMS update requires a full KMS key ARN.")
 		}

@@ -24,6 +24,14 @@ keeps service-specific accounting and error semantics authoritative.
   CloudFormation/SSO API smoke verifies optional-field preservation and atomic
   rejection of an empty relay state. See [Identity Center](docs/identity-center.md).
 
+- [x] Add the SigV4 Glue Iceberg REST catalog using shared Glue database/table
+  state and caller-authorized S3 metadata files. Requirement-checked commits fence
+  native Glue version and metadata pointer; concurrent writers receive 409
+  `CommitFailedException`. Signed protocol/client, IAM, durable-state and native
+  Athena/Trino fixtures are in the [REST catalog evidence section](docs/behavior-references.md#glue-iceberg-rest-catalog).
+  Staging/multi-table commit, manifest-aware purge, rename/register/views,
+  credential vending/OAuth, S3 Tables and federated execution remain open.
+
 - [ ] Implement genuine DynamoDB managed-key encryption across native table/index
   storage, Streams, backups and regional replicas. Pinned DynamoDB Local ignores
   SSE selection and stores readable SQLite bytes; an alias or key-generation
@@ -73,6 +81,34 @@ keeps service-specific accounting and error semantics authoritative.
   pass. An old-CLI database upgrade and second SQLite reopen preserve native
   system identity, endpoint and binary SQL bytes. Managed CA rotation, MySQL TLS
   and AWS database-role equivalence remain open.
+- [x] Separate RDS daemon SQL publication from advertised TLS identity with
+  `-rds-publish-address`, retaining loopback defaults and exact-owned reattachment.
+  Native PostgreSQL TLS tests cover non-loopback publication and hostname checks.
+- [x] Add opt-in native EKS bootstrap-worker ECR credentials through a kubelet
+  exec provider and scoped containerd CA trust. Current-IAM TLS provider tests
+  cover denied/renewed credentials; managed EC2/Fargate bootstrap paths remain separate.
+- [x] Retain EKS credential-provider executables in exact-owned durable state.
+  Native private ECR pulls survive source helper removal and controller restart;
+  corrupt or substituted staged artifacts fail closed. Native worker supervision
+  restores the k3s agent without replacing the worker or its Kubernetes identity.
+  Absolute storage reserves are verified through native kubelet configuration.
+- [x] Bound IAM authorization reads to the current principal and coalesce activity
+  reporting without replaying stale role identity. SQLC-prepared S3/IAM queries,
+  indexed binary prefix ranges, cancellation and borrowed-transaction rollback
+  pass focused race checks. CloudTrail wakes only for admitted delivery work.
+- [x] Reuse exact-owned warm Athena workers without changing host network topology.
+  Native execution covers cancellation, idle reuse, Hive parsing, orphan cleanup,
+  foreign endpoint rejection and replacement. An actual browser retained pending
+  requests across worker lifecycle changes; see the
+  [native receipt](testdata/integration/athena_warm_native.json).
+- [x] Implement scoped native ALB-to-EKS pod routing for same-VPC native k3d
+  workers, with current PodCIDR/worker ownership and exact route/forwarding cleanup.
+  Upstream LBC v2.14.1 with Helm/IRSA now creates healthy pod-IP targets and serves
+  actual host HTTP through its ALB. SG/NACL and foreign-VPC denial, controller
+  restart and exact cleanup pass; see the
+  [independent native receipt](testdata/integration/eks_lbc_native_routing.json).
+  External managed workers and VPC-CNI source-address identity remain outside
+  this native k3d path.
 - [x] Correct the isolated Terraform Core refresh-only comparison defect in an
   opt-in, pinned upstream patch. Native CLI reproductions now distinguish
   unchanged data state (exit 0) from changed source outputs (exit 2), while
@@ -1403,6 +1439,8 @@ See [architecture](docs/architecture.md).
   actual usage dependencies as each linked service is implemented.
 - [x] Custom/principal context-key reporting, generated role responses and role
   last-use records that survive session expiry/removal.
+  Record credential-driven last use through a scoped scalar update without
+  reading or replacing the role aggregate and its children.
 - [x] Generated role-template inspection and acquisition for the five captured
   commercial templates, including conditional policies, underlying permission
   enforcement, atomic creation and configuration-based reuse/restoration.
@@ -1431,6 +1469,10 @@ See [architecture](docs/architecture.md).
   generated action tracking/service names and owned AWS differential fixtures.
   Service history uses a 400-day snapshot window; action history and frozen
   reports remain independent. No undocumented JobId expiry is invented.
+  Activity observations are coalesced off the data plane and durably flushed
+  every wall-clock second and on shutdown; unflushed reporting can be lost on
+  crash without changing committed resource/API-event durability. See
+  [the reporting boundary](docs/iam-last-access.md).
 - [x] Organizations access reports with management-account eligibility, SCP
   hierarchy/resource intersections, authenticated account activity, asynchronous
   failures, report reuse and generated output metadata.
@@ -2009,6 +2051,10 @@ create an implementation obligation.
   stores, and verify retained HTTPS binary reads, copy rehashing, chunked trailers
   and actual EventBridge/SQS/CloudTrail consumers.
   See [checksum behavior](docs/cloudtrail.md#s3-checksums).
+- [x] Match native S3 checksum-mode header case handling for PyArrow 26: bind
+  `enabled` as `ENABLED` only after SigV4 validation, preserve strict unrelated
+  enums, and return the captured `InvalidRequest` for invalid values. Retain
+  anonymous read-only native evidence and signed SDK checksum regression.
 - [x] Implement retained bucket/object ownership and ACLs, bucket public-access
   controls and policy status through shared IAM and generated REST XML.
   Replay native cross-account, session/boundary, reversible-mode, multipart-owner,

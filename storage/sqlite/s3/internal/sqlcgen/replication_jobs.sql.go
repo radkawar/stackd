@@ -39,7 +39,7 @@ type CopyReplicaDataParams struct {
 }
 
 func (q *Queries) CopyReplicaData(ctx context.Context, arg CopyReplicaDataParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, copyReplicaData,
+	result, err := q.exec(ctx, q.copyReplicaDataStmt, copyReplicaData,
 		arg.DestinationPartition,
 		arg.DestinationBucket,
 		arg.DestinationName,
@@ -81,7 +81,7 @@ type CopyReplicaPartsParams struct {
 }
 
 func (q *Queries) CopyReplicaParts(ctx context.Context, arg CopyReplicaPartsParams) error {
-	_, err := q.db.ExecContext(ctx, copyReplicaParts,
+	_, err := q.exec(ctx, q.copyReplicaPartsStmt, copyReplicaParts,
 		arg.DestinationPartition,
 		arg.DestinationBucket,
 		arg.DestinationName,
@@ -99,7 +99,7 @@ DELETE FROM s3_replication_jobs WHERE sequence = ?
 `
 
 func (q *Queries) DeleteReplicationJob(ctx context.Context, sequence int64) error {
-	_, err := q.db.ExecContext(ctx, deleteReplicationJob, sequence)
+	_, err := q.exec(ctx, q.deleteReplicationJobStmt, deleteReplicationJob, sequence)
 	return err
 }
 
@@ -108,7 +108,7 @@ SELECT sequence, "partition", bucket_name, object_name, version_id, destination_
 `
 
 func (q *Queries) GetReplicationJob(ctx context.Context, sequence int64) (S3ReplicationJob, error) {
-	row := q.db.QueryRowContext(ctx, getReplicationJob, sequence)
+	row := q.queryRow(ctx, q.getReplicationJobStmt, getReplicationJob, sequence)
 	var i S3ReplicationJob
 	err := row.Scan(
 		&i.Sequence,
@@ -154,7 +154,7 @@ type GetReplicationStatesParams struct {
 }
 
 func (q *Queries) GetReplicationStates(ctx context.Context, arg GetReplicationStatesParams) ([]S3ReplicationState, error) {
-	rows, err := q.db.QueryContext(ctx, getReplicationStates,
+	rows, err := q.query(ctx, q.getReplicationStatesStmt, getReplicationStates,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -196,7 +196,7 @@ SELECT sequence, "partition", bucket_name, object_name, version_id, destination_
 `
 
 func (q *Queries) NextReplicationAttempt(ctx context.Context) (S3ReplicationJob, error) {
-	row := q.db.QueryRowContext(ctx, nextReplicationAttempt)
+	row := q.queryRow(ctx, q.nextReplicationAttemptStmt, nextReplicationAttempt)
 	var i S3ReplicationJob
 	err := row.Scan(
 		&i.Sequence,
@@ -235,7 +235,7 @@ ORDER BY created, sequence LIMIT 1
 `
 
 func (q *Queries) NextReplicationThreshold(ctx context.Context) (S3ReplicationJob, error) {
-	row := q.db.QueryRowContext(ctx, nextReplicationThreshold)
+	row := q.queryRow(ctx, q.nextReplicationThresholdStmt, nextReplicationThreshold)
 	var i S3ReplicationJob
 	err := row.Scan(
 		&i.Sequence,
@@ -306,7 +306,7 @@ type PutReplicationJobParams struct {
 }
 
 func (q *Queries) PutReplicationJob(ctx context.Context, arg PutReplicationJobParams) error {
-	_, err := q.db.ExecContext(ctx, putReplicationJob,
+	_, err := q.exec(ctx, q.putReplicationJobStmt, putReplicationJob,
 		arg.Sequence,
 		arg.Partition,
 		arg.BucketName,
@@ -358,7 +358,7 @@ type PutReplicationStateParams struct {
 }
 
 func (q *Queries) PutReplicationState(ctx context.Context, arg PutReplicationStateParams) error {
-	_, err := q.db.ExecContext(ctx, putReplicationState,
+	_, err := q.exec(ctx, q.putReplicationStateStmt, putReplicationState,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -386,7 +386,7 @@ type ReplicationJobsForVersionParams struct {
 }
 
 func (q *Queries) ReplicationJobsForVersion(ctx context.Context, arg ReplicationJobsForVersionParams) ([]S3ReplicationJob, error) {
-	rows, err := q.db.QueryContext(ctx, replicationJobsForVersion,
+	rows, err := q.query(ctx, q.replicationJobsForVersionStmt, replicationJobsForVersion,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,

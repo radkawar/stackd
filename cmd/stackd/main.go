@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"math"
 	"net"
 	"net/http"
 	"net/netip"
@@ -106,14 +107,15 @@ func run() (result error) {
 	flag.StringVar(&athenaConfig.Image, "athena-image", "", "digest-pinned Trino runtime image override")
 	flag.StringVar(&athenaConfig.HiveDDLImage, "athena-hive-ddl-image", "", "digest-pinned installed Apache Spark image for native Hive DDL parsing")
 	flag.StringVar(&athenaConfig.EndpointHost, "athena-endpoint-host", "127.0.0.1", "Docker host address reachable by the controller for native SQL requests")
-	flag.StringVar(&athenaConfig.CallbackListen, "athena-callback-listen", "0.0.0.0:0", "owned Glue/S3 callback listener for native SQL")
-	flag.StringVar(&athenaConfig.CallbackHost, "athena-callback-host", "host.docker.internal", "Glue/S3 callback hostname reachable from SQL containers")
+	flag.StringVar(&athenaConfig.CallbackListen, "athena-callback-listen", "", "owned Glue/S3 callback listener; defaults to loopback for witnessed local Linux Docker, wildcard for remote Docker")
+	flag.StringVar(&athenaConfig.CallbackHost, "athena-callback-host", "", "Glue/S3 callback hostname; defaults to loopback for witnessed local Linux Docker, host.docker.internal otherwise")
 	rdsEnabled := flag.Bool("rds-runtime", false, "enable real PostgreSQL/MySQL databases using installed pinned images; requires docker-host")
 	searchEnabled := flag.Bool("opensearch-runtime", false, "enable installed digest-pinned OpenSearch using Docker; requires docker-host")
 	var rdsConfig rdsruntime.DockerConfig
 	flag.StringVar(&rdsConfig.PostgresImage, "rds-postgres-image", "", "installed digest-pinned PostgreSQL runtime image override")
 	flag.StringVar(&rdsConfig.MySQLImage, "rds-mysql-image", "", "installed digest-pinned MySQL runtime image override")
 	flag.StringVar(&rdsConfig.EndpointHost, "rds-endpoint-host", "127.0.0.1", "Docker host address reachable by native database clients")
+	flag.StringVar(&rdsConfig.PublishAddress, "rds-publish-address", "127.0.0.1", "Docker host IP to bind native SQL ports; non-loopback exposes databases to that network")
 	docdbEnabled := flag.Bool("docdb-runtime", false, "enable the real TLS/SCRAM document compatibility engine; requires docker-host")
 	var docdbConfig docdbruntime.DockerConfig
 	flag.StringVar(&docdbConfig.Image, "docdb-image", "", "installed digest-pinned MongoDB compatibility runtime image override")
@@ -147,6 +149,10 @@ func run() (result error) {
 	flag.StringVar(&eksConfig.ListenHost, "eks-listen-host", "127.0.0.1", "local address for authenticated EKS Kubernetes API listeners")
 	flag.StringVar(&eksConfig.AdvertiseHost, "eks-endpoint-host", "127.0.0.1", "EKS Kubernetes API address reachable by clients")
 	flag.StringVar(&eksConfig.WorkerAdvertiseHost, "eks-worker-advertise-host", "", "explicit host IP reachable by EC2 Kubernetes workers")
+	flag.Int64Var(&eksConfig.StorageReserveGiB, "eks-storage-reserve-gib", eksruntime.DefaultStorageReserveGiB, "positive native worker nodefs/imagefs reserve in GiB at cluster creation; changes require cluster recreation")
+	flag.StringVar(&eksConfig.ECRCredentialProvider, "eks-ecr-credential-provider", "", "installed Linux kubelet ECR credential provider for native workers")
+	flag.StringVar(&eksConfig.ECRCredentialsFile, "eks-ecr-credentials-file", "", "private JSON credentials and custom AWS endpoint for native worker ECR authentication")
+	eksECRCAFile := flag.String("eks-ecr-ca", "", "public PEM CA for native worker ECR API and registry TLS")
 	eksImagesFile := flag.String("eks-node-images", "", "JSON file mapping Kubernetes minor versions to imported worker imageId, releaseVersion and amiType")
 	elbv2NodeExecutable := flag.String("elbv2-node-executable", "", "enable real ALB sockets using an installed static Linux relay; requires database and docker-host")
 	elbv2DesyncExecutable := flag.String("elbv2-desync-executable", "", "absolute trusted path to the installed native HTTP desync adapter for ALB defensive mode")
@@ -201,6 +207,9 @@ func run() (result error) {
 		return nil
 	})
 	flag.Parse()
+	if eksConfig.StorageReserveGiB <= 0 || eksConfig.StorageReserveGiB > math.MaxInt64/(2<<30) {
+		return fmt.Errorf("eks-storage-reserve-gib must be positive with a representable twice-reserve recovery target")
+	}
 	if flag.NArg() != 0 {
 		return fmt.Errorf("unexpected positional arguments")
 	}
@@ -261,6 +270,12 @@ func run() (result error) {
 	}
 	if networking.authority != nil {
 		eksConfig.PodIdentityCA = networking.authority.CACertificate()
+	}
+	if *eksECRCAFile != "" {
+		eksConfig.ECRCA, err = os.ReadFile(*eksECRCAFile)
+		if err != nil {
+			return fmt.Errorf("read EKS ECR CA: %w", err)
+		}
 	}
 	rdsConfig.PortRange, docdbConfig.PortRange = networking.portRange, networking.portRange
 	mskConfig.PortRange, mqConfig.PortRange, valkeyConfig.PortRange = networking.portRange, networking.portRange, networking.portRange
@@ -331,6 +346,9 @@ func run() (result error) {
 	}
 	if eksConfig.DataDir != "" && (*dockerHost == "" || *database == "") {
 		return fmt.Errorf("eks-state-directory requires database and an explicit docker-host")
+	}
+	if eksConfig.DataDir == "" && (eksConfig.ECRCredentialProvider != "" || eksConfig.ECRCredentialsFile != "" || *eksECRCAFile != "") {
+		return fmt.Errorf("EKS ECR settings require eks-state-directory")
 	}
 	if *elbv2NodeExecutable != "" && (*dockerHost == "" || *database == "") {
 		return fmt.Errorf("elbv2-node-executable requires database and an explicit docker-host")
@@ -538,6 +556,22 @@ func run() (result error) {
 		}
 		if err == nil && *athenaEnabled {
 			athenaConfig.Client = engine
+			if *database != "" {
+				athenaConfig.StateDirectory, err = filepath.Abs(*database + ".athena")
+			} else {
+				var cache string
+				cache, err = os.UserCacheDir()
+				if err == nil {
+					// An API-only memory controller has no database identity. Its
+					// stable configured endpoint/daemon pair owns this private state.
+					scope := sha256.Sum256([]byte(*dockerHost + "\x00" + *listen))
+					athenaConfig.StateDirectory = filepath.Join(cache, "stackd", fmt.Sprintf("athena-%x", scope))
+				}
+			}
+			if err != nil {
+				cancel()
+				return fmt.Errorf("athena ownership state: %w", err)
+			}
 			var runtime *athenaruntime.Docker
 			runtime, err = athenaruntime.NewDocker(runtimeContext, athenaConfig)
 			if err == nil {

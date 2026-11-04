@@ -600,11 +600,12 @@ func New(config Config) (stack *Stack, err error) {
 	ec2Service.SetSharedSubnets(integrations.RAMSharedSubnets{RAM: ramService})
 	var endpoint *gateway.Gateway
 	var route53Service *route53.Service
+	elbv2Networks := &integrations.ELBV2Networks{EC2: ec2Service, Roles: iamService, Sessions: serviceRoles}
 	elbv2Service := elbv2.New(elbv2.Config{
 		Repository: backends.ELBv2, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, Runtime: config.ELBV2Runtime,
 		DNS:              dnsAuthority,
 		DesyncClassifier: config.ELBV2DesyncClassifier,
-		Networks:         &integrations.ELBV2Networks{EC2: ec2Service, Roles: iamService, Sessions: serviceRoles},
+		Networks:         elbv2Networks,
 		Certificates:     integrations.ELBV2Certificates{IAM: iamService, ACM: acmService}, Metrics: cloudwatchService,
 	})
 	certificateUsage.ELBV2 = elbv2Service
@@ -650,6 +651,7 @@ func New(config Config) (stack *Stack, err error) {
 		PodIdentityRoles:    integrations.EKSPodIdentityRoles{Roles: serviceRoles, STS: stsService},
 		PodIdentityEndpoint: config.ComputeEndpoint,
 	})
+	elbv2Networks.PodRouteAuthority = eksService
 	oidcDiscovery.EKS = eksService
 	iamService.SetOIDCDiscovery(oidcDiscovery)
 	alarmActions.SNS = snsService
@@ -672,6 +674,7 @@ func New(config Config) (stack *Stack, err error) {
 		JobEvents:     glueEvents, CrawlerEvents: glueEvents, CatalogEvents: glueEvents,
 		ConnectionSecrets: integrations.GlueConnectionSecrets{Secrets: secretsManagerService},
 		ConnectionCrypto:  integrations.ServiceDataKeys{KMS: kmsService, Activity: iamService, Service: "glue"},
+		IcebergObjects:    integrations.GlueIcebergObjects{S3: s3Service},
 	})
 	var athenaEngine athena.Engine
 	if config.AthenaRuntime != nil {

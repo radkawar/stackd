@@ -19,7 +19,6 @@ import (
 	"stackd/storage"
 	"stackd/storage/sqlite"
 	sqlcfn "stackd/storage/sqlite/cloudformation"
-	sqls3 "stackd/storage/sqlite/s3"
 	sqlsqs "stackd/storage/sqlite/sqs"
 	sqlssm "stackd/storage/sqlite/ssm"
 )
@@ -44,7 +43,7 @@ func TestApplicationResourceIncarnationFences(t *testing.T) {
 					Read: func(ctx context.Context, fn func(context.Context) error) error {
 						return sqlite.Transact(ctx, current, true, func(ctx context.Context, _ *sql.Tx) error { return fn(ctx) })
 					},
-					S3: sqls3.New(db), SQS: sqlsqs.New(db), SSM: sqlssm.New(db), CloudFormation: sqlcfn.New(db),
+					S3: newSQLiteS3Repository(t, db), SQS: sqlsqs.New(db), SSM: sqlssm.New(db), CloudFormation: sqlcfn.New(db),
 				}
 			}
 			if backend == "sqlite" {

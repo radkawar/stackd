@@ -16,6 +16,15 @@ func (g *Gateway) resourceEndpoint(r *http.Request) (*Service, string, bool) {
 				return service, region, true
 			}
 		}
+		// Separately specified native protocols own their paths before
+		// anonymous S3 dispatch. Selection is not authentication: the ordinary
+		// signer checks below still verify this service and the selected region.
+		if owner, ok := service.Provider.(privateOperationProvider); ok {
+			if _, matched := owner.PrivateOperation(r); matched {
+				scope, _ := parseCredential(r)
+				return service, scope.region, true
+			}
+		}
 	}
 	return nil, "", false
 }

@@ -24,7 +24,6 @@ import (
 	"stackd/internal/services/iam"
 	"stackd/storage/sqlite"
 	elbdb "stackd/storage/sqlite/elbv2"
-	iamdb "stackd/storage/sqlite/iam"
 )
 
 func certificateUsageMaterial(t *testing.T, serial int64) (string, string, []byte) {
@@ -94,7 +93,7 @@ func TestELBV2CertificateRenameRetainsDeploymentIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	ir, er := iamdb.New(db), elbdb.New(db)
+	ir, er := newSQLiteIAMRepository(t, db), elbdb.New(db)
 	is := iam.NewWithConfig(iam.Config{Repository: ir})
 	source := ELBV2Certificates{IAM: is}
 	es := elbv2.New(elbv2.Config{Repository: er, Certificates: source})
@@ -158,7 +157,7 @@ func TestELBV2CertificateRenameRetainsDeploymentIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ir, er = iamdb.New(db), elbdb.New(db)
+	ir, er = newSQLiteIAMRepository(t, db), elbdb.New(db)
 	is = iam.NewWithConfig(iam.Config{Repository: ir})
 	source = ELBV2Certificates{IAM: is}
 	es = elbv2.New(elbv2.Config{Repository: er, Certificates: source})

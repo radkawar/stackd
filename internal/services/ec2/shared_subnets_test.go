@@ -33,6 +33,15 @@ import (
 	sqlram "stackd/storage/sqlite/ram"
 )
 
+func newSQLiteIAMRepository(t *testing.T, db *sql.DB) *sqliam.Repository {
+	t.Helper()
+	repository, err := sqliam.New(t.Context(), db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return repository
+}
+
 type subnetCommandOwner interface {
 	ExecuteCommand(context.Context, awsapi.DecodedRequest) (any, *awswire.Error)
 }
@@ -85,7 +94,7 @@ func TestRAMSubnetParticipantLifecycle(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					networks, grants, identities, organization, disks = sqlec2.New(db), sqlram.New(db), sqliam.New(db), sqlorg.New(db), sqlebs.New(db)
+					networks, grants, identities, organization, disks = sqlec2.New(db), sqlram.New(db), newSQLiteIAMRepository(t, db), sqlorg.New(db), sqlebs.New(db)
 				}
 				identity = iam.NewWithConfig(iam.Config{Repository: identities, Clock: source})
 				authorizer := authorization.NewWithClock(identity, nil, source)

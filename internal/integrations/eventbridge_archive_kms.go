@@ -28,9 +28,7 @@ type EventBridgeArchiveKeys struct {
 }
 
 func (k EventBridgeArchiveKeys) ResolveKey(ctx context.Context, _ eventbridge.BusKey, identifier string) (string, *awswire.Error) {
-	if err := recordKMSActivity(ctx, k.Activity, "DescribeKey"); err != nil {
-		return "", archiveKeyFailure("DescribeKey", identifier, false, err)
-	}
+	recordKMSActivity(ctx, k.Activity, "DescribeKey")
 	metadata, err := k.KMS.DescribeKey(kms.WithViaService(ctx, "events"), identifier)
 	if err != nil {
 		return "", archiveKeyFailure("DescribeKey", identifier, false, err)
@@ -39,9 +37,7 @@ func (k EventBridgeArchiveKeys) ResolveKey(ctx context.Context, _ eventbridge.Bu
 }
 
 func (k EventBridgeArchiveKeys) PrepareKey(ctx context.Context, source eventbridge.BusKey, arn string) ([]byte, []byte, *awswire.Error) {
-	if err := recordKMSActivity(ctx, k.Activity, "GenerateDataKey"); err != nil {
-		return nil, nil, archiveKeyFailure("GenerateDataKey", arn, false, err)
-	}
+	recordKMSActivity(ctx, k.Activity, "GenerateDataKey")
 	callerKey, _, _, err := k.KMS.GenerateDataKey(kms.WithViaService(ctx, "events"), arn, archiveEncryptionContext(source, ""))
 	clear(callerKey)
 	if err != nil {

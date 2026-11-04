@@ -20,6 +20,15 @@ import (
 	iamstore "stackd/storage/sqlite/iam"
 )
 
+func newSQLiteIAMRepository(t *testing.T, db *sql.DB) *iamstore.Repository {
+	t.Helper()
+	repository, err := iamstore.New(t.Context(), db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return repository
+}
+
 type cfnIAMPrivateFixture struct {
 	t             *testing.T
 	ctx           context.Context
@@ -50,7 +59,7 @@ func (f *cfnIAMPrivateFixture) open() {
 		if err != nil {
 			f.t.Fatal(err)
 		}
-		f.repository = iamstore.New(f.db)
+		f.repository = newSQLiteIAMRepository(f.t, f.db)
 	}
 	f.owner = iamowner.NewWithConfig(iamowner.Config{Repository: f.repository, Clock: clock.NewManual(time.Date(2027, 1, 2, 3, 4, 0, 0, time.UTC))})
 	f.commands = NewStepFunctionsCommands(map[string]awscommands.CommandExecutor{"iam": f.owner})

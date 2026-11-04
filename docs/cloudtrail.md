@@ -74,6 +74,19 @@ recording independent of client disconnection. This never detaches a mutation's
 native transaction. The canceled-receive regression verifies local persistence,
 not a native AWS cancellation fixture.
 
+The API observer wakes delivery scheduling only when current trail selectors
+actually admit work. No trails, stopped trails and unmatched calls still retain
+their immutable journal outcome synchronously, but do not trigger a full scan of
+the instance's joined job sources. Matching S3/Logs delivery, stop-propagation
+admission and rollback keep their existing transaction and wake behavior;
+periodic persisted-job recovery is unchanged. This removes unnecessary scheduler
+work, not the single-connection SQLite commit cost: each recorded read still
+waits for its durable journal commit with WAL and `synchronous=FULL`.
+The memory/SQLite regression `TestAPIEventsWakeOnlyAdmittedDeliveries` covers
+these cases, recursive-delivery exclusion and failures after journal/delivery
+admission. Native CloudTrail's eventual log delivery is not permission to weaken
+the local committed-journal contract.
+
 Generated shape traversal is shared with the wire encoder. Services declare
 field omission, redaction, names, JSON policy documents and timestamp formats;
 map keys are not case-folded. Response presence is independent of read-only

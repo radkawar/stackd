@@ -33,7 +33,7 @@ type Config struct {
 	Credentials  CredentialResolver
 	Regions      RegionAccess
 	Clock        clock.Clock
-	// Activity records authenticated operation attempts before authorization.
+	// Activity enqueues authenticated operation attempts before authorization.
 	Activity ActivityRecorder
 	// Origin resolves an active invocation only after signature verification.
 	Origin RequestOrigin
@@ -206,10 +206,7 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (g *Gateway) serveOperation(w http.ResponseWriter, r *http.Request, service *Service, writeError func(*awswire.Error)) {
 	if provider, ok := service.Provider.(privateOperationProvider); ok {
 		if action, matched := provider.PrivateOperation(r); matched {
-			if err := g.recordKnownActivity(r.Context(), service, action); err != nil {
-				writeError(&awswire.Error{Code: "ServiceFailure", Message: "Unable to record authenticated activity", StatusCode: http.StatusInternalServerError})
-				return
-			}
+			g.recordKnownActivity(r.Context(), service, action)
 			provider.ServePrivateOperation(w, r)
 			return
 		}
@@ -225,10 +222,7 @@ func (g *Gateway) serveOperation(w http.ResponseWriter, r *http.Request, service
 			return
 		}
 	}
-	if err := g.recordActivity(r.Context(), service, action); err != nil {
-		writeError(&awswire.Error{Code: "ServiceFailure", Message: "Unable to record authenticated activity", StatusCode: http.StatusInternalServerError})
-		return
-	}
+	g.recordActivity(r.Context(), service, action)
 	m := awsctx.FromContext(r.Context())
 	if service.SigningName == "iam" {
 		if m.SessionType == string(identity.SessionTypeGetSessionToken) && !m.MFAPresent {

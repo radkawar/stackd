@@ -78,9 +78,7 @@ func (a KafkaSecrets) key(ctx context.Context, secretARN string) (string, error)
 	if strings.HasPrefix(keyID, "alias/") || strings.Contains(keyID, ":alias/") {
 		return "", kafkaSecretInvalid("SCRAM secret must specify a KMS key ID or key ARN, not an alias.")
 	}
-	if rejected := recordKMSActivity(ctx, a.Activity, "DescribeKey"); rejected != nil {
-		return "", rejected
-	}
+	recordKMSActivity(ctx, a.Activity, "DescribeKey")
 	key, rejected := a.KMS.DescribeKey(kms.WithViaService(ctx, "kafka"), keyID)
 	if rejected != nil {
 		return "", rejected
@@ -105,9 +103,7 @@ func kafkaSCRAMAssociationFence(incarnation string, association kafka.SCRAMAssoc
 }
 
 func (a KafkaSecrets) command(ctx context.Context, name string, input any) (any, *awswire.Error) {
-	if rejected := recordKMSActivity(ctx, a.Activity, name); rejected != nil {
-		return nil, rejected
-	}
+	recordKMSActivity(ctx, a.Activity, name)
 	model, _ := awscatalog.LookupService("kms")
 	operation, _ := model.Operation(name)
 	return a.KMS.ExecuteCommand(kms.WithViaService(ctx, "kafka"), awsapi.DecodedRequest{Operation: operation, Protocol: model.Protocol, Input: input})

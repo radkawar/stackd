@@ -23,7 +23,7 @@ type DeleteObjectRestoreParams struct {
 }
 
 func (q *Queries) DeleteObjectRestore(ctx context.Context, arg DeleteObjectRestoreParams) error {
-	_, err := q.db.ExecContext(ctx, deleteObjectRestore,
+	_, err := q.exec(ctx, q.deleteObjectRestoreStmt, deleteObjectRestore,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -45,7 +45,7 @@ type GetObjectRestoreParams struct {
 }
 
 func (q *Queries) GetObjectRestore(ctx context.Context, arg GetObjectRestoreParams) (S3ObjectRestore, error) {
-	row := q.db.QueryRowContext(ctx, getObjectRestore,
+	row := q.queryRow(ctx, q.getObjectRestoreStmt, getObjectRestore,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,
@@ -73,7 +73,7 @@ LIMIT 1
 `
 
 func (q *Queries) NextObjectRestore(ctx context.Context) (S3ObjectRestore, error) {
-	row := q.db.QueryRowContext(ctx, nextObjectRestore)
+	row := q.queryRow(ctx, q.nextObjectRestoreStmt, nextObjectRestore)
 	var i S3ObjectRestore
 	err := row.Scan(
 		&i.Partition,
@@ -110,7 +110,7 @@ type PutObjectRestoreParams struct {
 }
 
 func (q *Queries) PutObjectRestore(ctx context.Context, arg PutObjectRestoreParams) error {
-	_, err := q.db.ExecContext(ctx, putObjectRestore,
+	_, err := q.exec(ctx, q.putObjectRestoreStmt, putObjectRestore,
 		arg.Partition,
 		arg.BucketName,
 		arg.ObjectName,

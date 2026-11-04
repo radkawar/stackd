@@ -36,9 +36,7 @@ func (a LambdaFilterEncryption) Resolve(ctx context.Context, mapping lambda.Even
 	if err != nil || parsed.Service != "kms" || parsed.Region != mapping.Region || parsed.Partition != mapping.Partition {
 		return "", &awswire.Error{Code: "InvalidParameterValueException", Message: "KMSKeyArn must identify a KMS key in the event source mapping region.", StatusCode: 400}
 	}
-	if wire := recordKMSActivity(ctx, a.Activity, "DescribeKey"); wire != nil {
-		return "", wire
-	}
+	recordKMSActivity(ctx, a.Activity, "DescribeKey")
 	metadata, wire := a.KMS.DescribeKey(kms.WithViaService(ctx, "lambda"), identifier)
 	if wire != nil {
 		return "", wire
@@ -54,9 +52,7 @@ func (a LambdaFilterEncryption) Protect(ctx context.Context, mapping lambda.Even
 	functionARN := mapping.Function.ARN()
 	encryptionContext := lambdaFilterContext(functionARN, mapping.EventSourceARN)
 	encryptionContext["aws-crypto-public-key"] = signer.PublicKey()
-	if wire := recordKMSActivity(ctx, a.Activity, "GenerateDataKey"); wire != nil {
-		return nil, wire
-	}
+	recordKMSActivity(ctx, a.Activity, "GenerateDataKey")
 	key, wrapped, actual, wire := a.KMS.GenerateDataKey(kms.WithViaService(ctx, "lambda"), keyARN, encryptionContext)
 	if wire != nil {
 		return nil, wire
@@ -111,8 +107,8 @@ func (a LambdaFilterEncryption) Unprotect(ctx context.Context, mapping lambda.Ev
 			RequestID: origin.RequestID, ParentEventID: origin.ParentEventID,
 			ServicePrincipal: awsctx.ServicePrincipal{Name: "lambda." + mapping.Key.Region + ".amazonaws.com", SourceARN: mapping.Key.ARN(), Type: "AWSService"},
 		})
-	} else if wire := recordKMSActivity(ctx, a.Activity, "Decrypt"); wire != nil {
-		return nil, wire
+	} else {
+		recordKMSActivity(ctx, a.Activity, "Decrypt")
 	}
 	key, actual, wire := a.KMS.Decrypt(kms.WithViaService(ctx, "lambda"), encrypted.DataKey, encryptionContext)
 	if wire != nil {

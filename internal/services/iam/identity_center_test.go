@@ -10,7 +10,6 @@ import (
 
 	"stackd/internal/services/iam"
 	"stackd/storage/sqlite"
-	sqliteiam "stackd/storage/sqlite/iam"
 )
 
 func TestIdentityCenterRoleLifecycle(t *testing.T) {
@@ -24,7 +23,7 @@ func TestIdentityCenterRoleLifecycle(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				repository = sqliteiam.New(db)
+				repository = newSQLiteIAMRepository(t, db)
 				t.Cleanup(func() { _ = db.Close() })
 				reopen = func() {
 					if err := db.Close(); err != nil {
@@ -34,7 +33,7 @@ func TestIdentityCenterRoleLifecycle(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					repository = sqliteiam.New(db)
+					repository = newSQLiteIAMRepository(t, db)
 				}
 			}
 			spec := iam.IdentityCenterRoleSpec{
