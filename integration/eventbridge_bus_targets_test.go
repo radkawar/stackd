@@ -16,6 +16,7 @@ import (
 	trailtypes "github.com/aws/aws-sdk-go-v2/service/cloudtrail/types"
 	"github.com/aws/aws-sdk-go-v2/service/eventbridge"
 	eventtypes "github.com/aws/aws-sdk-go-v2/service/eventbridge/types"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 
 	"stackd"
@@ -336,6 +337,19 @@ func TestEventBridgeNativeBusTargetsSDK(t *testing.T) {
 					}
 					source := clock.NewManual(time.Date(2031, 2, 3, 4, 5, 6, 0, time.UTC))
 					cloud, clients, _ := startEventDeliveryCloud(t, backends, source)
+					// Captured account principals exist before their resource policies.
+					// Create actual IAM state for each replay caller; STS identity
+					// reads alone do not establish foreign-account IAM existence.
+					accounts := make(map[string]bool)
+					for _, call := range run.Calls {
+						if accounts[call.Account] {
+							continue
+						}
+						if _, err := clients.iam(call.Account, "test", "").CreateUser(t.Context(), &iam.CreateUserInput{UserName: aws.String(run.Prefix + "-account")}); err != nil {
+							t.Fatal(err)
+						}
+						accounts[call.Account] = true
+					}
 					r := &ebBusForwardReplay{cloud: cloud, clients: clients, run: run, urls: make(map[string]string)}
 					for _, row := range run.Calls {
 						if row.Operation != "PutEvents" {

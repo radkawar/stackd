@@ -37,7 +37,7 @@ func TestAccessKeyEventsSDKLifecycleAndRecovery(t *testing.T) {
 				if backend == "sqlite" {
 					backends, closeDatabase = openSQLiteBackends(t, path)
 				}
-				cloud, err := stackd.New(stackd.Config{Storage: backends, Clock: source})
+				cloud, err := stackd.New(stackd.Config{AccountID: "000000000000", Storage: backends, Clock: source})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -241,7 +241,7 @@ func TestAccessKeyEventsSDKRollback(t *testing.T) {
 					backends.Journal = events
 					repository := &signedAuthorityRepository{Repository: backends.IAM}
 					backends.IAM = repository
-					c := clockCloud(t, stackd.Config{Storage: backends})
+					c := clockCloud(t, stackd.Config{AccountID: "000000000000", Storage: backends})
 					arn, key, secret := c.user(t, "test", "owner")
 					root := c.iam("test", "test", "")
 					putUserPolicy(t, root, "owner", allow(`"iam:*"`, arn))
@@ -266,6 +266,8 @@ func TestAccessKeyEventsSDKRollback(t *testing.T) {
 					if err != nil || len(credentialEvents(baseline)) != 1 {
 						t.Fatal("fixture history", baseline, err)
 					}
+					// Select this signed mutation's authority write, never the
+					// asynchronous/coalesced credential-usage reporting flush.
 					plan := &signedAuthorityPlan{key: key, failCommit: failure == "commit", cancelCommit: failure == "cancellation"}
 					if failure == "append" {
 						events.fail.Store(true)

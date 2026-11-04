@@ -2,6 +2,8 @@ package cloudwatch
 
 import (
 	"context"
+	"encoding/json"
+	"reflect"
 	"testing"
 
 	"stackd/internal/awsapi"
@@ -44,7 +46,14 @@ func TestCloudFormationDashboardNativeUpdateAndRecreation(t *testing.T) {
 	owned := WithCloudFormationOwner(ctx, "first", false)
 	success(owned, "PutDashboard", changed)
 	out := success(ctx, "GetDashboard", &api.GetDashboardInput{DashboardName: name}).(*api.GetDashboardOutput)
-	if value(out.DashboardBody) != value(changed.DashboardBody) {
+	var gotBody, wantBody any
+	if err := json.Unmarshal([]byte(value(out.DashboardBody)), &gotBody); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(value(changed.DashboardBody)), &wantBody); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(gotBody, wantBody) {
 		t.Fatalf("native dashboard update was not retained: %s", value(out.DashboardBody))
 	}
 	if _, wire := call(WithCloudFormationOwner(ctx, "different-cc-creation", true), "PutDashboard", initial); wire == nil || wire.Code != "AccessDeniedException" {

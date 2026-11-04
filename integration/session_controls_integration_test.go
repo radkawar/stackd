@@ -53,7 +53,7 @@ func TestSignedSessionKeepsOrganizationControlsUntilPublication(t *testing.T) {
 			}
 			called := false
 			plan := &signedAuthorityPlan{key: key}
-			plan.duringRoleRead = func() {
+			plan.beforeCredentialWrite = func() {
 				called = true
 				// This is an independent request at the native Organizations write
 				// boundary, after its earlier authorization. It must wait for the

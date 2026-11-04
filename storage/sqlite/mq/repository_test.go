@@ -4,13 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"os"
 	"path/filepath"
 	"reflect"
 	"slices"
 	"testing"
 	"time"
 
+	"stackd/internal/awstest"
 	service "stackd/internal/services/mq"
 	"stackd/storage/memory"
 	domain "stackd/storage/mq"
@@ -289,22 +289,16 @@ func TestMemoryControlAttemptKeepsOuterIntent(t *testing.T) {
 
 func TestLegacyBrokerUserMigrationRetainsNativeIdentity(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "legacy.sqlite")
-	db, err := sql.Open("sqlite", path)
+	migrations, err := filepath.Glob("../schema/*.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
-	db.SetMaxOpenConns(1)
-	t.Cleanup(func() { _ = db.Close() })
-	if _, err := db.ExecContext(t.Context(), "PRAGMA foreign_keys=ON"); err != nil {
-		t.Fatal(err)
+	// The version counts ordered files, not their numeric filename prefixes.
+	version := slices.Index(migrations, filepath.Join("..", "schema", "283_mq_control.sql"))
+	if version < 0 {
+		t.Fatal("MQ user migration not found")
 	}
-	legacy, err := os.ReadFile("../schema/266_mq.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.ExecContext(t.Context(), string(legacy)); err != nil {
-		t.Fatal(err)
-	}
+	db := awstest.HistoricalSQLite(t, path, "../schema", version, "", nil)
 	for _, password := range []string{"", "not-yet-applied"} {
 		id := "broker-" + password
 		if _, err := db.ExecContext(t.Context(), `INSERT INTO mq_brokers
@@ -313,15 +307,14 @@ func TestLegacyBrokerUserMigrationRetainsNativeIdentity(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for _, path := range []string{"../schema/283_mq_control.sql", "../schema/284_mq_maintenance.sql", "../schema/285_mq_logs.sql"} {
-		migration, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := db.ExecContext(t.Context(), string(migration)); err != nil {
-			t.Fatal(err)
-		}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
 	}
+	db, err = sqlite.Open(t.Context(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
 	repo := backend.New(db)
 	if err := repo.View(t.Context(), func(r domain.Reader) error {
 		for _, password := range []string{"", "not-yet-applied"} {

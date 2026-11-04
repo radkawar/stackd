@@ -21,9 +21,11 @@ func TestAccountRegionEligibilityUsesCredentialAuthorityState(t *testing.T) {
 	backends := storage.NewMemory()
 	repository := &signedAuthorityRepository{Repository: backends.IAM}
 	backends.IAM = repository
-	c := clockCloud(t, stackd.Config{Clock: source, Storage: backends})
+	c := clockCloud(t, stackd.Config{AccountID: "000000000000", Clock: source, Storage: backends})
 	enableAccountRegion(t, c, source, "test", "af-south-1")
 	_, key, secret := c.user(t, "test", "region-authority")
+	// Commit the region transition immediately before the signed STS authority
+	// transaction starts, independently of asynchronous activity reporting.
 	plan := &signedAuthorityPlan{key: key, before: func(ctx context.Context) error {
 		if _, err := c.account("test", "test", "").DisableRegion(ctx, &account.DisableRegionInput{RegionName: aws.String("af-south-1")}); err != nil {
 			return err

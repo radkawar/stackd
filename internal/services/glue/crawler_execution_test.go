@@ -89,10 +89,32 @@ func (f *crawlerObjectFixture) Read(ctx context.Context, _, key string) ([]byte,
 }
 
 type crawlerTerminalEvents struct{ terminal chan string }
+type crawlerTerminalStatesKey struct{}
 
-func (e crawlerTerminalEvents) Publish(_ context.Context, _ glue.CrawlerRecord, state, _ string) error {
+func (e crawlerTerminalEvents) Publish(ctx context.Context, _ glue.CrawlerRecord, state, _ string) error {
 	if state != "Started" {
-		e.terminal <- state
+		states, ok := ctx.Value(crawlerTerminalStatesKey{}).(*[]string)
+		if !ok {
+			return errors.New("terminal crawler event published outside observed update")
+		}
+		*states = append(*states, state)
+	}
+	return nil
+}
+
+type crawlerTerminalRepository struct {
+	glue.Repository
+	events crawlerTerminalEvents
+}
+
+func (r crawlerTerminalRepository) Update(ctx context.Context, fn func(glue.Transaction) error) error {
+	var states []string
+	if err := r.Repository.Update(context.WithValue(ctx, crawlerTerminalStatesKey{}, &states), fn); err != nil {
+		return err
+	}
+	// Publish runs inside Update; WAL readers must wait for its successful commit.
+	for _, state := range states {
+		r.events.terminal <- state
 	}
 	return nil
 }
@@ -125,7 +147,7 @@ func TestCrawlerActualObjectsRestartFailureAndCancellation(t *testing.T) {
 			}
 			fixture := &crawlerObjectFixture{buckets: map[string]bool{"fixtures": true}, objects: map[string][]byte{"sales/day=2026-09-25/part.json": []byte("{\"category\":\"a\",\"amount\":7}\n"), "sales/day=2026-09-26/part.json": []byte("{\"category\":\"b\",\"amount\":9}\n"), "sales/day=2026-09-26/ignore.txt": []byte("must not become schema")}}
 			events := crawlerTerminalEvents{terminal: make(chan string, 8)}
-			config := glue.Config{Repository: repo, CrawlerSource: fixture, CrawlerEvents: events}
+			config := glue.Config{Repository: crawlerTerminalRepository{Repository: repo, events: events}, CrawlerSource: fixture, CrawlerEvents: events}
 			s := glue.New(config)
 			defer func() { _ = s.Close(); closeDB() }()
 			catalogTestCall[api.CreateDatabaseOutput](t, s, ctx, "CreateDatabase", &api.CreateDatabaseInput{DatabaseInput: &api.DatabaseInput{Name: new(api.NameString("crawl"))}})
@@ -138,7 +160,7 @@ func TestCrawlerActualObjectsRestartFailureAndCancellation(t *testing.T) {
 			}
 			closeDB()
 			repo = reopen()
-			config.Repository = repo
+			config.Repository = crawlerTerminalRepository{Repository: repo, events: events}
 			s = glue.New(config)
 			if err := s.Start(); err != nil {
 				t.Fatal(err)
@@ -222,7 +244,7 @@ func TestCrawlerSchedulePersistsAndStops(t *testing.T) {
 	}
 	fixture := &crawlerObjectFixture{buckets: map[string]bool{"fixtures": true}, objects: map[string][]byte{"scheduled/part.json": []byte("{\"value\":3}")}}
 	events := crawlerTerminalEvents{terminal: make(chan string, 4)}
-	config := glue.Config{Repository: gluesqlite.New(db), Clock: manual, CrawlerSource: fixture, CrawlerEvents: events}
+	config := glue.Config{Repository: crawlerTerminalRepository{Repository: gluesqlite.New(db), events: events}, Clock: manual, CrawlerSource: fixture, CrawlerEvents: events}
 	s := glue.New(config)
 	catalogTestCall[api.CreateDatabaseOutput](t, s, ctx, "CreateDatabase", &api.CreateDatabaseInput{DatabaseInput: &api.DatabaseInput{Name: new(api.NameString("crawl"))}})
 	catalogTestCall[api.CreateCrawlerOutput](t, s, ctx, "CreateCrawler", &api.CreateCrawlerInput{Name: new(api.NameString("scheduled")), Role: new(api.Role("crawler-role")), DatabaseName: new(api.DatabaseName("crawl")), Schedule: new(api.CronExpression("cron(0/5 * * * ? *)")), Targets: &api.CrawlerTargets{S3Targets: api.S3TargetList{{Path: new(api.Path("s3://fixtures/scheduled/"))}}}})
@@ -237,7 +259,7 @@ func TestCrawlerSchedulePersistsAndStops(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	config.Repository = gluesqlite.New(db)
+	config.Repository = crawlerTerminalRepository{Repository: gluesqlite.New(db), events: events}
 	s = glue.New(config)
 	defer s.Close()
 	if err := s.Start(); err != nil {

@@ -124,7 +124,7 @@ func testInjectedStoragePreservesCrossServiceState(t *testing.T, backend string)
 			backends, closeDatabase = openSQLiteBackends(t, path)
 			backends.IAM = &rejectRenameRepository{backends.IAM}
 		}
-		cloud, err := stackd.New(stackd.Config{Storage: backends})
+		cloud, err := stackd.New(stackd.Config{AccountID: "000000000000", Storage: backends})
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -30,7 +30,7 @@ func TestKMSMultiRegionCryptoRotationPromotionAndRecovery(t *testing.T) {
 				// transaction domain, including after recovery.
 				backends, closeDatabase = openSQLiteBackends(t, path)
 			}
-			config := stackd.Config{Clock: source, Storage: backends}
+			config := stackd.Config{AccountID: "000000000000", Clock: source, Storage: backends}
 			cloud, err := stackd.New(config)
 			if err != nil {
 				t.Fatal(err)

@@ -30,7 +30,7 @@ func TestKMSJobsSDKLifecycleAndRecovery(t *testing.T) {
 				if backend == "sqlite" {
 					backends, closeDB = openSQLiteBackends(t, path)
 				}
-				cloud, err := stackd.New(stackd.Config{Storage: backends, Clock: manual})
+				cloud, err := stackd.New(stackd.Config{AccountID: "000000000000", Storage: backends, Clock: manual})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -242,7 +242,7 @@ func TestKMSJobsSDKFailedRegionalCommit(t *testing.T) {
 			failing := &failingReplicaStorage{Storage: stored}
 			backends.KMS = failing
 			manual := clock.NewManual(time.Date(2031, 2, 3, 4, 5, 6, 0, time.UTC))
-			cloud, err := stackd.New(stackd.Config{Storage: backends, Clock: manual})
+			cloud, err := stackd.New(stackd.Config{AccountID: "000000000000", Storage: backends, Clock: manual})
 			if err != nil {
 				t.Fatal(err)
 			}

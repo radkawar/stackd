@@ -83,7 +83,7 @@ type harness struct {
 
 func newHarness(t *testing.T) *harness {
 	t.Helper()
-	g, err := gateway.New(&gateway.Registry{}, gateway.Config{})
+	g, err := gateway.New(&gateway.Registry{}, gateway.Config{AccountID: "000000000000"})
 	if err != nil {
 		t.Fatal(err)
 	}

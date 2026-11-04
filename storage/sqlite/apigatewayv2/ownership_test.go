@@ -268,7 +268,7 @@ func TestAPIGatewayV2IncarnationRecoveryAndFencing(t *testing.T) {
 						if _, rejected := ownershipCommand(t, s, staleContext, "Delete"+row.kind, row.read); rejected == nil || rejected.Code != "ConflictException" {
 							t.Fatalf("%s stale delete admitted: %v", row.kind, rejected)
 						}
-						if got := ownershipCall(t, s, staleContext, "Get"+row.kind, row.read); !reflect.DeepEqual(before, got) {
+						if got := ownershipCall(t, s, service.WithResourceOwner(ctx, row.owner), "Get"+row.kind, row.read); !reflect.DeepEqual(before, got) {
 							t.Fatalf("%s rejected mutation changed row: %#v", row.kind, got)
 						}
 					}

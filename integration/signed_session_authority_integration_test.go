@@ -20,6 +20,7 @@ import (
 
 	"stackd"
 	"stackd/clock"
+	"stackd/internal/awsctx"
 	"stackd/journal"
 	"stackd/storage"
 	iamstore "stackd/storage/iam"
@@ -28,10 +29,10 @@ import (
 
 const signedAuthorityTimeout = 5 * time.Second
 
-// This backend observes a successfully committed gateway usage transaction for
-// the signed caller, then runs a one-shot hook before the next write transaction
-// begins. Reading the caller's credential identifies that transaction even when
-// the reporting window coalesces usage and no credential row is rewritten.
+// This backend selects the signed caller's authority write from the current
+// request metadata, then runs a one-shot hook before that transaction begins.
+// Credential resolution has no authenticated principal/key metadata yet, and
+// asynchronous activity reporting has no request metadata at all.
 // Hooks use public SDKs outside the storage lock; no service internals or
 // authorization replacements participate in these tests.
 type signedAuthorityRepository struct {
@@ -41,17 +42,17 @@ type signedAuthorityRepository struct {
 }
 
 type signedAuthorityPlan struct {
-	key            string
-	usageCommitted bool
-	before         func(context.Context) error
-	duringRoleRead func()
-	failCommit     bool
-	failMFA        bool
-	cancelCommit   bool
-	entered        bool
-	hookErr        error
-	issued         []identitystore.Credential
-	done           chan struct{}
+	key                   string
+	before                func(context.Context) error
+	duringRoleRead        func()
+	beforeCredentialWrite func()
+	failCommit            bool
+	failMFA               bool
+	cancelCommit          bool
+	entered               bool
+	hookErr               error
+	issued                []identitystore.Credential
+	done                  chan struct{}
 }
 
 func (tx *signedAuthorityWriteTx) PutMFADevice(scope iamstore.Scope, device iamstore.MFADevice) error {
@@ -95,18 +96,20 @@ func (r *signedAuthorityRepository) Attempt(ctx context.Context, fn func(iamstor
 }
 
 func (r *signedAuthorityRepository) write(ctx context.Context, fn func(iamstore.WriteTx) error, transaction func(context.Context, func(iamstore.WriteTx) error) error) error {
+	metadata := awsctx.FromContext(ctx)
 	r.mu.Lock()
 	plan := r.plan
-	selected := plan != nil && plan.usageCommitted
+	selected := plan != nil && metadata.AccessKeyID == plan.key && metadata.PrincipalARN != "" && metadata.RequestID != ""
 	if selected {
 		r.plan = nil
 		plan.entered = true
 	}
 	r.mu.Unlock()
-	if selected {
-		defer close(plan.done)
+	if !selected {
+		return transaction(ctx, fn)
 	}
-	if selected && plan.before != nil {
+	defer close(plan.done)
+	if plan.before != nil {
 		plan.hookErr = plan.before(ctx)
 		if plan.hookErr != nil {
 			return plan.hookErr
@@ -114,35 +117,19 @@ func (r *signedAuthorityRepository) write(ctx context.Context, fn func(iamstore.
 	}
 	transactionContext, cancel := context.WithCancel(ctx)
 	defer cancel()
-	usage := false
-	err := transaction(transactionContext, func(tx iamstore.WriteTx) error {
-		wrapped := &signedAuthorityWriteTx{WriteTx: tx, usage: &usage}
-		if plan != nil {
-			wrapped.key = plan.key
-		}
-		if selected {
-			wrapped.plan = plan
-			wrapped.cancel = cancel
-		}
+	return transaction(transactionContext, func(tx iamstore.WriteTx) error {
+		wrapped := &signedAuthorityWriteTx{WriteTx: tx, plan: plan, cancel: cancel}
 		if err := fn(wrapped); err != nil {
 			return err
 		}
-		if selected && plan.failCommit {
+		if plan.failCommit {
 			return errors.New("injected signed session commit failure")
 		}
-		if selected && plan.cancelCommit {
+		if plan.cancelCommit {
 			cancel()
 		}
 		return nil
 	})
-	if err == nil && usage && plan != nil && !selected {
-		r.mu.Lock()
-		if r.plan == plan {
-			plan.usageCommitted = true
-		}
-		r.mu.Unlock()
-	}
-	return err
 }
 
 func (p *signedAuthorityPlan) wait(t *testing.T, ctx context.Context) {
@@ -150,28 +137,23 @@ func (p *signedAuthorityPlan) wait(t *testing.T, ctx context.Context) {
 	select {
 	case <-p.done:
 	case <-ctx.Done():
-		t.Fatal("signed STS request did not finish the authority write boundary:", ctx.Err())
+		t.Fatal("signed request did not finish the authority write boundary:", ctx.Err())
 	}
 }
 
 type signedAuthorityWriteTx struct {
 	iamstore.WriteTx
-	key    string
-	usage  *bool
 	plan   *signedAuthorityPlan
 	cancel context.CancelFunc
 }
 
-func (tx *signedAuthorityWriteTx) Credential(key string) (identitystore.Record, error) {
-	record, err := tx.WriteTx.Credential(key)
-	if err == nil && key == tx.key {
-		*tx.usage = true
-	}
-	return record, err
-}
-
 func (tx *signedAuthorityWriteTx) PutCredential(record identitystore.Record) error {
 	_, existingErr := tx.WriteTx.Credential(record.Credential.AccessKeyID)
+	if tx.plan != nil && tx.plan.beforeCredentialWrite != nil && errors.Is(existingErr, identitystore.ErrNotFound) && record.Credential.SessionToken != "" {
+		hook := tx.plan.beforeCredentialWrite
+		tx.plan.beforeCredentialWrite = nil
+		hook()
+	}
 	if err := tx.WriteTx.PutCredential(record); err != nil {
 		return err
 	}

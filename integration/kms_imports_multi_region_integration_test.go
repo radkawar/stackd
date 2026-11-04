@@ -21,7 +21,7 @@ func TestKMSImportedMultiRegionStorageRotationAndExpiry(t *testing.T) {
 	backends := storage.NewMemory()
 	backend := &failingReplicaStorage{Storage: backends.KMS}
 	backends.KMS = backend
-	config := stackd.Config{Clock: source, Storage: backends}
+	config := stackd.Config{AccountID: "000000000000", Clock: source, Storage: backends}
 	cloud, err := stackd.New(config)
 	if err != nil {
 		t.Fatal(err)

@@ -19,6 +19,12 @@ callers need them. Detailed fleet behavior and quota tuning do not block the nex
 service. [The shared design policy](docs/verification-kernel.md#iam-evaluation-and-strict-behavior)
 keeps service-specific accounting and error semantics authoritative.
 
+- [x] Repair reported fixture regressions without changing sandbox account defaults:
+  explicit retained identities, current resource owners, complete historical MQ
+  migrations, existing IAM accounts for native EventBridge principals, semantic
+  dashboard JSON, post-commit crawler/SNS observations and request-scoped IAM
+  failure injection. Targeted race checks include ten crawler and SNS replays.
+
 - [x] Correct Identity Center ownership and omitted-update regressions to compare
   retained state instead of obsolete seconds-only duration strings. A local
   CloudFormation/SSO API smoke verifies optional-field preservation and atomic

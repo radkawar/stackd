@@ -156,35 +156,55 @@ func TestSNSHTTPNativeLifecycleAndRetainedDelivery(t *testing.T) {
 			if _, err := topics.Publish(t.Context(), &sns.PublishInput{TopicArn: topic.TopicArn, Message: aws.String("excluded pending publication")}); err != nil {
 				t.Fatal(err)
 			}
-			// Reopen before even the confirmation POST. This exercises retained endpoint,
-			// independent tokens, signed control payloads and jobs, not an in-process send.
+			// Shutdown can follow a confirmation POST but precede its completion
+			// commit, so retained delivery may replay the same signed payload.
 			reopen()
 			snsHTTPDrain(t, active.Load())
-			first := snsHTTPNext(t, receipts)
-			second := snsHTTPNext(t, receipts)
-			for _, receipt := range []snsHTTPReceipt{first, second} {
-				if receipt.Header.Get("X-Amz-Sns-Message-Type") != "SubscriptionConfirmation" || receipt.Header.Get("X-Amz-Sns-Subscription-Arn") != "" {
-					t.Fatalf("confirmation headers: %v", receipt.Header)
+			var tokens []string
+			seenTokens := map[string]bool{}
+			messageBodies := map[string]string{}
+		confirmations:
+			for {
+				select {
+				case receipt := <-receipts:
+					if receipt.Header.Get("X-Amz-Sns-Message-Type") != "SubscriptionConfirmation" || receipt.Header.Get("X-Amz-Sns-Subscription-Arn") != "" {
+						t.Fatalf("pending subscriber received non-confirmation: %s %v", receipt.Body, receipt.Header)
+					}
+					envelope := snsHTTPEnvelope(t, receipt)
+					if envelope["Type"] != "SubscriptionConfirmation" {
+						t.Fatalf("pending subscriber received non-confirmation: %s", receipt.Body)
+					}
+					token, ok := envelope["Token"].(string)
+					if !ok || token == "" {
+						t.Fatalf("confirmation token missing: %s", receipt.Body)
+					}
+					messageID, ok := envelope["MessageId"].(string)
+					if !ok || messageID == "" || receipt.Header.Get("X-Amz-Sns-Message-Id") != messageID {
+						t.Fatalf("confirmation message ID: %s %v", receipt.Body, receipt.Header)
+					}
+					if body, repeated := messageBodies[messageID]; repeated && body != receipt.Body {
+						t.Fatalf("confirmation retry changed payload for MessageId %q: first %s retry %s", messageID, body, receipt.Body)
+					}
+					messageBodies[messageID] = receipt.Body
+					if !seenTokens[token] {
+						seenTokens[token] = true
+						tokens = append(tokens, token)
+					}
+				default:
+					break confirmations
 				}
 			}
-			select {
-			case got := <-receipts:
-				t.Fatalf("pending subscriber received publication: %s", got.Body)
-			default:
-			}
-			firstEnvelope := snsHTTPEnvelope(t, first)
-			secondEnvelope := snsHTTPEnvelope(t, second)
-			if firstEnvelope["Token"] == secondEnvelope["Token"] {
-				t.Fatal("repeated Subscribe did not issue independent confirmation tokens")
+			if len(tokens) != 2 {
+				t.Fatalf("repeated Subscribe issued %d distinct confirmation tokens, want 2", len(tokens))
 			}
 			if _, err := anonymous.ConfirmSubscription(t.Context(), &sns.ConfirmSubscriptionInput{TopicArn: topic.TopicArn, Token: aws.String("invalid")}); snsHTTPErrorCode(err) != "InvalidParameter" {
 				t.Fatalf("invalid token: %v", err)
 			}
-			confirmed, err := anonymous.ConfirmSubscription(t.Context(), &sns.ConfirmSubscriptionInput{TopicArn: topic.TopicArn, Token: aws.String(firstEnvelope["Token"].(string))})
+			confirmed, err := anonymous.ConfirmSubscription(t.Context(), &sns.ConfirmSubscriptionInput{TopicArn: topic.TopicArn, Token: aws.String(tokens[0])})
 			if err != nil || aws.ToString(confirmed.SubscriptionArn) != aws.ToString(subscription.SubscriptionArn) {
 				t.Fatalf("confirm retained token: %+v %v", confirmed, err)
 			}
-			if _, err := anonymous.ConfirmSubscription(t.Context(), &sns.ConfirmSubscriptionInput{TopicArn: topic.TopicArn, Token: aws.String(secondEnvelope["Token"].(string))}); err != nil {
+			if _, err := anonymous.ConfirmSubscription(t.Context(), &sns.ConfirmSubscriptionInput{TopicArn: topic.TopicArn, Token: aws.String(tokens[1])}); err != nil {
 				t.Fatal("second token lost idempotency", err)
 			}
 			attrs, err := topics.GetSubscriptionAttributes(t.Context(), &sns.GetSubscriptionAttributesInput{SubscriptionArn: subscription.SubscriptionArn})

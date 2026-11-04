@@ -24,7 +24,7 @@ func TestKMSAcceptedImportRotationCanUseReplacementMaterial(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			source := clock.NewManual(time.Now().UTC().Truncate(time.Second))
-			config := stackd.Config{Clock: source, Storage: storage.NewMemory()}
+			config := stackd.Config{AccountID: "000000000000", Clock: source, Storage: storage.NewMemory()}
 			cloud, err := stackd.New(config)
 			if err != nil {
 				t.Fatal(err)
