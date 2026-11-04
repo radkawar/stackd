@@ -616,6 +616,9 @@ PodCIDRs and InternalIP against exact-owned Docker workers and their actual
 ALB/account/region/VPC and preserves ALB SG/NACL admission. Stable reconciliation
 retains open connections; loss of authority withdraws pod access without
 removing unrelated EC2 policy. Cleanup removes only witnessed owned state.
+Docker versions without a native raw `PREROUTING` guard need no exemption in
+that table. Forwarding admission remains required; unreadable or malformed
+firewall state is an error, not evidence that a guard is absent.
 This path supports native k3d bootstrap/Fargate workers, not external managed
 EC2 workers or VPC-CNI pod ENIs. Transport uses worker-gateway SNAT; it does not
 reproduce VPC-CNI source-address identity.

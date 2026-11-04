@@ -19,6 +19,10 @@ A failed target health or HTTP assertion fails the fixture, even if Helm succeed
 Cleanup runs on failure, reports its own failures, and never replaces the original
 private diagnostic. This fixture deliberately does not claim private ECR pulls,
 SQL/TLS consumer evidence, external managed nodes, or host route-table mutation.
+
+Native prerequisite witnesses and closed-vocabulary failure classifications are
+public-safe; raw EKS health messages and owned-node logs remain private. Failure
+capture never adopts resources or relaxes native ownership/packet-path checks.
 """
 
 import argparse
@@ -50,6 +54,10 @@ CHART_URL = "https://aws.github.io/eks-charts/aws-load-balancer-controller-1.14.
 POLICY_URL = "https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.14.1/docs/install/iam_policy.json"
 CONTROLLER_IMAGE = "public.ecr.aws/eks/aws-load-balancer-controller:v2.14.1"
 BACKEND_IMAGE = "public.ecr.aws/docker/library/busybox:1.37.0@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec"
+K3S_IMAGE = "rancher/k3s:v1.33.5-k3s1@sha256:fd4740667b7033055c27d424d0d2d660bf66cedbdb225d68e0eab6dd48aa0fd2"
+TOOLS_IMAGE = "ghcr.io/k3d-io/k3d-tools@sha256:c5ceb2b9e8ff2cf55917b0bee8bc9c54fe1483a16366b734117e2cfac1417bed"
+TOOLS_TAG = "ghcr.io/k3d-io/k3d-tools:5.8.3"
+NETWORK_IMAGE = "nicolaka/netshoot@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed283572f47c970c780c03b61"
 BODY = b"native-ingress-backend\n"
 
 
@@ -100,7 +108,7 @@ class Smoke:
         path.chmod(0o600)
         return path
 
-    def command(self, argv, *, stdin=None, env=None, timeout=180):
+    def command(self, argv, *, stdin=None, env=None, timeout=180, combined=False):
         try:
             result = subprocess.run([str(v) for v in argv], input=stdin, env=env or self.env,
                                     text=True, capture_output=True, timeout=timeout)
@@ -118,7 +126,7 @@ class Smoke:
         self.diagnostics.flush()
         if result.returncode:
             raise FixtureFailure("command failed in " + self.phase)
-        return result.stdout
+        return result.stdout + result.stderr if combined else result.stdout
 
     def client(self, service):
         if service not in self.clients:
@@ -218,6 +226,143 @@ class Smoke:
         self.controller_image = self.installed_image(self.args.controller_image, controller=True)
         self.backend_image = self.installed_image(self.args.backend_image)
         self.result["assertions"]["installed_immutable_images"] = True
+        self.native_prerequisites()
+
+    def native_prerequisites(self):
+        witnesses = self.result.setdefault("native_prerequisites", {})
+        version = self.command([self.args.k3d.resolve(), "version"])
+        witnesses["k3d_version_matches"] = "k3d version v5.8.3\n" in version
+        if not witnesses["k3d_version_matches"]:
+            raise FixtureFailure("native runtime requires k3d v5.8.3")
+        for name, image in (("k3s_image_installed", K3S_IMAGE), ("tools_image_installed", TOOLS_IMAGE),
+                            ("network_image_installed", NETWORK_IMAGE)):
+            witnesses[name] = False
+            try:
+                metadata = json.loads(self.command(["docker", "image", "inspect", image]))[0]
+            except FixtureFailure:
+                raise FixtureFailure("required native prerequisite missing: " + name) from None
+            witnesses[name] = bool(metadata.get("Id"))
+        witnesses["tools_tag_matches_pinned_image"] = False
+        try:
+            tools = json.loads(self.command(["docker", "image", "inspect", TOOLS_TAG, TOOLS_IMAGE]))
+        except FixtureFailure:
+            raise FixtureFailure("required native tools version tag is missing") from None
+        witnesses["tools_tag_matches_pinned_image"] = len(tools) == 2 and tools[0]["Id"] == tools[1]["Id"]
+        if not witnesses["tools_tag_matches_pinned_image"]:
+            raise FixtureFailure("native tools version tag differs from pinned image")
+
+    @staticmethod
+    def classify_native_failure(message):
+        # Match fixed public source/engine diagnostics; never serialize any part
+        # of the original message (which can contain paths, tokens and IDs).
+        text = message.lower()
+        classes = {
+            "native_container_ownership_rejected": ("refusing native cluster with unowned or unexpected containers",),
+            "native_tools_ownership_rejected": ("refusing unowned k3d tools node",),
+            "native_network_ownership_rejected": ("refusing unowned native network", "ambiguous owned network"),
+            "native_volume_ownership_rejected": ("refusing unowned image volume",),
+            "native_api_binding_mismatch": ("native api binding differs",),
+            "native_worker_transport_drift": ("worker overlay endpoint differs from retained ownership",
+                                               "native worker overlay configuration mount is absent"),
+            "native_ecr_mount_ownership_rejected": ("retained worker ecr mount differs from its immutable read-only ownership",),
+            "native_owned_state_unexpected_file": ("refusing to remove unexpected resource file",),
+            "storage_probe_invalid": ("docker storage probe",),
+            "storage_reserve_exceeds_capacity": ("capacity must exceed twice the native storage reserve",),
+            "native_image_unavailable": ("no such image", "unable to find image", "pull access denied", "manifest unknown"),
+            "docker_api_version_mismatch": ("client version", "minimum supported api version",),
+            "native_permission_denied": ("permission denied", "operation not permitted"),
+            "native_disk_full": ("no space left on device",),
+            "native_netfilter_chain_unavailable": ("no chain/target/match", "chain does not exist"),
+            "native_bootstrap_deadline": ("context deadline exceeded", "timed out", "timeout reached"),
+            "native_cgroup_unavailable": ("failed to find memory cgroup", "failed to find cpu cgroup"),
+            "native_runtime_unavailable": ("kubernetes runtime is unavailable",),
+        }
+        return sorted(name for name, patterns in classes.items() if any(pattern in text for pattern in patterns))
+
+    def capture_cluster_failure(self, cluster, stage):
+        report = self.result.setdefault("native_cluster_failures", {}).setdefault(stage, {})
+        issues = cluster.get("health", {}).get("issues", [])
+        message = "\n".join(str(issue.get("message", "")) for issue in issues)
+        report["matched_error_classes"] = self.classify_native_failure(message) or ["unclassified_native_error"]
+        report["health_reports_cluster_unreachable"] = any(issue.get("code") == "ClusterUnreachable" for issue in issues)
+        try:
+            self.private("failed-cluster-" + stage + ".json", json.dumps(cluster, default=str))
+            receipts = list((self.state / "eks").glob("*/owner.json"))
+            report["unique_native_receipt"] = len(receipts) == 1
+            if len(receipts) != 1:
+                return
+            receipt = json.loads(receipts[0].read_text())
+            token = receipt.get("Token", "")
+            report["native_receipt_identity_valid"] = (receipt.get("Version") == 1 and len(token) == 64
+                and all(value in "0123456789abcdef" for value in token)
+                and receipt.get("Name") == "stackd-" + token[:24] and bool(receipt.get("ID")))
+            if not report["native_receipt_identity_valid"]:
+                return
+            if not any(row["ID"] == receipt["ID"] for row in self.owned["native"]):
+                self.owned["native"].append(receipt)
+            report["storage_policy_persisted"] = bool(receipt.get("StoragePolicy"))
+            identifiers = self.command(["docker", "container", "ls", "-aq", "--no-trunc",
+                                       "--filter", "label=k3d.cluster=" + receipt["Name"]]).split()
+            report["native_containers_present"] = bool(identifiers)
+            if not identifiers:
+                return
+            nodes = json.loads(self.command(["docker", "inspect", *identifiers]))
+            report["nodes"] = []
+            for node in nodes:
+                kind = next((kind for kind in ("server", "agent", "tools")
+                    if node["Name"] == "/k3d-" + receipt["Name"] + ("-tools" if kind == "tools" else "-" + kind + "-0")), "unexpected")
+                configuration = node.get("Config", {})
+                labels = configuration.get("Labels") or {}
+                expected = TOOLS_TAG if kind == "tools" else K3S_IMAGE
+                configured_image = configuration.get("Image", "")
+                state = node.get("State", {})
+                report["nodes"].append({"kind": kind, "running": state.get("Running") is True,
+                    "restarted": node.get("RestartCount", 0) > 0,
+                    "configured_image_matches": configured_image == expected,
+                    "configured_image_matches_after_normalization": configured_image.removeprefix("docker.io/") == expected,
+                    "owner_labels_required": kind in ("server", "agent"),
+                    "owner_labels_match": labels.get("stackd.eks.id") == receipt["ID"]
+                        and labels.get("stackd.eks.owner") == token,
+                    "attached_to_receipt_network": receipt["Name"] in node.get("NetworkSettings", {}).get("Networks", {})})
+                witness = report["nodes"][-1]
+                if kind == "server":
+                    bindings = node.get("HostConfig", {}).get("PortBindings", {}).get("6443/tcp") or []
+                    expected_host = receipt.get("WorkerAdvertiseHost") or "127.0.0.1"
+                    witness["native_api_binding_matches"] = (len(bindings) == 1
+                        and bindings[0].get("HostIp") == expected_host
+                        and bindings[0].get("HostPort") == str(receipt.get("NativePort")))
+                    witness["control_plane_agent_disabled"] = "--disable-agent" in (configuration.get("Cmd") or [])
+                if kind == "tools":
+                    witness["owned_image_volume_mounted"] = any(
+                        mount.get("Name") == "k3d-" + receipt["Name"] + "-images"
+                        and mount.get("Destination") == "/k3d/images" for mount in node.get("Mounts", []))
+                if kind in ("server", "agent") and labels.get("stackd.eks.owner") == token and labels.get("stackd.eks.id") == receipt["ID"]:
+                    expected_mounts = [("entrypoint", "/bin/k3d-entrypoint.sh", "control-plane-entrypoint.sh")]
+                    if kind == "server":
+                        expected_mounts.extend([("audit_policy", "/etc/stackd/audit-policy.yaml", "audit-policy.yaml"),
+                            ("audit_webhook", "/etc/stackd/audit-webhook.kubeconfig", "audit-webhook.kubeconfig")])
+                    elif receipt.get("WorkerAdvertiseHost"):
+                        expected_mounts.append(("overlay_config", "/etc/rancher/k3s/stackd-flannel.json", "stackd-flannel.json"))
+                    witness["mounts"] = []
+                    for purpose, destination, filename in expected_mounts:
+                        matching = [mount for mount in node.get("Mounts", []) if mount.get("Destination") == destination]
+                        mount = matching[0] if len(matching) == 1 else {}
+                        source = mount.get("Source", "")
+                        expected_source = receipts[0].parent / filename
+                        witness["mounts"].append({"purpose": purpose, "present_once": len(matching) == 1,
+                            "bind": mount.get("Type") == "bind", "read_only": mount.get("RW") is False,
+                            "lexical_source_matches": source == str(expected_source),
+                            "canonical_source_matches": bool(source) and Path(source).resolve() == expected_source.resolve()})
+                # Node logs are private. Only fixed-vocabulary classifications
+                # are added to the public report, never excerpts or identifiers.
+                if kind in ("server", "agent") and labels.get("stackd.eks.owner") == token:
+                    output = self.command(["docker", "logs", "--tail", "80", node["Id"]], timeout=15, combined=True)
+                    message += "\n" + output
+            report["matched_error_classes"] = self.classify_native_failure(message) or ["unclassified_native_error"]
+        except Exception:
+            report["diagnostic_capture_incomplete"] = True
+            self.diagnostics.write("Private native failure capture:\n" + traceback.format_exc())
+            self.diagnostics.flush()
 
     @staticmethod
     def fetch(url, path):
@@ -381,6 +526,7 @@ class Smoke:
         def active():
             cluster = self.api("eks", "describe_cluster", name=self.prefix)["cluster"]
             if cluster["status"] == "FAILED":
+                self.capture_cluster_failure(cluster, "create")
                 raise FixtureFailure("native EKS cluster failed")
             return cluster if cluster["status"] == "ACTIVE" else None
         self.cluster = self.wait("native cluster ACTIVE", active, seconds=360)
@@ -755,13 +901,17 @@ class Smoke:
             attempt("delete fixture cluster", lambda: self.api("eks", "delete_cluster", name=self.prefix))
             def cluster_gone():
                 try:
-                    self.api("eks", "describe_cluster", name=self.prefix)
+                    current = self.api("eks", "describe_cluster", name=self.prefix)["cluster"]
+                    if current["status"] == "DELETING" and current.get("health", {}).get("issues"):
+                        self.deleting_cluster = current
                     return False
                 except ClientError as error:
                     if error.response["Error"]["Code"] == "ResourceNotFoundException":
                         return True
                     raise
             attempt("wait fixture cluster removed", lambda: self.wait("fixture cluster deleted", cluster_gone, seconds=300))
+            if "wait fixture cluster removed" in failures and hasattr(self, "deleting_cluster"):
+                self.capture_cluster_failure(self.deleting_cluster, "delete")
         for receipt in self.owned["native"]:
             for kind, argv in (("containers", ["docker", "ps", "-aq"]),
                                ("volumes", ["docker", "volume", "ls", "-q"]),

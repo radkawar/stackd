@@ -82,15 +82,28 @@ else:
             commands.append('}')
         commands.append('}')
         return commands
-    def grant_rows(p,remove=False):
-        commands=[];comment=table+':'+p['Token']
-        for kind,chain in [('filter','DOCKER-USER'),('raw','PREROUTING')]:
-            rows=native('nft','-j','list','chain','ip',kind,chain)['nftables']
+    def grant_chains():
+        # DOCKER-USER is required forwarding admission. Older Docker versions
+        # have no raw direct-routing guard: prove that absence from successful
+        # nft inventory reads, never by swallowing a failed chain query.
+        chains=[('filter','DOCKER-USER',native('nft','-j','list','chain','ip','filter','DOCKER-USER')['nftables'])]
+        tables=native('nft','-j','list','tables')['nftables']
+        if any(row.get('table',{}).get('family')=='ip' and row['table'].get('name')=='raw' for row in tables):
+            rows=native('nft','-j','list','table','ip','raw')['nftables']
+            if any(row.get('chain',{}).get('family')=='ip' and row['chain'].get('table')=='raw' and row['chain'].get('name')=='PREROUTING' for row in rows):
+                chains.append(('raw','PREROUTING',[row for row in rows if row.get('rule',{}).get('chain')=='PREROUTING']))
+        return chains
+    def grant_rows(p,remove=False,complete=False):
+        commands=[];comment=table+':'+p['Token'];chains=grant_chains()
+        for kind,chain,rows in chains:
+            owned=0
             for row in rows:
                 rule=row.get('rule',{});mark=rule.get('comment','')
                 if mark.startswith(table+':'):
                     if mark!=comment: raise RuntimeError('Docker pod grant belongs to another incarnation')
+                    owned+=1
                     commands.append('delete rule ip %s %s handle %s'%(kind,chain,rule['handle']))
+            if complete and owned!=2*len(p['Routes']): raise RuntimeError('Pod forwarding grants are incomplete')
         if not remove:
             for route in p['Routes']:
                 src=p['Source'];dst=route['Prefix'];bridge=json.dumps(p['Bridge']);dev=json.dumps(route['Device']);gateway=route['Gateway'];mark=json.dumps(comment)
@@ -99,8 +112,9 @@ else:
                 # Raw executes before conntrack and reverse SNAT. This exact
                 # gateway tuple only lifts Docker's direct-routing raw guard;
                 # the filter reply grant still requires the original ALB flow.
-                commands.append('insert rule ip raw PREROUTING iifname %s ip saddr %s ip daddr %s counter accept comment %s'%(bridge,src,dst,mark))
-                commands.append('insert rule ip raw PREROUTING iifname %s ip saddr %s ip daddr %s counter accept comment %s'%(dev,dst,gateway,mark))
+                if any(kind=='raw' for kind,chain,rows in chains):
+                    commands.append('insert rule ip raw PREROUTING iifname %s ip saddr %s ip daddr %s counter accept comment %s'%(bridge,src,dst,mark))
+                    commands.append('insert rule ip raw PREROUTING iifname %s ip saddr %s ip daddr %s counter accept comment %s'%(dev,dst,gateway,mark))
         return commands
     def inspect_routes(p,complete=False):
         # A stable path is reusable only while every kernel tuple still matches
@@ -203,7 +217,7 @@ else:
                         inspect_routes(old,True)
                         # Revalidate grant incarnation, but do not remove the
                         # live path or retire conntrack on policy-only refresh.
-                        if len(grant_rows(old,True))!=4*len(routes): raise RuntimeError('Pod forwarding grants are incomplete')
+                        grant_rows(old,True,True)
                         old['Routes']=routes;old['Blocked']=routes
                         nft(render(old,True));preserved=True
             except Exception:
@@ -243,7 +257,7 @@ else:
                 inspect_routes(p,True)
                 p['Blocked']=p['Routes']
                 if p.get('Active',False):
-                    if len(grant_rows(p,True))!=4*len(routes): raise RuntimeError('Pod forwarding grants are incomplete')
+                    grant_rows(p,True,True)
                     nft(render(p,True))
                 else:
                     nft(render(p,True)+grant_rows(p))

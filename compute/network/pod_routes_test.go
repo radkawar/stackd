@@ -112,3 +112,76 @@ assert ('ip','-4','route','del','table','20001','unreachable','default','proto',
 		t.Fatalf("native kernel observation contract: %v\n%s", err, output)
 	}
 }
+
+func TestPodRouteOptionalDockerRawGuard(t *testing.T) {
+	python, err := exec.LookPath("python3")
+	if err != nil {
+		t.Skip("python3 required for native grant parser regression")
+	}
+	const program = `
+import ast,json,sys
+tree=ast.parse(sys.stdin.read())
+names={'grant_chains','grant_rows'}
+functions=[node for node in ast.walk(tree) if isinstance(node,ast.FunctionDef) and node.name in names]
+assert len(functions)==len(names)
+table='stackd_pods_fixture'
+p={'Token':'incarnation','Source':'10.61.0.10','Bridge':'br-alb','Routes':[{'Prefix':'10.63.7.0/24','Device':'br-worker','Gateway':'172.29.0.1'}]}
+mark=table+':'+p['Token']
+def rule(chain,handle,comment=mark):
+    return {'rule':{'family':'ip','table':'filter' if chain=='DOCKER-USER' else 'raw','chain':chain,'handle':handle,'comment':comment}}
+filter_rows=[rule('DOCKER-USER',1),rule('DOCKER-USER',2)]
+raw_rows=[rule('PREROUTING',3),rule('PREROUTING',4)]
+mode='absent-table';failure=None
+filter_query=('nft','-j','list','chain','ip','filter','DOCKER-USER')
+tables_query=('nft','-j','list','tables')
+raw_query=('nft','-j','list','table','ip','raw')
+def native(*args):
+    if args==failure: raise RuntimeError('injected nft query failure')
+    if args==filter_query: return {'nftables':filter_rows}
+    if args==tables_query: return {'nftables':[] if mode=='absent-table' else [{'table':{'family':'ip','name':'raw'}}]}
+    if args==raw_query:
+        assert mode!='absent-table','absent raw table was queried'
+        chain='PREROUTING' if mode=='present' else 'OUTPUT'
+        return {'nftables':[{'chain':{'family':'ip','table':'raw','name':chain}},rule('OUTPUT',5,table+':foreign-output')]+(raw_rows if mode=='present' else [])}
+    raise AssertionError('unexpected native query: '+repr(args))
+exec(compile(ast.fix_missing_locations(ast.Module(body=functions,type_ignores=[])),'pod_routes_native.go','exec'))
+for mode in ('absent-table','absent-chain','present'):
+    commands=grant_rows(p)
+    raw_inserts=[c for c in commands if c.startswith('insert rule ip raw PREROUTING')]
+    assert len(raw_inserts)==(2 if mode=='present' else 0)
+    assert sum(c.startswith('insert rule ip filter DOCKER-USER') for c in commands)==2
+    assert all("create" not in c and "add table" not in c and "add chain" not in c for c in commands)
+    deletes=grant_rows(p,True,True)
+    assert len(deletes)==(4 if mode=='present' else 2)
+    assert all('OUTPUT' not in c for c in commands+deletes)
+    # Missing required forwarding/owned raw grants are not mistaken for an
+    # optional absent raw guard during stable-path revalidation.
+    saved=filter_rows;filter_rows=[]
+    try: grant_rows(p,True,True)
+    except RuntimeError: pass
+    else: raise AssertionError('missing forwarding grants accepted')
+    filter_rows=saved
+mode='present'
+saved=raw_rows;raw_rows=[]
+try: grant_rows(p,True,True)
+except RuntimeError: pass
+else: raise AssertionError('new raw guard admitted without exact grants')
+raw_rows=[rule('PREROUTING',3,table+':foreign')]
+try: grant_rows(p,True)
+except RuntimeError: pass
+else: raise AssertionError('foreign raw grant incarnation accepted')
+raw_rows=saved
+# Permission failures, table/chain-query races and required-chain absence must
+# propagate unchanged. Only a successful inventory proving absence is optional.
+for failure in (filter_query,tables_query,raw_query):
+    for remove in (False,True):
+        try: grant_rows(p,remove)
+        except RuntimeError as error: assert str(error)=='injected nft query failure'
+        else: raise AssertionError('nft failure was mistaken for absent raw guard')
+`
+	command := exec.Command(python, "-c", program)
+	command.Stdin = strings.NewReader(nativePodRoutesPython)
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("native optional Docker raw guard: %v\n%s", err, output)
+	}
+}
