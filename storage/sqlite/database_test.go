@@ -27,11 +27,22 @@ func TestWaitingTransactionHonorsCancellation(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	first, err := db.BeginTx(t.Context(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer first.Rollback()
+	entered, release := make(chan struct{}), make(chan struct{})
+	first := make(chan error, 1)
+	go func() {
+		first <- sqlite.Transact(t.Context(), db, false, func(context.Context, *sql.Tx) error {
+			close(entered)
+			<-release
+			return nil
+		})
+	}()
+	<-entered
+	defer func() {
+		close(release)
+		if err := <-first; err != nil {
+			t.Error(err)
+		}
+	}()
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Millisecond)
 	defer cancel()
 	called := false

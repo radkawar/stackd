@@ -37,6 +37,15 @@ func Transact(ctx context.Context, db *sql.DB, readOnly bool, fn func(context.Co
 	if current, ok := ctx.Value(transactionKey{db}).(*transactionScope); ok {
 		return current.call(ctx, readOnly, fn)
 	}
+	// A database opened here owns its lanes through its connector. Acquire
+	// before db.Conn: waiting writers must not lease the readers' connections.
+	// Foreign sql.DB handles retain their caller-selected pool policy.
+	if lanes, ok := db.Driver().(*laneDriver); ok {
+		if err := lanes.acquire(ctx, readOnly); err != nil {
+			return err
+		}
+		defer lanes.release(readOnly)
+	}
 	conn, err := db.Conn(ctx)
 	if err != nil {
 		return err
@@ -45,6 +54,8 @@ func Transact(ctx context.Context, db *sql.DB, readOnly bool, fn func(context.Co
 	// goroutine is still rolling back. Closing the leased connection joins
 	// that work before a service can close its repository and remove its files.
 	defer conn.Close()
+	// modernc's ReadOnly option uses plain BEGIN even with _txlock=immediate,
+	// so a WAL snapshot does not reserve the native writer lock.
 	tx, err := conn.BeginTx(ctx, &sql.TxOptions{ReadOnly: readOnly})
 	if err != nil {
 		return err

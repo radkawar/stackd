@@ -123,8 +123,9 @@ func (s APIEvents) AppendAPICallCompleted(ctx context.Context, envelope journal.
 	if err == nil && matched && s.Jobs != nil {
 		// Journaling an unmatched outcome creates no delivery work. Waking the
 		// shared driver would scan every service for each ordinary API read.
-		// A borrowed outer transaction may still be publishing. The driver's
-		// repository read waits for that same domain and sees only its outcome.
+		// A borrowed outer transaction may still be publishing. Snapshot readers
+		// can see its prior state; the driver's persisted-job recovery also scans
+		// after the outer commit, so this hint is not delivery authority.
 		s.Jobs.Wake()
 	}
 	return err

@@ -13,12 +13,14 @@ import (
 	"stackd/internal/identity"
 	"stackd/storage/sqlite/schema"
 
-	_ "modernc.org/sqlite" // Register the database/sql driver.
+	nativesqlite "modernc.org/sqlite"
 )
 
 // Open opens an on-disk database and applies the current service schemas. The
 // caller owns Close. One active stack owns a database, as with storage.Backends.
-// The connection pool serializes callbacks; waiting callers remain cancellable.
+// Eight read-only WAL snapshots and one writer may run at once. Queued callers
+// wait cancellably before leasing a connection. Close stops admission and joins
+// active transactions; call it outside repository callbacks.
 func Open(ctx context.Context, path string) (*sql.DB, error) {
 	if path == "" {
 		return nil, fmt.Errorf("SQLite database path is required")
@@ -36,11 +38,11 @@ func Open(ctx context.Context, path string) (*sql.DB, error) {
 	}
 	query := url.Values{"_txlock": {"immediate"}, "_pragma": {"foreign_keys(1)", "busy_timeout(5000)", "journal_mode(WAL)", "synchronous(FULL)"}}
 	dsn := url.URL{Scheme: "file", Path: filepath.ToSlash(abs), RawQuery: query.Encode()}
-	db, err := sql.Open("sqlite", dsn.String())
+	connector, err := nativesqlite.NewConnector(dsn.String())
 	if err != nil {
 		return nil, err
 	}
-	db.SetMaxOpenConns(1)
+	db := openLaneDB(connector)
 	if err := Transact(ctx, db, false, func(ctx context.Context, tx *sql.Tx) error {
 		var version int
 		if err := tx.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
