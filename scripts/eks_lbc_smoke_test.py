@@ -1,7 +1,9 @@
 """Public-safe native binding diagnostics; requires the smoke fixture dependencies."""
 import importlib.util
+import io
 import json
 from pathlib import Path
+import tempfile
 import unittest
 
 SPEC = importlib.util.spec_from_file_location("eks_lbc_smoke", Path(__file__).with_name("eks_lbc_smoke.py"))
@@ -66,6 +68,30 @@ class NativeAPIBindingWitnessTests(unittest.TestCase):
             self.assertFalse(report[source]["field_present"])
             self.assertFalse(report[source]["matches"])
             self.assertEqual(report[source]["binding_count"], 0)
+
+    def test_ingress_failure_keeps_raw_diagnostics_private(self):
+        sentinel = "independent-private-diagnostic-sentinel"
+        reason = 'File "<stdin>", line 173, in witness\nAssertionError: ' + sentinel
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = smoke.Smoke.__new__(smoke.Smoke)
+            fixture.state = Path(directory)
+            fixture.result = {}
+            fixture.diagnostics = io.StringIO()
+            fixture.lb = {"LoadBalancerArn": sentinel}
+            fixture.tg = sentinel
+            fixture.pod_ip = "192.0.2.75"
+            fixture.api = lambda *_args, **_kwargs: {"LoadBalancers": [
+                {"LoadBalancerArn": sentinel, "State": {"Code": "active_impaired", "Reason": reason}}]}
+            fixture.health = lambda: [{"Target": {"Id": fixture.pod_ip, "Port": 8080},
+                "TargetHealth": {"State": "unused", "Reason": "Target.NotInUse", "Description": sentinel}}]
+            fixture.capture_ingress_failure()
+            report = fixture.result["native_ingress_failure"]
+            self.assertNotIn(sentinel, json.dumps(report))
+            self.assertNotIn(fixture.pod_ip, json.dumps(report))
+            self.assertIn("native_assertion_failed", report["native_error_classes"])
+            self.assertEqual(report["native_trace_lines"], [173])
+            self.assertTrue(report["targets"][0]["expected_pod_and_port"])
+            self.assertIn(sentinel, (fixture.state / "failed-ingress.json").read_text())
 
 
 if __name__ == "__main__":

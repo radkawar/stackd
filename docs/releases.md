@@ -217,6 +217,8 @@ remains separately exercised local engine evidence. Dedicated Docker jobs run
 warm Trino lifecycle checks, actual Flow Logs traffic and pod-route withdrawal,
 and the upstream EKS ingress workflow. The ingress job retains only sanitized
 assertions and diagnostic categories, never raw cluster state or credentials.
+Ingress failure reports include modeled health states and embedded helper line
+numbers; raw native error messages remain in the private fixture directory.
 These match repository Makefile/hook conventions without invoking the full
 integration suite.
 

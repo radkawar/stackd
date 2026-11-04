@@ -30,6 +30,7 @@ import ipaddress
 import json
 import os
 from pathlib import Path
+import re
 import signal
 import socket
 import ssl
@@ -276,6 +277,14 @@ class Smoke:
             "native_bootstrap_deadline": ("context deadline exceeded", "timed out", "timeout reached"),
             "native_cgroup_unavailable": ("failed to find memory cgroup", "failed to find cpu cgroup"),
             "native_runtime_unavailable": ("kubernetes runtime is unavailable",),
+            "native_assertion_failed": ("assertionerror",),
+            "alb_endpoint_mismatch": ("alb anchor native endpoint differs",),
+            "alb_peer_unavailable": ("alb has no native external veth", "discover alb external veth", "decode alb bridge peer"),
+            "alb_anchor_ownership_rejected": ("alb native anchor does not match", "retained alb native executable or toolkit differs"),
+            "pod_route_ownership_rejected": ("unowned route in pod table", "unowned rule in pod table", "unowned default in pod table"),
+            "pod_route_witness_mismatch": ("pod route next-hop witness mismatch", "pod-route incarnation witness mismatch"),
+            "pod_route_grants_incomplete": ("pod forwarding grants are incomplete",),
+            "native_connection_refused": ("connection refused",),
         }
         return sorted(name for name, patterns in classes.items() if any(pattern in text for pattern in patterns))
 
@@ -778,6 +787,34 @@ class Smoke:
                          lambda rows: len(rows) == 1 and rows[0]["Target"]["Id"] == self.pod_ip
                          and rows[0]["Target"]["Port"] == 8080 and rows[0]["TargetHealth"]["State"] == "healthy")
 
+    def capture_ingress_failure(self):
+        if not self.lb or not self.tg:
+            return
+        report = self.result.setdefault("native_ingress_failure", {})
+        try:
+            observed = self.api("elbv2", "describe_load_balancers",
+                                LoadBalancerArns=[self.lb["LoadBalancerArn"]])["LoadBalancers"][0]
+            targets = self.health()
+            self.private("failed-ingress.json", json.dumps({"load_balancer": observed, "targets": targets}, default=str))
+            state = observed.get("State", {})
+            code, reason = state.get("Code", ""), state.get("Reason", "")
+            report["load_balancer_state"] = code if code in {"active", "provisioning", "active_impaired", "failed"} else "other"
+            report["native_error_classes"] = self.classify_native_failure(reason) or (["unclassified_native_error"] if reason else [])
+            report["native_trace_lines"] = [int(line) for line in re.findall(r"""File ["']<stdin>["'], line ([0-9]+)""", reason)]
+            states = {"initial", "healthy", "unhealthy", "unhealthy.draining", "unused", "draining", "unavailable"}
+            reasons = {"Elb.InitialHealthChecking", "Elb.RegistrationInProgress", "Elb.InternalError",
+                       "Target.ResponseCodeMismatch", "Target.Timeout", "Target.FailedHealthChecks",
+                       "Target.NotRegistered", "Target.NotInUse", "Target.InvalidState",
+                       "Target.IpUnusable", "Target.DeregistrationInProgress"}
+            report["targets"] = [{"state": row.get("TargetHealth", {}).get("State") if row.get("TargetHealth", {}).get("State") in states else "other",
+                                  "reason": row.get("TargetHealth", {}).get("Reason") if row.get("TargetHealth", {}).get("Reason") in reasons else "other",
+                                  "expected_pod_and_port": row.get("Target", {}).get("Id") == self.pod_ip and row.get("Target", {}).get("Port") == 8080}
+                                 for row in targets]
+        except Exception:
+            report["diagnostic_capture_incomplete"] = True
+            self.diagnostics.write("Private ingress failure capture:\n" + traceback.format_exc())
+            self.diagnostics.flush()
+
     def http(self, lb, expected=BODY, host=None):
         # Explicit authoritative DNS is used only for socket selection. The Host
         # header must match the controller-created rule, not a fixed-response ALB.
@@ -1021,6 +1058,7 @@ class Smoke:
                 failure_reason = type(error).__name__
             self.diagnostics.write("Original failure:\n" + traceback.format_exc())
             self.diagnostics.flush()
+            self.capture_ingress_failure()
         finally:
             try:
                 cleanup_failures = self.cleanup()
