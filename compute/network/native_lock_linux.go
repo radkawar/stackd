@@ -17,13 +17,7 @@ func nativeNetworkIdentity(ctx context.Context) (string, error) {
 		return "", err
 	}
 	const path = "/run/lock/stackd-public-network.lock"
-	file, err := os.OpenFile(path, os.O_RDONLY|unix.O_NOFOLLOW, 0)
-	if errors.Is(err, os.ErrNotExist) {
-		file, err = os.OpenFile(path, os.O_RDONLY|os.O_CREATE|os.O_EXCL|unix.O_NOFOLLOW, 0644)
-		if errors.Is(err, os.ErrExist) {
-			file, err = os.OpenFile(path, os.O_RDONLY|unix.O_NOFOLLOW, 0)
-		}
-	}
+	file, err := openNativeNetworkLock(path)
 	if err != nil {
 		return "", fmt.Errorf("open daemon-host public network lock (share /run/lock with the controller): %w", err)
 	}
@@ -40,4 +34,24 @@ func nativeNetworkIdentity(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("identify public network lock host: %w", err)
 	}
 	return fmt.Sprintf("%s %d:%d", strings.TrimSpace(string(boot)), stat.Dev, stat.Ino), nil
+}
+
+func openNativeNetworkLock(path string) (*os.File, error) {
+	file, err := os.OpenFile(path, os.O_RDONLY|unix.O_NOFOLLOW, 0)
+	if errors.Is(err, os.ErrNotExist) {
+		file, err = os.OpenFile(path, os.O_RDONLY|os.O_CREATE|os.O_EXCL|unix.O_NOFOLLOW, 0644)
+		if err == nil {
+			// This empty coordination inode must be readable by the daemon's
+			// capability-restricted helper, even under a private controller umask.
+			// Only change the inode we just created, never an existing lock.
+			if err := file.Chmod(0644); err != nil {
+				file.Close()
+				return nil, fmt.Errorf("set shared native lock permissions: %w", err)
+			}
+		}
+		if errors.Is(err, os.ErrExist) {
+			file, err = os.OpenFile(path, os.O_RDONLY|unix.O_NOFOLLOW, 0)
+		}
+	}
+	return file, err
 }

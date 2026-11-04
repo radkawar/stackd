@@ -219,6 +219,9 @@ and the upstream EKS ingress workflow. The ingress job retains only sanitized
 assertions and diagnostic categories, never raw cluster state or credentials.
 Ingress failure reports include modeled health states and embedded helper line
 numbers; raw native error messages remain in the private fixture directory.
+The native network gate also checks cross-user lock exclusion and release after
+creation with `umask 077`. New shared lock files are explicitly readable by the
+capability-restricted helper; existing lock permissions are not changed.
 These match repository Makefile/hook conventions without invoking the full
 integration suite.
 
