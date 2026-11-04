@@ -438,7 +438,16 @@ func New(config Config) (stack *Stack, err error) {
 	detectionEvents := &integrations.GuardDutyEvents{Journal: backends.Journal, Trails: backends.CloudTrail, Buckets: backends.S3}
 	trailEvents := &cloudtrail.APIEvents{Repository: backends.CloudTrail, Journal: detectionEvents, Clock: config.Clock, Jobs: observationJobs, Publisher: servicePublisher}
 	taggingResources := &integrations.ResourceTaggingResources{Backends: backends, Sources: map[string]resourcegroupstaggingapi.Source{}}
-	apiEvents := resourcegroupstaggingapi.NewRecorder(apievents.New(trailEvents), backends.ResourceGroupsTaggingAPI, taggingResources)
+	var outcomeGroup storage.OutcomeGroup
+	if backends.NewReadOnlyOutcomeGroup != nil {
+		outcomeGroup = backends.NewReadOnlyOutcomeGroup()
+		defer func() {
+			if stack == nil && outcomeGroup != nil {
+				err = errors.Join(err, outcomeGroup.Close())
+			}
+		}()
+	}
+	apiEvents := resourcegroupstaggingapi.NewRecorder(apievents.NewGrouped(trailEvents, outcomeGroup), backends.ResourceGroupsTaggingAPI, taggingResources)
 	// TODO: Comeback extend committed service/API events and EventBridge delivery to remaining transitions and consumers; add retention, consumer checkpoints and consistent snapshot/fork/restore with worker fencing.
 	// TODO: Comeback extend joined service draining to remaining service-time work, durable attempts and seeded resource IDs; keep transport deadlines and external runtime execution at explicit real-time boundaries.
 	iamRepository := backends.IAM
@@ -760,7 +769,10 @@ func New(config Config) (stack *Stack, err error) {
 	cloudformationService := cloudformation.New(cloudformation.Config{Repository: backends.CloudFormation, Authorizer: authorizer, Clock: config.Clock, Recorder: apiEvents, Roles: integrations.CloudFormationRoles{Roles: serviceRoles}})
 	cloudcontrolService := cloudcontrol.New(cloudcontrol.Config{Repository: backends.CloudControl, Authorizer: authorizer, Clock: config.Clock, Recorder: apiEvents, Roles: integrations.CloudFormationRoles{Roles: serviceRoles}})
 	var ssmMessages *ssmmessages.Service
-	closeServices := func() error {
+	closeServices := func() (closeErr error) {
+		if outcomeGroup != nil {
+			defer func() { closeErr = errors.Join(closeErr, outcomeGroup.Close()) }()
+		}
 		acmJobs.Close()
 		var messageError error
 		if route53Service != nil {

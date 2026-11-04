@@ -98,6 +98,9 @@ func New(ctx context.Context, db *sql.DB) (*storage.Backends, error) {
 				return fn(ctx)
 			})
 		},
+		NewReadOnlyOutcomeGroup: func() storage.OutcomeGroup {
+			return sqlite.NewOutcomeGroup(db)
+		},
 		Account:                   account.New(db),
 		ACM:                       acm.New(db),
 		APIGateway:                apigateway.New(db),

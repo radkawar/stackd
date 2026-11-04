@@ -96,6 +96,13 @@ keeps service-specific accounting and error semantics authoritative.
   reporting without replaying stale role identity. SQLC-prepared S3/IAM queries,
   indexed binary prefix ranges, cancellation and borrowed-transaction rollback
   pass focused race checks. CloudTrail wakes only for admitted delivery work.
+- [x] Separate bounded SQLite WAL snapshot readers from the serialized writer lane.
+  Admission precedes connection leases; nested reads retain the source transaction,
+  and cancellation joins rollback before releasing capacity.
+- [x] Group top-level read API outcomes with synchronous FULL commits and per-call
+  savepoints. Mutation and borrowed-transaction boundaries remain inline.
+  Signed concurrent S3 traffic, complete CloudTrail/GuardDuty effects, graceful
+  shutdown and reopen have [native evidence](testdata/integration/storage_concurrency_native.json).
 - [x] Reuse exact-owned warm Athena workers without changing host network topology.
   Native execution covers cancellation, idle reuse, Hive parsing, orphan cleanup,
   foreign endpoint rejection and replacement. An actual browser retained pending

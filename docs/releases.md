@@ -222,6 +222,11 @@ numbers; raw native error messages remain in the private fixture directory.
 The native network gate also checks cross-user lock exclusion and release after
 creation with `umask 077`. New shared lock files are explicitly readable by the
 capability-restricted helper; existing lock permissions are not changed.
+The SQLite gate freezes native commit and rollback to check WAL snapshot
+visibility, synchronous group acknowledgement, savepoint isolation, cancellation
+and shutdown ordering. The separate local
+[controller receipt](../testdata/integration/storage_concurrency_native.json)
+covers signed concurrent object traffic, actual audit delivery and restart.
 These match repository Makefile/hook conventions without invoking the full
 integration suite.
 

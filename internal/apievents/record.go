@@ -32,7 +32,10 @@ type Sink interface {
 	AppendAPICallCompleted(context.Context, journal.Envelope, journal.APICallCompleted) error
 }
 
-type recorder struct{ sink Sink }
+type recorder struct {
+	sink  Sink
+	group OutcomeGroup
+}
 
 // New connects shared completion handling to the instance journal. A nil sink
 // leaves recording disabled for standalone consumers.
@@ -123,6 +126,12 @@ func (r recorder) Record(ctx context.Context, scope journal.Envelope, call journ
 		if err != nil {
 			return err
 		}
+	}
+	if call.ReadOnly && r.group != nil {
+		call = snapshotCall(call)
+		return r.group.Do(ctx, func(ctx context.Context) error {
+			return r.sink.AppendAPICallCompleted(ctx, origin, call)
+		})
 	}
 	return r.sink.AppendAPICallCompleted(ctx, origin, call)
 }

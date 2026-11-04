@@ -25,10 +25,32 @@ borrowing any transaction, and callbacks bind those statements with `WithTx`.
 Closing that database releases the prepared statements. A schema/preparation
 failure is returned at construction; there is no request-time one-shot fallback.
 This removes repeated SQL parsing/planning on object and authorization reads,
-not transaction serialization, current-policy checks, or durability: WAL and
-`synchronous=FULL` remain in force, and joined writes still commit or roll back
-together. The real-driver regression observes statement preparation and
-one-shot calls across concurrent callers and shared read/write transactions.
+not current-policy checks or durability. WAL and `synchronous=FULL` remain in
+force, and joined writes still commit or roll back together.
+
+Databases opened with `sqlite.Open` admit up to eight read-only WAL snapshots
+and one independent writer. Callers acquire cancellable lane permits before
+leasing connections. A queued writer cannot consume a reader's connection.
+Readers can observe the previous committed snapshot while a writer commits;
+nested reads instead use their owner's transaction and see its staged changes.
+Transaction cleanup joins native rollback before returning a permit. The lanes
+belong to the database connector, not a process-wide registry. Raw SQL operations
+and caller-created `sql.DB` handles retain their caller-selected pool policy.
+
+Each SQLite-backed stack also owns a synchronous read-outcome group. It accepts
+up to 128 queued callbacks, collects up to 32 per transaction for at most one
+millisecond, and runs the complete journal/CloudTrail/GuardDuty callback.
+SAVEPOINTs isolate member failures. Successful members return only after the
+shared FULL commit; a commit failure fails every otherwise successful member.
+Caller context values and cancellation remain local to each attempt. Mutable
+outcome fields are copied before queue handoff. Mutations and calls borrowing a
+source transaction stay inline. Memory storage remains inline.
+
+The [native concurrency receipt](../testdata/integration/storage_concurrency_native.json)
+records signed concurrent S3 ranges and writes, request-correlated audit rows
+visible on successful read completion, GuardDuty admission, actual CloudTrail
+delivery, and data/outcome retention across graceful shutdown and restart.
+This is local executable evidence, not an AWS performance comparison.
 
 Current-object, version and multipart-upload prefix listings seek a bounded
 binary key interval in their existing indexes, rather than applying `substr`
@@ -381,8 +403,10 @@ if err != nil {
 defer handler.Close()
 ```
 
-Close the stack before closing its database, so service workers and long polls
-are joined first. One active stack owns the storage bundle and database.
+Close the stack before closing its database, so service workers, long polls and
+accepted outcome groups are joined first. Database close stops lane admission
+and joins active owned transactions; do not call it inside a repository callback.
+One active stack owns the storage bundle and database.
 Wall-time mode naturally accounts for elapsed downtime.
 
 The storage bundle exposes one read snapshot for a complete scheduler selection
@@ -390,9 +414,9 @@ scan, avoiding a new SQLite transaction per source while retaining fresh
 cross-service discovery. That snapshot closes before a job mutates state or
 performs external effects. Step Functions queries use SQLC's prepared statements,
 created before workers or transactions start and reused through `WithTx`.
-Preparation inside a transaction would wait on SQLite's single pooled connection;
-construction therefore returns preparation errors directly. The database owner
-also owns those statements' lifetime.
+Preparation belongs outside callbacks so it cannot contend with the transaction's
+leased connection or exhaust a bounded pool. Construction returns preparation
+errors directly. The database owner also owns those statements' lifetime.
 Schema 162 adds a scoped partial index for running Standard execution counts,
 avoiding scans of closed execution payloads during admission. Counts derive
 from resource rows; there is no separate quota ledger.

@@ -74,6 +74,15 @@ import (
 	"stackd/storage/xray"
 )
 
+// OutcomeGroup synchronously commits independent read-only API outcome callbacks.
+// Callbacks must use the supplied context and perform no external effects.
+// Do executes inline when the context already carries a source transaction.
+// Close rejects new work and drains accepted work; it is safe to call concurrently.
+type OutcomeGroup interface {
+	Do(context.Context, func(context.Context) error) error
+	Close() error
+}
+
 // Backends supplies the transaction domains of one active Stack. IAM owns both
 // IAM resources and credentials: splitting them would break atomic identity
 // mutations. STS uses those same credentials and needs no separate repository.
@@ -96,7 +105,11 @@ type Backends struct {
 	ResolveAccountID func(context.Context, string) (string, error)
 	// Read supplies a shared read snapshot for cross-service job discovery.
 	// The callback must use its context and perform no writes or external effects.
-	Read                      func(context.Context, func(context.Context) error) error
+	Read func(context.Context, func(context.Context) error) error
+	// NewReadOnlyOutcomeGroup optionally creates one bounded synchronous group
+	// for an active Stack. Nil keeps inline recording (including memory storage).
+	// Stop producers and close the group before closing the backend database.
+	NewReadOnlyOutcomeGroup   func() OutcomeGroup
 	Journal                   journal.Storage
 	Account                   account.Repository
 	ACM                       acm.Repository
