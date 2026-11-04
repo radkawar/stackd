@@ -181,11 +181,17 @@ without canceling an in-progress release. Configure repository tag/ruleset
 protection so only authorized maintainers can create release tags. The workflow
 never creates or moves a tag, and ordinary branch/PR checks cannot publish.
 
-The hosted workflow cannot be exercised end-to-end until an authorized
-maintainer pushes a real release tag. Local builds/smokes and workflow syntax
-checks are not evidence that GitHub runners or publication succeeded. Do not
-create a tag/release merely to test the tooling without the maintainer's release
-decision.
+[`v0.1.1`](https://github.com/radkawar/stackd/releases/tag/v0.1.1) was published
+from `956a81162d8722c2497b08f8b3253d451a918dcb` by
+[the tagged workflow](https://github.com/radkawar/stackd/actions/runs/41822332991).
+All four native package smokes and publication passed. The downloaded archives
+also passed checksum/manifest verification; the downloaded Linux amd64 CLI
+passed STS, S3 byte round-trip, SQLite restart, deletion and clean shutdown.
+Newer branch changes are not part of that immutable tag.
+
+For future versions, local builds/smokes and workflow syntax checks are not
+evidence that hosted runners or publication succeeded. Do not create a
+tag/release merely to test tooling without the maintainer's release decision.
 
 ## Focused CI, not a full integration claim
 
@@ -202,6 +208,11 @@ does not compete with provider installations for disk space. The `focused` job
 retains `make build` and all Go checks. Application diagnostics remain limited
 to `example-controller-logs` (`*.log`, seven-day retention), not Terraform state
 or the full application working directories.
+The independent `fixture-regressions` job covers explicit account fixtures,
+request-scoped IAM failure injection, publication locking, native EventBridge
+account principals, retained SNS confirmations, current resource ownership,
+crawler commits and CloudFormation recovery. Historical MQ migration replay is
+checked without race instrumentation; concurrent owner/request paths use it.
 Docker reload is a separately exercised prerequisite-heavy example, not an
 unexecuted hosted claim. GuardDuty's catalog check additionally fetches
 the exact upstream Git revision recorded in `docs/guardduty-findings.json` and

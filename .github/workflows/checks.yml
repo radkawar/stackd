@@ -69,6 +69,33 @@ jobs:
           # Historical migration replay is serial SQL, not a Go concurrency boundary.
           go test -timeout 5m ./storage/sqlite/ec2 -run FlowLog
 
+  fixture-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.26.5'
+          cache: true
+      - name: Check explicit fixture identity and durable credential recovery
+        run: |
+          go test -race -p 2 ./integration -timeout 15m -run '^(TestKMSImportedMultiRegionStorageRotationAndExpiry|TestKMSAcceptedImportRotationCanUseReplacementMaterial|TestKMSMultiRegionCryptoRotationPromotionAndRecovery|TestKMSJobsSDK.*|TestInjectedStoragePreservesCrossServiceState|TestAccessKeyEventsSDK.*|TestAccountRegionEligibilityUsesCredentialAuthorityState)$'
+      - name: Check authority failure injection and publication locking
+        run: |
+          go test -race -p 2 ./integration -timeout 15m -run '^(TestSigned(MFACodeStorageFailure|SessionAuthoritySDK.*|SessionKeepsOrganizationControlsUntilPublication)|TestMFAAttemptTransactionFailures|TestOutboundIdentityRevalidatesBeforePublishing|TestRootAccessFeaturesRollbackWithIAMAuthoritySDK|TestSTSTokenPreferenceReadsCurrentIssuanceTransaction|TestCloudTrailSTSFailedAuditRollsBackIssuedCredential|TestSessionEventFailureRollsBackCredentialSDK)$'
+      - name: Check native account principals and retained confirmation replay
+        run: |
+          go test -race -p 2 ./integration -timeout 15m -run '^(TestEventBridgeNativeBusTargetsSDK|TestSNSHTTPNativeLifecycleAndRetainedDelivery)$'
+      - name: Check real migration history
+        # Ordered historical SQL replay is not a Go concurrency boundary.
+        run: go test ./storage/sqlite/mq -timeout 5m -run '^TestLegacyBrokerUserMigrationRetainsNativeIdentity$'
+      - name: Check current owners and asynchronous commit boundaries
+        run: |
+          go test -race -p 2 ./storage/sqlite/apigatewayv2 ./internal/services/cloudwatch ./internal/services/ssmmessages ./internal/services/glue ./internal/integrations -timeout 15m -run '^(TestAPIGatewayV2IncarnationRecoveryAndFencing|TestCloudFormationDashboardNativeUpdateAndRecreation|TestSignedScopeRejectsSpoofedIdentityAndTampering|TestPostDialTokenOneUseExpiryAndScope|TestReconnectFencesOldDeliveryAndRetainsMessageID|TestReplyAckOnlyAfterCommitAndTelemetryIsNotCommandSuccess|TestCommitFailureAndRevocationNeverAcknowledgeReply|TestCloseJoinsPendingAndSubscribedConnections|TestCrawlerActualObjectsRestartFailureAndCancellation|TestCrawlerSchedulePersistsAndStops|TestCFNEC2Volume(PrivateNativeOwnership|DeletionSnapshotPrivateReceipt|RejectsInstanceIntentAfterIAM)|TestCloudFormationStackNativeOwnershipRecoveryAndIsolation)$'
+
   applications:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
