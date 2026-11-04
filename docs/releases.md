@@ -41,13 +41,13 @@ Linux-only QEMU guest/native disk execution boundary.
 ## Install a published release
 
 The public assets are on [GitHub Releases](https://github.com/radkawar/stackd/releases).
-The first release is `v0.1.0`: an experimental local sandbox, not complete AWS
+The current release is `v0.1.1`: an experimental local sandbox, not complete AWS
 parity or a production security boundary. Choose the archive for the controller
 host, not the architecture of a future Lambda container.
 
 ```sh
 set -eu
-VERSION=v0.1.0
+VERSION=v0.1.1
 case "$(uname -s)/$(uname -m)" in
   Linux/x86_64) platform=linux_amd64 ;;
   Linux/aarch64|Linux/arm64) platform=linux_arm64 ;;
