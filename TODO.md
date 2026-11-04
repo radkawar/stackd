@@ -24,6 +24,10 @@ keeps service-specific accounting and error semantics authoritative.
   migrations, existing IAM accounts for native EventBridge principals, semantic
   dashboard JSON, post-commit crawler/SNS observations and request-scoped IAM
   failure injection. Targeted race checks include ten crawler and SNS replays.
+- [x] Start real EBS recovery jobs after fixture reopen and wait for committed
+  snapshot capture before deletion stabilization. Hold nested-stack publication
+  after actual SQS creation to verify busy admission and exact-owner recovery.
+  Memory/SQLite ownership cases pass three targeted race repetitions.
 
 - [x] Correct Identity Center ownership and omitted-update regressions to compare
   retained state instead of obsolete seconds-only duration strings. A local

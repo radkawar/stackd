@@ -5,8 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"path/filepath"
+	"sync"
 	"testing"
+	"time"
 
+	"stackd/clock"
 	api "stackd/internal/awsapi/cloudformation"
 	"stackd/internal/awscommands"
 	"stackd/internal/awsctx"
@@ -16,19 +19,24 @@ import (
 	cfnsqlite "stackd/storage/sqlite/cloudformation"
 )
 
-// Admission-only cases intentionally keep the actual source jobs pending. The
-// public consumer suite separately drains those same owners through real effects.
+// Hold the real child resource result before its deployment commit so native
+// busy admission cannot race unrelated ownership reads or controller recovery.
 func TestCloudFormationStackNativeOwnershipRecoveryAndIsolation(t *testing.T) {
 	for _, backend := range []string{"memory", "sqlite"} {
 		t.Run(backend, func(t *testing.T) {
-			ctx := awsctx.WithMetadata(context.Background(), awsctx.Metadata{Partition: "aws", AccountID: "123456789012", Region: "us-east-1", PrincipalARN: "arn:aws:iam::123456789012:root", PrincipalID: "123456789012"})
+			ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+			defer cancel()
+			ctx = awsctx.WithMetadata(ctx, awsctx.Metadata{Partition: "aws", AccountID: "123456789012", Region: "us-east-1", PrincipalARN: "arn:aws:iam::123456789012:root", PrincipalID: "123456789012"})
+			now := clock.NewManual(time.Date(2035, 1, 2, 3, 4, 5, 0, time.UTC))
 			repository := cloudformation.NewMemoryRepository(nil)
+			queueRepository := sqs.NewMemoryRepository(nil)
 			path := filepath.Join(t.TempDir(), "nested-owner.sqlite")
 			var db *sql.DB
 			var owner *cloudformation.Service
 			var queues *sqs.Service
 			var commands StepFunctionsCommands
 			var handler cloudformation.ResourceHandler
+			var boundary *cfnStackQueueResultBarrier
 			open := func() {
 				t.Helper()
 				var store cloudformation.Repository = repository
@@ -40,17 +48,19 @@ func TestCloudFormationStackNativeOwnershipRecoveryAndIsolation(t *testing.T) {
 					}
 					store = cfnsqlite.New(db)
 				}
-				queues = sqs.NewWithConfig(sqs.Config{})
-				owner = cloudformation.New(cloudformation.Config{Repository: store})
+				queues = sqs.NewWithConfig(sqs.Config{Repository: queueRepository, Clock: now})
+				owner = cloudformation.New(cloudformation.Config{Repository: store, Clock: now})
 				commands = NewStepFunctionsCommands(map[string]awscommands.CommandExecutor{"cloudformation": owner, "sqs": queues})
 				handlers := CloudFormationMessagingHandlers(commands)
+				boundary = &cfnStackQueueResultBarrier{cfnSQSQueue: cfnSQSQueue{commands}, entered: make(chan cloudformation.ResourceRequest, 1), resume: make(chan struct{})}
+				handlers["AWS::SQS::Queue"] = boundary
 				for kind, h := range CloudFormationStackHandlers(commands) {
 					handlers[kind] = h
 				}
 				owner.SetHandlers(handlers)
 				handler = handlers["AWS::CloudFormation::Stack"]
 			}
-			close := func() {
+			closeOwners := func() {
 				_ = owner.Close()
 				_ = queues.Close()
 				if db != nil {
@@ -59,8 +69,8 @@ func TestCloudFormationStackNativeOwnershipRecoveryAndIsolation(t *testing.T) {
 				}
 			}
 			open()
-			t.Cleanup(close)
-			body := `{"Resources":{"Queue":{"Type":"AWS::SQS::Queue","Properties":{"QueueName":"native-owned-source"}}}}`
+			t.Cleanup(closeOwners)
+			body := `{"Resources":{"Queue":{"Type":"AWS::SQS::Queue"}}}`
 			parent, err := cfnComputeCall[api.CreateStackOutput](ctx, commands, "cloudformation", "CreateStack", map[string]any{"StackName": "owner-parent", "TemplateBody": body, "ClientRequestToken": "parent-source-token"})
 			if err != nil {
 				t.Fatal(err)
@@ -71,14 +81,22 @@ func TestCloudFormationStackNativeOwnershipRecoveryAndIsolation(t *testing.T) {
 				t.Fatal(err)
 			}
 			r.PhysicalID = created.PhysicalID
+			queueCreated, err := boundary.wait(ctx)
+			if err != nil || queueCreated.StackID != r.PhysicalID || queueCreated.PhysicalID == "" {
+				t.Fatalf("child did not reach its real resource-result boundary: %+v %v", queueCreated, err)
+			}
 			if ready, err := handler.(cloudformation.ResourceStabilizer).Stabilize(ctx, r); err != nil || ready {
 				t.Fatalf("pending native source job became fake-complete: ready=%v err=%v", ready, err)
 			}
-			close()
+			closeOwners()
 			open()
 			recovered, err := handler.Create(ctx, r)
 			if err != nil || recovered.PhysicalID != r.PhysicalID {
 				t.Fatalf("exact-token recovery lost native child identity: %v %v", recovered, err)
+			}
+			queueRecovered, err := boundary.wait(ctx)
+			if err != nil || queueRecovered.StackID != r.PhysicalID || queueRecovered.Token != queueCreated.Token || queueRecovered.PhysicalID != queueCreated.PhysicalID {
+				t.Fatalf("recovered deployment lost its admitted native queue: %+v want=%+v err=%v", queueRecovered, queueCreated, err)
 			}
 			reader := handler.(cloudformation.ResourceReader)
 			model, err := reader.Read(ctx, r)
@@ -106,6 +124,15 @@ func TestCloudFormationStackNativeOwnershipRecoveryAndIsolation(t *testing.T) {
 			var pending *cloudformation.ResourcePendingError
 			if err := handler.Delete(ctx, r); !errors.As(err, &pending) {
 				t.Fatalf("busy actual child was not retained as pending admission: %v", err)
+			}
+			close(boundary.resume)
+			// A fixed clock keeps each synchronous resource/finalization commit
+			// due in this drain, regardless of background driver scheduling.
+			if drained, err := owner.JobDriver().RunDue(ctx, 100); err != nil || drained.More {
+				t.Fatalf("released native child did not drain: %+v %v", drained, err)
+			}
+			if ready, err := handler.(cloudformation.ResourceStabilizer).Stabilize(ctx, r); err != nil || !ready {
+				t.Fatalf("released native child did not complete: ready=%v err=%v", ready, err)
 			}
 			grandchild := r
 			grandchild.StackID = r.PhysicalID
@@ -139,5 +166,39 @@ func TestCloudFormationStackNativeOwnershipRecoveryAndIsolation(t *testing.T) {
 				t.Fatal("nested stack admitted unsupported snapshot deletion")
 			}
 		})
+	}
+}
+
+// The native SQS owner has committed, but CloudFormation has not published the
+// resource result. Cancellation leaves the genuine RUNNING intent for replay.
+// Embedding the real adapter preserves its read/recovery/validation contracts.
+type cfnStackQueueResultBarrier struct {
+	cfnSQSQueue
+	entered     chan cloudformation.ResourceRequest
+	resume      chan struct{}
+	enteredOnce sync.Once
+}
+
+func (b *cfnStackQueueResultBarrier) Create(ctx context.Context, r cloudformation.ResourceRequest) (cloudformation.ResourceResult, error) {
+	result, err := b.cfnSQSQueue.Create(ctx, r)
+	if err != nil || r.StackName == "owner-parent" {
+		return result, err
+	}
+	r.PhysicalID = result.PhysicalID
+	b.enteredOnce.Do(func() { b.entered <- r })
+	select {
+	case <-b.resume:
+		return result, nil
+	case <-ctx.Done():
+		return result, ctx.Err()
+	}
+}
+
+func (b *cfnStackQueueResultBarrier) wait(ctx context.Context) (cloudformation.ResourceRequest, error) {
+	select {
+	case r := <-b.entered:
+		return r, nil
+	case <-ctx.Done():
+		return cloudformation.ResourceRequest{}, ctx.Err()
 	}
 }

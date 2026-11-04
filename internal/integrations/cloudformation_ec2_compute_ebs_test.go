@@ -32,9 +32,34 @@ type cfnEBSFixture struct {
 	ctx      context.Context
 	clock    *clock.Manual
 	commands StepFunctionsCommands
-	disks    ebs.Repository
+	disks    *cfnEBSCommitRepository
 	identity *iam.Service
 	reopen   func()
+}
+
+// Commit notifications are coalesced hints; waiters always inspect the durable
+// state. Native snapshot transfer runs outside the scheduler's metadata drain.
+type cfnEBSCommitRepository struct {
+	ebs.Repository
+	committed chan struct{}
+}
+
+func (r *cfnEBSCommitRepository) notify(err error) error {
+	if err == nil {
+		select {
+		case r.committed <- struct{}{}:
+		default:
+		}
+	}
+	return err
+}
+
+func (r *cfnEBSCommitRepository) Update(ctx context.Context, fn func(ebs.Transaction) error) error {
+	return r.notify(r.Repository.Update(ctx, fn))
+}
+
+func (r *cfnEBSCommitRepository) Attempt(ctx context.Context, fn func(ebs.Transaction) error) error {
+	return r.notify(r.Repository.Attempt(ctx, fn))
 }
 
 func cfnEBSOwnerFixture(t *testing.T, backend string) *cfnEBSFixture {
@@ -45,7 +70,7 @@ func cfnEBSOwnerFixture(t *testing.T, backend string) *cfnEBSFixture {
 	authorizer := authorization.NewWithClock(f.identity, nil, f.clock)
 	domain := memory.NewDomain()
 	var networks ec2.Repository = ec2.NewMemoryRepository(domain)
-	f.disks = ebs.NewMemoryRepository(domain)
+	var disks ebs.Repository = ebs.NewMemoryRepository(domain)
 	var db *sql.DB
 	var volumes *ebs.Service
 	var owner *ec2.Service
@@ -56,11 +81,15 @@ func cfnEBSOwnerFixture(t *testing.T, backend string) *cfnEBSFixture {
 			if db, err = sqlite.Open(f.ctx, path); err != nil {
 				t.Fatal(err)
 			}
-			networks, f.disks = sqlec2.New(db), sqlebs.New(db)
+			networks, disks = sqlec2.New(db), sqlebs.New(db)
 		}
+		f.disks = &cfnEBSCommitRepository{Repository: disks, committed: make(chan struct{}, 1)}
 		volumes = ebs.New(ebs.Config{Repository: f.disks, Clock: f.clock, Authorizer: authorizer})
 		owner = ec2.New(ec2.Config{Repository: networks, Clock: f.clock, Authorizer: authorizer, Snapshots: volumes, Volumes: volumes, ImageSnapshots: volumes, InstanceVolumes: volumes})
 		f.commands = NewStepFunctionsCommands(map[string]awscommands.CommandExecutor{"ec2": owner, "iam": f.identity})
+		// Assembly starts recovery explicitly: reopening must resume persisted
+		// snapshot payload work even before another mutating API wakes EBS.
+		volumes.JobDriver().Start()
 	}
 	closeAll := func() {
 		_ = owner.Close()
@@ -86,6 +115,42 @@ func (f *cfnEBSFixture) volume(t *testing.T, id string) ebs.VolumeRecord {
 		t.Fatal(err)
 	}
 	return out
+}
+
+func (f *cfnEBSFixture) advanceTo(t *testing.T, at time.Time) {
+	t.Helper()
+	if at.IsZero() {
+		t.Fatal("missing EBS lifecycle deadline")
+	}
+	if d := at.Sub(f.clock.Now()); d > 0 {
+		if err := f.clock.AdvanceContext(f.ctx, d); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func (f *cfnEBSFixture) awaitSnapshotCapture(t *testing.T, id string) ebs.SnapshotRecord {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(f.ctx, 10*time.Second)
+	defer cancel()
+	for {
+		var snapshot ebs.SnapshotRecord
+		if err := f.disks.View(ctx, func(r ebs.Reader) error {
+			var err error
+			snapshot, err = r.Snapshot(ebs.SnapshotKey{Scope: ebs.Scope{Partition: "aws", AccountID: "123456789012", Region: "us-east-1"}, ID: id})
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if snapshot.Sealed && snapshot.Volume != nil && snapshot.Volume.BlocksWorkAt.IsZero() {
+			return snapshot
+		}
+		select {
+		case <-f.disks.committed:
+		case <-ctx.Done():
+			t.Fatalf("snapshot capture did not commit: %+v: %v", snapshot, ctx.Err())
+		}
+	}
 }
 
 func cfnEBSVolumeRequest(token string) cloudformation.ResourceRequest {
@@ -179,15 +244,9 @@ func TestCFNEC2VolumeDeletionSnapshotPrivateReceipt(t *testing.T) {
 				t.Fatal(err)
 			}
 			r.PhysicalID, r.DeletionPolicy = result.PhysicalID, "Snapshot"
-			ready := false
-			for i := 0; i < 100 && !ready; i++ {
-				f.clock.Advance(10 * time.Second)
-				if ready, err = h.Stabilize(f.ctx, r); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if !ready {
-				t.Fatal("volume never became available")
+			f.advanceTo(t, f.volume(t, r.PhysicalID).TransitionAt)
+			if ready, err := h.Stabilize(f.ctx, r); err != nil || !ready {
+				t.Fatalf("volume did not become available at its committed deadline: ready=%t error=%v", ready, err)
 			}
 			if err := h.Delete(f.ctx, r); err != nil {
 				t.Fatal(err)
@@ -213,15 +272,17 @@ func TestCFNEC2VolumeDeletionSnapshotPrivateReceipt(t *testing.T) {
 			}
 			f.reopen()
 			h = cfnEC2Volume{f.commands}
-			deleted := false
-			for i := 0; i < 100 && !deleted; i++ {
-				f.clock.Advance(10 * time.Second)
-				if deleted, err = h.StabilizeDeletion(f.ctx, r); err != nil {
-					t.Fatal(err)
-				}
+			captured := f.awaitSnapshotCapture(t, snapshot)
+			f.advanceTo(t, captured.CompleteAt)
+			deleted, err := h.StabilizeDeletion(f.ctx, r)
+			if err != nil {
+				t.Fatal(err)
 			}
 			if !deleted {
-				t.Fatal("volume deletion never stabilized")
+				f.advanceTo(t, f.volume(t, r.PhysicalID).TransitionAt)
+				if deleted, err = h.StabilizeDeletion(f.ctx, r); err != nil || !deleted {
+					t.Fatalf("volume deletion did not stabilize at its committed deadline: deleted=%t error=%v", deleted, err)
+				}
 			}
 			out, err := cfnComputeCall[api.DescribeSnapshotsResult](f.ctx, f.commands, "ec2", "DescribeSnapshots", map[string]any{"OwnerIds": []string{"self"}})
 			if err != nil {
