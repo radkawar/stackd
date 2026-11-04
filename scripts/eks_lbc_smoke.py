@@ -279,6 +279,53 @@ class Smoke:
         }
         return sorted(name for name, patterns in classes.items() if any(pattern in text for pattern in patterns))
 
+    @staticmethod
+    def native_api_bindings(node, receipt):
+        # Only fixed keys, counts, booleans and address classes may leave the
+        # private fixture. Never return inspected addresses, ports or map keys.
+        def address_class(value):
+            if value is None:
+                return "missing"
+            if value == "":
+                return "empty"
+            try:
+                address = ipaddress.ip_address(value)
+            except ValueError:
+                return "invalid"
+            family = "ipv4" if address.version == 4 else "ipv6"
+            if address.is_unspecified:
+                return family + "_unspecified"
+            if address.is_loopback:
+                return family + "_loopback"
+            return family + "_specified"
+
+        expected_host = receipt.get("WorkerAdvertiseHost") or "127.0.0.1"
+        expected_port = str(receipt.get("NativePort"))
+        report = {"expected_host_class": address_class(expected_host)}
+        for source, configuration, field in (
+                ("configured", "HostConfig", "PortBindings"),
+                ("effective", "NetworkSettings", "Ports")):
+            ports = node.get(configuration, {}).get(field) or {}
+            witness = {"field_present": field in node.get(configuration, {}),
+                       "aliases": [], "other_port_key_count": len(set(ports) - {"6443", "6443/tcp"})}
+            combined = []
+            for name, key in (("bare_tcp", "6443"), ("explicit_tcp", "6443/tcp")):
+                bindings = ports.get(key) or []
+                combined.extend(bindings)
+                witness["aliases"].append({"kind": name, "present": key in ports,
+                    "binding_count": len(bindings), "bindings": [
+                        {"host_class": address_class(binding.get("HostIp")),
+                         "host_matches": binding.get("HostIp") == expected_host,
+                         "port_matches": binding.get("HostPort") == expected_port,
+                         "port_empty": binding.get("HostPort") in (None, "")}
+                        for binding in bindings]})
+            witness["binding_count"] = len(combined)
+            witness["matches"] = (len(combined) == 1
+                and combined[0].get("HostIp") == expected_host
+                and combined[0].get("HostPort") == expected_port)
+            report[source] = witness
+        return report
+
     def capture_cluster_failure(self, cluster, stage):
         report = self.result.setdefault("native_cluster_failures", {}).setdefault(stage, {})
         issues = cluster.get("health", {}).get("issues", [])
@@ -326,11 +373,8 @@ class Smoke:
                     "attached_to_receipt_network": receipt["Name"] in node.get("NetworkSettings", {}).get("Networks", {})})
                 witness = report["nodes"][-1]
                 if kind == "server":
-                    bindings = node.get("HostConfig", {}).get("PortBindings", {}).get("6443/tcp") or []
-                    expected_host = receipt.get("WorkerAdvertiseHost") or "127.0.0.1"
-                    witness["native_api_binding_matches"] = (len(bindings) == 1
-                        and bindings[0].get("HostIp") == expected_host
-                        and bindings[0].get("HostPort") == str(receipt.get("NativePort")))
+                    witness["native_api_bindings"] = self.native_api_bindings(node, receipt)
+                    witness["native_api_binding_matches"] = witness["native_api_bindings"]["configured"]["matches"]
                     witness["control_plane_agent_disabled"] = "--disable-agent" in (configuration.get("Cmd") or [])
                 if kind == "tools":
                     witness["owned_image_volume_mounted"] = any(

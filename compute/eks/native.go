@@ -23,6 +23,11 @@ import (
 const ownerLabel = "stackd.eks.owner"
 const idLabel = "stackd.eks.id"
 
+type dockerPortBinding struct {
+	HostIP   string `json:"HostIp"`
+	HostPort string
+}
+
 type dockerContainer struct {
 	ID     string `json:"Id"`
 	Name   string
@@ -33,10 +38,7 @@ type dockerContainer struct {
 	}
 	State      struct{ Running bool }
 	HostConfig struct {
-		PortBindings map[string][]struct {
-			HostIP   string `json:"HostIp"`
-			HostPort string
-		}
+		PortBindings map[string][]dockerPortBinding
 	}
 	Mounts []struct {
 		Type, Name, Source, Destination string
@@ -115,8 +117,7 @@ func (k *K3d) inspectOwnedContainers(ctx context.Context, state diskState, check
 			return nil, errors.New("eks: refusing native cluster with unowned or unexpected containers")
 		}
 		if server {
-			bindings := container.HostConfig.PortBindings["6443/tcp"]
-			if len(bindings) != 1 || bindings[0].HostIP != state.nativeHost() || bindings[0].HostPort != fmt.Sprint(state.NativePort) {
+			if !nativeAPIBindingMatches(state, container.HostConfig.PortBindings) {
 				return nil, errors.New("eks: native API binding differs from its retained owned endpoint")
 			}
 		} else if err := k.validateWorkerTransport(state, container); err != nil {
@@ -128,6 +129,21 @@ func (k *K3d) inspectOwnedContainers(ctx context.Context, state diskState, check
 		}
 	}
 	return containers, nil
+}
+
+func nativeAPIBindingMatches(state diskState, ports map[string][]dockerPortBinding) bool {
+	// k3d v5.8.3 publishes --no-lb's API under the bare "6443" key.
+	// Docker versions may retain that request spelling in HostConfig instead
+	// of normalizing it to "6443/tcp". These are TCP aliases, not two grants:
+	// reject multiple bindings even when both aliases claim the same endpoint.
+	bindings, bare := ports["6443/tcp"], ports["6443"]
+	if len(bindings)+len(bare) != 1 {
+		return false
+	}
+	if len(bindings) == 0 {
+		bindings = bare
+	}
+	return bindings[0].HostIP == state.nativeHost() && bindings[0].HostPort == fmt.Sprint(state.NativePort)
 }
 
 func (k *K3d) ownedNetwork(ctx context.Context, state diskState) (string, error) {

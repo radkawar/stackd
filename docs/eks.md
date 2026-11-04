@@ -99,6 +99,11 @@ claim an uninterrupted workload during worker recovery. The opt-in
 Docker container to restart, the original Kubernetes Node UID to become Ready,
 and authenticated kubelet exec to succeed again.
 
+Native API ownership checks accept Docker's equivalent `6443` and `6443/tcp`
+port-map keys, but still require exactly one binding at the retained host and
+port. A second alias binding or a widened address fails closed during both
+reattachment and deletion.
+
 With `-eks-worker-advertise-host`, the native API server advertises that address
 and its published port to agents. Advertising its Docker-private address instead
 lets a guest join initially but breaks its supervisor tunnel when k3s discovers

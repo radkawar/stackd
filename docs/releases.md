@@ -194,6 +194,14 @@ workflow calls. It checks Go formatting, release-tool contracts, targeted
 controller/identity/time/policy vet and staticcheck, focused race tests,
 deployment/encryption SDK regressions, `make build`, executable IaC examples and
 retained-source generators. Terraform is pinned to 1.15.9 for these CI examples.
+The independent `applications` job builds its own `bin/stackd` on a fresh
+Ubuntu 24.04 runner and runs all three CloudFormation, Terraform and Terraform
+EIP application scripts with the shared Python fixture requirements. Its Go
+setup disables cache restore/save so the focused job's combined race-build cache
+does not compete with provider installations for disk space. The `focused` job
+retains `make build` and all Go checks. Application diagnostics remain limited
+to `example-controller-logs` (`*.log`, seven-day retention), not Terraform state
+or the full application working directories.
 Docker reload is a separately exercised prerequisite-heavy example, not an
 unexecuted hosted claim. GuardDuty's catalog check additionally fetches
 the exact upstream Git revision recorded in `docs/guardduty-findings.json` and
@@ -204,8 +212,11 @@ The provider API check fetches the exact Terraform AWS revision recorded in
 `docs/terraform-provider-apis.json`. It checks the generated source map, not
 all provider resource behavior. The hosted EIP example uses AWS provider 6.68.0.
 Focused regressions also cover secure CloudFormation references, Athena result
-manifests, RDS requested capacity and Glue statistics. Native RDS/Trino acceptance
-remains separately exercised local engine evidence.
+manifests, RDS requested capacity and Glue statistics. Native RDS acceptance
+remains separately exercised local engine evidence. Dedicated Docker jobs run
+warm Trino lifecycle checks, actual Flow Logs traffic and pod-route withdrawal,
+and the upstream EKS ingress workflow. The ingress job retains only sanitized
+assertions and diagnostic categories, never raw cluster state or credentials.
 These match repository Makefile/hook conventions without invoking the full
 integration suite.
 
