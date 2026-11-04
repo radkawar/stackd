@@ -36,13 +36,20 @@ type secureCFNCheckpointRepository struct {
 
 type secureCFNCheckpointTransaction struct {
 	cfnstore.Transaction
-	owner *secureCFNCheckpointRepository
+	owner      *secureCFNCheckpointRepository
+	checkpoint string
 }
 
 func (r *secureCFNCheckpointRepository) Update(ctx context.Context, fn func(cfnstore.Transaction) error) error {
-	return r.Repository.Update(ctx, func(tx cfnstore.Transaction) error {
-		return fn(&secureCFNCheckpointTransaction{Transaction: tx, owner: r})
+	checkpoint := &secureCFNCheckpointTransaction{owner: r}
+	err := r.Repository.Update(ctx, func(tx cfnstore.Transaction) error {
+		checkpoint.Transaction = tx
+		return fn(checkpoint)
 	})
+	if err == nil && checkpoint.checkpoint != "" {
+		r.selected <- checkpoint.checkpoint
+	}
+	return err
 }
 
 func (tx *secureCFNCheckpointTransaction) PutOperation(op cfnstore.OperationRecord) error {
@@ -80,7 +87,7 @@ func (tx *secureCFNCheckpointTransaction) PutOperation(op cfnstore.OperationReco
 		return err
 	}
 	if checkpoint {
-		tx.owner.selected <- op.ID
+		tx.checkpoint = op.ID
 	}
 	return nil
 }
