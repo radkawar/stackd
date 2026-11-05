@@ -954,6 +954,53 @@ and runs all tests with the race detector. Tests use pinned AWS SDK for Go v2 cl
 credentials. They check concrete behavior; they do not claim untested AWS parity.
 See [the architecture](architecture.md) and [contribution rules](../AGENTS.md).
 
+## Terraform provider API requirements
+
+The [provider API map](terraform-provider-apis.json) records calls from production
+source in HashiCorp AWS provider **6.68.0**, pinned to commit
+`c9b83d813022cdd05fc955480b07e269c6e18023`. Read the checked-in map without a
+provider checkout, or regenerate it from the pinned source:
+
+```sh
+git clone --branch v6.68.0 --depth 1 \
+  https://github.com/hashicorp/terraform-provider-aws.git clones/terraform-provider-aws
+make generate-terraform-apis
+make generate-terraform-apis-check
+```
+
+`priority_counts` and `top_selected_scope_api_gaps` identify missing APIs.
+Requirements include SDK operation names, source locations and detection methods,
+including paginator constructors. Tests and sweepers are excluded; dynamic calls,
+wrappers and ambiguous receivers may remain unresolved.
+
+`lifecycle_inventory.provider_types` lists managed resources and data sources from
+the provider's generated registrations, preserving alias names.
+`lifecycle_inventory.implemented_services` distinguishes direct provider resources
+from dependencies and includes services without a corresponding provider resource.
+Per-type API links cover defining source files, not the full transitive call graph.
+Shared helpers and initialization can add calls.
+
+The map uses these classifications:
+
+- `registered-partial`: the operation is registered; implementation may be incomplete.
+- `unimplemented`: a selected modeled operation has no registration.
+- `outside-selected-service-scope`: the API is outside the selected services.
+- `unresolved-or-ambiguous`: the source does not establish a clear mapping.
+
+Without a provider checkout, use the retained source snapshot to check
+classifications against stackd's current operation inventory:
+
+```sh
+go run ./cmd/terraformapisgen -retained-source -check
+```
+
+Retained-source mode validates snapshot structure but cannot detect provider
+source drift. Use the pinned checkout for that check. Lifecycle and engine status
+remain `unverified` until exercised; registration alone does not establish support.
+Validate application create/read/update/delete and data operations separately.
+See the [EIP lifecycle](ec2.md#run-the-current-provider-lifecycle) and
+[RDS SQL example](rds.md#runnable-terraform-and-psql-proof).
+
 ## Generated AWS API layer
 
 `make generate-aws` reads Smithy models from `clones/aws-sdk-go-v2` and generates typed

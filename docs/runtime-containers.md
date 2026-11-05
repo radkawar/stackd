@@ -46,7 +46,11 @@ cat /proc/filesystems
 df -h . /var/lib/docker
 ```
 
-Expect Linux, PID 1 `systemd`, an active daemon, `cgroup2fs`, cgroup version `2`, and no `rootless`/`userns` security option. The controller's user must be able to access the local socket and retain files in its state directory. Inspect the configured daemon rather than assuming the default Docker context is the right one. The following preparation commands consistently select that daemon:
+Expect Linux, PID 1 `systemd`, an active Docker daemon, `cgroup2fs`, cgroup
+version `2` and no `rootless`/`userns` security option. The controller user needs
+access to the local socket and persistent files in its state directory.
+Inspect the selected daemon rather than relying on the default Docker context.
+Use that daemon consistently in preparation commands:
 
 ```sh
 export DOCKER_HOST=unix:///var/run/docker.sock
@@ -60,7 +64,13 @@ For a source build, also run:
 make build
 ```
 
-`make build` builds the native `bin/stackd` controller and static Linux `lambda-telemetry-amd64` and `lambda-telemetry-arm64` helpers. A bare `go build -o bin/stackd ./cmd/stackd` builds only the controller, which is sufficient for non-Lambda consumers. For `-lambda-runtime`, install the helpers beside the executable or pass `-lambda-telemetry-directory /absolute/helper/directory`. Initial Go builds can download modules; prepare the module cache and binaries before disconnecting.
+`make build` produces `bin/stackd` and static Linux `lambda-telemetry-amd64` and
+`lambda-telemetry-arm64` helpers. For non-Lambda use, building only the controller
+with `go build -o bin/stackd ./cmd/stackd` is sufficient.
+
+For `-lambda-runtime`, install the helpers beside the executable or set
+`-lambda-telemetry-directory /absolute/helper/directory`. Initial Go builds may
+download modules; prepare the module cache and binaries before disconnecting.
 
 Install the helper images your services need. The toolkit supports ECS and native
 networking; the storage image supports Lambda:
@@ -70,7 +80,26 @@ docker pull nicolaka/netshoot@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed28
 docker pull ubuntu@sha256:2edbbc5dc405e9612ba3584ce95480277e3eb374407b5505fe26f17df77c7dbc
 ```
 
-The first pin is [`compute/docker.ToolkitImage`](../compute/docker/helper.go), used for native networking and, for ECS, privileged host/systemd helpers. The second is [`compute/lambda.StorageImage`](../compute/lambda/docker_storage.go), which supplies util-linux/e2fsprogs for disk-backed Lambda `/tmp`. Lambda storage requires a real Linux Docker daemon supporting privileged helpers, loop devices, ext4, `fallocate`, direct I/O and a daemon `/dev` bind; on Docker Desktop these facilities must exist **inside its Linux VM**, not on the macOS controller. Function/task containers do not inherit setup privileges. Allocate real disk space for images, volumes and Lambda ephemeral-storage quotas; this is not a memory-backed tmpfs. Lambda's owner guard uses a real kernel `flock` in a daemon-owned volume. Its VPC attachment uses real network namespaces, bridges and nftables through helpers in that same daemon/VM, with daemon identity and shared `flock` ownership, not a client-host lock pretending to protect another kernel. EC2/ECS/EKS/ALB retain their original local Linux host-security boundary; a containerized controller for those consumers must share the daemon host's **existing `/run/lock` inode**. See [Lambda storage/recovery](lambda.md#temporary-storage-and-crash-recovery) and [ECS admission](ecs.md#setup-and-supported-execution). This does not promise arbitrary remote engines, rootless/userns-remapped engines or unavailable VM capabilities.
+The toolkit pin is [`compute/docker.ToolkitImage`](../compute/docker/helper.go),
+used for networking and ECS privileged host/systemd helpers. The storage pin is
+[`compute/lambda.StorageImage`](../compute/lambda/docker_storage.go), which supplies
+util-linux/e2fsprogs for disk-backed Lambda `/tmp`.
+
+For Lambda storage, the Linux daemon must support privileged helpers, loop
+devices, ext4, `fallocate`, direct I/O and a daemon `/dev` bind. On Docker Desktop,
+these facilities must be available inside its Linux VM. Reserve disk space for
+images, volumes and Lambda ephemeral-storage quotas; `/tmp` is not a tmpfs.
+Function and task containers do not inherit helper privileges.
+
+Lambda uses a kernel `flock` in a daemon-owned volume to coordinate ownership.
+VPC helpers configure network namespaces, bridges and nftables in that same
+daemon/VM and check daemon identity and shared lock ownership. Remote,
+rootless or user-namespace-remapped engines are not supported by this recipe.
+
+EC2, ECS, EKS and ALB require the local Linux host setup described above.
+A containerized controller for these services must share the daemon host's
+existing `/run/lock` inode. See [Lambda storage/recovery](lambda.md#temporary-storage-and-crash-recovery)
+and [ECS admission](ecs.md#setup-and-supported-execution).
 
 ### Explicit online preparation and offline import
 
@@ -88,7 +117,16 @@ docker image inspect nicolaka/netshoot@sha256:47b907d662d139d1e2f22bfe14f4efca1e
 docker image inspect ubuntu@sha256:2edbbc5dc405e9612ba3584ce95480277e3eb374407b5505fe26f17df77c7dbc
 ```
 
-Repeat save/load for the service images you selected and for `stackd/orc:2.2.2` after building it. Preserve the required digest-qualified identity, not merely a convenient tag: Docker archive/Engine versions can differ in preservation of repository-digest metadata. **If the exact `image inspect repository@sha256:...` fails after load, the import is not ready.** Resolve this during connected preparation with an Engine/image transfer method that preserves the required reference; do not silently replace fixed pins with mutable tags. Retain the binaries, module/dependency caches needed for any further builds, MQ JDK/OpenSSL and scanner DB separately. Offline runtime does not block application-code egress; enforce that with host/network policy.
+Repeat save/load for your selected service images and for `stackd/orc:2.2.2`
+after building it. Preserve digest-qualified references: Docker archive and
+Engine versions differ in how they retain repository-digest metadata.
+Confirm that `docker image inspect repository@sha256:...` succeeds after load.
+If it fails, prepare a transfer method that preserves the reference while still
+connected; do not replace fixed pins with mutable tags.
+
+Transfer binaries, any module/dependency caches needed for further builds,
+the MQ JDK/OpenSSL and the scanner DB separately. To prevent application-code
+egress during offline operation, enforce host/network policy.
 
 ### Endpoint routing and controller launch
 
@@ -108,7 +146,19 @@ The CLI derives `http://host.docker.internal:4566` as the execution-facing endpo
   -compute-endpoint http://stackd.local:4566
 ```
 
-`-public-endpoint` advertises resource URLs; `-compute-endpoint` selects the execution AWS origin; neither changes the listener. When Lambda, ECS, CodeBuild, Glue or EC2 guest execution requests the default compute origin, a loopback listener without an explicit compute endpoint is rejected. Transport-only or DynamoDB/Kinesis-only selection does not impose that check. Explicitly using a loopback compute origin does not make it reachable from containers. Lambda Runtime API callbacks are separate: `-lambda-runtime-listen` defaults to `0.0.0.0:0`, and empty `-lambda-callback-host` uses Linux host-gateway. Explicit `host.docker.internal` uses Docker Desktop's container DNS; stackd does not resolve it on the controller or inject a shadow host mapping. Permit only intended Docker networks to reach callback ports. Athena also has its own callback listener described below.
+`-public-endpoint` advertises resource URLs; `-compute-endpoint` selects the
+execution AWS origin. Neither changes the listener. Lambda, ECS, CodeBuild,
+Glue and EC2 guest execution reject a loopback listener when using the default
+compute origin. Transport-only and DynamoDB/Kinesis-only launches do not require
+this check. A manually configured compute origin must still be reachable from
+the workloads.
+
+Lambda Runtime API callbacks use a separate listener. `-lambda-runtime-listen`
+defaults to `0.0.0.0:0`; an empty `-lambda-callback-host` uses Linux host-gateway.
+Setting it to `host.docker.internal` uses Docker Desktop's container DNS, without
+controller-side resolution or an injected host mapping. Allow only intended
+Docker networks to reach callback ports. Athena has its own callback listener,
+described below.
 
 Alternatively configure an explicit native gateway namespace, runtime resolver
 and scoped development CA using the [networking recipes](networking.md).
@@ -173,7 +223,13 @@ export DOCKER_HOST="$DESKTOP_DOCKER_HOST"
 docker info --format 'OS={{.OSType}} Architecture={{.Architecture}} Security={{json .SecurityOptions}}'
 ```
 
-For this recipe the selected endpoint must be `unix://<actualDesktopSocket>`, with `<actualDesktopSocket>` replaced by the absolute socket path reported above. Do not substitute an arbitrary remote daemon: host routing, daemon capabilities and privileged storage/network helpers must actually work inside the selected VM. Install the pinned Lambda storage image and the DynamoDB/Kinesis images from their sections below on this same Engine, plus the toolkit if using Lambda VPC networking. Pull the official Lambda runtime images only for the ZIP functions you intend to run.
+Use the discovered `unix://<actualDesktopSocket>` endpoint, replacing the
+placeholder with the absolute socket path. This recipe requires Desktop's VM
+routing and privileged storage/network helpers; it does not cover remote daemons.
+
+Install the pinned Lambda storage image and the DynamoDB/Kinesis images below
+on this Engine. Add the toolkit for Lambda VPC networking and the official
+Lambda runtime images needed by your ZIP functions.
 
 For an image function, build your application with a Lambda RIC or Runtime API
 bootstrap. An `x86_64` function on Apple Silicon needs a Linux/amd64 image:
@@ -205,9 +261,26 @@ The host API and container Lambda recipe is:
   -lambda-telemetry-directory "$PWD/bin"
 ```
 
-Here `"$DESKTOP_DOCKER_HOST"` is the discovered `unix://<actualDesktopSocket>`, and `"$PWD/bin"` is the absolute `<staticLinuxHelperDir>` containing the two Linux outputs. The listener binds the Mac host's IPv4 interfaces at port **4567**. Host AWS clients and the explicitly host-only advertised public URLs use `http://127.0.0.1:4567`; function SDK calls use `http://host.docker.internal:4567`. `-public-endpoint` and `-compute-endpoint` only select advertised/execution origins; neither binds or forwards a port. This is a native host process, so do not add a Docker `-p` mapping for the controller.
+`"$DESKTOP_DOCKER_HOST"` selects the discovered Desktop socket. `"$PWD/bin"`
+must contain both static Linux helpers. This launch uses:
 
-The real RIC/bootstrap uses `AWS_LAMBDA_RUNTIME_API` for the separate [Lambda Runtime API](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-api.html) callback listener, **not** the AWS API at port 4567. `-lambda-runtime-listen 0.0.0.0:0` allocates a listener port per environment; `-lambda-callback-host host.docker.internal` advertises that port through [Desktop's built-in container-to-host DNS](https://docs.docker.com/desktop/features/networking/networking-how-tos/). No host-side resolution or shadow `/etc/hosts` mapping is installed for that name. Permit the Desktop backend to reach the host API and these allocated callback ports, while restricting all-interface listeners to trusted networks. Changing only the API port does not make the callbacks reachable.
+- Host AWS API and host-only advertised URLs: `http://127.0.0.1:4567`.
+- Function SDK calls: `http://host.docker.internal:4567`.
+- Host listener: all IPv4 interfaces on port **4567**.
+
+The origin flags do not bind or forward ports. The controller runs on the host,
+so it needs no Docker `-p` mapping.
+
+The RIC/bootstrap reads `AWS_LAMBDA_RUNTIME_API` to reach the separate
+[Lambda Runtime API](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-api.html),
+not the AWS API on port 4567. `-lambda-runtime-listen 0.0.0.0:0` allocates a
+callback port per environment. `-lambda-callback-host host.docker.internal`
+advertises it through [Desktop's container-to-host DNS](https://docs.docker.com/desktop/features/networking/networking-how-tos/);
+it installs no host-side DNS or `/etc/hosts` entry.
+
+Allow the Desktop backend to reach both the host API and allocated callback
+ports. Restrict these all-interface listeners to trusted networks. Changing the
+API port alone does not configure callback reachability.
 
 Lambda containers on Docker's default `bridge` network run inside Desktop's
 Linux VM. Use `host.docker.internal` to reach host-published services; container
@@ -220,7 +293,11 @@ The host-only public origin above is **not** suitable for returned URLs later co
   -compute-endpoint http://stackd.local:4567
 ```
 
-Keep `-listen 0.0.0.0:4567` and the Desktop callback flags unchanged, and use `http://stackd.local:4567` in all provisioning clients. The hostname is operator-owned; stackd installs no DNS records or firewall rules for it. Missing images, VM storage/network capabilities or CPU emulation produce real errors, not a synthetic fallback. An API health check establishes neither callback reachability nor a successful native Lambda invocation.
+Keep `-listen 0.0.0.0:4567` and the Desktop callback flags unchanged. Use
+`http://stackd.local:4567` in provisioning clients, and configure its DNS and
+firewall access yourself. Missing images, VM capabilities or CPU emulation cause
+execution to fail. After checking API readiness, invoke a function to check
+container execution and callback routing.
 
 ### Local API readiness and resource provisioning
 
@@ -269,11 +346,32 @@ return empty OS/architecture fields even after a platform pull. Install the
 child digest shown above; platform validation remains strict and execution
 still never pulls images.
 
-Use the shared Lambda-only controller launch with `-lambda-runtime`. Deploy an IAM execution role and ZIP code through `CreateFunction`, wait for function readiness via `GetFunctionConfiguration`, then `Invoke`; [Lambda's current application path](lambda.md#current-application-path) specifies supported packaging, roles and invocation behavior. Execution uses the actual container RIC/bootstrap and stackd Runtime API, not a synthetic handler or RIE invocation proxy. `provided.al2023` needs your executable `bootstrap` implementing that API; the base image alone is not your handler. `-lambda-keep-alive` defaults to `10m`; `0` forces cold invocations. Optional `-lambda-storage-image` must be an installed immutable compatible storage helper. Hot-reload code/layer flags are development mounts, not durable deployment storage. Managed-instance Lambda uses guest-installed images and an agent instead: follow [VM deployment](runtime-vms.md), not these host-container commands.
+Use the shared Lambda-only launch with `-lambda-runtime`. Create an IAM execution
+role and ZIP function through `CreateFunction`, wait for readiness with
+`GetFunctionConfiguration`, then call `Invoke`. See
+[Lambda's current application path](lambda.md#current-application-path) for
+supported packaging, roles and invocation behavior.
+
+The container's RIC/bootstrap communicates with stackd's Runtime API; execution
+does not use an RIE invocation proxy. For `provided.al2023`, supply an executable
+`bootstrap` implementing that API.
+
+`-lambda-keep-alive` defaults to `10m`; use `0` for cold invocations.
+`-lambda-storage-image` accepts an installed immutable compatible storage helper.
+Hot-reload code/layer mounts are for development, not durable deployment storage.
+For managed-instance Lambda, prepare guest images and an agent using
+[VM deployment](runtime-vms.md) instead.
 
 ## ECS and CodeBuild
 
-Enable ECS with `-docker-host unix:///var/run/docker.sock -ecs-runtime`, or CodeBuild with `-docker-host unix:///var/run/docker.sock -codebuild-runtime`; do not inherit `-lambda-runtime` from the example above unless you also need Lambda. ECS requires the local Linux host contract and installed toolkit; CodeBuild does not enable ECS or require Lambda's telemetry/storage helpers. Install **your** task/build image explicitly from its publisher by digest, or build your Dockerfile and retain the resulting immutable local image ID. There is no universal stackd application image. For a repository containing your chosen Dockerfile, preparation is:
+Enable ECS with `-docker-host unix:///var/run/docker.sock -ecs-runtime`, or
+CodeBuild with `-docker-host unix:///var/run/docker.sock -codebuild-runtime`.
+Include `-lambda-runtime` only if you also need Lambda.
+
+ECS requires the local Linux host setup and toolkit. CodeBuild does not enable
+ECS or require Lambda telemetry/storage helpers. Install each task/build image
+from its publisher by digest, or build it and retain its immutable local image
+ID. To prepare your own Dockerfile:
 
 ```sh
 docker build -t local/stackd-workload:prepared /absolute/path/to/your/build-context
@@ -282,9 +380,23 @@ docker image inspect --format '{{.Id}}' local/stackd-workload:prepared
 
 Use that emitted `sha256:...` image ID in the task definition/build configuration. Transfer a built image with `docker image save -o workload.tar local/stackd-workload:prepared` and `docker image load -i workload.tar`, then inspect it on the destination. A CodeBuild image needs the shell/tools your buildspec actually invokes; it is not enough to install an arbitrary runtime-only base image.
 
-For ECS, create the cluster, EC2 VPC/subnet/security groups, applicable IAM roles and `awsvpc` task definition through the local APIs before `RunTask`/`CreateService`. Supported execution is Linux Fargate `1.4.0` (`LATEST` selects it), supported task CPU/memory pairs and matching installed image architecture, not EC2 or Spot capacity. Follow [ECS setup and supported execution](ecs.md#setup-and-supported-execution) and [task state/readiness](ecs.md#api-and-retained-state); check `DescribeTasks` and the real application listener/logs. Shared `/run/lock`, systemd slice ownership and packet-rule admission are required even if you are not launching ECS tasks yet.
+For ECS, create a cluster, EC2 VPC/subnet/security groups, applicable IAM roles
+and an `awsvpc` task definition before calling `RunTask` or `CreateService`.
+Execution supports Linux Fargate `1.4.0` (`LATEST` selects it), supported CPU/memory
+pairs and matching installed image architectures. EC2 and Spot capacity are
+unsupported.
 
-CodeBuild uses real S3/native Git sources and real build commands. Create a service role and project, then `StartBuild`; inspect `BatchGetBuilds` and logs. Supported controls/buildspecs are in [ECR and CodeBuild](behavior-references.md#ecr-and-codebuild). Pull/build all project images and dependencies before offline work; builds that fetch Git/package dependencies still need those sources available. Real idle fleet capacity additionally requires an immutable installed image:
+Follow [ECS setup](ecs.md#setup-and-supported-execution) and
+[task state/readiness](ecs.md#api-and-retained-state). Check `DescribeTasks`,
+application listeners and logs. ECS startup requires shared `/run/lock`,
+systemd slice ownership and packet-rule admission even before tasks are launched.
+
+For CodeBuild, create a service role and project, call `StartBuild`, then inspect
+`BatchGetBuilds` and logs. Builds use S3 or Git sources and execute build commands;
+see [ECR and CodeBuild](behavior-references.md#ecr-and-codebuild) for supported
+controls and buildspecs. Before offline work, prepare project images and any Git
+or package dependencies. Idle fleet capacity also requires an installed immutable
+image:
 
 ```sh
 FLEET_IMAGE=$(docker image inspect --format '{{.Id}}' local/stackd-workload:prepared)
@@ -306,9 +418,13 @@ docker pull apache/kafka@sha256:ed74d7d115968d5e8b00ba6822ac6a384cbaaf54ca389918
   -docker-host unix:///var/run/docker.sock -dynamodb-runtime -kinesis-runtime
 ```
 
-`-dynamodb-runtime` and `-kinesis-runtime` independently enable the real [DynamoDB Local](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html) and [Apache Kafka](https://kafka.apache.org/37/getting-started/quickstart/) backends. Omit the other flag and image if unused. These are native Engine images; Kafka storage is not a claim that AWS Kinesis uses Kafka. Pins are in [`engine/dynamodb`](../engine/dynamodb/docker.go) and [`engine/kinesis`](../engine/kinesis/docker.go).
+`-dynamodb-runtime` enables [DynamoDB Local](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html);
+`-kinesis-runtime` enables stackd's [Apache Kafka](https://kafka.apache.org/37/getting-started/quickstart/)-backed
+Kinesis implementation. Enable either independently and omit unused images.
+Pins are in [`engine/dynamodb`](../engine/dynamodb/docker.go) and
+[`engine/kinesis`](../engine/kinesis/docker.go).
 
-With the local credentials above, a small real table workflow is:
+Using the local credentials above, create, write, read and delete a test table:
 
 ```sh
 aws --endpoint-url http://127.0.0.1:4566 dynamodb create-table \
@@ -335,11 +451,26 @@ docker build -t stackd/orc:2.2.2 engine/orc
   -docker-host unix:///var/run/docker.sock -inventory-orc-runtime
 ```
 
-[`engine/orc/Dockerfile`](../engine/orc/Dockerfile) pins the Maven build base to `maven:3.9.12-eclipse-temurin-17@sha256:a0603aab698040d9c94259f379ec0487da1678560748d6c7508483034033c53d` and final JRE to `eclipse-temurin:17.0.18_8-jre-jammy@sha256:642d45bf22d3cb9face159181732ed9fa70873b2681e50445eff7d4785c176bb`. The explicit build downloads [Apache ORC](https://orc.apache.org/) tools `2.2.2` through Maven; build/export this image before going offline. Enable that encoder with `-inventory-orc-runtime`, then configure S3 inventory with ORC format and the appropriate destination bucket/policy through the local S3 APIs. Inspect the delivered manifest and real ORC object as described in [inventory delivery](cloudtrail.md). Merely building the image does not enable or schedule inventory.
+[`engine/orc/Dockerfile`](../engine/orc/Dockerfile) pins:
+
+- Maven build base: `maven:3.9.12-eclipse-temurin-17@sha256:a0603aab698040d9c94259f379ec0487da1678560748d6c7508483034033c53d`.
+- Final JRE: `eclipse-temurin:17.0.18_8-jre-jammy@sha256:642d45bf22d3cb9face159181732ed9fa70873b2681e50445eff7d4785c176bb`.
+
+The build downloads [Apache ORC](https://orc.apache.org/) tools `2.2.2` through
+Maven. Build and export the image before going offline.
+
+With `-inventory-orc-runtime` enabled, configure S3 inventory in ORC format and
+its destination bucket/policy through the local S3 APIs. Check the delivered
+manifest and ORC object using [inventory delivery](cloudtrail.md). Building the
+image alone does not enable or schedule inventory.
 
 ## Glue and Athena
 
-Read the [retained AWS Glue license](../compute/glue/AWS-GLUE-LICENSE.txt) **before** installing the Glue image. Its Amazon Software License restriction permits the documented AWS-targeted development/testing use; this is not permission for general standalone or other-cloud use or redistribution. See AWS's [local Glue development guide](https://docs.aws.amazon.com/glue/latest/dg/develop-local-docker-image.html). Skip Glue entirely if that boundary does not fit your use.
+Read the [AWS Glue license](../compute/glue/AWS-GLUE-LICENSE.txt) before installing
+the image. Its Amazon Software License permits the documented AWS-targeted
+development/testing use, not general standalone or other-cloud use or
+redistribution. Install Glue only if your use meets those terms. See
+[AWS's local Glue development guide](https://docs.aws.amazon.com/glue/latest/dg/develop-local-docker-image.html).
 
 ```sh
 # Glue 5 Spark and Python-shell interpreter (both required by Glue adapter setup)
@@ -352,7 +483,16 @@ docker pull apache/spark@sha256:9b0a6c2c860f5e7d18dd5270286fef32a09c7f5a7e2b0dbe
   -docker-host unix:///var/run/docker.sock -glue-runtime -athena-runtime
 ```
 
-Enable either boolean independently and omit the other engine's pulls if unused. The defaults are Glue Spark 3.5.4-amzn-0/Python 3.11, Python-shell Python 3.9 (not the full Glue analytics library bundle), Trino 476 and Spark 4.1.3 used **only** as a native Hive-DDL parser. Upstream installation references: [Trino Docker](https://trino.io/docs/current/installation/containers.html), [Apache Spark](https://spark.apache.org/docs/latest/). Immutable installed overrides are `-glue-spark-image`, `-glue-python-image`, `-athena-image` and `-athena-hive-ddl-image`.
+Enable Glue or Athena independently and omit unused engine images. Defaults are:
+
+- Glue: Spark 3.5.4-amzn-0/Python 3.11 and Python-shell Python 3.9. The Python-shell
+  image does not contain the full Glue analytics library bundle.
+- Athena: Trino 476 and Spark 4.1.3, used only to parse Hive DDL.
+
+Installed immutable overrides are `-glue-spark-image`, `-glue-python-image`,
+`-athena-image` and `-athena-hive-ddl-image`. Upstream setup references:
+[Trino Docker](https://trino.io/docs/current/installation/containers.html) and
+[Apache Spark](https://spark.apache.org/docs/latest/).
 
 Athena checks whether the controller and Docker daemon share Linux loopback at
 startup. A local rootful Linux daemon uses host networking with Trino bound to
@@ -398,24 +538,27 @@ Cancellation targets the native query ID. Ambiguous transport or cancellation
 results retire the engine before reuse. Completed or legacy cancellation
 handles cannot remove a later query's engine.
 
-Private fsynced ownership receipts precede native creation, and an exclusive
-kernel lock fences controller replacement. With SQLite, the CLI keeps them in
-`<database>.athena`; memory-only controllers use the user cache directory under
-`stackd/athena-<daemon-and-configured-listener-hash>`. Preserve that directory
-alongside controller state. Embedded callers must supply a private, durable
-`DockerConfig.StateDirectory` and close the runtime after the stack. Reopening
-that directory removes only matching engine/parser names, random owner labels
-and immutable image identities; it never adopts or replays interrupted SQL.
-Graceful Close cancels active work and removes idle engines. Its wait is bounded
-at 30 seconds; an uncooperative callback keeps the ownership lock until background
-native cleanup joins, rather than permitting a successor to race late effects.
+Preserve Athena's ownership directory alongside controller state. The CLI uses
+`<database>.athena` with SQLite; memory-only controllers use the user cache
+directory under `stackd/athena-<daemon-and-configured-listener-hash>`.
+The directory stores fsynced creation receipts, and an exclusive kernel lock
+prevents overlapping controllers.
 
-The Hive-DDL parser retains its separate `none` network. Host networking grants
-trusted Trino access to host-network services; dropping capabilities does not
-provide network isolation from local peers. Use the trusted-host deployment
-boundary described below, not an untrusted multi-tenant host. Native dynamic
-catalog SQL includes the ephemeral callback capability in Trino query history;
-it is not an AWS credential and is revoked at query completion.
+Embedded callers must provide a private, durable `DockerConfig.StateDirectory`
+and close the runtime after the stack. On reopening, cleanup matches engine/parser
+names, random owner labels and immutable image identities. Interrupted SQL is
+neither adopted nor replayed.
+
+Graceful close cancels active work and removes idle engines, waiting up to
+30 seconds. If a callback remains active, the ownership lock stays held until
+background cleanup finishes, preventing a replacement controller from racing it.
+
+Use a trusted host, not an untrusted multi-tenant host. Trino's host networking
+allows access to host-network services even with capabilities dropped. The
+Hive-DDL parser uses a separate `none` network.
+
+Trino query history contains the ephemeral callback capability in dynamic
+catalog SQL. This is not an AWS credential; it is revoked at query completion.
 
 For background on local networking, see
 [issue #9](https://github.com/radkawar/stackd/issues/9). Upstream references:
@@ -445,7 +588,16 @@ The file catalog store reads `etc/catalog-store.properties` from the launcher
 data directory, separately from the main server configuration.
 Stackd configures both paths.
 
-Provision S3 scripts/data/output locations and IAM roles, then Glue `CreateJob`/`StartJobRun` or Athena `StartQueryExecution`. Poll `GetJobRun`/`GetQueryExecution` and retrieve real output rather than treating API acceptance as completion. The [analytics service guide](behavior-references.md#glue-and-athena-engines-evidence-and-boundaries) covers supported catalogs, job types and SQL boundaries. AWS-specific bookmarks, Lake Formation vending, Glue Parquet writer and Data Quality are not established by running ordinary Spark/Trino. SQLite keeps control state; preserve S3 data/output and native state too.
+Provision S3 script, data and output locations and IAM roles. For Glue, call
+`CreateJob`/`StartJobRun` and poll `GetJobRun`. For Athena, call
+`StartQueryExecution` and poll `GetQueryExecution`. Retrieve the output to confirm
+completion.
+
+See the [analytics service guide](behavior-references.md#glue-and-athena-engines-evidence-and-boundaries)
+for supported catalogs, job types and SQL. AWS-specific bookmarks, Lake Formation
+vending, Glue Parquet writer and Data Quality require separate compatibility
+validation; ordinary Spark/Trino execution does not validate them.
+Preserve S3 data/output and engine state alongside SQLite control state.
 
 ## RDS
 
@@ -456,9 +608,40 @@ docker pull mysql@sha256:0744ee5ef89ce6ccfa13de3e579fe6b9e27f93dd70da9c06d2c908b
   -docker-host unix:///var/run/docker.sock -rds-runtime
 ```
 
-These Docker Official Images run PostgreSQL 17.11 and MySQL 8.4.11; see their upstream [PostgreSQL](https://hub.docker.com/_/postgres) and [MySQL](https://hub.docker.com/_/mysql) image contracts. `-rds-postgres-image`/`-rds-mysql-image` are immutable installed overrides with the required native layout. `-rds-endpoint-host` defaults to `127.0.0.1` and sets the advertised address and PostgreSQL certificate identity. `-rds-publish-address` independently sets the daemon-side IP for SQL port bindings and reservations, defaulting to `127.0.0.1` to preserve loopback-only access. For trusted EKS pods with a route to the host bridge, for example, set both to `172.17.0.1` (use your actual bridge IP). A wildcard publish address such as `0.0.0.0` does not become the endpoint or a certificate SAN. Non-loopback publication exposes SQL to that network; restrict access at the host firewall. Export the per-incarnation PostgreSQL public CA and use `sslmode=verify-full`; this flag does not add MySQL TLS or VPC security-group enforcement. Existing containers must match the configured bind address, and changing the endpoint host must still verify against retained trust. `-native-ports` bounds only new automatic endpoints, not explicit or retained ports; omit an explicit RDS port to use that pool. See [RDS native setup](rds.md#running-the-native-engines).
+The Docker Official Images run PostgreSQL 17.11 and MySQL 8.4.11. See the
+[PostgreSQL](https://hub.docker.com/_/postgres) and
+[MySQL](https://hub.docker.com/_/mysql) image requirements. Installed immutable
+overrides `-rds-postgres-image` and `-rds-mysql-image` must retain the required
+engine layout.
 
-Create the supported instance/cluster through RDS APIs; wait for its Describe status and connect using the returned real PostgreSQL/MySQL endpoint and credentials. [RDS native setup](rds.md#running-the-native-engines), [lifecycle](rds.md#ownership-and-lifecycle) and [Data API](rds.md#rds-data-api) define supported provisioning and SQL operations. This is not AWS managed storage, topology or engine parity. Preserve database and snapshot Docker volumes; SQLite alone does not contain SQL bytes. Stop/start APIs affect native processes; delete APIs remove owned data.
+Configure SQL access with:
+
+- `-rds-endpoint-host`: advertised address and PostgreSQL certificate identity;
+  defaults to `127.0.0.1`.
+- `-rds-publish-address`: daemon-side SQL bind/reservation address; defaults to
+  `127.0.0.1` for loopback-only access.
+
+For trusted EKS pods routed to the host bridge, set both to the bridge IP, such
+as `172.17.0.1`. Restrict non-loopback SQL access with the host firewall.
+A wildcard bind such as `0.0.0.0` is not an endpoint or certificate SAN.
+Existing containers must match the configured bind address; endpoint changes
+must still verify against retained trust.
+
+Export the per-incarnation PostgreSQL public CA and connect with
+`sslmode=verify-full`. Publication settings do not enable MySQL TLS or VPC
+security-group enforcement. `-native-ports` applies only to new automatic
+allocations: omit an explicit RDS port to use the pool.
+
+Create an instance/cluster through RDS APIs, wait for its Describe status and
+connect to the returned PostgreSQL/MySQL endpoint with its credentials.
+See [setup](rds.md#running-the-native-engines),
+[lifecycle](rds.md#ownership-and-lifecycle) and [Data API](rds.md#rds-data-api)
+for supported provisioning and SQL operations. AWS managed storage and topology
+are unsupported; engine compatibility is limited to the documented operations.
+
+Preserve database and snapshot Docker volumes alongside SQLite, which does not
+contain SQL data. Stop/start controls engine processes; deletion removes owned
+data.
 
 ## DocumentDB compatibility
 
@@ -468,11 +651,22 @@ docker pull mongo@sha256:84c4a18b60a0e73d1577112b0a600b46cab477c64cfe0ff36d0647b
   -docker-host unix:///var/run/docker.sock -docdb-runtime
 ```
 
-This is the [Docker Official MongoDB image](https://hub.docker.com/_/mongo), version 7.0.43, **not AWS DocumentDB's engine**. `-docdb-image` is an installed immutable compatibility-image override, not a way to install AWS's proprietary engine. Follow [DocumentDB native setup](documentdb.md#native-setup) to create the cluster/instance, wait for native readiness and connect using the returned TLS endpoint/CA. Keep the exact-owned engine/snapshot volumes together with SQLite. [Explicit differences](documentdb.md#explicit-differences-and-remaining-operations) delimit the supported MongoDB/change-stream behavior and unimplemented cloud capabilities.
+The [Docker Official MongoDB image](https://hub.docker.com/_/mongo) runs version
+7.0.43, not AWS DocumentDB's engine. `-docdb-image` accepts an installed immutable
+MongoDB compatibility image; it cannot install AWS's proprietary engine.
+
+Follow [DocumentDB setup](documentdb.md#native-setup) to create a cluster/instance,
+wait for readiness and connect using the returned TLS endpoint and CA.
+Preserve engine and snapshot volumes alongside SQLite. See
+[compatibility differences](documentdb.md#explicit-differences-and-remaining-operations)
+for supported MongoDB/change-stream behavior and unsupported cloud capabilities.
 
 ## OpenSearch
 
-For Linux host setup, follow the [official Docker requirements](https://docs.opensearch.org/docs/latest/install-and-configure/install-opensearch/docker/), including `vm.max_map_count` of at least `262144`. On the dedicated host, inspect with `sysctl vm.max_map_count`; if needed, an administrator can set `sudo sysctl -w vm.max_map_count=262144` and persist it using the distribution's sysctl configuration. Do not change a shared host blindly.
+Follow the [OpenSearch Docker requirements](https://docs.opensearch.org/docs/latest/install-and-configure/install-opensearch/docker/).
+On Linux, inspect `sysctl vm.max_map_count`; it must be at least `262144`.
+An administrator can set `sudo sysctl -w vm.max_map_count=262144` and persist it
+in the distribution's sysctl configuration. Coordinate changes on shared hosts.
 
 ```sh
 docker pull opensearchproject/opensearch@sha256:9e0b3b3b6805811bd63d9b9503ffe34a58ba33d03cc346000e318c6ff5c05bd9
@@ -480,7 +674,16 @@ docker pull opensearchproject/opensearch@sha256:9e0b3b3b6805811bd63d9b9503ffe34a
   -docker-host unix:///var/run/docker.sock -opensearch-runtime
 ```
 
-The pin runs OpenSearch 2.19.4; admitted engine selection is `OpenSearch_2.19`. Create a domain through `CreateDomain`, inspect `DescribeDomain` until native readiness, and use its scoped HTTP endpoint for supported search requests. See [native OpenSearch provisioning](implementation-reference.md#native-opensearch) and [engine boundaries](behavior-references.md#opensearch-engines-evidence-and-boundaries). Each domain owns a real single node, volume/network and loopback private REST listener. Multi-node/AZ, VPC, EBS, KMS, TLS, fine-grained security and Dashboards are not supplied by this local mapping. Local host processes and Docker administrators remain trusted.
+The image runs OpenSearch 2.19.4; select `OpenSearch_2.19` when creating a domain.
+Call `CreateDomain`, poll `DescribeDomain` for readiness, then use the domain's
+scoped HTTP endpoint for search requests. See
+[provisioning](implementation-reference.md#native-opensearch) and
+[supported operations](behavior-references.md#opensearch-engines-evidence-and-boundaries).
+
+Each domain has one node, a volume/network and a private loopback REST listener.
+Multi-node/AZ, VPC, EBS, KMS, TLS, fine-grained security and Dashboards are
+unsupported. Deploy only where local host processes and Docker administrators
+are trusted.
 
 ## MSK
 
@@ -490,7 +693,23 @@ docker pull apache/kafka@sha256:ed74d7d115968d5e8b00ba6822ac6a384cbaaf54ca389918
   -docker-host unix:///var/run/docker.sock -msk-runtime
 ```
 
-This is Apache Kafka 3.7.1, the same installed pin used by Kinesis. `-msk-image` must resolve to the expected content; `-msk-endpoint-host` defaults to `127.0.0.1` for operator-local public-client listeners. Follow [MSK public Kafka brokers](behavior-references.md#msk-public-kafka-brokers): create a provisioned cluster with `KafkaVersion=3.7.1`, one to three brokers, `BrokerNodeGroupInfo.InstanceType=kafka.local` and an empty required `ClientSubnets` list. `kafka.local` is a local selector, not an AWS instance type. Poll `DescribeCluster`/`DescribeClusterV2`, retrieve `GetBootstrapBrokers`, then use a real Kafka producer/consumer and the configured authentication mode. No invented ZooKeeper endpoints, managed VPC/AZ/EBS or AWS network isolation is promised. Retain each broker's exact-owned volumes with SQLite.
+The image runs Apache Kafka 3.7.1 and is shared with Kinesis.
+`-msk-image` must resolve to the expected content. `-msk-endpoint-host` defaults
+to `127.0.0.1` for operator-local public-client listeners.
+
+Create a provisioned cluster with:
+
+- `KafkaVersion=3.7.1`.
+- One to three brokers.
+- `BrokerNodeGroupInfo.InstanceType=kafka.local`, a local selector rather than
+  an AWS instance type.
+- The required `ClientSubnets` field set to an empty list.
+
+Poll `DescribeCluster`/`DescribeClusterV2`, retrieve `GetBootstrapBrokers`, then
+connect a Kafka producer/consumer using the configured authentication mode.
+See [MSK public Kafka brokers](behavior-references.md#msk-public-kafka-brokers).
+ZooKeeper endpoints, managed VPC/AZ/EBS and AWS network isolation are unsupported.
+Preserve each broker's volumes alongside SQLite.
 
 ## Valkey and local TLS
 
@@ -500,7 +719,12 @@ Install the [official Valkey image](https://valkey.io/topics/installation/):
 docker pull valkey/valkey@sha256:1cb6b20b70d927560cc4cc5397b5f045e74aa603ff7696274778880bb6fadc75
 ```
 
-TLS resources require a PEM certificate/key covering **IP `127.0.0.1`**. For a private local development instance, the following [OpenSSL](https://docs.openssl.org/3.0/man1/openssl-req/) command creates a self-signed trust anchor/server certificate usable by both Valkey and MQ. Install OpenSSL through your distribution first. Use a new private directory; do not overwrite a certificate belonging to retained resources.
+TLS resources need a PEM certificate and key covering **IP `127.0.0.1`**.
+Install OpenSSL through your distribution. For private local development, this
+[OpenSSL command](https://docs.openssl.org/3.0/man1/openssl-req/) creates a
+self-signed trust anchor/server certificate for Valkey and MQ.
+Use a new private directory; do not overwrite certificates used by retained
+resources.
 
 ```sh
 umask 077
@@ -519,9 +743,23 @@ chmod 600 data/tls/local.key
   -valkey-tls-key "$PWD/data/tls/local.key"
 ```
 
-Trust `local.crt` explicitly in native clients (for example `valkey-cli --tls --cacert /absolute/path/local.crt -h 127.0.0.1 -p PORT` using the API-returned port and required credentials). Do not disable certificate verification. Keep the private key on the host and retain the certificate for clients/restarts; this development self-signed setup is not a public PKI deployment. Plan rotation before expiry rather than regenerating files under live resources.
+Configure clients to trust `local.crt`, for example with
+`valkey-cli --tls --cacert /absolute/path/local.crt -h 127.0.0.1 -p PORT`.
+Use the API-returned port and required credentials, with certificate verification
+enabled. Keep the private key on the host and retain the certificate for clients
+and restarts. This self-signed setup is for development; plan rotation before
+expiry rather than replacing files under live resources.
 
-Create ElastiCache/MemoryDB resources, users and ACLs through their APIs, poll Describe status, then issue a real native command. [Valkey setup](behavior-references.md#explicit-setup) and its surrounding service contract give the supported topology/authentication/version choices. MemoryDB defaults to TLS; plaintext is only admitted for the open-access ACL, and authenticated ElastiCache requires TLS. `-valkey-image` is an immutable installed override still subject to native-version checking. The runtime requires a local Unix daemon; native endpoints bind loopback, not an AWS VPC. Preserve owned data/snapshot volumes with SQLite.
+Create ElastiCache/MemoryDB resources, users and ACLs through their APIs. Poll
+Describe status, then connect and issue a Valkey command. See
+[Valkey setup](behavior-references.md#explicit-setup) for supported topology,
+authentication and versions.
+
+MemoryDB defaults to TLS and permits plaintext only with the open-access ACL.
+Authenticated ElastiCache requires TLS. `-valkey-image` accepts an installed
+immutable image subject to version checking. The runtime requires a local Unix
+daemon and exposes loopback endpoints, not an AWS VPC. Preserve data and snapshot
+volumes alongside SQLite.
 
 ## Amazon MQ
 
@@ -548,15 +786,40 @@ chmod 700 data/mq
   -mq-java "$JAVA_HOME/bin/java"
 ```
 
-The controller extracts JMS/OpenWire JARs from the **already installed ActiveMQ image** and compiles its embedded bridge with the installed `javac`; it does not fetch Maven dependencies at runtime. The JDK must also support `--release 11` for the native metrics reader. The private MQ state directory contains generated configuration, keystores, compiled helpers and sensitive credentials; it must be local to the daemon because the runtime bind-mounts it. Retain it, the TLS material, broker data volumes and SQLite together.
+The controller extracts JMS/OpenWire JARs from the installed ActiveMQ image and
+compiles its bridge with `javac`, without runtime Maven downloads. The JDK must
+support `--release 11` for the metrics reader.
 
-Pins run RabbitMQ 3.13.7 and ActiveMQ Classic 5.18.7. Upstream engine references: [RabbitMQ installation](https://www.rabbitmq.com/docs/download), [ActiveMQ Classic Docker](https://activemq.apache.org/components/classic/documentation/docker). Create brokers through `CreateBroker` with the supported **public `SINGLE_INSTANCE`, `mq.t3.micro`, SIMPLE authentication** configuration and pinned engine version; RabbitMQ also needs the modeled service-linked-role authority. Poll `DescribeBroker` for `RUNNING`, then use the returned local TLS AMQP/OpenWire endpoint with the trusted certificate and your broker user. Java clients need the appropriate JMS client libraries/trust store as well; stackd's internal bridge is not a general client installation.
+The MQ state directory contains configuration, keystores, compiled helpers and
+sensitive credentials. It must be private and local to the daemon for bind
+mounting. Retain it with TLS material, broker data volumes and SQLite.
 
-[MQ execution and durable ownership](mq.md#actual-execution-and-durable-ownership) details supported creation, configuration, authentication, readiness and deletion. Public here means operator-local loopback listeners, not Internet-accessible AWS DNS. ActiveMQ native readiness does not prove a particular customer's ACL grants JMS operations; test that user's real connection/destination permissions. No replicated fleet, private VPC isolation or AWS encrypted managed storage is implied.
+The images run RabbitMQ 3.13.7 and ActiveMQ Classic 5.18.7. Upstream references:
+[RabbitMQ installation](https://www.rabbitmq.com/docs/download) and
+[ActiveMQ Classic Docker](https://activemq.apache.org/components/classic/documentation/docker).
+
+Call `CreateBroker` with the pinned engine version and public `SINGLE_INSTANCE`,
+`mq.t3.micro`, SIMPLE authentication configuration. RabbitMQ also requires the
+modeled service-linked-role authority. Poll `DescribeBroker` for `RUNNING`,
+then connect to the returned TLS AMQP/OpenWire endpoint using the trusted
+certificate and broker user.
+
+Java clients need their own JMS libraries and trust store; the internal bridge
+does not install them. Test the intended user's connection and destination
+permissions, since broker readiness does not validate that user's ACL.
+See [MQ execution and lifecycle](mq.md#actual-execution-and-durable-ownership)
+for configuration, authentication and deletion.
+
+Public endpoints here are operator-local loopback listeners, not Internet-facing
+AWS DNS. Replicated fleets, private VPC isolation and AWS encrypted managed
+storage are unsupported.
 
 ## ALB relay
 
-ALB execution needs the shared Docker host plus SQLite and the shared EC2 bridge/policy owners; for host networking/guest setup see [VM deployment](runtime-vms.md) and [EC2 networking](ec2.md). Build a static **Linux** relay matching the daemon host architecture. On this Linux source-build host:
+ALB requires the shared Linux Docker host, SQLite and EC2 bridge/policy management.
+See [VM deployment](runtime-vms.md) and [EC2 networking](ec2.md) for host setup.
+Build a static Linux relay matching the daemon host architecture. On a Linux
+source-build host:
 
 ```sh
 CGO_ENABLED=0 go build -o bin/stackd-elbv2-node ./cmd/stackd-elbv2-node
@@ -566,11 +829,27 @@ CGO_ENABLED=0 go build -o bin/stackd-elbv2-node ./cmd/stackd-elbv2-node
   -dns-listen 127.0.0.1:5353
 ```
 
-The relay is mounted into owned toolkit containers; pass its absolute installed path and retain it across reattachment. There is no separate ALB server image to pull. Create EC2 VPC/subnets/security groups, an application load balancer, target group, registered targets and listener through the local APIs. Inspect load-balancer state and target health and make a real request to the returned hostname. [EC2](ec2.md) and [DNS resolution/delegation](route53.md#dns-resolution-and-delegation-boundary) define networking and supported routing. Configure clients to use stackd's authoritative UDP **and TCP** DNS listener; ordinary system DNS will not automatically resolve these names. With no `-dns-listen`, ALB chooses an ephemeral loopback DNS port printed at startup. Port 5353 here is an explicit local example and must be free. The main API port is not the ALB data listener or DNS port.
+Pass the relay's absolute installed path and retain it for reattachment.
+Stackd mounts it into toolkit containers; no separate ALB server image is needed.
+
+Through the local APIs, create EC2 VPC/subnets/security groups, an application
+load balancer, target group, targets and listener. Check load-balancer state and
+target health, then send a request to the returned hostname. See
+[EC2](ec2.md) and [DNS routing](route53.md#dns-resolution-and-delegation-boundary).
+
+Configure clients to use stackd's authoritative DNS listener over both UDP and
+TCP; system DNS does not automatically resolve these names. Without
+`-dns-listen`, ALB allocates a loopback DNS port and prints it at startup.
+The example uses port 5353, which must be free. The main API, DNS and ALB data
+listeners use separate ports.
 
 ## ECR scanner
 
-Basic vulnerability scanning needs **Trivy 0.74.0** and a separately prepared **schema-2 vulnerability DB**, not Docker. Download the matching binary from the [official immutable release](https://github.com/aquasecurity/trivy/releases/tag/v0.74.0). The following connected preparation example is for Linux amd64 (for arm64 select the release's `Linux-ARM64` archive):
+Basic vulnerability scanning requires **Trivy 0.74.0** and a separately prepared
+**schema-2 vulnerability DB**; Docker is not required. Download the binary from
+the [official release](https://github.com/aquasecurity/trivy/releases/tag/v0.74.0).
+This connected preparation example uses Linux amd64. For arm64, choose the
+release's `Linux-ARM64` archive.
 
 ```sh
 mkdir -p tools/trivy data/trivy-cache
@@ -585,7 +864,14 @@ tar -xzf tools/trivy/trivy_0.74.0_Linux-64bit.tar.gz -C tools/trivy trivy
   --db-repository ghcr.io/aquasecurity/trivy-db:2 --download-db-only
 ```
 
-Verify the release's published signatures according to [Trivy installation guidance](https://trivy.dev/latest/getting-started/installation/) for your supply-chain policy; checksums alone are not independent publisher authentication. Follow [Trivy air-gapped operation](https://trivy.dev/latest/advanced/air-gap/) when transferring the binary and complete cache (`db/trivy.db` and `db/metadata.json`) to an offline host. The DB changes independently of the pinned executable: record its metadata and refresh explicitly during connected maintenance. Startup does not download it.
+Verify published signatures using [Trivy's installation guidance](https://trivy.dev/latest/getting-started/installation/)
+and your supply-chain policy. Checksums detect corruption but do not independently
+authenticate the publisher.
+
+For offline use, transfer the binary and complete cache, including `db/trivy.db`
+and `db/metadata.json`, following [Trivy's air-gap instructions](https://trivy.dev/latest/advanced/air-gap/).
+Record the DB metadata and refresh it during connected maintenance; the database
+changes independently of the pinned executable. Startup does not download it.
 
 ```sh
 ./bin/stackd -listen 127.0.0.1:4566 -database "$PWD/data/stackd.sqlite" \
@@ -593,13 +879,35 @@ Verify the release's published signatures according to [Trivy installation guida
   -ecr-scanner-cache "$PWD/data/trivy-cache"
 ```
 
-This scanner-only launch needs no `-docker-host`. To combine it with native compute, add the two scanner flags to the shared Docker launch instead. Create an ECR repository and upload a real supported OCI/Docker image's manifest/config/layers through the supported registry/API path, request `StartImageScan`, and poll `DescribeImageScanFindings`. [ECR and CodeBuild](behavior-references.md#ecr-and-codebuild) documents the upload/scan contract and supported image boundary. Missing DB/executable, wrong version or unsupported image must not be interpreted as a clean scan. Results are from this local Trivy/DB combination, not AWS scanner-database equivalence.
+This scanner-only launch needs no `-docker-host`. To combine scanning with
+compute, add both scanner flags to the shared Docker launch.
+
+Create an ECR repository, upload a supported OCI/Docker image's manifest,
+configuration and layers, call `StartImageScan`, then poll
+`DescribeImageScanFindings`. See [ECR and CodeBuild](behavior-references.md#ecr-and-codebuild)
+for supported uploads and image formats.
+
+A missing DB/executable, wrong version or unsupported image is a scan failure,
+not a clean result. Findings reflect the installed Trivy version and DB, which
+can differ from AWS's scanner database.
 
 ## Shutdown and retained state
 
-Use Ctrl-C/SIGTERM for graceful controller shutdown. Do not treat it as a universal infrastructure stop: Lambda environments close, but with SQLite the database, broker, ECS and other durable engines have service-specific detach/reattach behavior. Stop or delete resources through the relevant service APIs when that is your intent, and inspect their terminal state before retiring metadata. Deletion can destroy native bytes; a stop is not a delete.
+Use Ctrl-C/SIGTERM for graceful controller shutdown. Lambda environments close;
+durable database, broker, ECS and other engines have service-specific
+detach/reattach behavior with SQLite. To stop or delete resources, use their
+service APIs and inspect terminal state before retiring metadata. Deletion can
+destroy engine data; stopping does not delete it.
 
-Keep the stable SQLite path, Docker's exact-owned volumes/networks, MQ state/TLS files, installed helper paths and any external source/output data together. SQLite is control state, not a backup of all native engine bytes. Back up using the service's supported snapshot/backup path and retain ownership metadata. With in-memory repositories, graceful CLI shutdown attempts deletion of the native engines it owns; this does not cover every workload, crashes or SIGKILL. Never use blanket `docker system prune`, volume removal or unrelated-container cleanup as stackd shutdown.
+Retain the stable SQLite path, owned Docker volumes/networks, MQ state/TLS files,
+helper paths and external source/output data together. SQLite stores control
+state, not all engine data. Use service snapshot/backup operations and retain
+ownership metadata.
+
+With in-memory repositories, graceful CLI shutdown attempts to delete owned
+engines. This does not cover every workload or cleanup after crashes/SIGKILL.
+Do not use blanket `docker system prune`, volume removal or unrelated-container
+cleanup as stackd shutdown.
 
 Privileged setup helpers and Docker access require trusted operators.
 The API's IAM model does not isolate host processes or provide hardened

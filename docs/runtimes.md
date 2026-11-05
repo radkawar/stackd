@@ -95,22 +95,43 @@ After installing the Lambda prerequisites, this Lambda-only launch binds the API
   -docker-host unix:///var/run/docker.sock -lambda-runtime
 ```
 
-This deliberately broadens network exposure; restrict the host/network boundary to trusted clients. Host tools may still use `http://127.0.0.1:4566` for local-only calls, but that origin is unsuitable for resource URLs that a container must later consume. For such workflows, choose an origin reachable from both host and containers, provision resources through that origin, and set `-public-endpoint` and `-compute-endpoint` to the corresponding reachable origins. For example, a queue URL created through a loopback endpoint can still direct an SDK inside Lambda back to container loopback, even when its default endpoint is correct. Do not patch returned URLs or inject per-handler SDK shims to conceal a routing mistake.
+Binding to `0.0.0.0` exposes the API on all IPv4 interfaces. Restrict access to
+trusted clients. When containers consume returned resource URLs, provision
+resources through an address reachable from both the host and containers.
+For example, a queue URL containing `127.0.0.1` points back to the container
+when used inside Lambda, regardless of the SDK's default endpoint.
 
-`-public-endpoint` controls advertised URLs; `-compute-endpoint` controls the execution-facing AWS endpoint; neither changes where `-listen` binds. Lambda, ECS, CodeBuild, Glue and EC2 guest execution request a default compute origin: without an explicit compute endpoint, a loopback listener fails that selection. `-docker-host` alone and DynamoDB/Kinesis-only launches do not impose this check. An explicit loopback URL does **not** make it reachable from a container. Some host-side engine guides use explicit loopback origins for controller-only access; that is not a general Lambda/ECS networking recipe.
+Configure the addresses separately:
 
-Lambda Runtime API callbacks are a fourth, separate connection: `-lambda-runtime-listen` binds the callback server and `-lambda-callback-host` advertises where its actual container RIC/bootstrap reaches that server. Explicit `host.docker.internal` uses Desktop's container DNS without controller-side resolution or a shadow host mapping; empty callback host uses Linux host-gateway. Engine-specific settings below do not replace the main AWS API endpoint. HTTPS requires matching names and trusted CA material for every client; stackd does not rewrite host DNS or trust stores.
+- `-listen` sets the API bind address.
+- `-public-endpoint` sets the address in advertised resource URLs.
+- `-compute-endpoint` sets the AWS API address used by execution runtimes.
+
+Lambda, ECS, CodeBuild, Glue and EC2 guest execution require a reachable compute
+endpoint. Without an explicit setting, a loopback listener prevents selection of
+that endpoint. Docker configuration alone and DynamoDB/Kinesis-only launches do
+not impose this check. Setting a loopback URL explicitly does not make it
+reachable from containers.
+
+Lambda Runtime API callbacks use a separate server. `-lambda-runtime-listen`
+sets its bind address, and `-lambda-callback-host` sets the hostname used by the
+function's runtime client. Set `host.docker.internal` for Docker Desktop; leaving
+it empty uses Linux host-gateway. Desktop resolves the hostname inside the
+container, without a controller-side DNS lookup or host mapping.
+
+For HTTPS, configure matching certificate names and trusted CA certificates in
+each client. These endpoint flags do not modify host DNS or trust stores.
 
 ## Execution selection and prerequisites
 
 Boolean runtime flags below default to `false`. Supplying `-docker-host` alone does **not** enable the separately gated engines.
 
-| Workload | Opt-in and additional preparation | Detailed contract |
+| Workload | Flags and prerequisites | Setup guide |
 | --- | --- | --- |
 | Lambda ZIP/image functions | `-docker-host -lambda-runtime`; installed official ZIP runtime images or customer image, Linux telemetry helpers and storage helper; toolkit for VPC networking. | [Lambda](lambda.md#current-application-path) |
 | Lambda managed instances | QEMU/EC2 plus a guest AMI containing official SSM, Docker, pinned runtimes and the compiled managed agent; explicit instance profile/type and runtime mappings. | [Managed guest deployment](runtime-vms.md#managed-instance-lambda) |
 | ECS tasks/services | `-docker-host -ecs-runtime`; local Linux host admission, pinned toolkit, installed customer images, supported Linux Fargate/`awsvpc` configuration and IAM/network resources. | [ECS setup](ecs.md#setup-and-supported-execution) |
-| CodeBuild | `-docker-host -codebuild-runtime` and reachable compute endpoint; installed build images. `-codebuild-fleet-image` supplies an immutable local image for real idle fleet capacity. | [ECR and CodeBuild](behavior-references.md#ecr-and-codebuild) |
+| CodeBuild | `-docker-host -codebuild-runtime` and reachable compute endpoint; installed build images. `-codebuild-fleet-image` supplies an immutable local image for idle fleet capacity. | [ECR and CodeBuild](behavior-references.md#ecr-and-codebuild) |
 | DynamoDB / Kinesis | `-docker-host` plus `-dynamodb-runtime` and/or `-kinesis-runtime`; installed native DynamoDB Local / Apache Kafka images, not Lambda/ECS helpers. | [DynamoDB](behavior-references.md#dynamodb-engine-references), [Kinesis](behavior-references.md#imported-record-engine-experiments) |
 | S3 ORC inventory | `-docker-host -inventory-orc-runtime`; explicitly build the encoder above. | [S3 inventory](cloudtrail.md) |
 | Glue / Athena | `-glue-runtime` and/or `-athena-runtime`, plus Docker and the documented immutable images. | [Analytics engines and licensing](behavior-references.md#glue-and-athena-engines-evidence-and-boundaries) |
@@ -118,10 +139,10 @@ Boolean runtime flags below default to `false`. Supplying `-docker-host` alone d
 | DocumentDB compatibility | `-docdb-runtime`, Docker, installed pinned MongoDB compatibility image; this is not AWS DocumentDB's engine. | [DocumentDB setup](documentdb.md#native-setup) |
 | OpenSearch | `-opensearch-runtime`, Docker, installed pinned OpenSearch image. | [Search engines and boundaries](behavior-references.md#opensearch-engines-evidence-and-boundaries) |
 | MSK | `-msk-runtime`, Docker, installed pinned Kafka image for supported public clusters. | [MSK public brokers](behavior-references.md#msk-public-kafka-brokers) |
-| ElastiCache / MemoryDB | `-valkey-runtime`, local Docker, installed immutable Valkey image; real certificate/key for TLS resources. | [Valkey setup](behavior-references.md#explicit-setup) |
+| ElastiCache / MemoryDB | `-valkey-runtime`, local Docker, installed immutable Valkey image; certificate and key for TLS resources. | [Valkey setup](behavior-references.md#explicit-setup) |
 | Amazon MQ | `-mq-runtime`, Docker, `-mq-state-directory`, explicit `-mq-tls-certificate` and `-mq-tls-key`; installed broker engines and Java/JMS dependencies. | [MQ execution and ownership](mq.md#actual-execution-and-durable-ownership) |
 | EC2 / EBS guest execution | `-ec2-state-directory`, SQLite, local Docker, QEMU/KVM tools, firmware and prepared guest images. | [EC2](ec2.md) |
-| EKS | `-eks-state-directory`, SQLite, Docker, operator-installed pinned k3d and node images; real EC2 workers need their own guest setup. | [EKS runtime selection](eks.md#explicit-runtime-selection) |
+| EKS | `-eks-state-directory`, SQLite, Docker, installed pinned k3d and node images; EC2 workers need their own guest setup. | [EKS runtime selection](eks.md#explicit-runtime-selection) |
 | ALB execution | `-elbv2-node-executable`, SQLite, Docker and shared EC2 bridge/policy owners; explicitly build the static Linux relay below. | [EC2 networking](ec2.md), [DNS](route53.md#dns-resolution-and-delegation-boundary) |
 | ECR basic vulnerability scans | `-ecr-scanner` plus `-ecr-scanner-cache`: Trivy 0.74.0 and pre-provisioned schema-2 vulnerability DB. | [ECR scanning](behavior-references.md#ecr-and-codebuild) |
 
@@ -142,17 +163,17 @@ The table lists exact CLI defaults. “Empty override” means the adapter selec
 | Flags | Defaults and purpose |
 | --- | --- |
 | `-docker-host`, `-compute-endpoint` | Empty; explicit Docker Engine URL and reachable AWS origin. Compute default selection is described above. |
-| `-lambda-runtime`, `-ecs-runtime`, `-codebuild-runtime`, `-dynamodb-runtime`, `-kinesis-runtime`, `-inventory-orc-runtime` | All `false`; independently enable their real owners and require `-docker-host`. |
+| `-lambda-runtime`, `-ecs-runtime`, `-codebuild-runtime`, `-dynamodb-runtime`, `-kinesis-runtime`, `-inventory-orc-runtime` | All `false`; enable the corresponding runtimes and require `-docker-host`. |
 | `-lambda-callback-host` | Empty uses Linux host-gateway; explicit `host.docker.internal` preserves Desktop's container DNS without host resolution/mapping. Requires `-lambda-runtime`. |
 | `-lambda-runtime-listen` | `0.0.0.0:0`; Runtime API bind address. |
 | `-lambda-telemetry-directory` | Empty uses the stackd executable's directory; contains static Linux helpers, including for a native macOS controller. Requires `-lambda-runtime` when supplied. |
 | `-lambda-keep-alive` | `10m`; warm idle lifetime in service time; `0` forces cold invocations. |
 | `-lambda-storage-image` | Empty override; installed immutable disk-storage helper. Requires `-lambda-runtime` when supplied. |
 | `-lambda-hot-reload-code`, `-lambda-hot-reload-layers` | Repeatable `unqualified-function-arn=/absolute/path`; no mappings by default; requires `-docker-host -lambda-runtime`. Development source directories, not deployment persistence. |
-| `-lambda-managed-image-id`, `-lambda-managed-instance-profile`, `-lambda-managed-instance-type` | Empty disables usable managed capacity; select an imported prepared AMI, guest instance-profile ARN and real EC2 guest type. |
+| `-lambda-managed-image-id`, `-lambda-managed-instance-profile`, `-lambda-managed-instance-type` | Empty disables managed capacity; select a prepared AMI, guest instance-profile ARN and supported EC2 guest type. |
 | `-lambda-managed-runtime-image` | Repeatable `runtime:architecture=image@sha256:digest` installed inside the guest; no default mappings. |
 | `-lambda-managed-agent-port` | `9443`; private guest HTTPS management port, requiring controller-to-guest admission. |
-| `-codebuild-fleet-image` | Empty; explicit installed local image ID/digest for real idle fleet capacity. Requires `-codebuild-runtime`. |
+| `-codebuild-fleet-image` | Empty; installed local image ID/digest for idle fleet capacity. Requires `-codebuild-runtime`. |
 | `-ecr-scanner`, `-ecr-scanner-cache` | Both empty; executable and offline vulnerability DB cache, required together. |
 | `-glue-spark-image`, `-glue-python-image` | Empty immutable image overrides; require `-glue-runtime`. |
 | `-athena-image`, `-athena-hive-ddl-image` | Empty immutable Trino / Apache Spark DDL-parser image overrides; require `-athena-runtime`. |
@@ -182,17 +203,39 @@ Guest and Kubernetes configuration is deliberately explicit:
 | `-lambda-managed-agent-port` | `9443`; private guest HTTPS agent port. |
 | `-lambda-managed-runtime-image` | Repeatable `runtime:architecture=digest-pinned-reference`, installed in the guest; no mappings by default. |
 
-The EC2 CLI discovers `qemu-system-x86_64`, `qemu-img`, `qemu-nbd`, `qemu-io`, `dnsmasq` and `dhcp_release` on PATH. Installing binaries alone does not prepare firmware, disks, networking or guest images. Managed Lambda capacity additionally requires persistent SQLite, the real EC2 runtime, all three managed image/profile/type settings, at least one installed runtime mapping and a valid agent port. Follow [managed Lambda capacity](lambda.md#managed-instances-and-capacity-providers), not an ordinary host-container recipe.
+The EC2 CLI finds `qemu-system-x86_64`, `qemu-img`, `qemu-nbd`, `qemu-io`,
+`dnsmasq` and `dhcp_release` on PATH. Prepare firmware, disks, networking and
+guest images before launching instances. Managed Lambda also requires SQLite,
+the EC2 runtime, all three managed image/profile/type settings, at least one
+installed runtime mapping and a valid agent port. See
+[managed Lambda capacity](lambda.md#managed-instances-and-capacity-providers).
 
 ## Isolation, shutdown and retained state
 
-Execution runtimes run application code and engine processes with access to host resources:
+Execution runtimes run application code and engine processes with access to host
+resources. Use a trusted host: Docker administrators, local processes and
+privileged setup helpers are outside API IAM controls.
 
-- Lambda uses runtime containers and disk-backed temporary storage. ECS manages task network namespaces, cgroup limits, volumes and packet rules. Privileged setup helpers and Docker access require trusted operators; this is not a hardened multi-tenant service.
-- Native database/search listeners commonly bind Docker-host loopback. The controller and relevant native clients must satisfy that network contract. Local host processes and Docker administrators remain trusted; an API IAM policy is not a host-local engine firewall.
-- SQLite retains control state, not a serialization of running processes or all native bytes. Separate volumes, guest disks, configuration directories and cluster state must be retained with it.
-- Graceful shutdown closes owned Lambda environments. Persistent ECS workloads, database engines, EC2 guests and EKS clusters have service-specific retention/reattachment behavior; **stopping stackd is not “stop all infrastructure.”** See [ECS recovery](ecs.md#runtime-ownership-dependencies-and-recovery), [RDS lifecycle](rds.md#ownership-and-lifecycle), [EKS ownership](eks.md#explicit-runtime-selection) and [SQLite limits](sqlite-state.md).
-- With no SQLite database, the CLI attempts graceful cleanup of native resources owned by its in-memory repositories, including DynamoDB, Kinesis, RDS, DocumentDB, OpenSearch, MSK, MQ and Valkey. Do not generalize this to every workload or to crashes/SIGKILL. With SQLite, those retained engines are not deleted merely because the controller exits.
-- Stop workloads through their service APIs when supported; distinguish stopping a process from deleting a resource and its data. Never use blanket Docker prune/removal as stackd shutdown. Preserve disks and volumes unless their deletion is intended and exact ownership is established.
+Lambda uses containers and disk-backed temporary storage. ECS manages task
+network namespaces, cgroups, volumes and packet rules. Database and search
+listeners commonly bind Docker-host loopback, so clients must be able to reach
+that host.
 
-For practical shutdown, inventories, safe restart and sharing an instance, continue with [Operations](operations.md). Embedders own injected runtime disposal separately from closing the stack; see each runtime's contract rather than assuming CLI lifecycle applies to library callers.
+SQLite stores control-plane state. Retain engine volumes, guest disks,
+configuration directories and cluster state separately.
+
+Graceful shutdown closes Lambda environments. Persistent ECS workloads,
+databases, EC2 guests and EKS clusters can remain running after stackd exits.
+See [ECS recovery](ecs.md#runtime-ownership-dependencies-and-recovery),
+[RDS lifecycle](rds.md#ownership-and-lifecycle),
+[EKS ownership](eks.md#explicit-runtime-selection) and [SQLite state](sqlite-state.md).
+
+Without SQLite, the CLI attempts graceful cleanup of the DynamoDB, Kinesis,
+RDS, DocumentDB, OpenSearch, MSK, MQ and Valkey resources tracked in memory.
+This cleanup is not guaranteed after a crash or SIGKILL. With SQLite, those
+engines are retained when the controller exits.
+
+Stop or delete workloads through their service APIs. Do not use blanket Docker
+pruning to shut down stackd; it can remove unrelated resources and stored data.
+Follow [Operations](operations.md) for shutdown, backups and restart procedures.
+Go embedders must also close runtimes they supply to the stack.

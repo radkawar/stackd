@@ -2,35 +2,30 @@
 
 [Project overview](../README.md)
 
-Start with the user guides. The service and engineering references below retain
-the existing implementation details, native evidence and explicit limitations;
-they are not a claim of complete AWS parity.
+Use the guides below to install stackd, configure clients and run workloads.
+Service references describe supported operations, setup requirements and limitations.
 
 ## User guides
 
 | Guide | Use it for |
 | --- | --- |
-| [Getting started](getting-started.md) | Build from source, start the API, use AWS CLI/SDKs, exercise S3/SQS and restart. |
-| [Configuration](configuration.md) | Credentials and IAM, accounts/regions, listener/advertised/compute endpoints, TLS, SQLite and manual time. |
-| [Networking](networking.md) | Opt-in gateway/resource DNS, forwarding, scoped development CA/runtime trust, deployment recipes, native port pools, isolated AWS HTTPS routing and reversible host split DNS. |
-| [Runtime overview](runtimes.md), [containers and engines](runtime-containers.md), [QEMU/KVM and k3d](runtime-vms.md) | Install dependencies/images, deploy real backends, configure networking, provision workloads and retain state. |
+| [Getting started](getting-started.md) | Install stackd, make AWS CLI/SDK requests, and try S3 and SQS. |
+| [Releases](releases.md#install-a-published-release) | Download packages and verify checksums. |
+| [Configuration](configuration.md) | Accounts, credentials, endpoints, TLS, persistence and service time. |
+| [Networking](networking.md) | DNS, forwarding, certificates, runtime ports and host integration. |
+| [Runtime overview](runtimes.md), [containers and engines](runtime-containers.md), [QEMU/KVM and k3d](runtime-vms.md) | Install runtime dependencies and provision workloads. |
 | [Operations](operations.md) | Diagnostics, shutdown, retained infrastructure, backups, resets and troubleshooting. |
-| [Native probe privacy](behavior-references.md#publishing-sanitized-probe-captures) | Explicit account guards, private raw captures, sanitized publication and authenticated fixture limits. |
+| [Examples](../examples/README.md) | Run Terraform, CloudFormation and Lambda live-reload examples. |
 
-The original root README is preserved as the
-[implementation and development reference](implementation-reference.md). Its
-[embedding examples](implementation-reference.md#embed-in-go-tests),
-[development workflow](implementation-reference.md#develop),
-[generated API contracts](implementation-reference.md#generated-aws-api-layer)
-and [OpenSearch example](implementation-reference.md#native-opensearch) remain
-available at stable headings. Commands in these documents run from the repository
-root unless stated otherwise.
+For development, see the [build and test instructions](implementation-reference.md#develop),
+[Go embedding examples](implementation-reference.md#embed-in-go-tests) and
+[generated API reference](implementation-reference.md#generated-aws-api-layer).
+Source-build commands run from the repository root unless stated otherwise.
 
 ## Service guides
 
-Services share one AWS HTTP endpoint but have different behavior, resource
-lifecycles and runtime prerequisites. A guide's verified examples establish
-those examples—not every modeled operation or every AWS configuration.
+Services share an AWS HTTP endpoint. Each guide describes the service's resource
+lifecycle, runtime dependencies and differences from AWS.
 
 ### Identity, accounts and security
 
@@ -63,9 +58,9 @@ Specialized IAM/STS references:
 | Lambda | [Runtime API, deployment, invocation and event sources](lambda.md) |
 | EC2, VPC, EBS and Auto Scaling | [Guest execution and networking](ec2.md) |
 | ECS and Application Auto Scaling | [Tasks, services, credentials and recovery](ecs.md) |
-| EKS | [Real Kubernetes, access and native ownership](eks.md) |
+| EKS | [Kubernetes clusters, access and lifecycle](eks.md) |
 | Route 53 | [DNS data plane and delegation](route53.md) |
-| Load balancing | [ALB execution and evidence](behavior-references.md#application-load-balancer-kernel) |
+| Load balancing | [Application Load Balancers](behavior-references.md#application-load-balancer-kernel) |
 | ECR and CodeBuild | [Images, builds, source/artifact handling and prerequisites](behavior-references.md#ecr-and-codebuild) |
 | CodePipeline | [Artifacts, actions, approvals and rollback](codepipeline.md) |
 | CloudFormation and Cloud Control | [Deployment behavior](behavior-references.md#cloudformation-deployments), [Cloud Control requests](behavior-references.md#cloud-control-resource-requests), [CDK workflow](behavior-references.md#official-cdk-bootstrap-and-deployment) |
@@ -77,12 +72,12 @@ Specialized IAM/STS references:
 | --- | --- |
 | S3 | [S3 behavior within the CloudTrail/S3 reference](cloudtrail.md#s3-dependency-scope) |
 | DynamoDB | [Native backend, tables, items, streams and recovery](behavior-references.md#dynamodb-engine-references) |
-| RDS and RDS Data | [Real PostgreSQL/MySQL execution](rds.md) |
+| RDS and RDS Data | [PostgreSQL and MySQL](rds.md) |
 | DocumentDB compatibility | [MongoDB-backed compatibility and differences](documentdb.md) |
 | OpenSearch | [Native setup](implementation-reference.md#native-opensearch), [behavior and limits](behavior-references.md#opensearch-engines-evidence-and-boundaries) |
 | ElastiCache and MemoryDB | [Valkey setup and behavior](behavior-references.md#elasticache-and-memorydb-native-valkey) |
-| Glue and Athena | [Actual job/query engines and licensing](behavior-references.md#glue-and-athena-engines-evidence-and-boundaries) |
-| Resource Groups and AppRegistry | [Owner-backed queries, membership and application groups](resourcegroups.md) |
+| Glue and Athena | [Job and query engines, setup and licensing](behavior-references.md#glue-and-athena-engines-evidence-and-boundaries) |
+| Resource Groups and AppRegistry | [Queries, membership and application groups](resourcegroups.md) |
 
 ### Messaging, APIs and application configuration
 
@@ -112,7 +107,7 @@ Specialized IAM/STS references:
 
 | Reference | Purpose |
 | --- | --- |
-| [Architecture](architecture.md) | Service owners, transport, authorization and real data-plane boundaries. |
+| [Architecture](architecture.md) | Services, transport, authorization and execution backends. |
 | [Verification kernel](verification-kernel.md) | Shared transactional events, deterministic service time and reusable IAM. |
 | [Event journal](event-journal.md) | Committed events, causality and delivery ownership. |
 | [SQLite state](sqlite-state.md) | Durable schemas, migrations and recovery limits. |
@@ -123,8 +118,9 @@ Specialized IAM/STS references:
 | [Operation inventory](services.json) | Generated registration status, not semantic coverage. |
 | [Remaining work](../TODO.md) | Unfinished behavior and integration targets. |
 
-Native observations are retained in [`testdata/aws/`](../testdata/aws/); local
-executable evidence is in [`testdata/integration/`](../testdata/integration/).
-Ordinary builds and local clients do not require native AWS access. Do not run
-probe scripts indiscriminately: some create billable AWS resources. See the
-[operational boundary](operations.md#real-aws-probes-are-a-separate-operational-boundary).
+AWS observations are stored in [`testdata/aws/`](../testdata/aws/), and local
+integration results in [`testdata/integration/`](../testdata/integration/).
+AWS probe scripts can create billable resources; review their
+[usage precautions](operations.md#real-aws-probes-are-a-separate-operational-boundary)
+and [capture privacy requirements](behavior-references.md#publishing-sanitized-probe-captures)
+before running them. Ordinary builds and local clients do not need AWS access.

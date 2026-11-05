@@ -6,18 +6,18 @@ the controller from source, then install the dependencies for your selected
 runtime. Firmware, guest operating systems, k3d and application images are
 installed separately.
 
-- [QEMU/KVM EC2](#qemukvm-ec2) executes Linux HVM guests with real EBS disks.
-- [k3d EKS](#k3d-eks) executes Kubernetes in Docker. Its bootstrap worker does not
-  require QEMU. **EKS managed node groups with real EC2 workers require both paths**,
-  plus prepared worker AMIs and guest-reachable networking.
+- [QEMU/KVM EC2](#qemukvm-ec2) runs Linux HVM guests with EBS disks.
+- [k3d EKS](#k3d-eks) runs Kubernetes in Docker. Its bootstrap worker does not
+  require QEMU. **EKS managed node groups require both runtimes**,
+  prepared worker AMIs and guest-reachable networking.
 - [Managed-instance Lambda](#managed-instance-lambda) adds official SSM, Docker,
   runtime images and the managed Lambda agent **inside** prepared EC2 guests.
 
-The examples use a native **Linux x86_64** controller on the same host as the
-Docker daemon. Debian/Ubuntu package examples are scoped to that environment,
-not Docker Desktop, macOS, rootless Docker or a remote daemon. They use local
-account `000000000000`, test credentials and local endpoints. Provisioning
-guests or clusters creates containers, disks and network interfaces on this host.
+The examples use a **Linux x86_64** controller on the same host as the
+Docker daemon. The Debian/Ubuntu instructions do not cover Docker Desktop,
+macOS, rootless Docker or a remote daemon. Examples use account
+`000000000000`, test credentials and local endpoints. Provisioning guests or
+clusters creates containers, disks and network interfaces on this host.
 
 ## Shared prerequisites
 
@@ -26,7 +26,7 @@ guests or clusters creates containers, disks and network interfaces on this host
 Use a systemd host with cgroup v2 and local rootful Docker Engine without
 user-namespace remapping for EC2 and EKS.
 `-docker-host` selects the Engine connection; it does not enable Lambda or ECS.
-Their runtime flags and Lambda telemetry/storage helpers are not needed here.
+EC2/EKS do not need Lambda telemetry or storage helpers.
 Docker-socket access grants host-root authority; restrict it to trusted users.
 
 For a fresh Ubuntu host, configure Docker's signed apt repository using the
@@ -53,13 +53,12 @@ sudo apt-get install qemu-system-x86 qemu-utils dnsmasq-base dnsmasq-utils \
 sudo apt-get install cpu-checker
 ```
 
-These correspond to the binaries discovered by
-[`cmd/stackd/ec2.go`](../cmd/stackd/ec2.go): `qemu-system-x86_64`, `qemu-img`,
-`qemu-nbd`, `qemu-io`, `dnsmasq`, and `dhcp_release`. The worker-image preparation
-script additionally uses `sfdisk` and a privileged Docker helper. See
-[Ubuntu's QEMU/KVM guide](https://ubuntu.com/server/docs/how-to/virtualisation/qemu/)
-for host virtualization setup. Libvirt is not the instance owner here; do not
-create a separate libvirt VM for an EC2 instance.
+The controller discovers `qemu-system-x86_64`, `qemu-img`, `qemu-nbd`, `qemu-io`,
+`dnsmasq` and `dhcp_release`; see [`cmd/stackd/ec2.go`](../cmd/stackd/ec2.go).
+The worker-image preparation script also uses `sfdisk` and a privileged Docker
+helper. See [Ubuntu's QEMU/KVM guide](https://ubuntu.com/server/docs/how-to/virtualisation/qemu/)
+for host virtualization setup. Stackd manages EC2 instances directly; do not
+create a separate libvirt VM for them.
 
 Install the Go toolchain required by [`go.mod`](../go.mod) (currently Go 1.26.5;
 [official installation](https://go.dev/doc/install)), AWS CLI v2
@@ -87,11 +86,11 @@ docker --host unix:///var/run/docker.sock info \
   --format 'OS={{.OSType}} cgroups={{.CgroupVersion}} driver={{.CgroupDriver}} security={{json .SecurityOptions}}'
 ```
 
-Expect Linux, cgroup v2, and no `rootless` or `userns` security option. These
-checks do not replace native adapter admission. Do not automatically rewrite an
-existing daemon configuration to pass them. A containerized controller additionally
-needs the daemon host's existing `/run/lock` inode and matching host paths; the
-native-controller examples below avoid that extra deployment contract.
+Expect Linux, cgroup v2, and no `rootless` or `userns` security option. Stackd
+also checks runtime prerequisites at startup. Review any existing Docker
+configuration before changing it. A containerized controller needs the daemon
+host's existing `/run/lock` inode and matching host paths; the examples below
+run the controller directly on the host.
 
 For a source build, run from the repository root. With a published release,
 place the installed controller at `bin/stackd` or substitute its path below.
@@ -118,17 +117,15 @@ docker --host "$DOCKER_ENGINE" image inspect "$TOOLKIT"
 ```
 
 For an offline deployment, transfer prepared images with `docker image save` /
-`docker image load`, or an approved registry mirror, and **inspect the exact
-reference above on the target daemon** before starting. Archive formats can lose
-repository-digest aliases; a matching tag alone does not establish that the
-runtime's digest-qualified reference resolves. Likewise stage Go dependencies,
-OS packages, firmware, k3d and guest inputs before disconnecting. Runtime flags
-are not download/install commands.
+`docker image load`, or a registry mirror, then inspect the exact reference above
+on the target daemon. Archives can lose repository-digest aliases, so a matching
+tag alone is insufficient. Also stage Go dependencies, OS packages, firmware,
+k3d and guest inputs before disconnecting; runtime flags do not install them.
 
-Only if you separately request `-lambda-runtime`, prepare its storage image and
-static Linux telemetry binaries as described in the
-[container guide](runtime-containers.md#shared-docker-host). Lambda's daemon/VM
-storage and networking ownership does not change EC2/EKS's local-host security.
+If you also enable `-lambda-runtime`, prepare its storage image and static Linux
+telemetry binaries as described in the
+[container guide](runtime-containers.md#shared-docker-host).
+EC2/EKS still require the local-host configuration described here.
 
 ### Reserve state, capacity and local credentials
 
@@ -157,8 +154,8 @@ EBS native volumes live under `$STATE/ec2/volumes`; the remaining EC2 runtime
 state is under `$STATE/ec2`. Preserve those directories and the database
 together. K3d additionally retains its Docker objects and `$STATE/eks` private
 credentials/manifests. Copying only SQLite is not a backup of live workloads.
-Guest instance-type RAM/vCPU allocations and Kubernetes workloads consume real
-host capacity; rollout surge needs additional headroom.
+Guest RAM/vCPU allocations and Kubernetes workloads consume host capacity;
+allow additional headroom for rollout surge.
 
 ## QEMU/KVM EC2
 
@@ -183,8 +180,8 @@ done
 ```
 
 Host kernel support for TAP/bridges, packet filtering and systemd CPU scopes is
-also required. Docker supplies privileged network/systemd operations, not a
-replacement guest kernel. Do not run a second DHCP server on stackd-owned
+also required. Docker performs privileged networking and systemd operations;
+guests use their own kernels. Do not run another DHCP server on stackd-managed
 bridges. Select VPC/subnet ranges that do not overlap your host, VPN, Docker or
 Kubernetes networks.
 
@@ -204,13 +201,12 @@ test -r "$EC2_BIOS"
 # export EC2_UEFI_VARS=/absolute/path/to/matching/vars.fd
 ```
 
-The smaller SeaBIOS `bios.bin` did not progress to NVMe disk reads in the retained
-workflow; do not silently substitute it for `bios-256k.bin`. UEFI variable-store
-templates are copied per instance: do not point multiple instances at a mutable
-shared NVRAM store. A UEFI-only guest needs both `-ec2-uefi-code` and
-`-ec2-uefi-vars`, and AMI `BootMode=uefi`; a legacy image needs `-ec2-bios` and
-`BootMode=legacy-bios`. There is no portable default firmware path or implied
-Secure Boot support.
+Use `bios-256k.bin` for the SeaBIOS configuration above: the smaller `bios.bin`
+did not reach NVMe disk reads in this workflow. UEFI variable-store templates
+are copied per instance; do not share a mutable NVRAM store between instances.
+A UEFI-only guest needs both `-ec2-uefi-code` and `-ec2-uefi-vars`, and AMI
+`BootMode=uefi`; a legacy image needs `-ec2-bios` and `BootMode=legacy-bios`.
+Firmware paths vary by distribution; this setup does not imply Secure Boot support.
 
 ### Start EC2/EBS execution
 
@@ -274,12 +270,11 @@ autostart; a chroot alone does not isolate networking. See the
 [image/network preparation cautions](ec2.md#execution-and-shared-compute-ownership).
 
 Import the **raw full disk** through signed EBS direct APIs, wait for snapshot
-completion, then register an AMI referring to it. There is no runtime flag that
-registers a file automatically. The following local-only example is the same
-sparse-block protocol used by
+completion, then register an AMI referring to it. Runtime flags do not register
+image files. This local-only example uses the sparse-block protocol from
 [`scripts/ssm_managed_guest_smoke.py`](../scripts/ssm_managed_guest_smoke.py)
 and [`scripts/ec2_launch_template_smoke.py`](../scripts/ec2_launch_template_smoke.py).
-The optional Python environment is client tooling, not controller state:
+The Python environment is client tooling, not controller state:
 
 ```sh
 python3 -m venv .venv
@@ -330,17 +325,17 @@ print(json.dumps({'imageId': image, 'snapshotId': snapshot}, indent=2))
 PY
 ```
 
-Retain both returned IDs. `EnaSupport` is API image metadata, not a claim that the
-guest sees an ENA device. For large images, use the existing bounded-concurrency
-importer as a reference; the sequential example favors clarity. See
+Retain both returned IDs. `EnaSupport` is API image metadata; the guest uses
+virtio-net, not an ENA device. For large images, use the existing
+bounded-concurrency importer as a reference. See
 [EBS direct snapshot data plane](ec2.md#ebs-direct-snapshot-data-plane) for block
 checksums, encryption and completion semantics.
 
 ### Provision an instance and observe it
 
-Set `IMAGE_ID` to the actual registered AMI ID. This example uses a new isolated
-VPC with no Internet route and relies on a prepared cloud-init image, not a
-package download during boot:
+Set `IMAGE_ID` to the registered AMI ID. This example creates an isolated VPC
+with no Internet route. Prepare cloud-init in the image before launch rather
+than downloading packages during boot:
 
 ```sh
 export IMAGE_ID=ami-REPLACE_WITH_RETURNED_ID
@@ -359,13 +354,12 @@ aws_local ec2 describe-instance-status --include-all-instances --instance-ids "$
 aws_local ec2 get-console-output --instance-id "$INSTANCE_ID" --latest
 ```
 
-Wait for your guest's actual boot marker and application health, not just
-`running`; console output can lag or require decoding the API's base64 `Output`.
-A timeout is a failure to investigate, not proof of readiness. Check controller
-logs, image/firmware pairing, permissions, KVM access and guest network policy.
-SSH requires an imported/generated EC2 key pair, guest sshd/cloud-init support,
-and explicit ingress; it is deliberately not opened by this example. Additional
-volumes use ordinary `CreateVolume`/`AttachVolume` APIs; see
+Wait for the guest's boot marker and application health as well as `running`.
+Console output can lag or require decoding the API's base64 `Output`. On a
+timeout, check controller logs, image/firmware pairing, permissions, KVM access
+and guest network policy. SSH requires an EC2 key pair, guest sshd/cloud-init
+support and ingress rules; this example does not open SSH. Additional volumes
+use `CreateVolume`/`AttachVolume`; see
 [volumes and volume-derived snapshots](ec2.md#volumes-and-volume-derived-snapshots).
 
 ## k3d EKS
@@ -388,10 +382,9 @@ export K3D="$PWD/bin/k3d-v5.8.3"
 "$K3D" version                             # must report k3d version v5.8.3
 ```
 
-Keep the release checksum manifest with the binary for offline re-verification.
-The checksum checks the release download against its published manifest; use
-your organization's artifact trust policy for provenance. The runtime rejects a
-different k3d version; `-eks-k3d` is a binary path, not an installation request.
+Keep the checksum manifest for offline verification and follow your artifact
+trust policy for release provenance. The runtime requires k3d v5.8.3;
+`-eks-k3d` selects the installed binary.
 
 Install the exact host Docker images used by
 [`compute/eks/versions.go`](../compute/eks/versions.go),
@@ -472,14 +465,14 @@ aws_local eks wait cluster-active --name local-eks
 aws_local eks describe-cluster --name local-eks --query 'cluster.{status:status,endpoint:endpoint,health:health}'
 ```
 
-The native cluster has one agentless k3s server and a separate local bootstrap
-worker, with no k3d load balancer or Traefik. Only the worker registers a Node.
-It is real Kubernetes capacity, but it is **not** a managed node group or a fake
-EC2 instance. `ACTIVE` follows native API readiness, not worker or application
-health. On failure, inspect `cluster.health` and controller/native logs; do not
-retry by deleting arbitrary Docker objects. Private endpoints/public CIDR
-controls are outside this runtime's supported boundary; the k3s CNI is not an
-implementation of EC2 VPC packet policy.
+The cluster has one agentless k3s server and a separate Docker bootstrap worker,
+with no k3d load balancer or Traefik. Only the worker registers a Node. It
+provides Kubernetes capacity but is neither an EC2 instance nor a managed node
+group. Cluster `ACTIVE` means the Kubernetes API is ready; check worker and
+application health separately. On failure, inspect `cluster.health` and
+controller/k3s logs rather than deleting Docker objects. Private endpoints and
+public CIDR controls are unsupported. The k3s CNI does not enforce EC2 VPC
+packet policy.
 
 ### Use the real Kubernetes endpoint
 
@@ -502,13 +495,13 @@ this local principal to enter Kubernetes; other IAM users/roles need EKS access
 entries and access policies or Kubernetes RBAC. See
 [AWS CLI to authenticated Kubernetes](eks.md#aws-cli-to-authenticated-kubernetes).
 
-The runtime-private `admin.kubeconfig` under the cluster's `$STATE/eks` directory
-is controller-owned secret material, not the supported customer access path.
-Never publish it or merge it into `$HOME/.kube/config`.
+The cluster's `$STATE/eks` directory contains a private `admin.kubeconfig` for
+the controller. Never publish it or merge it into `$HOME/.kube/config`; use the
+authenticated endpoint above.
 
-Import prepared workload images into **only the owned bootstrap worker**, not the
-agentless control-plane server. Identify the cluster from its private manifest
-and verify the selected Docker container against that manifest before importing:
+Import prepared workload images into the cluster's bootstrap worker, not the
+agentless control-plane server. Select the cluster's private manifest and
+check the container's identity against it before importing:
 
 ```sh
 # Display only non-secret fields; match ProxyPort to DescribeCluster's endpoint.
@@ -533,18 +526,18 @@ docker --host "$DOCKER_ENGINE" inspect "$NATIVE_WORKER" |
     ctr images import - < "$WORKLOAD_ARCHIVE"
 ```
 
-This is an explicit operator import, not cluster adoption. Do not infer ownership
-from a similar name. For offline pods select an already imported reference and
-`imagePullPolicy: Never`; verify actual pod readiness and application traffic.
-Managed EC2 workers need their own archives in their guest images as below.
+Use the manifest checks above rather than selecting a container by name alone.
+For offline pods, select an imported reference and `imagePullPolicy: Never`,
+then check pod readiness and application traffic. Managed EC2 workers need
+their own archives in their guest images as described below.
 
 ### Add real managed EC2 workers
 
-A managed node group is not implemented by asking k3d for more Docker agents.
-It uses Auto Scaling, launch templates, IAM instance profiles, EC2/QEMU and EBS;
-workers must boot and join before satisfying readiness. Complete the QEMU host
-setup above first. See [managed worker ownership](eks.md#managed-worker-ownership)
-for rollout, drain and failure semantics.
+Managed node groups use Auto Scaling, launch templates, IAM instance profiles,
+EC2/QEMU and EBS, rather than additional k3d Docker agents. Workers must boot
+and join the cluster before they are ready. Complete the QEMU host setup first.
+See [managed worker ownership](eks.md#managed-worker-ownership) for rollout,
+drain and failure handling.
 
 #### Prepare an offline worker disk
 
@@ -575,14 +568,14 @@ mkdir -p downloads/k3s-1.33.5
   --output /absolute/path/to/new-eks-worker-1.33.raw
 ```
 
-`--output` must be a new file distinct from the input. This script uses the
-installed toolkit in a privileged, network-disabled container to modify a copy;
-it does not download packages, boot the guest or prove that the guest will join.
+`--output` must be a new file distinct from the input. The script modifies a
+copy using the installed toolkit in a privileged, network-disabled container.
 It installs `/usr/local/bin/k3s`, air-gap images and kernel/sysctl configuration,
-while preserving the image's cloud-init EC2 datasource. The managed launch
-supplies private join material later. Add repeated `--image-archive /path/to/archive`
-options for offline workloads/add-ons; the script stages private archive copies
-and preserves digest-qualified OCI references. Keep the resulting image private.
+and preserves cloud-init's EC2 datasource. It does not download packages or
+boot the guest; check that workers join after launch. Managed launches supply
+private join material. Add repeated `--image-archive /path/to/archive` options
+for offline workloads/add-ons; the script copies the archives and preserves
+digest-qualified OCI references. Keep the resulting image private.
 
 For 1.32 workers, use the matching `v1.32.8+k3s1` binary and archive. Do not relabel
 an older prepared disk as a newer release. The host's k3s Docker images,
@@ -612,19 +605,18 @@ No image is fetched or substituted for an absent mapping.
 #### Configure guest-reachable HTTPS and restart with both runtimes
 
 Choose an **existing, stable, non-loopback host IP** reachable from your worker
-subnets. Do not substitute the Docker-private server address or an as-yet
-uncreated VPC gateway for `-eks-worker-advertise-host`. That flag controls the
-native Kubernetes API advertisement and published worker transport; the proxy
-client address can remain loopback. Workers need the real advertised API port,
-UDP overlay transport, and the enforced kubelet/network paths, not merely TCP
-4566. See [runtime networking](eks.md#explicit-runtime-selection), including
-exact-peer TCP 10250 admission and security-group convergence.
+subnets for `-eks-worker-advertise-host`. Do not use the Docker-private server
+address or a VPC gateway that has not been created. This flag advertises the
+Kubernetes API and worker transport; the client proxy can remain on loopback.
+Workers need the advertised API port, UDP overlay transport and kubelet/network
+paths as well as TCP 4566. See [runtime networking](eks.md#explicit-runtime-selection)
+for exact-peer TCP 10250 admission and security-group convergence.
 
-The following is an isolated-lab TLS example. Set `WORKER_HOST` to your selected
-host IP; `ip -4 address show` and `ip -4 route show` help identify candidates but
-do not prove guest reachability. Restrict host ingress and provision EC2 routing,
-security-group and NACL rules deliberately. The self-signed certificate here is
-an explicit local trust root, not a recommendation to disable TLS verification.
+For this isolated-lab TLS example, set `WORKER_HOST` to that host IP.
+Use `ip -4 address show` and `ip -4 route show` to identify candidates, then
+check guest reachability. Restrict host ingress and configure EC2 routes,
+security groups and NACLs. Clients must trust the self-signed certificate below;
+do not disable TLS verification.
 
 If you created the earlier bootstrap-only cluster, delete that owned cluster
 through the API **with its original controller configuration and endpoint still
@@ -663,16 +655,15 @@ Restarting does not migrate existing cluster endpoints.
 
 #### Provision the worker network and node group
 
-After creating the cluster with the earlier `CreateCluster` commands under the
-combined configuration, configure the worker VPC route/public-address path.
-The following isolated-lab recipe follows the executable managed-worker workflow;
-first ensure the host can route the selected nonoverlapping VPC range. Its broad
-ingress rule is appropriate only on a disposable, host-firewalled lab: it admits
-the bootstrap container, host and worker paths without assuming their source
-subnets. Before sharing the deployment, replace it with rules for the actual
-VPC peers, native Docker peer addresses, advertised host and required application
-ports, then check overlay and kubelet traffic. A VPC-CIDR-only rule is not enough
-for Docker-originated kubelet traffic.
+Create the cluster with the earlier `CreateCluster` commands under the combined
+configuration, then configure worker VPC routing and public addresses. Ensure
+the host can route the selected, nonoverlapping VPC range.
+
+**Use the broad ingress rule below only in a disposable, host-firewalled lab.**
+It admits bootstrap-container, host and worker traffic. Before sharing the
+deployment, replace it with rules for the VPC peers, Docker peer addresses,
+advertised host and application ports, then check overlay and kubelet traffic.
+A VPC-CIDR-only rule does not admit Docker-originated kubelet traffic.
 
 ```sh
 IGW_ID=$(aws_local ec2 create-internet-gateway --query InternetGateway.InternetGatewayId --output text)
@@ -720,13 +711,12 @@ and mutates resources; do not run it as an installer against this deployment.
 
 ## Managed-instance Lambda
 
-This is a separate Lambda backend, not an alias for ordinary host-container
-execution. It requires the QEMU path, a prepared x86_64 guest AMI and a reachable
-local HTTPS API. k3d is **not** required. Reuse the
-[guest-reachable TLS preparation](#configure-guest-reachable-https-and-restart-with-both-runtimes)
-above, including its selected host IP (`WORKER_HOST`) and retained
-`$STATE/server.crt`/`server.key`; omit the EKS flags for a Lambda-only deployment.
-Do not replace a certificate already trusted by retained workloads.
+Managed-instance Lambda runs functions inside EC2 guests rather than host
+containers. It requires QEMU, a prepared x86_64 guest AMI and a reachable local
+HTTPS API; k3d is not required. Reuse the
+[guest-reachable TLS preparation](#configure-guest-reachable-https-and-restart-with-both-runtimes),
+including `WORKER_HOST` and `$STATE/server.crt`/`server.key`. Omit EKS flags for
+a Lambda-only deployment. Keep certificates trusted by retained workloads.
 
 ### Prepare the guest, not just the host
 
@@ -738,13 +728,13 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath \
 ```
 
 Use a **disposable, isolated image-building VM**, not a chroot sharing the
-controller's network namespace. Install rootful Docker inside it using the
+controller's network namespace. Install rootful Docker using the
 [official distribution instructions](https://docs.docker.com/engine/install/ubuntu/),
-plus `util-linux`, `e2fsprogs`, `iptables` and `ca-certificates`. Its guest kernel
+plus `util-linux`, `e2fsprogs`, `iptables` and `ca-certificates`. The guest kernel
 must support cgroups, loop devices, ext4 and Docker networking. Install the
 official SSM agent using the [Debian-package instructions](https://docs.aws.amazon.com/systems-manager/latest/userguide/agent-install-deb.html);
-do not run a second Snap agent alongside it. The retained workflow used SSM
-3.3.5226.0 and Docker 29.1.3; record and validate the versions in your own image.
+do not run a Snap agent alongside it. This workflow used SSM 3.3.5226.0 and
+Docker 29.1.3; record and validate the versions in your image.
 
 Stage the compiled binary, the source-owned
 [`stackd-lambda-agent.service`](../compute/lambda/managed/assets/stackd-lambda-agent.service),
@@ -786,13 +776,13 @@ sudo docker pull --platform linux/amd64 "$PYTHON_IMAGE"
 sudo docker image inspect "$PYTHON_IMAGE"
 ```
 
-Prepare/import images explicitly before disconnecting, and verify the exact
-digest reference in the **guest's** Docker store. A host pull does not populate
-that store. Install the local CA in customer runtime images or supply an
-appropriate `AWS_CA_BUNDLE` if function code calls the self-signed HTTPS API;
-guest OS trust alone does not change a container's trust store. SSM S3/CloudWatch
-output needs its additional local endpoint/DNS configuration; the existing
-[official-agent workflow](../scripts/ssm_managed_guest_smoke.py) shows it.
+Before disconnecting, import runtime images into the **guest's** Docker store
+and inspect their exact digest references. Pulling images on the host does not
+populate the guest store. If function code calls the self-signed HTTPS API,
+install the local CA in its runtime image or supply `AWS_CA_BUNDLE`; guest OS
+trust does not change container trust stores. SSM S3/CloudWatch output needs
+additional local endpoint/DNS configuration; see the
+[official-agent workflow](../scripts/ssm_managed_guest_smoke.py).
 
 Capture a clean, shut-down builder disk without prior SSM registration,
 cloud-init instance state, `/etc/stackd-lambda-agent.json`, agent TLS keys or
@@ -802,8 +792,8 @@ above; its endpoint and trusted certificate are deployment-specific.
 
 ### Select the prepared capacity backend
 
-With the local API controller still available, create a dedicated EC2-trusting
-guest role/profile with the exercised SSM control-channel permissions:
+While the local API controller is available, create a dedicated EC2-trusting
+guest role/profile with SSM control-channel permissions:
 
 ```sh
 aws_local iam create-role --role-name local-lambda-guest \
@@ -845,14 +835,14 @@ Create/publish a managed function using the provider, matching architecture,
 Python 3.13+ or a supported provided runtime, at least 2,048 MB, integral vCPU
 allocation and 512-MB temporary storage.
 
-Observe real EC2 boot, SSM registration and successful agent bootstrap, then an
-actual function invocation; a provider's `Active` record alone is not readiness.
-The controller installs private per-incarnation agent configuration/certificates
-through SSM and starts the packaged unit; do not bake these files into a shared
-AMI. [Managed Lambda's supported API/lifecycle contract](lambda.md#managed-instances-and-capacity-providers)
-describes publication, scaling, credential isolation, retention and unsupported
-combinations. Retain the exact-owned guest disks and instance state across restart;
-delete functions/providers through their owning APIs before retiring dependencies.
+Check EC2 boot, SSM registration and agent bootstrap, then invoke a function.
+A provider's `Active` status alone does not establish readiness. The controller
+installs private per-incarnation agent configuration and certificates through
+SSM and starts the packaged unit; do not bake these files into a shared AMI.
+See [managed Lambda](lambda.md#managed-instances-and-capacity-providers) for
+publication, scaling, credential isolation, retention and unsupported combinations.
+Retain guest disks and instance state across restarts. Delete functions and
+providers through their APIs before retiring dependencies.
 
 ## Shutdown, retention and exact-owned cleanup
 
@@ -885,21 +875,20 @@ aws_local ec2 terminate-instances --instance-ids "$INSTANCE_ID"
 aws_local ec2 wait instance-terminated --instance-ids "$INSTANCE_ID"
 ```
 
-Remove any owned add-ons/Fargate profiles and other cluster dependencies first;
-delete failures remain retryable, not permission to force-remove containers.
-Then inspect/delete only your recorded launch templates, residual non-deleting
+Remove add-ons, Fargate profiles and other cluster dependencies first. If
+deletion fails, resolve the error and retry through the API rather than
+force-removing containers. Then remove your recorded launch templates, residual
 EBS volumes, AMIs (`deregister-image`) and snapshots (`delete-snapshot`), followed
-by network routes/IGW attachments, security groups, subnets/VPCs and IAM policies,
-profiles/roles no longer in use. Respect `DeleteOnTermination` and snapshot
-retention: terminating an instance does not automatically deregister its AMI or
-delete its source snapshot. Keep the recorded IDs so cleanup never depends on a
-name prefix or broad account-wide enumeration.
+by routes, IGW attachments, security groups, subnets/VPCs and unused IAM
+policies/profiles/roles. Respect `DeleteOnTermination` and snapshot retention:
+terminating an instance does not deregister its AMI or delete its source
+snapshot. Use recorded IDs rather than name prefixes or account-wide deletion.
 
-EKS deletion checks the retained daemon identity, random incarnation labels and
-exact native object IDs. Foreign or unexpected objects/files are preserved and
-produce an error. **Do not use `docker system prune`, broad `k3d cluster delete`,
-process-name killing, or recursive state-directory deletion as cleanup.** Only
-retire the state directory after its exact-owned native resources and API
-resources are confirmed gone. See [EKS ownership and retention](eks.md#explicit-runtime-selection)
-and [EC2 execution ownership](ec2.md#execution-and-shared-compute-ownership) for
-the detailed recovery contracts.
+EKS deletion checks the retained daemon identity, incarnation labels and
+container IDs. Unexpected objects or files are preserved and reported as an
+error. **Do not use `docker system prune`, broad `k3d cluster delete`,
+process-name killing or recursive state-directory deletion as cleanup.**
+Remove the state directory only after its runtime and API resources are gone.
+See [EKS ownership and retention](eks.md#explicit-runtime-selection) and
+[EC2 execution ownership](ec2.md#execution-and-shared-compute-ownership)
+for recovery procedures.

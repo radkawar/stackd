@@ -214,57 +214,10 @@ state directories to stop an instance.
 
 ## Terraform provider API requirements
 
-The [provider API map](terraform-provider-apis.json) covers production source in
-all service directories of HashiCorp AWS provider **6.68.0**.
-The pinned commit is `c9b83d813022cdd05fc955480b07e269c6e18023`.
-You do not need a checkout to read the retained map.
-
-To regenerate it, prepare the exact source revision:
-
-```sh
-git clone --branch v6.68.0 --depth 1 \
-  https://github.com/hashicorp/terraform-provider-aws.git clones/terraform-provider-aws
-make generate-terraform-apis
-make generate-terraform-apis-check
-```
-
-Use `priority_counts` and `top_selected_scope_api_gaps` to find missing APIs.
-Each requirement includes SDK operation names, source locations and evidence type.
-Paginator constructors are included. Tests and sweeper files are excluded.
-Dynamic calls, wrappers and ambiguous receivers can remain unresolved.
-
-`lifecycle_inventory.provider_types` lists every managed resource and data source
-from the provider's generated registrations. Aliases keep their actual Terraform
-names. `lifecycle_inventory.implemented_services` includes all 72 stackd services
-with registered owner behavior, including data-only APIs and services with no
-direct provider resource. It distinguishes direct resources from dependencies.
-
-The 2026-10-14 inventory contains 1,730 resource types and 685 data-source types,
-matching the pinned provider's `terraform providers schema -json` output.
-Per-type API links cover defining source files, not a complete transitive call
-graph: shared helpers and initialization can add calls. Lifecycle and
-native-engine status default to `unverified`; registering an API does not mark
-its behavior as tested.
-
-Without the checkout, `-retained-source` refreshes classifications from the
-retained source snapshot and current stackd operation inventory. It validates
-the snapshot structure but cannot check provider source drift. Use the pinned
-checkout for source verification:
-
-```sh
-go run ./cmd/terraformapisgen -retained-source -check
-```
-
-- `registered-partial`: an operation is registered, not behaviorally complete.
-- `unimplemented`: a selected modeled operation has no registration.
-- `outside-selected-service-scope`: the API is outside the current service selection.
-- `unresolved-or-ambiguous`: the retained inputs do not establish a clear mapping.
-
-Use this static map to plan API coverage, not as a conformance score or IAM
-policy. Source frequency does not measure runtime usage. Check the
-create/read/update/delete workflows and data-plane operations your application uses.
-For examples, see the [current-provider EIP lifecycle](ec2.md#run-the-current-provider-lifecycle)
-and [RDS capacity and SQL checks](rds.md#runnable-terraform-and-psql-proof).
+Try the [Terraform examples](../examples/README.md) to provision and remove
+applications. Developers extending service support can use the
+[provider API map](implementation-reference.md#terraform-provider-api-requirements)
+to identify the AWS operations required by provider resources and data sources.
 
 ## Next steps
 
