@@ -2,9 +2,9 @@
 SELECT * FROM glue_catalogs WHERE partition = ? AND account_id = ? AND region = ? AND catalog_id = ?;
 
 -- name: PutGlueCatalog :exec
-INSERT INTO glue_catalogs (cfn_owner, partition, account_id, region, catalog_id, name, description, created_at, updated_at, parameters_json, database_permissions_json, table_permissions_json, full_table_access, tags_json)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, catalog_id) DO UPDATE SET name = excluded.name, description = excluded.description, created_at = excluded.created_at, updated_at = excluded.updated_at, parameters_json = excluded.parameters_json, database_permissions_json = excluded.database_permissions_json, table_permissions_json = excluded.table_permissions_json, full_table_access = excluded.full_table_access, tags_json = excluded.tags_json;
+INSERT INTO glue_catalogs (cfn_owner, partition, account_id, region, catalog_id, name, description, created_at, updated_at, parameters_json, database_permissions_json, table_permissions_json, full_table_access, tags_json, federation_identifier, federation_connection_name, federation_connection_type)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, catalog_id) DO UPDATE SET name = excluded.name, description = excluded.description, created_at = excluded.created_at, updated_at = excluded.updated_at, parameters_json = excluded.parameters_json, database_permissions_json = excluded.database_permissions_json, table_permissions_json = excluded.table_permissions_json, full_table_access = excluded.full_table_access, tags_json = excluded.tags_json, federation_identifier = excluded.federation_identifier, federation_connection_name = excluded.federation_connection_name, federation_connection_type = excluded.federation_connection_type;
 
 -- name: DeleteGlueCatalog :exec
 DELETE FROM glue_catalogs WHERE partition = ? AND account_id = ? AND region = ? AND catalog_id = ?;

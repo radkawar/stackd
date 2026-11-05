@@ -99,6 +99,7 @@ func (s *Service) startQueryExecution(ctx context.Context, tx Transaction, in *a
 		v.BytesCutoff = int64(*group.Data.Configuration.BytesScannedCutoffPerQuery)
 	}
 	v.RequesterPays = enabled(group.Data.Configuration.RequesterPaysEnabled)
+	v.EnforceCTASDestination = enabled(group.Data.Configuration.EnforceWorkGroupConfiguration) && group.Data.Configuration.ResultConfiguration != nil && group.Data.Configuration.ResultConfiguration.OutputLocation != nil
 	if class := statementClass(first); class != "" {
 		v.Data.StatementType = new(api.StatementType(class))
 	}

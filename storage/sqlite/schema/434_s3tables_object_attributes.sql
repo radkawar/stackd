@@ -1,0 +1,11 @@
+ALTER TABLE s3tables_objects ADD COLUMN content_type TEXT NOT NULL DEFAULT 'application/octet-stream';
+ALTER TABLE s3tables_objects ADD COLUMN cache_control TEXT NOT NULL DEFAULT '';
+ALTER TABLE s3tables_objects ADD COLUMN content_disposition TEXT NOT NULL DEFAULT '';
+ALTER TABLE s3tables_objects ADD COLUMN content_encoding TEXT NOT NULL DEFAULT '';
+ALTER TABLE s3tables_objects ADD COLUMN content_language TEXT NOT NULL DEFAULT '';
+ALTER TABLE s3tables_objects ADD COLUMN expires_at TIMESTAMP;
+ALTER TABLE s3tables_objects ADD COLUMN checksum_algorithm TEXT NOT NULL DEFAULT '';
+ALTER TABLE s3tables_objects ADD COLUMN checksum_crc32 TEXT NOT NULL DEFAULT '';
+ALTER TABLE s3tables_objects ADD COLUMN checksum_crc32c TEXT NOT NULL DEFAULT '';
+ALTER TABLE s3tables_objects ADD COLUMN checksum_sha1 TEXT NOT NULL DEFAULT '';
+ALTER TABLE s3tables_objects ADD COLUMN checksum_sha256 TEXT NOT NULL DEFAULT '';

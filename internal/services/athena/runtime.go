@@ -25,6 +25,10 @@ type ExecutionRequest struct {
 	Query              QueryRecord
 	Catalog            api.DataCatalog
 	PreparedStatements []api.PreparedStatement
+	Catalogs           []api.DataCatalog
+	// AuthorizeCatalog rechecks the current registration and current IAM on
+	// every native metadata/object callback, not just at query admission.
+	AuthorizeCatalog func(context.Context, string, string) error
 }
 type ExecutionResult struct {
 	Columns api.ColumnInfoList

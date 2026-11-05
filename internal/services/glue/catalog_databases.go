@@ -8,6 +8,7 @@ import (
 
 	"stackd/internal/awsapi"
 	api "stackd/internal/awsapi/glue"
+	tables "stackd/internal/awsapi/s3tables"
 	"stackd/internal/awscatalog"
 	"stackd/internal/awswire"
 )
@@ -39,12 +40,15 @@ func (s *Service) createCatalog(ctx context.Context, tx Transaction, in *api.Cre
 	if input == nil {
 		return nil, failure("InvalidInputException", "CatalogInput is required.")
 	}
-	// TODO: Comeback federated catalog and managed Redshift catalog provisioning require their actual owners.
-	if input.FederatedCatalog != nil || input.TargetRedshiftCatalog != nil || input.CatalogProperties != nil {
-		return nil, unsupported("Federated and managed catalog provisioning is not available.")
+	if input.TargetRedshiftCatalog != nil || input.CatalogProperties != nil {
+		return nil, unsupported("Managed catalog provisioning is not available.")
+	}
+	if err := s.validateFederatedCatalog(ctx, tx, key, input.FederatedCatalog); err != nil {
+		return nil, err
 	}
 	now := s.clock.Now().UTC()
 	record := CatalogRecord{Key: key, Tags: tags, Catalog: api.Catalog{Name: new(api.CatalogNameString(name)), CatalogId: new(api.CatalogIdString(key.CatalogID)), ResourceArn: new(api.ResourceArnString(key.ARN())), Description: input.Description, Parameters: input.Parameters, CreateDatabaseDefaultPermissions: input.CreateDatabaseDefaultPermissions, CreateTableDefaultPermissions: input.CreateTableDefaultPermissions, AllowFullTableExternalDataAccess: input.AllowFullTableExternalDataAccess, CreateTime: &now, UpdateTime: &now}}
+	record.Catalog.FederatedCatalog = input.FederatedCatalog
 	return &api.CreateCatalogOutput{}, tx.PutCatalog(record)
 }
 func (s *Service) getCatalog(ctx context.Context, tx Transaction, in *api.GetCatalogInput) (*api.GetCatalogOutput, error) {
@@ -56,6 +60,19 @@ func (s *Service) getCatalog(ctx context.Context, tx Transaction, in *api.GetCat
 	if key.CatalogID != key.AccountID {
 		var err error
 		record, err = tx.Catalog(key)
+		if errors.Is(err, ErrNotFound) {
+			bucketARN, mounted, lookupErr := s.mountedBucket(ctx, tx, key)
+			if lookupErr != nil {
+				return nil, lookupErr
+			}
+			if mounted {
+				bucket, rejected := s.s3Tables.GetTableBucket(ctx, &tables.GetTableBucketInput{TableBucketARN: new(tables.TableBucketARN(bucketARN))})
+				if rejected != nil {
+					return nil, federationError(rejected)
+				}
+				record, err = mountedCatalog(key, bucket), nil
+			}
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -68,12 +85,25 @@ func (s *Service) getCatalogs(ctx context.Context, tx Transaction, in *api.GetCa
 		return nil, err
 	}
 	if err := s.requireCatalog(tx, key); err != nil {
-		return nil, err
+		if _, mounted, lookupErr := s.mountedBucket(ctx, tx, key); !mounted || lookupErr != nil {
+			if lookupErr != nil {
+				return nil, lookupErr
+			}
+			return nil, err
+		}
 	}
 	rows, err := tx.Catalogs(key.Scope)
 	if err != nil {
 		return nil, err
 	}
+	for _, row := range slices.Clone(rows) {
+		children, err := s.federatedCatalogChildren(ctx, tx, row)
+		if err != nil {
+			return nil, err
+		}
+		rows = append(rows, children...)
+	}
+	slices.SortFunc(rows, func(a, b CatalogRecord) int { return strings.Compare(a.Key.CatalogID, b.Key.CatalogID) })
 	if in.IncludeRoot != nil && bool(*in.IncludeRoot) && key.CatalogID == key.AccountID {
 		rows = append([]CatalogRecord{rootCatalog(key)}, rows...)
 	}
@@ -88,11 +118,11 @@ func (s *Service) getCatalogs(ctx context.Context, tx Transaction, in *api.GetCa
 		if row.Key.CatalogID <= after {
 			continue
 		}
-		remainder := strings.TrimPrefix(row.Key.CatalogID, key.CatalogID+":")
-		if row.Key.CatalogID != key.CatalogID && remainder == row.Key.CatalogID {
+		remainder := strings.TrimPrefix(row.Key.ARN(), key.ARN()+"/")
+		if row.Key.CatalogID != key.CatalogID && remainder == row.Key.ARN() {
 			continue
 		}
-		if (in.Recursive == nil || !bool(*in.Recursive)) && strings.Contains(remainder, ":") {
+		if (in.Recursive == nil || !bool(*in.Recursive)) && strings.Contains(remainder, "/") {
 			continue
 		}
 		if err := s.authorizeCatalog(ctx, tx, "GetCatalogs", row.Key); err != nil {
@@ -103,6 +133,12 @@ func (s *Service) getCatalogs(ctx context.Context, tx Transaction, in *api.GetCa
 		}
 		if in.HasDatabases != nil {
 			dbs, err := tx.Databases(row.Key)
+			if _, mounted, lookupErr := s.mountedBucket(ctx, tx, row.Key); mounted {
+				if lookupErr != nil {
+					return nil, lookupErr
+				}
+				dbs, err = s.federatedDatabases(ctx, tx, row.Key, "GetDatabases")
+			}
 			if err != nil {
 				return nil, err
 			}

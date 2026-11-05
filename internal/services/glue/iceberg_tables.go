@@ -80,7 +80,7 @@ func (s *Service) icebergReadTable(ctx context.Context, key TableKey, action str
 		if err := s.authorizeCatalog(ctx, tx, "GetCatalog", key.CatalogKey); err != nil {
 			return err
 		}
-		if err := s.requireCatalog(tx, key.CatalogKey); err != nil {
+		if err := s.requireOrdinaryIcebergCatalog(ctx, tx, key.CatalogKey); err != nil {
 			return err
 		}
 		if err := s.authorizeTable(ctx, tx, action, key); err != nil {
@@ -171,15 +171,22 @@ func (s *Service) icebergWriteMetadata(ctx context.Context, metadata icebergmeta
 	if err != nil {
 		return "", err
 	}
-	id, err := uuid.NewRandom()
+	location, err := icebergMetadataFileLocation(metadata.Location, version)
 	if err != nil {
 		return "", err
 	}
-	location := strings.TrimRight(metadata.Location, "/") + fmt.Sprintf("/metadata/%05d-%s.metadata.json", version, id)
 	if err := s.icebergObjects.Write(ctx, location, data); err != nil {
 		return "", err
 	}
 	return location, nil
+}
+
+func icebergMetadataFileLocation(tableLocation string, version int64) (string, error) {
+	id, err := uuid.NewRandom()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimRight(tableLocation, "/") + fmt.Sprintf("/metadata/%05d-%s.metadata.json", version, id), nil
 }
 
 func icebergTableInput(key TableKey, metadata icebergmeta.Metadata, location string, previous *api.Table) (*api.TableInput, error) {
@@ -219,8 +226,8 @@ func (s *Service) icebergCreateTable(ctx context.Context, database DatabaseKey, 
 	if !validIcebergName(request.Name) {
 		return nil, icebergError(400, "BadRequestException", "Invalid Glue table name.")
 	}
-	// TODO: Comeback staged REST create/replace transactions require a durable
-	// staging owner and transaction-commit API; never publish a staged table early.
+	// AWS Glue supports create followed by insert, not stage-create.
+	// https://docs.aws.amazon.com/glue/latest/dg/iceberg-rest-apis.html#create-table
 	if request.StageCreate {
 		return nil, icebergError(400, "UnsupportedOperationException", "Staged table creation is not supported.")
 	}
@@ -233,7 +240,7 @@ func (s *Service) icebergCreateTable(ctx context.Context, database DatabaseKey, 
 		if err := s.authorizeTable(ctx, tx, "CreateTable", key); err != nil {
 			return err
 		}
-		if err := s.requireCatalog(tx, key.CatalogKey); err != nil {
+		if err := s.requireOrdinaryIcebergCatalog(ctx, tx, key.CatalogKey); err != nil {
 			return err
 		}
 		db, err := tx.Database(database)
@@ -346,9 +353,9 @@ func (s *Service) icebergCommitTable(ctx context.Context, key TableKey, request 
 }
 
 func (s *Service) icebergDropTable(r *http.Request, key TableKey) error {
-	// TODO: Comeback purgeRequested=true needs manifest-aware data reclamation;
-	// dropping a catalog pointer must never pretend to purge table data.
-	if purge := r.URL.Query().Get("purgeRequested"); purge != "" && purge != "false" {
+	// AWS Glue does not support purging data through this REST endpoint.
+	// https://docs.aws.amazon.com/glue/latest/dg/iceberg-rest-apis.html#delete-table
+	if purge := r.URL.Query().Get("purgeRequested"); purge != "" && !strings.EqualFold(purge, "false") {
 		return icebergError(400, "UnsupportedOperationException", "Purging Iceberg table data is not supported.")
 	}
 	in := &api.DeleteTableInput{CatalogId: new(api.CatalogIdString(key.CatalogID)), DatabaseName: new(api.NameString(key.Name)), Name: new(api.NameString(key.TableName))}

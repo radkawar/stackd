@@ -68,7 +68,10 @@ type QueryRecord struct {
 	UpdateCount        int64
 	PublishMetrics     bool
 	RequesterPays      bool
-	BytesCutoff        int64
+	// EnforceCTASDestination snapshots workgroup admission, independent of
+	// subsequent workgroup configuration changes and controller restart.
+	EnforceCTASDestination bool
+	BytesCutoff            int64
 }
 
 type ResourceQuery struct {

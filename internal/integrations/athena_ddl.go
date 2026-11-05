@@ -34,6 +34,30 @@ func (a *AthenaEngine) applyHiveDDL(ctx context.Context, request athena.Executio
 	if len(plan.Identifier) == 0 {
 		return fmt.Errorf("native Hive DDL has no identifier")
 	}
+	qualifiedCatalog := catalogName
+	namespace := plan.Kind == "CREATE_DATABASE" || plan.Kind == "DROP_DATABASE" || plan.Kind == "SET_DATABASE_PROPERTIES"
+	if (namespace && len(plan.Identifier) == 2) || (!namespace && len(plan.Identifier) == 3) {
+		qualifiedCatalog = plan.Identifier[0]
+	}
+	resolver := native.Request{AccountID: query.Key.AccountID, Catalog: strings.ToLower(catalogName), CatalogID: catalogID}
+	if request.Catalogs != nil {
+		resolver.Catalogs = make([]native.CatalogRegistration, 0, len(request.Catalogs))
+		for _, registration := range request.Catalogs {
+			if registration.Name != nil && registration.Type != nil {
+				resolver.Catalogs = append(resolver.Catalogs, native.CatalogRegistration{Name: string(*registration.Name), Kind: string(*registration.Type), CatalogID: string(registration.Parameters["catalog-id"])})
+			}
+		}
+	}
+	var resolveErr error
+	catalogID, resolveErr = resolver.CatalogIDFor(qualifiedCatalog)
+	if resolveErr != nil {
+		return resolveErr
+	}
+	if request.AuthorizeCatalog != nil {
+		if err := request.AuthorizeCatalog(ctx, qualifiedCatalog, catalogID); err != nil {
+			return err
+		}
+	}
 	var properties api.ParametersMap
 	if plan.Kind != "DROP_DATABASE" {
 		properties = make(api.ParametersMap, len(plan.Properties))
@@ -42,18 +66,14 @@ func (a *AthenaEngine) applyHiveDDL(ctx context.Context, request athena.Executio
 		}
 	}
 	switch plan.Kind {
-	case "CREATE_DATABASE", "DROP_DATABASE":
+	case "CREATE_DATABASE", "DROP_DATABASE", "SET_DATABASE_PROPERTIES":
 		if len(plan.Identifier) > 2 {
 			return fmt.Errorf("hive database identifier has too many components")
 		}
-		if len(plan.Identifier) == 2 {
-			if strings.EqualFold(plan.Identifier[0], "AwsDataCatalog") {
-				catalogID = query.Key.AccountID
-			} else if !strings.EqualFold(plan.Identifier[0], catalogName) {
-				return fmt.Errorf("hive DDL references an unconfigured Athena catalog")
-			}
-		}
 		name := strings.ToLower(plan.Identifier[len(plan.Identifier)-1])
+		if plan.Kind == "SET_DATABASE_PROPERTIES" {
+			return a.applyHiveMutation(ctx, catalog, catalogID, name, plan)
+		}
 		if plan.Kind == "DROP_DATABASE" {
 			_, rejected := a.Glue.DropHiveDatabase(awsctx.WithViaService(ctx, "athena.amazonaws.com"), &api.DeleteDatabaseInput{CatalogId: new(api.CatalogIdString(catalogID)), Name: new(api.NameString(name))}, plan.Cascade)
 			if rejected != nil && !(plan.IfExists && rejected.Code == "EntityNotFoundException") {
@@ -83,13 +103,6 @@ func (a *AthenaEngine) applyHiveDDL(ctx context.Context, request athena.Executio
 		if len(plan.Identifier) > 1 {
 			database = plan.Identifier[len(plan.Identifier)-2]
 		}
-		if len(plan.Identifier) == 3 {
-			if strings.EqualFold(plan.Identifier[0], "AwsDataCatalog") {
-				catalogID = query.Key.AccountID
-			} else if !strings.EqualFold(plan.Identifier[0], catalogName) {
-				return fmt.Errorf("hive DDL references an unconfigured Athena catalog")
-			}
-		}
 		location, err := url.Parse(plan.Location)
 		if err != nil || location.Scheme != "s3" || location.Host == "" || location.User != nil || location.RawQuery != "" || location.Fragment != "" {
 			return &awswire.Error{Code: "InvalidRequestException", Message: "External tables require an S3 LOCATION", StatusCode: 400}
@@ -102,6 +115,16 @@ func (a *AthenaEngine) applyHiveDDL(ctx context.Context, request athena.Executio
 		input.Parameters[api.KeyString("EXTERNAL")] = api.ParametersMapValue("TRUE")
 		for name, value := range plan.SerdeProperties {
 			input.StorageDescriptor.SerdeInfo.Parameters[api.KeyString(name)] = api.ParametersMapValue(value)
+		}
+		if plan.BucketCount != 0 || len(plan.BucketColumns) != 0 {
+			if plan.BucketCount < 1 || len(plan.BucketColumns) == 0 {
+				return hiveInvalid("CLUSTERED BY requires columns and a positive bucket count")
+			}
+			input.StorageDescriptor.NumberOfBuckets = new(api.Integer(plan.BucketCount))
+			for _, name := range plan.BucketColumns {
+				input.StorageDescriptor.BucketColumns = append(input.StorageDescriptor.BucketColumns, api.NameString(strings.ToLower(name)))
+			}
+			input.Parameters[api.KeyString("bucketing_version")] = api.ParametersMapValue("1")
 		}
 		partitionNames := make(map[string]bool, len(plan.PartitionColumns))
 		for _, name := range plan.PartitionColumns {
@@ -118,6 +141,19 @@ func (a *AthenaEngine) applyHiveDDL(ctx context.Context, request athena.Executio
 				input.StorageDescriptor.Columns = append(input.StorageDescriptor.Columns, value)
 			}
 		}
+		if plan.BucketCount > 0 {
+			for _, name := range plan.BucketColumns {
+				found := false
+				for _, column := range input.StorageDescriptor.Columns {
+					if strings.EqualFold(hiveValue(column.Name), name) {
+						found = true
+					}
+				}
+				if !found {
+					return hiveInvalid("Bucket columns must be existing non-partition columns")
+				}
+			}
+		}
 		if strings.EqualFold(plan.Properties["table_type"], "DELTA") {
 			// Delta's transaction log and Parquet bytes remain native-owned;
 			// Glue stores only the registered table's location and schema.
@@ -130,6 +166,12 @@ func (a *AthenaEngine) applyHiveDDL(ctx context.Context, request athena.Executio
 		}
 		return nil
 	default:
-		return fmt.Errorf("unsupported native Hive DDL plan %q", plan.Kind)
+		if len(plan.Identifier) > 3 {
+			return hiveInvalid("Hive table identifier has too many components")
+		}
+		if len(plan.Identifier) > 1 {
+			database = plan.Identifier[len(plan.Identifier)-2]
+		}
+		return a.applyHiveMutation(ctx, catalog, catalogID, database, plan)
 	}
 }

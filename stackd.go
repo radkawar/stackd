@@ -90,6 +90,7 @@ import (
 	route53api "stackd/internal/awsapi/route53"
 	s3api "stackd/internal/awsapi/s3"
 	s3controlapi "stackd/internal/awsapi/s3control"
+	s3tablesapi "stackd/internal/awsapi/s3tables"
 	schedulerapi "stackd/internal/awsapi/scheduler"
 	secretsmanagerapi "stackd/internal/awsapi/secretsmanager"
 	servicecatalogappregistryapi "stackd/internal/awsapi/servicecatalogappregistry"
@@ -166,6 +167,7 @@ import (
 	"stackd/internal/services/resourcegroupstaggingapi"
 	"stackd/internal/services/route53"
 	"stackd/internal/services/s3"
+	"stackd/internal/services/s3tables"
 	schedulerservice "stackd/internal/services/scheduler"
 	"stackd/internal/services/secretsmanager"
 	"stackd/internal/services/servicecatalogappregistry"
@@ -491,6 +493,9 @@ func New(config Config) (stack *Stack, err error) {
 	logsService := logs.New(logs.Config{Repository: backends.Logs, Authorizer: authorizer, APIEvents: apiEvents, Clock: config.Clock, Subscriptions: logSubscriptions, Events: backends.Journal, Metrics: cloudwatchService})
 	s3Notifications := &integrations.S3Notifications{SQS: sqsService}
 	s3Service := s3.New(s3.Config{Repository: backends.S3, Authorizer: authorizer, AccountPolicies: organizationsService, APIEvents: apiEvents, Clock: config.Clock, Keys: integrations.ServiceDataKeys{KMS: kmsService, Activity: iamService, Service: "s3"}, Notifications: s3Notifications, ObjectEvents: integrations.S3Events{Publisher: servicePublisher}, ReplicationRoles: &integrations.S3ReplicationRoles{Roles: serviceRoles}, Metrics: cloudwatchService, InventoryORC: config.InventoryORC})
+	s3tablesService := s3tables.New(s3tables.Config{Repository: backends.S3Tables, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, Objects: backends.S3TablesObjects})
+	s3tablesJobs := scheduler.New(config.Clock, s3tablesService.JobSource())
+	s3tablesService.SetWake(s3tablesJobs.Wake)
 	scalingResources := &integrations.ApplicationScaling{CloudWatch: cloudwatchService, Roles: serviceRoles}
 	kinesisService := kinesis.New(kinesis.Config{Repository: backends.Kinesis, Runtime: config.KinesisRuntime, Authorizer: authorizer, PolicyBinder: authorizer, Recorder: apiEvents, Clock: config.Clock, Keys: integrations.KinesisKeys{KMS: kmsService, Activity: iamService}, Metrics: cloudwatchService})
 	firehoseDestination := &integrations.FirehoseS3{Roles: serviceRoles, S3: s3Service, Logs: logsService, Clock: config.Clock}
@@ -684,10 +689,11 @@ func New(config Config) (stack *Stack, err error) {
 		ConnectionSecrets: integrations.GlueConnectionSecrets{Secrets: secretsManagerService},
 		ConnectionCrypto:  integrations.ServiceDataKeys{KMS: kmsService, Activity: iamService, Service: "glue"},
 		IcebergObjects:    integrations.GlueIcebergObjects{S3: s3Service},
+		S3Tables:          s3tablesService,
 	})
 	var athenaEngine athena.Engine
 	if config.AthenaRuntime != nil {
-		athenaEngine = &integrations.AthenaEngine{Runtime: config.AthenaRuntime, Glue: glueService, S3: s3Service}
+		athenaEngine = &integrations.AthenaEngine{Runtime: config.AthenaRuntime, Glue: glueService, S3: s3Service, Tables: s3tablesService}
 	}
 	athenaService := athena.New(athena.Config{
 		Repository: backends.Athena, Authorizer: authorizer, Recorder: apiEvents, Clock: config.Clock, Engine: athenaEngine,
@@ -886,7 +892,7 @@ func New(config Config) (stack *Stack, err error) {
 			return nil, fmt.Errorf("register %s service-linked role: %w", template.ServiceName, err)
 		}
 	}
-	jobs, err := scheduler.Join(backends.Read, wafService.JobDriver(), guarddutyService.JobDriver(), pipelineService.JobDriver(), observationJobs, acmJobs, resourceGroupsService.JobDriver(), appconfigService.JobDriver(), configService.JobDriver(), taggingService.JobDriver(), sesService.JobDriver(), autoScalingService.JobDriver(), cloudcontrolService.JobDriver(), cloudformationService.JobDriver(), eksService.JobDriver(), elasticacheService.JobDriver(), memorydbService.JobDriver(), searchService.JobDriver(), iamService.JobDriver(), organizationsService.JobDriver(), sqsService.JobDriver(), kmsService.JobDriver(), eventbridgeService.JobDriver(), lambdaService.JobDriver(), logsService.JobDriver(), cloudtrailService.JobDriver(), dynamoService.JobDriver(), kinesisService.JobDriver(), kafkaService.JobDriver(), firehoseService.JobDriver(), cloudwatchService.JobDriver(), snsService.JobDriver(), s3Service.JobDriver(), ecsService.JobDriver(), elbv2Service.JobDriver(), ebsService.JobDriver(), ec2Service.JobDriver(), ecrService.JobDriver(), buildService.JobDriver(), scalingService.JobDriver(), xrayService.JobDriver(), workflowService.JobDriver(), secretsManagerService.JobDriver(), parameterService.JobDriver(), ssmDocuments.JobDriver(), ssmCommands.JobDriver(), apiGatewayService.JobDriver(), glueService.JobDriver(), athenaService.JobDriver(), rdsService.JobDriver(), rdsDataService.JobDriver(), docdbService.JobDriver(), mqService.JobDriver(), schedulerService.JobDriver(), pipesService.JobDriver())
+	jobs, err := scheduler.Join(backends.Read, wafService.JobDriver(), guarddutyService.JobDriver(), pipelineService.JobDriver(), observationJobs, acmJobs, s3tablesJobs, resourceGroupsService.JobDriver(), appconfigService.JobDriver(), configService.JobDriver(), taggingService.JobDriver(), sesService.JobDriver(), autoScalingService.JobDriver(), cloudcontrolService.JobDriver(), cloudformationService.JobDriver(), eksService.JobDriver(), elasticacheService.JobDriver(), memorydbService.JobDriver(), searchService.JobDriver(), iamService.JobDriver(), organizationsService.JobDriver(), sqsService.JobDriver(), kmsService.JobDriver(), eventbridgeService.JobDriver(), lambdaService.JobDriver(), logsService.JobDriver(), cloudtrailService.JobDriver(), dynamoService.JobDriver(), kinesisService.JobDriver(), kafkaService.JobDriver(), firehoseService.JobDriver(), cloudwatchService.JobDriver(), snsService.JobDriver(), s3Service.JobDriver(), ecsService.JobDriver(), elbv2Service.JobDriver(), ebsService.JobDriver(), ec2Service.JobDriver(), ecrService.JobDriver(), buildService.JobDriver(), scalingService.JobDriver(), xrayService.JobDriver(), workflowService.JobDriver(), secretsManagerService.JobDriver(), parameterService.JobDriver(), ssmDocuments.JobDriver(), ssmCommands.JobDriver(), apiGatewayService.JobDriver(), glueService.JobDriver(), athenaService.JobDriver(), rdsService.JobDriver(), rdsDataService.JobDriver(), docdbService.JobDriver(), mqService.JobDriver(), schedulerService.JobDriver(), pipesService.JobDriver())
 	if err != nil {
 		_ = closeServices()
 		return nil, fmt.Errorf("join service jobs: %w", err)
@@ -957,8 +963,9 @@ func New(config Config) (stack *Stack, err error) {
 		{"resourcegroups", resourceGroupsService, resourcegroupsapi.DecodeRequest},
 		{"resourcegroupstaggingapi", taggingService, resourcegroupstaggingapiapi.DecodeRequest},
 		{"route53", route53Service, route53api.DecodeRequest},
-		{"s3", s3Service, s3api.DecodeRequest},
+		{"s3", &s3TableDataProvider{Service: s3Service, tables: s3tablesService}, s3api.DecodeRequest},
 		{"s3control", s3Service.Control(), s3controlapi.DecodeRequest},
+		{"s3tables", s3tablesService, s3tablesapi.DecodeRequest},
 		{"scheduler", schedulerService, schedulerapi.DecodeRequest},
 		{"secretsmanager", secretsManagerService, secretsmanagerapi.DecodeRequest},
 		{"servicecatalogappregistry", appRegistryService, servicecatalogappregistryapi.DecodeRequest},

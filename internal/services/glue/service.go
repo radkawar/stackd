@@ -35,6 +35,7 @@ type Config struct {
 	ConnectionSecrets ConnectionSecrets
 	ConnectionCrypto  ConnectionCrypto
 	IcebergObjects    IcebergObjects
+	S3Tables          S3Tables
 }
 
 type Service struct {
@@ -52,6 +53,7 @@ type Service struct {
 	connectionSecrets ConnectionSecrets
 	connectionCrypto  ConnectionCrypto
 	icebergObjects    IcebergObjects
+	s3Tables          S3Tables
 	crawlerMu         sync.Mutex
 	crawlerActive     map[ResourceKey]context.CancelFunc
 	lifetime          context.Context
@@ -84,6 +86,7 @@ func New(c Config) *Service {
 	s.connectionSecrets = c.ConnectionSecrets
 	s.connectionCrypto = c.ConnectionCrypto
 	s.icebergObjects = c.IcebergObjects
+	s.s3Tables = c.S3Tables
 	s.jobs = scheduler.New(c.Clock, jobRunJobs{s}, crawlerJobs{s}, registryJobs{s}, workflowJobs{s})
 	registerCatalog(s)
 	registerJobs(s)
@@ -170,36 +173,47 @@ func runCommand[I, O any](s *Service, ctx context.Context, action string, in *I,
 		return nil, wireError(err)
 	}
 	var out *O
-	err = s.repository.Attempt(ctx, func(tx Transaction) error {
-		tx = cloudFormationTransaction(tx, ctx)
-		route, err := s.routeCatalogCommand(tx.Context(), tx, action, in)
-		if err != nil {
-			return err
-		}
-		if route.hasOutput {
-			var ok bool
-			out, ok = route.output.(*O)
-			if !ok {
-				return errors.New("glue catalog link result type mismatch")
+	ctx, err = s.prepareFederatedCommand(ctx, action, in)
+	if err == nil {
+		err = s.repository.Attempt(ctx, func(tx Transaction) error {
+			tx = cloudFormationTransaction(tx, ctx)
+			route, err := s.routeFederatedCommand(tx.Context(), tx, action, in)
+			if err == nil && !route.hasOutput {
+				route, err = s.routeCatalogCommand(tx.Context(), tx, action, in)
 			}
-		} else {
-			resolved, ok := route.input.(*I)
-			if !ok {
-				return errors.New("glue catalog link input type mismatch")
-			}
-			out, err = fn(route.ctx, tx, resolved)
 			if err != nil {
 				return err
 			}
+			if route.hasOutput {
+				var ok bool
+				out, ok = route.output.(*O)
+				if !ok {
+					return errors.New("glue catalog link result type mismatch")
+				}
+			} else {
+				resolved, ok := route.input.(*I)
+				if !ok {
+					return errors.New("glue catalog link input type mismatch")
+				}
+				out, err = fn(route.ctx, tx, resolved)
+				if err != nil {
+					return err
+				}
+			}
+			if err := s.followCatalogResult(tx, route, out); err != nil {
+				return err
+			}
+			if err := s.publishCatalogCall(route.ctx, action, route.input); err != nil {
+				return err
+			}
+			return s.recordCall(tx.Context(), action, in, out, nil)
+		})
+	}
+	if err != nil {
+		if cleanup := s.discardFederatedCreate(ctx); cleanup != nil {
+			err = errors.Join(err, cleanup)
 		}
-		if err := s.followCatalogResult(tx, route, out); err != nil {
-			return err
-		}
-		if err := s.publishCatalogCall(route.ctx, action, route.input); err != nil {
-			return err
-		}
-		return s.recordCall(tx.Context(), action, in, out, nil)
-	})
+	}
 	if err == nil {
 		s.jobs.Wake()
 		return out, nil
@@ -280,6 +294,10 @@ func catalogKey(ctx context.Context, id *api.CatalogIdString) CatalogKey {
 func catalogKeyIn(scope Scope, catalog string) CatalogKey {
 	if catalog == "" {
 		catalog = scope.AccountID
+	}
+	first, _, _ := strings.Cut(catalog, ":")
+	if len(first) != 12 || strings.Trim(first, "0123456789") != "" {
+		catalog = scope.AccountID + ":" + catalog
 	}
 	account, _, _ := strings.Cut(catalog, ":")
 	scope.AccountID = account

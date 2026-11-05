@@ -33,10 +33,17 @@ type AthenaGlueProvider interface {
 	DropHiveDatabase(context.Context, *glueapi.DeleteDatabaseInput, bool) (*glueapi.DeleteDatabaseOutput, *awswire.Error)
 }
 
+// AthenaTableData delegates only table-owned S3 paths. A claimed path is never
+// retried through ordinary S3, including after table deletion or IAM denial.
+type AthenaTableData interface {
+	ClaimsData(*http.Request) bool
+	HandleData(http.ResponseWriter, *http.Request) bool
+}
 type AthenaEngine struct {
 	Runtime native.Runtime
 	Glue    AthenaGlueProvider
 	S3      http.Handler
+	Tables  AthenaTableData
 }
 
 var _ athena.Engine = (*AthenaEngine)(nil)
@@ -54,14 +61,19 @@ func (a *AthenaEngine) Execute(ctx context.Context, request athena.ExecutionRequ
 		return result, errors.New("athena native SQL, Glue and S3 adapters are required")
 	}
 	if request.Catalog.Type != nil && *request.Catalog.Type != "GLUE" {
-		return result, &awswire.Error{Code: "InvalidRequestException", Message: "Only authoritative Glue catalogs are supported by the native SQL engine.", StatusCode: 400}
+		return result, &awswire.Error{Code: "InvalidRequestException", Message: "This catalog requires its Lambda federated connector runtime, which is not configured.", StatusCode: 400}
 	}
 	query := request.Query
 	if query.Data.Query == nil {
 		return result, errors.New("athena query text is missing")
 	}
-	bridge := &athenaDataPlane{execution: ctx, glue: a.Glue, s3: a.S3, caller: query.Caller, parent: query.ParentEventID, requesterPays: query.RequesterPays}
+	bridge := &athenaDataPlane{execution: ctx, glue: a.Glue, s3: a.S3, tables: a.Tables, caller: query.Caller, parent: query.ParentEventID, requesterPays: query.RequesterPays}
+	if configuration := query.Data.ResultConfiguration; configuration != nil && configuration.EncryptionConfiguration != nil {
+		option := configuration.EncryptionConfiguration.EncryptionOption
+		bridge.tablesReadOnly = option != nil && (*option == "SSE_KMS" || *option == "CSE_KMS")
+	}
 	nativeRequest := native.Request{ID: query.Key.Name, Partition: query.Key.Partition, AccountID: query.Key.AccountID, Region: query.Key.Region, SQL: string(*query.Data.Query), Catalog: "awsdatacatalog", CatalogID: query.Key.AccountID, Handler: bridge, BytesCutoff: query.BytesCutoff}
+	nativeRequest.EnforceCTASDestination = query.EnforceCTASDestination
 	if execution := query.Data.QueryExecutionContext; execution != nil {
 		if execution.Catalog != nil {
 			nativeRequest.Catalog = string(*execution.Catalog)
@@ -72,6 +84,24 @@ func (a *AthenaEngine) Execute(ctx context.Context, request athena.ExecutionRequ
 	}
 	if catalogID, ok := request.Catalog.Parameters["catalog-id"]; ok {
 		nativeRequest.CatalogID = string(catalogID)
+	}
+	if query.Data.ResultConfiguration != nil && query.Data.ResultConfiguration.OutputLocation != nil {
+		root := strings.TrimSuffix(string(*query.Data.ResultConfiguration.OutputLocation), query.Key.Name+".csv")
+		nativeRequest.CTASLocation = strings.TrimRight(root, "/") + "/tables/" + query.Key.Name + "/"
+	}
+	if request.Catalogs != nil {
+		nativeRequest.Catalogs = make([]native.CatalogRegistration, 0, len(request.Catalogs))
+		for _, catalog := range request.Catalogs {
+			if catalog.Name == nil || catalog.Type == nil {
+				continue
+			}
+			nativeRequest.Catalogs = append(nativeRequest.Catalogs, native.CatalogRegistration{Name: string(*catalog.Name), Kind: string(*catalog.Type), CatalogID: string(catalog.Parameters["catalog-id"])})
+		}
+	}
+	if request.AuthorizeCatalog != nil {
+		nativeRequest.AuthorizeCatalog = func(ctx context.Context, registration native.CatalogRegistration) error {
+			return request.AuthorizeCatalog(ctx, registration.Name, registration.CatalogID)
+		}
 	}
 	if len(request.PreparedStatements) > 0 {
 		nativeRequest.PreparedStatements = make(map[string]string, len(request.PreparedStatements))
@@ -122,7 +152,7 @@ func (a *AthenaEngine) Execute(ctx context.Context, request athena.ExecutionRequ
 			}
 			// The configured Iceberg writers publish metadata as well as data.
 			// Do not expose those bookkeeping objects as a Hive data manifest.
-			producesManifest = page.OutputCatalog != "" && page.OutputCatalog != "iceberg" && page.OutputCatalog != "awsdatacatalog_iceberg" && page.OutputCatalog != "deltalake" && page.OutputCatalog != "awsdatacatalog_deltalake"
+			producesManifest = nativeRequest.IsHiveCatalog(page.OutputCatalog)
 		}
 		if page.HiveDDL != nil {
 			result.StatementType = "DDL"
@@ -360,13 +390,15 @@ func athenaCell(cell json.RawMessage, signature native.TypeSignature) (string, e
 }
 
 type athenaDataPlane struct {
-	execution     context.Context
-	glue, s3      http.Handler
-	caller        awsctx.Metadata
-	parent        string
-	requesterPays bool
-	mu            sync.Mutex
-	writes        map[string]struct{}
+	execution      context.Context
+	glue, s3       http.Handler
+	tables         AthenaTableData
+	caller         awsctx.Metadata
+	parent         string
+	requesterPays  bool
+	tablesReadOnly bool
+	mu             sync.Mutex
+	writes         map[string]struct{}
 }
 
 func (a *athenaDataPlane) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -399,8 +431,18 @@ func (a *athenaDataPlane) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		a.glue.ServeHTTP(w, r.WithContext(awsapi.WithDecodedRequest(ctx, decoded)))
 		return
 	}
+	r.Body = io.NopCloser(bytes.NewReader(input.Body))
 	if a.requesterPays {
 		r.Header.Set("X-Amz-Request-Payer", "requester")
+	}
+	if a.tables != nil && a.tables.ClaimsData(r) {
+		if a.tablesReadOnly && r.Method != http.MethodGet && r.Method != http.MethodHead {
+			model, _ := awscatalog.LookupService("s3")
+			awswire.RESTXMLError(w, r, &model, &awswire.Error{Code: "AccessDenied", Message: "S3 Tables writes are unavailable in a KMS-encrypted Athena workgroup.", StatusCode: http.StatusForbidden})
+			return
+		}
+		a.tables.HandleData(w, r.WithContext(ctx))
+		return
 	}
 	model, _ := awscatalog.LookupService("s3")
 	operation, labels, ok := model.MatchHTTPOperation(r.Method, r.URL.EscapedPath(), input.Query, r.Header)

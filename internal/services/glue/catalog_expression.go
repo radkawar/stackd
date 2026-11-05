@@ -218,7 +218,13 @@ func (p *partitionParser) atom() (partitionExpr, error) {
 	if index < 0 {
 		return nil, fmt.Errorf("unknown partition key %q", column.text)
 	}
-	null := func(v api.ValueStringList) bool { return index >= len(v) || v[index] == "__HIVE_DEFAULT_PARTITION__" }
+	// Glue filters compare the stored partition strings. Hive's null sentinel
+	// is not a SQL NULL at this API boundary: Trino's GlueExpressionUtil turns
+	// SQL IS NULL into equality against that string (and IS NOT NULL into <>).
+	// Only missing values are unknown here; persisted partitions require all
+	// key values. SQL NULL literals retain three-valued comparison semantics.
+	// https://github.com/trinodb/trino/blob/476/plugin/trino-hive/src/main/java/io/trino/plugin/hive/metastore/glue/GlueExpressionUtil.java
+	null := func(v api.ValueStringList) bool { return index >= len(v) }
 	if p.take("IS") {
 		negated := p.take("NOT")
 		if err := p.require("NULL"); err != nil {

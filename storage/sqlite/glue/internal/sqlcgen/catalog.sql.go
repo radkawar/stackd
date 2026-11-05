@@ -333,7 +333,7 @@ func (q *Queries) DeleteGlueTableVersion(ctx context.Context, arg DeleteGlueTabl
 }
 
 const getGlueCatalog = `-- name: GetGlueCatalog :one
-SELECT "partition", account_id, region, catalog_id, name, description, created_at, updated_at, parameters_json, database_permissions_json, table_permissions_json, full_table_access, tags_json, cfn_owner FROM glue_catalogs WHERE partition = ? AND account_id = ? AND region = ? AND catalog_id = ?
+SELECT "partition", account_id, region, catalog_id, name, description, created_at, updated_at, parameters_json, database_permissions_json, table_permissions_json, full_table_access, tags_json, cfn_owner, federation_identifier, federation_connection_name, federation_connection_type FROM glue_catalogs WHERE partition = ? AND account_id = ? AND region = ? AND catalog_id = ?
 `
 
 type GetGlueCatalogParams struct {
@@ -366,6 +366,9 @@ func (q *Queries) GetGlueCatalog(ctx context.Context, arg GetGlueCatalogParams) 
 		&i.FullTableAccess,
 		&i.TagsJson,
 		&i.CfnOwner,
+		&i.FederationIdentifier,
+		&i.FederationConnectionName,
+		&i.FederationConnectionType,
 	)
 	return i, err
 }
@@ -776,7 +779,7 @@ func (q *Queries) GetGlueTableVersion(ctx context.Context, arg GetGlueTableVersi
 }
 
 const listGlueCatalogs = `-- name: ListGlueCatalogs :many
-SELECT "partition", account_id, region, catalog_id, name, description, created_at, updated_at, parameters_json, database_permissions_json, table_permissions_json, full_table_access, tags_json, cfn_owner FROM glue_catalogs WHERE partition = ? AND account_id = ? AND region = ? ORDER BY catalog_id
+SELECT "partition", account_id, region, catalog_id, name, description, created_at, updated_at, parameters_json, database_permissions_json, table_permissions_json, full_table_access, tags_json, cfn_owner, federation_identifier, federation_connection_name, federation_connection_type FROM glue_catalogs WHERE partition = ? AND account_id = ? AND region = ? ORDER BY catalog_id
 `
 
 type ListGlueCatalogsParams struct {
@@ -809,6 +812,9 @@ func (q *Queries) ListGlueCatalogs(ctx context.Context, arg ListGlueCatalogsPara
 			&i.FullTableAccess,
 			&i.TagsJson,
 			&i.CfnOwner,
+			&i.FederationIdentifier,
+			&i.FederationConnectionName,
+			&i.FederationConnectionType,
 		); err != nil {
 			return nil, err
 		}
@@ -1279,26 +1285,29 @@ func (q *Queries) ListGlueTables(ctx context.Context, arg ListGlueTablesParams) 
 }
 
 const putGlueCatalog = `-- name: PutGlueCatalog :exec
-INSERT INTO glue_catalogs (cfn_owner, partition, account_id, region, catalog_id, name, description, created_at, updated_at, parameters_json, database_permissions_json, table_permissions_json, full_table_access, tags_json)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (partition, account_id, region, catalog_id) DO UPDATE SET name = excluded.name, description = excluded.description, created_at = excluded.created_at, updated_at = excluded.updated_at, parameters_json = excluded.parameters_json, database_permissions_json = excluded.database_permissions_json, table_permissions_json = excluded.table_permissions_json, full_table_access = excluded.full_table_access, tags_json = excluded.tags_json
+INSERT INTO glue_catalogs (cfn_owner, partition, account_id, region, catalog_id, name, description, created_at, updated_at, parameters_json, database_permissions_json, table_permissions_json, full_table_access, tags_json, federation_identifier, federation_connection_name, federation_connection_type)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (partition, account_id, region, catalog_id) DO UPDATE SET name = excluded.name, description = excluded.description, created_at = excluded.created_at, updated_at = excluded.updated_at, parameters_json = excluded.parameters_json, database_permissions_json = excluded.database_permissions_json, table_permissions_json = excluded.table_permissions_json, full_table_access = excluded.full_table_access, tags_json = excluded.tags_json, federation_identifier = excluded.federation_identifier, federation_connection_name = excluded.federation_connection_name, federation_connection_type = excluded.federation_connection_type
 `
 
 type PutGlueCatalogParams struct {
-	CfnOwner                string
-	Partition               string
-	AccountID               string
-	Region                  string
-	CatalogID               string
-	Name                    string
-	Description             sql.NullString
-	CreatedAt               time.Time
-	UpdatedAt               time.Time
-	ParametersJson          string
-	DatabasePermissionsJson string
-	TablePermissionsJson    string
-	FullTableAccess         sql.NullString
-	TagsJson                string
+	CfnOwner                 string
+	Partition                string
+	AccountID                string
+	Region                   string
+	CatalogID                string
+	Name                     string
+	Description              sql.NullString
+	CreatedAt                time.Time
+	UpdatedAt                time.Time
+	ParametersJson           string
+	DatabasePermissionsJson  string
+	TablePermissionsJson     string
+	FullTableAccess          sql.NullString
+	TagsJson                 string
+	FederationIdentifier     sql.NullString
+	FederationConnectionName sql.NullString
+	FederationConnectionType sql.NullString
 }
 
 func (q *Queries) PutGlueCatalog(ctx context.Context, arg PutGlueCatalogParams) error {
@@ -1317,6 +1326,9 @@ func (q *Queries) PutGlueCatalog(ctx context.Context, arg PutGlueCatalogParams) 
 		arg.TablePermissionsJson,
 		arg.FullTableAccess,
 		arg.TagsJson,
+		arg.FederationIdentifier,
+		arg.FederationConnectionName,
+		arg.FederationConnectionType,
 	)
 	return err
 }

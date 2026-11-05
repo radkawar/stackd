@@ -261,6 +261,7 @@ type AthenaQuery struct {
 	PublishMetrics                                                           bool
 	RequesterPays                                                            bool
 	BytesCutoff                                                              int64
+	EnforceCtasDestination                                                   bool
 }
 
 type AthenaWorkGroup struct {

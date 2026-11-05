@@ -19,9 +19,13 @@ func (s *Service) updateCatalog(ctx context.Context, tx Transaction, in *api.Upd
 	if input == nil {
 		return nil, failure("InvalidInputException", "CatalogInput is required.")
 	}
-	if input.FederatedCatalog != nil || input.TargetRedshiftCatalog != nil || input.CatalogProperties != nil {
-		return nil, unsupported("Federated and managed catalog provisioning is not available.")
+	if input.TargetRedshiftCatalog != nil || input.CatalogProperties != nil {
+		return nil, unsupported("Managed catalog provisioning is not available.")
 	}
+	if err := s.validateFederatedCatalog(ctx, tx, key, input.FederatedCatalog); err != nil {
+		return nil, err
+	}
+	record.Catalog.FederatedCatalog = input.FederatedCatalog
 	record.Catalog.Description = input.Description
 	record.Catalog.Parameters = input.Parameters
 	record.Catalog.CreateDatabaseDefaultPermissions = input.CreateDatabaseDefaultPermissions

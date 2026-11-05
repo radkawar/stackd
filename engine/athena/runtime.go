@@ -24,10 +24,21 @@ type Runtime interface {
 type Request struct {
 	ID, Partition, AccountID, Region  string
 	SQL, Catalog, Database, CatalogID string
+	CTASLocation                      string
+	EnforceCTASDestination            bool
 	PreparedStatements                map[string]string
+	Catalogs                          []CatalogRegistration
+	AuthorizeCatalog                  func(context.Context, CatalogRegistration) error
 	Parameters                        []string
 	BytesCutoff                       int64
 	Handler                           http.Handler
+}
+
+// CatalogRegistration is a currently authorized public Athena registration.
+// CatalogID identifies its authoritative Glue catalog, including mounted
+// federated catalogs; it is not an independently retained metadata store.
+type CatalogRegistration struct {
+	Name, CatalogID, Kind string
 }
 
 // Column retains the native type spelling and signature, including precision,

@@ -98,7 +98,7 @@ func (s *Service) authorizeCatalogWithConditions(ctx context.Context, r Reader, 
 		return err
 	}
 	if key.CatalogID != key.AccountID {
-		for _, name := range strings.Split(strings.TrimPrefix(key.CatalogID, key.AccountID+":"), ":") {
+		for _, name := range strings.FieldsFunc(strings.TrimPrefix(key.CatalogID, key.AccountID+":"), func(r rune) bool { return r == ':' || r == '/' }) {
 			ancestor.CatalogID += ":" + name
 			if err := check(ancestor.ARN()); err != nil {
 				return err

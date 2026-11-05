@@ -402,6 +402,43 @@ Both corrected proof controllers exit zero with clean logs. The original stuck
 baseline and its required owned-container force cleanup remain recorded rather
 than presented as a successful cleanup.
 
+#### Extended Hive DDL and CTAS
+
+These extensions require a source build newer than v0.1.1. Spark 4.1.3 supplies
+typed Hive syntax trees; Trino 476 executes queries and writes actual S3 files.
+There is no regular-expression SQL interpreter or fabricated query result.
+
+Supported projections include ALTER DATABASE properties; ALTER TABLE column,
+property, location and partition changes; additive MSCK repair; native views;
+Hive bucketing; Iceberg bucket/truncate/year/month/day/hour transforms; and
+Athena CTAS format, compression, partitioning, bucketing and location properties.
+Workgroup-enforced CTAS destination policy is captured at query admission and
+retained in SQLite. Unsupported Spark-only syntax and CTAS properties fail
+instead of silently losing semantics.
+
+Primary contracts:
+
+- [Athena DDL](https://docs.aws.amazon.com/athena/latest/ug/ddl-reference.html),
+  [MSCK repair](https://docs.aws.amazon.com/athena/latest/ug/msck-repair-table.html),
+  [views](https://docs.aws.amazon.com/athena/latest/ug/create-view.html), and
+  [CTAS properties](https://docs.aws.amazon.com/athena/latest/ug/create-table-as.html).
+- [Athena Iceberg creation and transforms](https://docs.aws.amazon.com/athena/latest/ug/querying-iceberg-creating-tables.html).
+- [Trino 476's Glue partition expression mapping](https://github.com/trinodb/trino/blob/476/plugin/trino-hive/src/main/java/io/trino/plugin/hive/metastore/glue/GlueExpressionUtil.java).
+
+`scripts/aws/athena_hive_semantics_smoke.py` has been run against the actual
+SQLite controller, Spark parser, Trino and S3 owner. It checks physical rows and
+Parquet compression, metadata mutations, MSCK idempotence, literal `%2F`/space/
+Unicode paths, null partitions, mixed-case transform fields, CTAS workgroup
+destinations, rejected unsupported syntax and current S3 denial. Glue retains
+the partition sentinel as a string; Trino maps SQL null predicates to that
+sentinel. The smoke also checks successful access after the denial is removed.
+This is local consumer evidence, not a live AWS capture or complete SQL parity.
+
+```sh
+/tmp/stackd-iceberg-client/bin/python scripts/aws/athena_hive_semantics_smoke.py \
+  --endpoint-url http://127.0.0.1:4566 --account YOUR_LOCAL_12_DIGIT_ACCOUNT
+```
+
 #### Glue Iceberg REST catalog
 
 Primary contracts (consulted for this implementation):
@@ -465,11 +502,130 @@ current S3 IAM allow/deny/allow across fresh query capabilities on the same
 owned warm engine. Result reuse is disabled. Use only an isolated controller's
 private runtime directory; raw receipts and query history are not public evidence.
 
-Intentional boundaries: staged create/replace and multi-table transactions,
-manifest-aware purge, rename/register/views/metrics, Lake Formation credential
-vending/OAuth, S3 Tables and federated catalog execution are not implemented.
-Unsupported modes fail explicitly; the public Smithy operation inventory does
-not count the separately specified REST paths as additional SDK operations.
+AWS contract boundaries are distinct from missing implementation. Ordinary Glue
+REST [does not support `stage-create` or `purgeRequested=true`](https://docs.aws.amazon.com/glue/latest/dg/iceberg-rest-apis.html);
+both fail without publishing a table or deleting objects. The standard Iceberg
+multi-table transaction endpoint is not part of that documented AWS API surface.
+Existing-table replacement **is supported** through requirement-checked updates:
+`scripts/aws/glue_iceberg_commit_smoke.py` exercises real PyIceberg replacement,
+retained UUID/history, reset main branch, stale-writer conflict and subsequent
+native file reads. It is not a staged-create implementation.
+
+The native REST smoke also checks nonpurging drop using PyIceberg's `False`
+query value, exact retained metadata/manifest/data bytes, a second table sharing
+the same metadata head, and unrelated objects. The observed fixture contained
+data files but no delete or statistics files; it does not establish every
+Iceberg content variant. `glue_iceberg_commit_boundaries_test.go`,
+`glue_iceberg_drop_test.go` and the service's post-I/O fencing tests cover
+memory/SQLite authority, concurrency and no-mutation boundaries.
+
+Remaining ordinary REST gaps include rename/register/views/metrics and Lake
+Formation credential vending/OAuth. Unsupported modes fail explicitly; the
+public Smithy operation inventory does not count separately specified REST paths
+as additional SDK operations.
+
+#### Authorized catalogs and managed S3 Tables
+
+This source-build extension is newer than v0.1.1. Athena native execution resolves
+authorized **GLUE** registrations, including cross-catalog SQL, rather than
+aliasing every registration to the default catalog. Private Iceberg/Delta
+connector names cannot shadow a public registration named `iceberg`. Callbacks
+recheck current catalog identity, account/region scope and IAM permissions.
+HIVE, LAMBDA and other FEDERATED connectors are not native GLUE registrations
+and remain unsupported execution modes.
+
+S3 Tables has its own typed bucket, namespace and table repository, metadata
+version tokens, immutable table identities, private warehouse bytes and deletion
+jobs. A warehouse such as `s3://<uuid>--table-s3` is **not** an ordinary S3 bucket.
+Unknown, foreign, denied and deleted warehouses cannot fall through to S3.
+Glue mounts use `FederatedCatalog.ConnectionName=aws:s3tables` and a table-bucket
+ARN or account-scoped `bucket/*` identifier. Child catalog IDs are
+`<account>:s3tablescatalog/<table-bucket>`. Native Glue creation, S3 Tables APIs,
+Iceberg REST and Trino share the same metadata head and typed column projection.
+
+The managed data path supports GET/HEAD, PUT and the multipart create/upload/
+list-parts/complete/abort lifecycle. Uploads and parts survive SQLite reopen;
+current IAM and table incarnation are checked at publication. Final objects,
+including metadata, are write-once: even identical PUT retries and otherwise
+valid completions against an existing key return `412 PreconditionFailed`.
+Replacing a staged part is still supported. Completed ETags/checksums survive
+reopen and agree with subsequent reads. HEAD reads metadata, not the payload BLOB.
+Completed objects and staged parts use actual AES-256-GCM ciphertext with
+identity-bound authentication and retained local keys, matching the existing
+ordinary-S3 local SSE-S3 security boundary. This is not customer KMS support or
+a claim that someone with the database and retained keys cannot decrypt it.
+
+Managed REST drop requires `purgeRequested=true` and removes the managed owner
+and its private data. This differs from ordinary Glue REST's nonpurging drop.
+Public ListObjects/DeleteObject/DeleteObjects and copy variants are not added
+as fake general-purpose bucket capabilities.
+
+Primary contracts:
+
+- [Glue's S3 Tables integration](https://docs.aws.amazon.com/glue/latest/dg/enable-s3-tables-catalog-integration.html)
+  and [Athena registration](https://docs.aws.amazon.com/athena/latest/ug/gdc-register-s3-table-bucket-cat.html).
+- [Documented Glue table creation](https://docs.aws.amazon.com/lake-formation/latest/dg/create-databases-tables-s3-catalog.html).
+- [Supported S3 Tables object APIs](https://docs.aws.amazon.com/AmazonS3/latest/developerguide/developing-s3-tables-APIs.html)
+  and [default encryption](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-tables-encryption.html).
+- [Per-action IAM condition keys](https://docs.aws.amazon.com/service-authorization/latest/reference/list_s3tables.html).
+  `tableName` and `namespace` are scalar strings. CreateNamespace does not
+  support the namespace key; CreateTable supports namespace but not tableName.
+
+The [retained native AWS capture](../testdata/aws/s3tables/pyarrow_crc64nvme_20261105.json)
+comes from `scripts/aws/s3tables_pyarrow_checksum_probe.py`: unchanged PyArrow
+26.0.1 wrote `123456789` through multipart upload into a uniquely owned native
+table. SDK HEAD returned CRC64NVME `rosUhgp5mIg=`, `ChecksumType=FULL_OBJECT`,
+the multipart ETag and `AES256`; GET returned the exact bytes. Owned table,
+namespace and bucket absence were verified after cleanup. Separate explicit
+boto3 requests confirm full-object completion, `InvalidPart` for mismatched
+manifest checksums, `BadDigest` for a bad full checksum, and `InvalidRequest`
+for CRC64NVME `COMPOSITE` initiation/completion. Rejected completions preserve
+the previous bytes and staged parts.
+
+The capture also records service-specific boundaries that generic S3 fields
+do not establish: `x-amz-mp-object-size` returns
+`400 S3TablesUnsupportedHeader`, even for the correct size; completion
+`If-Match` returns `501 NotImplemented`, even with the existing ETag. The
+write-once failures occur without SDK-injected conditional headers. These
+observations are retained despite the Tables guide listing `If-Match` and
+omitting CRC64NVME. One account/region/client run is not full conformance.
+The probe requires explicit `--profile`, `--account` and a fresh `--output`
+path; publish only a sanitized capture, not its raw identity data.
+
+Verification entrypoint, with Docker and the
+[pinned native images](runtime-containers.md#glue-and-athena) already installed:
+
+```sh
+go build -o bin/stackd ./cmd/stackd
+python3 -m venv /tmp/stackd-analytics-client
+/tmp/stackd-analytics-client/bin/pip install \
+  'boto3==1.43.123' 'pyiceberg[pyarrow,glue]==0.10.0' 'pyarrow==26.0.1'
+/tmp/stackd-analytics-client/bin/python scripts/aws/analytics_native_smoke.py \
+  --binary bin/stackd --state-directory /tmp/stackd-analytics-fresh \
+  --output /tmp/stackd-analytics-result.json
+```
+
+The state directory must not exist. The runner supplies an explicit fixture
+account, strips ambient AWS/proxy settings, runs all four real client scenarios
+and requires clean controller shutdown. Only assertion receipts are suitable
+for publication; the private SQLite/runtime directory is not an artifact.
+
+The full fresh-controller runner passed all four scenarios locally, including
+managed-table PyArrow multipart append, PyIceberg schema evolution and subsequent
+Trino reads of the shared metadata head. Managed commits use the version-prefixed
+metadata filenames required by native Iceberg's
+[BaseMetastoreTableOperations](https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/BaseMetastoreTableOperations.java).
+The run also completed clean controller shutdown; this is local client evidence,
+not a claim that all AWS or connector behaviors are implemented.
+
+Remaining S3 Tables boundaries include policies, explicit encryption/storage
+configuration, tagging, replication, maintenance and object/multipart
+[CloudTrail data events](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-tables-logging.html).
+The implemented managed metadata format is v2. AWS supports
+[Iceberg v3 in S3 Tables](https://docs.aws.amazon.com/AmazonS3/latest/userguide/working-with-apache-iceberg-v3.html),
+but also explicitly states that Athena cannot read v3; local v3 metadata,
+row-lineage and deletion-vector support remain unimplemented. Registered API
+counts and a successful native query are not evidence of full service parity.
 
 #### Connection password settings: creation/update versus projection
 
@@ -622,7 +778,8 @@ pagination error.
 
 Retain the following gaps rather than interpreting registration as completion:
 
-- Glue federated/provisioned catalogs, Lake Formation transactions/governance,
+- Glue federation beyond the implemented S3 Tables mount, provisioned catalogs,
+  Lake Formation transactions/governance,
   multidialect views and time-travel partition snapshots; local partition-index
   validation is not a native backfill timing or acceleration claim.
 - Distributed worker shapes, streaming/Ray, custom dependency/connection loading,
@@ -639,11 +796,11 @@ Retain the following gaps rather than interpreting registration as completion:
   batching, delayed trigger notifications and data-quality encryption.
 - Athena Spark/engine-v2, managed results, Identity Center, S3 Access Grants,
   capacity configuration, federated provisioning/connectors, CSE_KMS,
-  missing S3Tables prerequisites and manifests outside supported native Hive
-  CTAS/INSERT writes. SQL PREPARE/DEALLOCATE are
+  S3 Tables policy/encryption/maintenance/v3 boundaries above, and manifests
+  outside supported native Hive CTAS/INSERT writes. SQL PREPARE/DEALLOCATE are
   explicitly rejected until native prepared-state changes can persist; API
-  prepared statements are distinct. Athena CTAS-specific properties and exact
-  Delta/Iceberg version/concurrency compatibility need separate proof.
+  prepared statements are distinct. Exact Delta/Iceberg version/concurrency
+  compatibility and unsupported SQL dialect forms need separate proof.
 - Buffered whole-query CSV results, local native resource bounds, and scan-limit
   accounting/cadence are not AWS service-capacity guarantees.
 

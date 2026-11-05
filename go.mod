@@ -42,6 +42,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/eventbridge v1.54.0
 	github.com/aws/aws-sdk-go-v2/service/firehose v1.51.0
 	github.com/aws/aws-sdk-go-v2/service/glue v1.158.0
+	github.com/aws/aws-sdk-go-v2/service/guardduty v1.96.0
 	github.com/aws/aws-sdk-go-v2/service/iam v1.64.0
 	github.com/aws/aws-sdk-go-v2/service/identitystore v1.46.0
 	github.com/aws/aws-sdk-go-v2/service/kafka v1.65.1
@@ -60,6 +61,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/route53 v1.70.1
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.113.0
 	github.com/aws/aws-sdk-go-v2/service/s3control v1.79.0
+	github.com/aws/aws-sdk-go-v2/service/s3tables v1.23.0
 	github.com/aws/aws-sdk-go-v2/service/scheduler v1.25.1
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.50.0
 	github.com/aws/aws-sdk-go-v2/service/servicecatalogappregistry v1.44.0
@@ -69,7 +71,9 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sns v1.47.0
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.52.0
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.78.1
+	github.com/aws/aws-sdk-go-v2/service/sso v1.38.0
 	github.com/aws/aws-sdk-go-v2/service/ssoadmin v1.49.1
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.43.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.50.0
 	github.com/aws/aws-sdk-go-v2/service/xray v1.45.0
 	github.com/aws/smithy-go v1.28.1
@@ -127,15 +131,12 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.4 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.4 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/guardduty v1.96.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.19 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/endpoint-discovery v1.13.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/signin v1.10.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.38.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.43.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/dlclark/regexp2/v2 v2.5.2 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect

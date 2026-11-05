@@ -39,8 +39,30 @@ keeps service-specific accounting and error semantics authoritative.
   native Glue version and metadata pointer; concurrent writers receive 409
   `CommitFailedException`. Signed protocol/client, IAM, durable-state and native
   Athena/Trino fixtures are in the [REST catalog evidence section](docs/behavior-references.md#glue-iceberg-rest-catalog).
-  Staging/multi-table commit, manifest-aware purge, rename/register/views,
-  credential vending/OAuth, S3 Tables and federated execution remain open.
+  Native PyIceberg replacement and Trino interoperability now prove stale-writer
+  conflicts, retained UUID/history and nonpurging drop with unchanged shared files.
+  AWS rejects staged create and ordinary S3 purge; the standard multi-table
+  transaction extension is not an AWS Glue REST API. These are not pending fake
+  success implementations. Rename/register/views and credential vending/OAuth
+  remain open.
+
+- [x] Implement typed native Hive ALTER database/table/partition operations,
+  additive MSCK discovery, views, bucket/temporal/truncate transforms and Athena
+  CTAS properties. The real Spark/Trino/S3 smoke exercises literal `%2F`, Unicode
+  and null partition paths, physical compression/partitioning, workgroup
+  destination enforcement, unsupported syntax and current S3 denial.
+  See `scripts/aws/athena_hive_semantics_smoke.py`; this is local engine evidence,
+  not a claim of complete AWS SQL conformance.
+
+- [x] Add authorized Glue-backed Athena catalogs and typed S3 Tables ownership,
+  durable write-once multipart storage, encrypted object/part payloads and
+  shared Glue/Iceberg metadata commits. The fresh-controller native analytics
+  runner passes Hive, ordinary Iceberg, replacement and managed-catalog scenarios:
+  real Trino cross-catalog queries plus PyIceberg/PyArrow append, schema evolution
+  and subsequent Trino reads. Native AWS checksum/write-once captures calibrate
+  the managed data-plane contract. Remaining connector runtimes, v3 metadata,
+  policies/configuration, maintenance and CloudTrail data events remain open;
+  see `docs/behavior-references.md`. This source-build work is newer than v0.1.1.
 
 - [ ] Implement genuine DynamoDB managed-key encryption across native table/index
   storage, Streams, backups and regional replicas. Pinned DynamoDB Local ignores
@@ -3787,12 +3809,13 @@ storage and remaining conformance are open.
      retained legacy S3/ECR state through controller reopen. Both bounded
      integration captures are retained in `testdata/integration/`.
    - [ ] Complete remaining enterprise modes, not just retained operation
-     registrations: federated/Lake Formation catalog behavior, distributed/
+     registrations: federation beyond S3 Tables/Lake Formation governance, distributed/
      streaming/Ray jobs, bookmarks/dependency loading, native Python library
      bundles, continuous metrics/logs, additional crawler targets/configuration/
      encryption, full schema compatibility, EVENT workflows, Athena Spark,
      connectors/managed results/capacity/CSE_KMS, manifests, SQL prepared-state
-     deltas, CTAS dialect properties and S3Tables prerequisites. Preserve the
+     deltas, unsupported SQL dialect forms and the remaining S3 Tables policies,
+     encryption configuration, maintenance, v3 and data-event boundaries. Preserve the
      [precise evidence and boundaries](docs/behavior-references.md#glue-and-athena-engines-evidence-and-boundaries);
      do not mark this umbrella complete from a narrow successful query.
    - [x] Build the [EKS Kubernetes kernel](docs/eks.md): generated REST contracts,

@@ -253,6 +253,7 @@ func (r reader) query(row *sqlcgen.AthenaQuery) (domain.QueryRecord, error) {
 	out.UpdateCount = row.UpdateCount
 	out.PublishMetrics = row.PublishMetrics
 	out.RequesterPays = row.RequesterPays
+	out.EnforceCTASDestination = row.EnforceCtasDestination
 	out.BytesCutoff = row.BytesCutoff
 	return out, nil
 }
@@ -394,6 +395,7 @@ func (w writer) PutQuery(v domain.QueryRecord) error {
 	p.UpdateCount = v.UpdateCount
 	p.PublishMetrics = v.PublishMetrics
 	p.RequesterPays = v.RequesterPays
+	p.EnforceCtasDestination = v.EnforceCTASDestination
 	p.BytesCutoff = v.BytesCutoff
 	id, err := w.q.PutQuery(w.ctx, p)
 	if err != nil {

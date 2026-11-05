@@ -59,6 +59,7 @@ import (
 	"stackd/storage/resourcegroupstaggingapi"
 	"stackd/storage/route53"
 	"stackd/storage/s3"
+	"stackd/storage/s3tables"
 	"stackd/storage/scheduler"
 	"stackd/storage/secretsmanager"
 	"stackd/storage/servicecatalogappregistry"
@@ -160,6 +161,8 @@ type Backends struct {
 	ResourceGroupsTaggingAPI  resourcegroupstaggingapi.Repository
 	Route53                   route53.Repository
 	S3                        s3.Repository
+	S3Tables                  s3tables.Repository
+	S3TablesObjects           s3tables.WarehouseObjects
 	Scheduler                 scheduler.Repository
 	SecretsManager            secretsmanager.Repository
 	ServiceCatalogAppRegistry servicecatalogappregistry.Repository
@@ -233,6 +236,8 @@ func NewMemory() *Backends {
 		ResourceGroupsTaggingAPI:  resourcegroupstaggingapi.NewMemory(domain),
 		Route53:                   route53.NewMemory(domain),
 		S3:                        s3.NewMemory(domain),
+		S3Tables:                  s3tables.NewMemory(domain),
+		S3TablesObjects:           s3tables.NewMemoryObjects(domain),
 		Scheduler:                 scheduler.NewMemory(domain),
 		SecretsManager:            secretsmanager.NewMemory(domain),
 		ServiceCatalogAppRegistry: servicecatalogappregistry.NewMemory(domain),
@@ -300,6 +305,7 @@ func (b *Backends) Validate() error {
 		{"DocumentDB", b.DocumentDB},
 		{"RAM", b.RAM},
 		{"S3", b.S3}, {"CloudTrail", b.CloudTrail},
+		{"S3Tables", b.S3Tables}, {"S3TablesObjects", b.S3TablesObjects},
 		{"SecretsManager", b.SecretsManager},
 		{"ServiceCatalogAppRegistry", b.ServiceCatalogAppRegistry},
 		{"SNS", b.SNS},

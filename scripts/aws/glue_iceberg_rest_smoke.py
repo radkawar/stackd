@@ -36,6 +36,7 @@ import pyarrow as pa
 import pyiceberg
 from botocore.config import Config
 from pyiceberg.catalog.rest import RestCatalog
+from pyiceberg.exceptions import BadRequestError
 from pyiceberg.schema import Schema
 from pyiceberg.types import LongType, NestedField, StringType
 
@@ -200,6 +201,43 @@ def shared_metadata(name, table):
     assert stored["last-sequence-number"] == table.metadata.last_sequence_number, stored
     return stored
 
+def object_witness(location):
+    parsed = urlparse(location)
+    assert parsed.scheme == "s3" and parsed.netloc == bucket, "graph escaped fixture-owned bucket"
+    response = s3.get_object(Bucket=bucket, Key=parsed.path.lstrip("/"))
+    with response["Body"] as body:
+        content = body.read()
+    return {"sha256": hashlib.sha256(content).hexdigest(), "etag": response["ETag"],
+        "version": response.get("VersionId")}
+
+
+def iceberg_graph(table):
+    # Traverse the real PyIceberg-written snapshot Avro, not a prefix listing.
+    # Include deleted manifest entries and retained historical metadata: an
+    # ordinary catalog drop must preserve all of them, not only live row files.
+    kinds = {"metadata": {table.metadata_location}, "manifest_lists": set(),
+        "manifests": set(), "data": set(), "deletes": set(), "statistics": set()}
+    kinds["metadata"].update(entry.metadata_file for entry in table.metadata.metadata_log)
+    for snapshot in table.metadata.snapshots:
+        kinds["manifest_lists"].add(snapshot.manifest_list)
+        for manifest in snapshot.manifests(table.io):
+            kinds["manifests"].add(manifest.manifest_path)
+            for entry in manifest.fetch_manifest_entry(table.io, discard_deleted=False):
+                kind = "data" if entry.data_file.content == 0 else "deletes"
+                kinds[kind].add(entry.data_file.file_path)
+    metadata = json.loads(table.metadata.model_dump_json(by_alias=True))
+    for field in ("statistics", "partition-statistics"):
+        kinds["statistics"].update(entry["statistics-path"] for entry in metadata.get(field, []))
+    assert all(kinds[kind] for kind in ("metadata", "manifest_lists", "manifests", "data")), "missing real table artifacts"
+    witnesses = {location: object_witness(location) for paths in kinds.values() for location in paths}
+    return witnesses, {kind: len(paths) for kind, paths in kinds.items()}
+
+
+def assert_objects_unchanged(witnesses):
+    for location, before in witnesses.items():
+        assert object_witness(location) == before, "catalog-only operation changed a retained S3 object"
+
+
 
 try:
     s3.create_bucket(Bucket=bucket)
@@ -221,6 +259,20 @@ try:
         NestedField(field_id=2, name="label", field_type=StringType(), required=False),
         schema_id=0,
     )
+    # AWS does not support stage-create=true on its ordinary S3 REST catalog.
+    # Rejection must not publish an early table or write staging objects.
+    try:
+        catalog.create_table_transaction((namespace, "staged_events"), schema=schema,
+            location="s3://" + bucket + "/warehouse/staged_events")
+    except BadRequestError:
+        pass
+    else:
+        raise AssertionError("unsupported native staged create unexpectedly succeeded")
+    assert not catalog.table_exists((namespace, "staged_events"))
+    assert (namespace, "staged_events") not in catalog.list_tables((namespace,))
+    assert s3.list_objects_v2(Bucket=bucket).get("KeyCount", 0) == 0, "rejected staged create wrote S3 objects"
+    observations["native_stage_create_rejected"] = True
+    observations["invisible_rejected_staging"] = True
     table = catalog.create_table(
         (namespace, "events"), schema=schema,
         location="s3://" + bucket + "/warehouse/events", properties={"format-version": "2"},
@@ -232,6 +284,16 @@ try:
     assert rows(table) == expected
     before = shared_metadata("events", table)
     assert before["last-sequence-number"] == 1 and before["refs"]["main"]["snapshot-id"] == before["current-snapshot-id"]
+    # The standard multi-table REST extension is not an AWS Glue endpoint.
+    response = catalog._session.post(
+        endpoint + "/iceberg/v1/catalogs/" + account + "/transactions/commit",
+        json={"table-changes": []},
+    )
+    assert response.status_code == 404, "unsupported multi-table endpoint was accepted"
+    assert response.json()["error"]["type"] == "NoSuchResourceException"
+    assert catalog.load_table((namespace, "events")).metadata_location == table.metadata_location
+    assert shared_metadata("events", table) == before
+    observations["native_multitable_commit_rejected"] = True
     athena.create_work_group(Name=workgroup, Configuration={
         "EnforceWorkGroupConfiguration": True,
         "ResultConfiguration": {"OutputLocation": "s3://" + bucket + "/results/"},
@@ -328,6 +390,39 @@ try:
         "CROSS JOIN UNNEST(sequence(1, 1024)) AS expansion(n)")
     query(limited_sql, group=limited_workgroup, expected_state="CANCELLED", reason_contains="EXCEEDED_SCAN_LIMIT")
     observations["uncached_native_scan_limit"] = "EXCEEDED_SCAN_LIMIT"
+    # AWS Glue's ordinary S3 catalog must reject purge, unlike S3 Tables.
+    # https://docs.aws.amazon.com/glue/latest/dg/iceberg-rest-apis.html#delete-table
+    # The native client sends `purgeRequested=True` / `purgeRequested=False`;
+    # both retain their genuine SigV4 signatures and ordinary HTTP transport.
+    table.refresh()
+    retained_graph, graph_counts = iceberg_graph(table)
+    ordinary = glue.get_table(DatabaseName=namespace, Name="events")["Table"]
+    glue.create_table(DatabaseName=namespace, TableInput={
+        "Name": "events_shared", "TableType": ordinary["TableType"],
+        "Parameters": ordinary["Parameters"], "StorageDescriptor": ordinary["StorageDescriptor"],
+    })
+    shared = catalog.load_table((namespace, "events_shared"))
+    assert shared.metadata_location == table.metadata_location
+    unrelated = "s3://" + bucket + "/warehouse/events/data/not-an-iceberg-file.bin"
+    s3.put_object(Bucket=bucket, Key=urlparse(unrelated).path.lstrip("/"), Body=b"unrelated fixture bytes")
+    retained_graph[unrelated] = object_witness(unrelated)
+    try:
+        catalog.purge_table((namespace, "events"))
+    except BadRequestError:
+        pass
+    else:
+        raise AssertionError("AWS-unsupported native purge unexpectedly succeeded")
+    assert catalog.table_exists((namespace, "events")), "rejected purge removed the table"
+    assert shared_metadata("events", table) == shared_metadata("events_shared", shared)
+    assert_objects_unchanged(retained_graph)
+    catalog.drop_table((namespace, "events"))
+    assert not catalog.table_exists((namespace, "events")), "ordinary native drop did not remove catalog entry"
+    assert (namespace, "events") not in catalog.list_tables((namespace,))
+    assert_objects_unchanged(retained_graph)
+    assert rows(catalog.load_table((namespace, "events_shared"))) == expected
+    observations["native_s3_purge_rejected_without_effects"] = True
+    observations["native_nonpurging_drop_retains_graph"] = graph_counts
+    observations["shared_table_and_unrelated_bytes_survive_drop"] = True
     report = {"pyiceberg": pyiceberg.__version__, "pyarrow": pa.__version__,
         "client_to_trino_rows": expected, "trino_to_client_rows": rows(trino_table),
         "shared_glue_head": True, "last_sequence_number": stored["last-sequence-number"],

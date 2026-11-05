@@ -222,6 +222,21 @@ func (d *Docker) Execute(ctx context.Context, request Request, started func(stri
 		createdCatalogs = append(createdCatalogs, catalog.name)
 	}
 	engine.used++
+	// Athena CTAS syntax is accepted by Trino's parser even when its property
+	// names have different connector semantics. Translate its typed AST before
+	// any native statement can create metadata or write objects.
+	ctas, parseErr := d.parseCTAS(ctx, engine, request.SQL)
+	if parseErr != nil {
+		return parseErr
+	}
+	if ctas != nil {
+		nativeSQL, session, emitErr := ctasDDL(ctas, request)
+		if emitErr != nil {
+			return emitErr
+		}
+		request.SQL = nativeSQL
+		return executeCTAS(ctx, d.http, engine.endpoint, request, session, consume)
+	}
 	err = executeSQL(ctx, d.http, engine.endpoint, request, "athena", consume)
 	var sqlError *QueryError
 	if !terminalQueryError(err) || !errors.As(err, &sqlError) || sqlError.ErrorName != "SYNTAX_ERROR" || len(request.Parameters) != 0 {
@@ -234,7 +249,7 @@ func (d *Docker) Execute(ctx context.Context, request Request, started func(stri
 	if parseErr != nil {
 		return parseErr
 	}
-	nativeSQL, emitErr := icebergDDL(plan, request)
+	nativeSQL, emitErr := hiveNativeDDL(plan, request)
 	if emitErr != nil {
 		return emitErr
 	}

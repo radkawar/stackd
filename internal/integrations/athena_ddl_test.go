@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	native "stackd/engine/athena"
+	athenaapi "stackd/internal/awsapi/athena"
 	api "stackd/internal/awsapi/glue"
 	"stackd/internal/awsctx"
 	"stackd/internal/awswire"
@@ -88,5 +89,60 @@ func TestPublicGlueDatabaseDeleteStillCascades(t *testing.T) {
 	}
 	if _, rejected := catalog.command(ctx, "GetDatabase", &api.GetDatabaseInput{Name: new(api.NameString("public_delete"))}); rejected == nil || rejected.Code != "EntityNotFoundException" {
 		t.Fatalf("public Glue delete stopped cascading: %v", rejected)
+	}
+}
+
+func TestHiveCreateExternalTablePreservesDefaultRegistrationAuthority(t *testing.T) {
+	owner := glue.New(glue.Config{})
+	defer owner.Close()
+	metadata := awsctx.Metadata{Partition: "aws", AccountID: "123456789012", Region: "us-east-1", PrincipalARN: "arn:aws:iam::123456789012:root", PrincipalID: "123456789012"}
+	ctx := awsctx.WithMetadata(context.Background(), metadata)
+	catalog := AthenaGlue{Glue: owner}
+	if _, rejected := catalog.command(ctx, "CreateDatabase", &api.CreateDatabaseInput{DatabaseInput: &api.DatabaseInput{Name: new(api.NameString("fixture"))}}); rejected != nil {
+		t.Fatal(rejected)
+	}
+	registration := athenaapi.DataCatalog{Name: new(athenaapi.CatalogNameString("AwsDataCatalog")), Type: new(athenaapi.DataCatalogType("GLUE")), Parameters: athenaapi.ParametersMap{"catalog-id": athenaapi.ParametersMapValue(metadata.AccountID)}}
+	request := athena.ExecutionRequest{
+		Query:    athena.QueryRecord{Key: athena.ResourceKey{Scope: athena.Scope{Partition: metadata.Partition, AccountID: metadata.AccountID, Region: metadata.Region}, Name: "external-query"}, Caller: metadata},
+		Catalog:  registration,
+		Catalogs: []athenaapi.DataCatalog{registration},
+	}
+	revoked := false
+	calls := 0
+	denied := errors.New("current catalog authorization denied")
+	request.AuthorizeCatalog = func(ctx context.Context, name, id string) error {
+		calls++
+		if name != "awsdatacatalog" || id != metadata.AccountID || awsctx.FromContext(ctx).PrincipalARN != metadata.PrincipalARN {
+			t.Fatalf("Hive callback lost catalog or caller authority: name=%q id=%q caller=%+v", name, id, awsctx.FromContext(ctx))
+		}
+		if revoked {
+			return denied
+		}
+		return nil
+	}
+	engine := AthenaEngine{Glue: owner}
+	plan := native.HiveDDL{Kind: "CREATE_TABLE", Identifier: []string{"awsdatacatalog", "fixture", "events"}, External: true, Location: "s3://fixture-data/events/", Columns: []native.DDLColumn{{Name: "id", Type: "bigint"}}}
+	if err := engine.applyHiveDDL(ctx, request, plan); err != nil {
+		t.Fatalf("authorized default CREATE EXTERNAL TABLE: %v", err)
+	}
+	if _, rejected := catalog.command(ctx, "GetTable", &api.GetTableInput{CatalogId: new(api.CatalogIdString(metadata.AccountID)), DatabaseName: new(api.NameString("fixture")), Name: new(api.NameString("events"))}); rejected != nil {
+		t.Fatalf("external table missing from admitted catalog: %v", rejected)
+	}
+	revoked = true
+	plan.Identifier[2] = "revoked"
+	if err := engine.applyHiveDDL(ctx, request, plan); !errors.Is(err, denied) {
+		t.Fatalf("current catalog denial bypassed: %v", err)
+	}
+	if _, rejected := catalog.command(ctx, "GetTable", &api.GetTableInput{DatabaseName: new(api.NameString("fixture")), Name: new(api.NameString("revoked"))}); rejected == nil || rejected.Code != "EntityNotFoundException" {
+		t.Fatalf("denied external table created: %v", rejected)
+	}
+	revoked = false
+	request.Catalogs = []athenaapi.DataCatalog{}
+	plan.Identifier[2] = "unregistered"
+	if err := engine.applyHiveDDL(ctx, request, plan); err == nil {
+		t.Fatal("selected registration bypassed the authoritative empty admitted list")
+	}
+	if calls != 2 {
+		t.Fatalf("unexpected current authorization calls: %d", calls)
 	}
 }

@@ -61,6 +61,7 @@ import (
 	route53api "stackd/internal/awsapi/route53"
 	s3api "stackd/internal/awsapi/s3"
 	s3controlapi "stackd/internal/awsapi/s3control"
+	s3tablesapi "stackd/internal/awsapi/s3tables"
 	schedulerapi "stackd/internal/awsapi/scheduler"
 	secretsmanagerapi "stackd/internal/awsapi/secretsmanager"
 	servicecatalogappregistryapi "stackd/internal/awsapi/servicecatalogappregistry"
@@ -195,6 +196,8 @@ func NewInput(service, operation string) (any, error) {
 		return s3api.NewInput(operation)
 	case "s3control":
 		return s3controlapi.NewInput(operation)
+	case "s3tables":
+		return s3tablesapi.NewInput(operation)
 	case "scheduler":
 		return schedulerapi.NewInput(operation)
 	case "secretsmanager":

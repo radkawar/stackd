@@ -149,15 +149,18 @@ func (j queryJobs) Run(ctx context.Context, job scheduler.Job) error {
 		if v.Data.QueryExecutionContext != nil && value(v.Data.QueryExecutionContext.Catalog) != "" {
 			catalogName = value(v.Data.QueryExecutionContext.Catalog)
 		}
-		var catalog CatalogRecord
-		if strings.EqualFold(catalogName, "AwsDataCatalog") {
-			catalog = defaultCatalog(ResourceKey{Scope: v.Key.Scope, Name: "AwsDataCatalog"})
-		} else {
-			catalog, rejected = s.loadCatalog(caller, tx, catalogName, "GetDataCatalog")
-			if rejected != nil {
-				markFailure(&v, s.clock.Now(), wireError(rejected).Message, 2)
-				return s.putTransition(tx, v, state)
-			}
+		catalog, rejected := s.loadCatalog(caller, tx, catalogName, "GetDataCatalog")
+		if rejected != nil {
+			markFailure(&v, s.clock.Now(), wireError(rejected).Message, 2)
+			return s.putTransition(tx, v, state)
+		}
+		request.Catalogs, err = s.executionCatalogs(caller, tx)
+		if err != nil {
+			return err
+		}
+		capturedCaller := awsctx.Clone(v.Caller)
+		request.AuthorizeCatalog = func(ctx context.Context, name, id string) error {
+			return s.authorizeExecutionCatalog(awsctx.WithMetadata(ctx, capturedCaller), name, id)
 		}
 		prepared, err := tx.PreparedStatements(ResourceQuery{Scope: v.Key.Scope, WorkGroup: value(v.Data.WorkGroup)})
 		if err != nil {

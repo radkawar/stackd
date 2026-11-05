@@ -141,7 +141,7 @@ func parseIcebergRoute(r *http.Request) (icebergRoute, error) {
 	for i := range parts {
 		var err error
 		parts[i], err = url.PathUnescape(parts[i])
-		if err != nil || strings.Contains(parts[i], "/") || parts[i] == "" {
+		if err != nil || i != 1 && strings.Contains(parts[i], "/") || parts[i] == "" {
 			return icebergRoute{}, icebergError(400, "BadRequestException", "Invalid Iceberg REST path component.")
 		}
 	}
@@ -218,6 +218,20 @@ func (s *Service) ServePrivateOperation(w http.ResponseWriter, r *http.Request) 
 	catalog, err := icebergCatalog(r.Context(), route.catalog)
 	if err != nil {
 		writeIcebergError(w, err)
+		return
+	}
+	bucket, managed, err := s.icebergFederation(r.Context(), catalog)
+	if err != nil {
+		writeIcebergError(w, err)
+		return
+	}
+	if managed {
+		out, status, err := s.serveFederatedIceberg(r, catalog, bucket, route)
+		if err != nil {
+			writeIcebergError(w, err)
+		} else {
+			writeIceberg(w, status, out)
+		}
 		return
 	}
 	var out any

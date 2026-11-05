@@ -41,6 +41,7 @@ type networkFixture struct {
 	queryError        string
 	loseOwnerOnQuery  bool
 	dropError         bool
+	ctasPlan          *ctasPlan
 }
 
 type networkContainer struct {
@@ -53,6 +54,7 @@ type networkContainer struct {
 	canceled   []string
 	queries    int
 	stopped    bool
+	ctasSQL    string
 }
 
 // Uses only the imported warm implementation's fixture/API so the same test can
@@ -160,6 +162,36 @@ func (f *networkFixture) serveDocker(w http.ResponseWriter, r *http.Request) {
 	case strings.HasPrefix(path, "/images/"):
 		writeJSON(map[string]any{"Id": DockerImage, "Os": "linux"})
 		return
+	case strings.HasPrefix(path, "/exec/"):
+		execID, action, _ := strings.Cut(strings.TrimPrefix(path, "/exec/"), "/")
+		name := strings.TrimSuffix(execID, "-ctas")
+		f.mu.Lock()
+		container := f.containers[name]
+		f.mu.Unlock()
+		if container == nil || container.ctasSQL == "" {
+			http.Error(w, `{"message":"unknown parser exec"}`, 404)
+			return
+		}
+		switch action {
+		case "json":
+			writeJSON(map[string]any{"Running": false, "ExitCode": 0})
+		case "start":
+			// Ownership/protocol fixture only: explicit typed input, no mock
+			// SQL parser. The opt-in CTAS fixture uses the real pinned parser.
+			body, err := json.Marshal(map[string]any{"plan": f.ctasPlan})
+			if err != nil {
+				f.t.Fatal(err)
+			}
+			var header [8]byte
+			header[0] = 1
+			binary.BigEndian.PutUint32(header[4:], uint32(len(body)))
+			w.Write(header[:])
+			w.Write(body)
+		default:
+			f.t.Errorf("unexpected parser exec operation %s", action)
+			http.Error(w, "unexpected parser operation", 500)
+		}
+		return
 	case path == "/containers/create":
 		var config containerConfig
 		if err := json.NewDecoder(r.Body).Decode(&config); err != nil {
@@ -219,6 +251,32 @@ func (f *networkFixture) serveDocker(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch action {
+	case "exec":
+		var command struct {
+			Cmd                        []string
+			AttachStdout, AttachStderr bool
+		}
+		if err := json.NewDecoder(r.Body).Decode(&command); err != nil {
+			f.t.Error(err)
+			http.Error(w, "parser exec", 500)
+			return
+		}
+		if len(command.Cmd) < 5 || command.Cmd[0] != "/bin/sh" || command.Cmd[3] != "stackd-ctas" || !command.AttachStdout || !command.AttachStderr {
+			f.t.Errorf("unexpected parser launch: %+v", command)
+			http.Error(w, "parser exec command", 500)
+			return
+		}
+		if container.files["StackdCTAS.java"] != ctasParserSource {
+			f.t.Error("parser source must be staged with startup configuration")
+		}
+		sql, err := base64.StdEncoding.DecodeString(strings.Join(command.Cmd[4:], ""))
+		if err != nil {
+			f.t.Error(err)
+			http.Error(w, "parser SQL", 500)
+			return
+		}
+		container.ctasSQL = string(sql)
+		writeJSON(map[string]string{"Id": name + "-ctas"})
 	case "start":
 		if container.config.HostConfig.NetworkMode == "none" {
 			container.output, _ = json.Marshal(map[string]string{"error": "fixture parser rejection", "errorKind": f.parserError})

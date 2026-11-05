@@ -59,6 +59,7 @@ import (
 	"stackd/storage/sqlite/resourcegroupstaggingapi"
 	"stackd/storage/sqlite/route53"
 	"stackd/storage/sqlite/s3"
+	"stackd/storage/sqlite/s3tables"
 	"stackd/storage/sqlite/scheduler"
 	"stackd/storage/sqlite/secretsmanager"
 	"stackd/storage/sqlite/servicecatalogappregistry"
@@ -88,6 +89,10 @@ func New(ctx context.Context, db *sql.DB) (*storage.Backends, error) {
 	objects, err := s3.New(ctx, db)
 	if err != nil {
 		return nil, fmt.Errorf("prepare S3 storage: %w", err)
+	}
+	tableObjects, err := s3tables.NewObjects(ctx, db)
+	if err != nil {
+		return nil, fmt.Errorf("prepare S3 Tables storage: %w", err)
 	}
 	return &storage.Backends{
 		ResolveAccountID: func(ctx context.Context, requested string) (string, error) {
@@ -151,6 +156,8 @@ func New(ctx context.Context, db *sql.DB) (*storage.Backends, error) {
 		ResourceGroupsTaggingAPI:  resourcegroupstaggingapi.New(db),
 		Route53:                   route53.New(db),
 		S3:                        objects,
+		S3Tables:                  s3tables.New(db),
+		S3TablesObjects:           tableObjects,
 		Scheduler:                 scheduler.New(db),
 		SecretsManager:            secretsmanager.New(db),
 		ServiceCatalogAppRegistry: servicecatalogappregistry.New(db),

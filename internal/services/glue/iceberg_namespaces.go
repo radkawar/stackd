@@ -39,7 +39,7 @@ func (s *Service) icebergTransaction(ctx context.Context, catalog CatalogKey, ac
 		if err := s.authorizeCatalog(ctx, tx, "GetCatalog", catalog); err != nil {
 			return err
 		}
-		if err := s.requireCatalog(tx, catalog); err != nil {
+		if err := s.requireOrdinaryIcebergCatalog(ctx, tx, catalog); err != nil {
 			return err
 		}
 		if err := fn(ctx, tx); err != nil {

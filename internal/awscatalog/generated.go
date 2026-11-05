@@ -58,6 +58,7 @@ import (
 	route53model "stackd/internal/awscatalog/models/route53"
 	s3model "stackd/internal/awscatalog/models/s3"
 	s3controlmodel "stackd/internal/awscatalog/models/s3control"
+	s3tablesmodel "stackd/internal/awscatalog/models/s3tables"
 	schedulermodel "stackd/internal/awscatalog/models/scheduler"
 	secretsmanagermodel "stackd/internal/awscatalog/models/secretsmanager"
 	servicecatalogappregistrymodel "stackd/internal/awscatalog/models/servicecatalogappregistry"
@@ -133,6 +134,7 @@ var catalog = map[string]Service{
 	"route53":                   newService(route53model.Info, route53model.Operations, route53model.Shapes),
 	"s3":                        newService(s3model.Info, s3model.Operations, s3model.Shapes),
 	"s3control":                 newService(s3controlmodel.Info, s3controlmodel.Operations, s3controlmodel.Shapes),
+	"s3tables":                  newService(s3tablesmodel.Info, s3tablesmodel.Operations, s3tablesmodel.Shapes),
 	"scheduler":                 newService(schedulermodel.Info, schedulermodel.Operations, schedulermodel.Shapes),
 	"secretsmanager":            newService(secretsmanagermodel.Info, secretsmanagermodel.Operations, secretsmanagermodel.Shapes),
 	"servicecatalogappregistry": newService(servicecatalogappregistrymodel.Info, servicecatalogappregistrymodel.Operations, servicecatalogappregistrymodel.Shapes),

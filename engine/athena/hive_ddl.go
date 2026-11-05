@@ -39,8 +39,31 @@ type HiveDDL struct {
 	Properties                       map[string]string `json:"properties"`
 	InputFormat, OutputFormat, Serde string
 	SerdeProperties                  map[string]string `json:"serdeProperties"`
+	Partitions                       []DDLPartition    `json:"partitions"`
+	NewPartition                     map[string]string `json:"newPartition"`
+	OldColumn, AfterColumn           string
+	First                            bool
+	BucketCount                      int
+	BucketColumns                    []string
+	PartitionTransforms              []DDLTransform
 }
-type DDLColumn struct{ Name, Type, TrinoType, Comment string }
+type DDLColumn struct {
+	Name, Type, TrinoType, Comment string
+	CommentSet                     bool
+}
+type DDLPartition struct {
+	Values   map[string]string `json:"values"`
+	Location string            `json:"location"`
+}
+type DDLTransform struct {
+	Name   string
+	Fields []string
+	Count  int
+}
+
+func hiveNativeDDL(plan *HiveDDL, request Request) (string, error) {
+	return icebergDDL(plan, request)
+}
 
 func (d *Docker) parseHiveDDL(ctx context.Context, handle, owner, sql string) (_ *HiveDDL, retErr error) {
 	ctx, cancel := context.WithTimeout(ctx, d.startupTimeout)
@@ -141,6 +164,9 @@ func icebergDDL(plan *HiveDDL, request Request) (string, error) {
 	if len(plan.Identifier) == 0 || len(plan.Identifier) > 3 || len(plan.Columns) == 0 || plan.Location == "" {
 		return "", errors.New("iceberg CREATE requires a table name, columns and S3 location")
 	}
+	if plan.External {
+		return "", errors.New("external keyword not supported for table type ICEBERG")
+	}
 	database, table, catalog := request.Database, plan.Identifier[len(plan.Identifier)-1], request.Catalog
 	if len(plan.Identifier) > 1 {
 		database = plan.Identifier[len(plan.Identifier)-2]
@@ -148,12 +174,9 @@ func icebergDDL(plan *HiveDDL, request Request) (string, error) {
 	if len(plan.Identifier) == 3 {
 		catalog = strings.ToLower(plan.Identifier[0])
 	}
-	if catalog != request.Catalog && catalog != "awsdatacatalog" && catalog != "iceberg" {
-		return "", errors.New("iceberg CREATE references an unconfigured catalog")
-	}
-	nativeCatalog, _, defaultPrefix := catalogAliases(request)
-	if catalog == "awsdatacatalog" && defaultPrefix != "" {
-		nativeCatalog = defaultPrefix + "iceberg"
+	nativeCatalog, err := icebergCatalogFor(request, catalog)
+	if err != nil {
+		return "", err
 	}
 	var out strings.Builder
 	out.WriteString("CREATE TABLE ")
@@ -165,7 +188,7 @@ func icebergDDL(plan *HiveDDL, request Request) (string, error) {
 		if i != 0 {
 			out.WriteString(", ")
 		}
-		out.WriteString(quoteSQLIdentifier(column.Name) + " " + column.TrinoType)
+		out.WriteString(quoteSQLIdentifier(strings.ToLower(column.Name)) + " " + column.TrinoType)
 		if column.Comment != "" {
 			out.WriteString(" COMMENT " + quoteSQLString(column.Comment))
 		}
@@ -186,13 +209,40 @@ func icebergDDL(plan *HiveDDL, request Request) (string, error) {
 			return "", fmt.Errorf("unsupported Iceberg table property %q", key)
 		}
 	}
-	if len(plan.PartitionColumns) > 0 {
+	if len(plan.PartitionTransforms) > 0 {
+		out.WriteString(", partitioning=ARRAY[")
+		for i, transform := range plan.PartitionTransforms {
+			if i != 0 {
+				out.WriteByte(',')
+			}
+			if len(transform.Fields) != 1 {
+				return "", errors.New("partition transforms require one Iceberg column")
+			}
+			field := quoteSQLIdentifier(strings.ToLower(transform.Fields[0]))
+			var expression string
+			switch transform.Name {
+			case "identity":
+				expression = field
+			case "years", "months", "days", "hours", "year", "month", "day", "hour":
+				expression = strings.TrimSuffix(transform.Name, "s") + "(" + field + ")"
+			case "bucket", "truncate":
+				if transform.Count < 1 {
+					return "", errors.New("partition transform width must be positive")
+				}
+				expression = fmt.Sprintf("%s(%s, %d)", transform.Name, field, transform.Count)
+			default:
+				return "", fmt.Errorf("unsupported Iceberg partition transform %q", transform.Name)
+			}
+			out.WriteString(quoteSQLString(expression))
+		}
+		out.WriteByte(']')
+	} else if len(plan.PartitionColumns) > 0 {
 		out.WriteString(", partitioning=ARRAY[")
 		for i, name := range plan.PartitionColumns {
 			if i != 0 {
 				out.WriteByte(',')
 			}
-			out.WriteString(quoteSQLString(name))
+			out.WriteString(quoteSQLString(strings.ToLower(name)))
 		}
 		out.WriteByte(']')
 	}

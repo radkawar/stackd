@@ -45,6 +45,13 @@ func decodeCatalog(row sqlcgen.GlueCatalog) (domain.CatalogRecord, error) {
 		return out, err
 	}
 	out.Catalog.AllowFullTableExternalDataAccess = catalogString[api.AllowFullTableExternalDataAccessEnum](row.FullTableAccess)
+	if row.FederationIdentifier.Valid || row.FederationConnectionName.Valid || row.FederationConnectionType.Valid {
+		out.Catalog.FederatedCatalog = &api.FederatedCatalog{
+			Identifier:     catalogString[api.FederationIdentifier](row.FederationIdentifier),
+			ConnectionName: catalogString[api.NameString](row.FederationConnectionName),
+			ConnectionType: catalogString[api.NameString](row.FederationConnectionType),
+		}
+	}
 	if err := catalogDecode(row.TagsJson, &out.Tags); err != nil {
 		return out, err
 	}
@@ -105,6 +112,11 @@ func (w writer) PutCatalog(v domain.CatalogRecord) error {
 		p.TablePermissionsJson = encoded
 	}
 	p.FullTableAccess = catalogNullString(v.Catalog.AllowFullTableExternalDataAccess)
+	if federation := v.Catalog.FederatedCatalog; federation != nil {
+		p.FederationIdentifier = catalogNullString(federation.Identifier)
+		p.FederationConnectionName = catalogNullString(federation.ConnectionName)
+		p.FederationConnectionType = catalogNullString(federation.ConnectionType)
+	}
 	{
 		encoded, err := catalogEncode(v.Tags)
 		if err != nil {

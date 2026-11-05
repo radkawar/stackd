@@ -57,6 +57,9 @@ func (d *Docker) newCallback(request Request) (*queryCallback, error) {
 				return
 			}
 		}
+		if !admitCatalogCallback(w, r, request) {
+			return
+		}
 		r.Header.Del("Authorization")
 		request.Handler.ServeHTTP(w, r)
 	})}
@@ -97,33 +100,26 @@ func (catalog queryCatalog) createSQL() string {
 // Public selected catalogs keep their Hive/Glue meaning even when their name
 // collides with a convenience redirect. Only private connector aliases move.
 func catalogAliases(request Request) (iceberg, delta, defaultPrefix string) {
-	iceberg, delta = "iceberg", "deltalake"
-	if request.Catalog == iceberg {
-		iceberg = "__stackd_iceberg"
+	redirects := registrationRedirects(request)
+	selected := strings.ToLower(request.Catalog)
+	if selected == "" {
+		selected = "awsdatacatalog"
 	}
-	if request.Catalog == delta {
-		delta = "__stackd_deltalake"
-	}
-	if request.CatalogID != "" && request.CatalogID != request.AccountID {
-		defaultPrefix = "awsdatacatalog_"
-		if request.Catalog == defaultPrefix+"iceberg" || request.Catalog == defaultPrefix+"deltalake" {
-			defaultPrefix = "__stackd_default_"
-		}
+	iceberg, delta = redirects[selected].iceberg, redirects[selected].delta
+	if defaults, ok := redirects["awsdatacatalog"]; ok && defaults.iceberg != iceberg {
+		defaultPrefix = strings.TrimSuffix(defaults.iceberg, "iceberg")
 	}
 	return
 }
 
 func queryCatalogs(request Request, endpoint, token string) []queryCatalog {
-	selectedID := request.CatalogID
-	if selectedID == "" {
-		selectedID = request.AccountID
-	}
-	catalogs := make([]queryCatalog, 0, 6)
-	iceberg, delta, defaultRedirect := catalogAliases(request)
-	add := func(name, connector, catalogID, redirectIceberg, redirectDelta string) {
+	catalogs := make([]queryCatalog, 0, len(publicCatalogs(request))*3)
+	redirects := registrationRedirects(request)
+	add := func(name, connector, catalogID, publicName, redirectIceberg, redirectDelta string) {
+		scopedEndpoint := catalogEndpoint(request, endpoint, publicName)
 		properties := map[string]string{
 			"hive.metastore.glue.region":            request.Region,
-			"hive.metastore.glue.endpoint-url":      endpoint,
+			"hive.metastore.glue.endpoint-url":      scopedEndpoint,
 			"hive.metastore.glue.aws-access-key":    token,
 			"hive.metastore.glue.aws-secret-key":    "callback-capability",
 			"hive.metastore.glue.max-error-retries": "1",
@@ -131,7 +127,7 @@ func queryCatalogs(request Request, endpoint, token string) []queryCatalog {
 			"hive.metastore-stats-cache-ttl":        "0s",
 			"hive.metastore.glue.catalogid":         catalogID,
 			"fs.native-s3.enabled":                  "true",
-			"s3.endpoint":                           endpoint,
+			"s3.endpoint":                           scopedEndpoint,
 			"s3.region":                             request.Region,
 			"s3.path-style-access":                  "true",
 			"s3.aws-access-key":                     token,
@@ -152,22 +148,26 @@ func queryCatalogs(request Request, endpoint, token string) []queryCatalog {
 		}
 		catalogs = append(catalogs, queryCatalog{name: name, connector: connector, properties: properties})
 	}
-	add(iceberg, "iceberg", selectedID, "", "")
-	add(delta, "delta_lake", selectedID, "", "")
-	defaultIceberg, defaultDelta := iceberg, delta
-	if defaultRedirect != "" {
-		defaultIceberg, defaultDelta = defaultRedirect+"iceberg", defaultRedirect+"deltalake"
-		add(defaultIceberg, "iceberg", request.AccountID, "", "")
-		add(defaultDelta, "delta_lake", request.AccountID, "", "")
+	created := map[string]bool{}
+	for _, registration := range publicCatalogs(request) {
+		if registration.Kind != "GLUE" {
+			continue
+		}
+		name := strings.ToLower(registration.Name)
+		redirect := redirects[name]
+		if !created[redirect.iceberg] {
+			add(redirect.iceberg, "iceberg", registration.CatalogID, name, "", "")
+			created[redirect.iceberg] = true
+		}
+		if !created[redirect.delta] {
+			add(redirect.delta, "delta_lake", registration.CatalogID, name, "", "")
+			created[redirect.delta] = true
+		}
+		add(name, "hive", registration.CatalogID, name, redirect.iceberg, redirect.delta)
 	}
-	add("awsdatacatalog", "hive", request.AccountID, defaultIceberg, defaultDelta)
-	if request.Catalog != "awsdatacatalog" {
-		add(request.Catalog, "hive", selectedID, iceberg, delta)
-	}
-	// TODO: Comeback expose all authorized Athena catalog registrations for
-	// multi-catalog SQL and S3Tables federated ownership. Hive DDL uses native
-	// Spark logical plans, but ALTER/MSCK/views, bucket transforms and Athena
-	// CTAS-specific properties still require evidenced typed projections.
+	// TODO: Comeback execute non-GLUE HIVE, LAMBDA and FEDERATED Athena
+	// registrations through their actual connector runtimes and authorization
+	// boundaries; these registrations are not native Glue catalogs.
 	return catalogs
 }
 
@@ -185,6 +185,7 @@ func configuration(request Request, handle string, network *executionNetwork) ([
 		// The launcher links DATA_DIR/etc to --etc-dir. Dynamic store options
 		// belong in this separate file, not the server's main configuration.
 		"catalog-store.properties": "catalog.config-dir=/tmp/stackd-athena/catalog\n",
+		"StackdCTAS.java":          ctasParserSource,
 	}
 	if request.BytesCutoff > 0 {
 		// Keep the unraisable cluster cap: a changed workgroup limit retires the

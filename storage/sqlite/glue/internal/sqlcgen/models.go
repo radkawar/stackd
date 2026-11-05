@@ -10,20 +10,23 @@ import (
 )
 
 type GlueCatalog struct {
-	Partition               string
-	AccountID               string
-	Region                  string
-	CatalogID               string
-	Name                    string
-	Description             sql.NullString
-	CreatedAt               time.Time
-	UpdatedAt               time.Time
-	ParametersJson          string
-	DatabasePermissionsJson string
-	TablePermissionsJson    string
-	FullTableAccess         sql.NullString
-	TagsJson                string
-	CfnOwner                string
+	Partition                string
+	AccountID                string
+	Region                   string
+	CatalogID                string
+	Name                     string
+	Description              sql.NullString
+	CreatedAt                time.Time
+	UpdatedAt                time.Time
+	ParametersJson           string
+	DatabasePermissionsJson  string
+	TablePermissionsJson     string
+	FullTableAccess          sql.NullString
+	TagsJson                 string
+	CfnOwner                 string
+	FederationIdentifier     sql.NullString
+	FederationConnectionName sql.NullString
+	FederationConnectionType sql.NullString
 }
 
 type GlueCatalogImport struct {

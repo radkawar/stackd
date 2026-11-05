@@ -613,6 +613,7 @@ INSERT INTO athena_queries (
     update_count,
     publish_metrics,
     requester_pays,
+    enforce_ctas_destination,
     bytes_cutoff
 ) VALUES (
     sqlc.arg(key_scope_partition),
@@ -722,6 +723,7 @@ INSERT INTO athena_queries (
     sqlc.arg(update_count),
     sqlc.arg(publish_metrics),
     sqlc.arg(requester_pays),
+    sqlc.arg(enforce_ctas_destination),
     sqlc.arg(bytes_cutoff)
 ) ON CONFLICT (key_scope_partition, key_scope_account_id, key_scope_region, key_name) DO UPDATE SET
     data_engine_version_present = excluded.data_engine_version_present,
@@ -827,6 +829,7 @@ INSERT INTO athena_queries (
     update_count = excluded.update_count,
     publish_metrics = excluded.publish_metrics,
     requester_pays = excluded.requester_pays,
+    enforce_ctas_destination = excluded.enforce_ctas_destination,
     bytes_cutoff = excluded.bytes_cutoff
 RETURNING id;
 
