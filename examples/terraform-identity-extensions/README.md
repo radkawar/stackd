@@ -1,98 +1,52 @@
 # Terraform identity extensions
 
-This fixture covers the 20 remaining **already-built managed resource types** in
-the IAM, KMS, Secrets Manager and Account owners. Use it with
-[`terraform-identity`](../terraform-identity/README.md), which covers 34 other
-types, including all three Identity Store resources. Of the 55 managed types in
-these five provider packages, `aws_kms_custom_key_store` remains absent. The two
-fixtures do not establish full AWS service or setting parity.
+## Purpose
 
-**Status: declared local lifecycle verified on 2026-10-15 for all 20 targeted
-built resource types.** `coverage.json` records the exact evidence and remaining
-branches; it does not claim their unimplemented authentication protocols or full
-service parity. The runner sets `verified` only after both strict plan kinds
-return zero and all owned processes close. This is not an AWS behavior capture.
+Exercise 20 managed IAM, KMS, Secrets Manager and Account resource types with
+signed credential consumers, real OIDC/SAML issuers, cryptographic checks,
+four-step Lambda password rotation and native ALB TLS/DNS. This complements
+[the identity example](../terraform-identity/README.md); neither establishes
+full AWS service parity. `coverage.json` retains detailed scope and historical
+evidence. The runner sets `verified` only after strict plans and process cleanup
+complete.
 
-The source fix in this extension closes an OIDC TLS hostname-check gap for IP
-issuers/JWKS. Go omits TLS SNI for an IP address; a configured thumbprint must not
-therefore accept a pinned DNS-only certificate at that address. Discovery now
-checks the explicit endpoint hostname, including its IP SAN. A regression test
-covers the rejection. Parent-owned CLI wiring enables this genuine discovery only
-when `-oidc-discovery` is given.
+### Executed local evidence (2026-10-15)
 
-## Executed local evidence (2026-10-15)
+The retained coverage records describe a successful official Terraform 1.16.6 /
+AWS provider 6.68.0 lifecycle: create/update consumers, 59 imports, controller
+reopen, eight strict exit-zero plans, destroy and process closure. These are
+historical local results, not an AWS capture or a guarantee for another host or
+binary. Earlier failed runs are not passing evidence; use a new run's receipts.
 
-The complete runner exited zero using official Terraform **1.16.6** and AWS
-provider **6.68.0**, the canonical
-`.stackd/storage420-native-cli-20261014` controller
-(SHA-256 `22b61a3ae6ff9d6e1c6f0192b8d14f5a22c534ef3c16ea987dace64c25951031`),
-the installed real native ALB relay/desync classifier and Lambda telemetry helper,
-and the pinned official Python Lambda image. No native AWS resources were
-provisioned, no provider was downgraded, and no service code was changed to accept
-an invalid provider request.
+## Prerequisites
 
-Private evidence is retained in
-`.stackd/stackd-terraform-identity-extensions-8yt5hvpl`, account `896391435671`,
-resource prefix `stackd-identity-ext-4f2b6facd8`:
+### Requirements and exact commands
 
-| Boundary | Exercised result |
-| --- | --- |
-| Create/update | Every declared signed/native consumer passed at `v1` and `v2`: real OIDC/JWKS and XMLDSig SAML sessions, outbound RS256/ES384 signatures, imported/generated multi-region KMS ciphertext/expiry/reimport/rotation, password/MFA/current-authority fences, real four-callback Lambda password rotation, verified ALB TLS/SNI/DNS, root-task sessions and opt-in Region issuance. |
-| Native import | All **59** import operations exited zero. Saved reconciliation excluded every create/delete/replacement. All consumers then ran again, preserving original key/certificate identities and creation-only material. |
-| Actual controller reopen | A stopped/new process opened the same SQLite file/account/clock. Old ciphertext, federated sessions, signing authority and changed application passwords were consumed without reseeding. |
-| Independent strict plans | Create, update, import and reopen each produced a new refresh-only plan and ordinary configuration plan, **eight exit-zero results**. Separately saved exit-two observations contain only the inspected native consumer effects documented below; none was labeled strict no-change. |
-| Destroy/absence | Terraform state became empty. Signed APIs verified absence/revoked credentials, KMS retained genuine seven-day deletion schedules, and native checks found no owned ALB containers, old sockets, DNS records or ENIs and no owned Lambda containers/volumes. Globals/Region were restored; the local member was closed/detached and the organization removed. |
-| Process closure | Controller, issuer, password application, clock pump and DNS all closed. Host socket inspection found no listener on TCP 443/14711/14712/14713 or UDP 14713. The private Python bind capability was removed. |
-
-`lifecycle.json`, `imports.json`, numbered Terraform receipts, before/after
-controller logs, `keys/evidence.json`, `federation/consumer-checkpoint.json`,
-`tls/evidence.json`, `rotation/evidence.json` and
-`rotation/native-absence.json` hold the corresponding local evidence. The Python
-syntax check passed for all seven fixture modules. No controller rebuild, Go
-package tests or formatter was run during this verification.
-
-Earlier failed provider-compatibility runs remain distinct: `q5u6lxy3` retained
-the simultaneous certificate rename/tag error; `au3zsoe9` retained the dependent
-listener's inconsistent-ARN final plan; and `r8fgrx84` retained the incorrect
-import replacements detected by the key-identity fence. These suffixes refer to
-private `.stackd/stackd-terraform-identity-extensions-*` directories, not passing
-evidence. The last run's exact leftover MFA/global/organization state was cleaned
-through signed APIs; its cleanup and original deletion-window receipts are
-retained alongside the failure. The final passing run did not replace identities.
-
-## Requirements and exact commands
-
-Run from the repository root. The parent must generate the allocated SQL adapters
-and rebuild the controller first. Terraform is pinned to **1.16.6**. AWS provider
-is pinned to **6.68.0**, with the official provider checksums in the lock file.
-Do not downgrade either version.
+Complete the shared [Python environment and controller build](../README.md#prepare-once).
+From the repository root, install this group's extra cryptography/XML packages:
 
 ```sh
-make build
-CGO_ENABLED=0 go build -o bin/stackd-elbv2-node ./cmd/stackd-elbv2-node
-# After the parent prepares the pinned Rust/cbindgen prerequisites:
-make -C compute/elbv2/desync/adapter GUARDIAN="$PWD/clones/http-desync-guardian" PREFIX="$PWD/.stackd/native" install
-python3 -m venv /tmp/stackd-identity-extensions-python
-/tmp/stackd-identity-extensions-python/bin/pip install -r examples/terraform-identity-extensions/requirements.txt
-export PATH="$PWD/.stackd/terraform-1.16.6/bin:$PATH"
-
-docker pull --platform linux/amd64 public.ecr.aws/lambda/python@sha256:e369e098d9db9eafa3238fe827e4756e2016159908b9426b78e2051c08f647e3
-docker pull ubuntu@sha256:2edbbc5dc405e9612ba3584ce95480277e3eb374407b5505fe26f17df77c7dbc
-docker pull nicolaka/netshoot@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed283572f47c970c780c03b61
-
-/tmp/stackd-identity-extensions-python/bin/python examples/terraform-identity-extensions/run.py \
-  --stackd bin/stackd --port 14711 --consumer-port 14712 --dns-port 14713 \
-  --elbv2-node-executable bin/stackd-elbv2-node \
-  --desync-executable .stackd/native/bin/stackd-http-desync-guardian \
-  --provider-mirror /tmp/stackd-terraform-eip-59nmy6o_/.terraform/providers
+"$EXAMPLE_PYTHON" -m pip install -r examples/terraform-identity-extensions/requirements.txt
 ```
 
-The mirror must contain the official AWS 6.68.0 package. When `--provider-mirror`
-is given, the runner has no direct-install fallback. Omit it only to allow the
-normal official registry installation. The local SDK requirement is newer than
-`examples/requirements.txt`: its models must include STS `GetWebIdentityToken`
-and the IAM outbound federation operations. Installing the extension's private
-requirements does not change the shared examples environment.
+Install Terraform **exactly 1.16.6** on `PATH`. AWS provider **6.68.0** and its
+official checksums are pinned. Prepare Docker CLI/Engine, OpenSSL, BIND `dig`,
+the matching Linux Lambda telemetry helper beside `stackd`, a static native ALB
+relay and the genuine pinned desync adapter. The
+[ALB runtime guide](../../docs/runtime-containers.md#alb-relay) documents host
+admission and adapter preparation. For the relay, from the repository root:
+
+```sh
+CGO_ENABLED=0 go build -o bin/stackd-elbv2-node ./cmd/stackd-elbv2-node
+```
+
+Preinstall the exact helper and runtime images (the runner never pulls them):
+
+```sh
+docker pull ubuntu@sha256:2edbbc5dc405e9612ba3584ce95480277e3eb374407b5505fe26f17df77c7dbc
+docker pull nicolaka/netshoot@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed283572f47c970c780c03b61
+docker pull --platform linux/amd64 public.ecr.aws/lambda/python@sha256:e369e098d9db9eafa3238fe827e4756e2016159908b9426b78e2051c08f647e3
+```
 
 The TLS issuer must exclusively bind `127.0.0.1:443`. The host must permit that
 bind; an occupied or forbidden port fails. There is no alternate remote issuer,
@@ -128,6 +82,47 @@ arguments are removed by `examples/local.py`. The run directory is private, with
 private state, passwords, imported master bytes, signing keys, authenticators,
 plans and receipts. Keep it private or remove it after inspection. Do not commit
 those artifacts.
+
+## Run
+
+Run from the repository root after preparing the native adapter:
+
+```sh
+"$EXAMPLE_PYTHON" examples/terraform-identity-extensions/run.py \
+  --stackd bin/stackd --port 14711 --consumer-port 14712 --dns-port 14713 \
+  --elbv2-node-executable bin/stackd-elbv2-node \
+  --desync-executable /absolute/path/to/stackd-http-desync-guardian
+```
+
+Select unused distinct unprivileged controller/application/DNS ports; the issuer
+also requires TCP 443. `--provider-mirror /absolute/path/to/mirror` selects an
+existing AWS 6.68.0 filesystem mirror without direct fallback; omitting it permits
+registry installation. `--work-parent /existing/directory` changes the parent of
+the new workspace. `--docker-host` selects the prepared daemon.
+`--architecture arm64` selects the exact ARM64 runtime in `run.py` and requires
+matching native helpers; it does not install emulation.
+`--desktop` changes Lambda callback routing only, not native ALB host requirements.
+
+## Expected results
+
+A complete run prints `Identity extensions lifecycle complete` after consumers,
+imports, update, retained-database reopen and teardown. The printed private
+directory holds `stackd.sqlite`, `lifecycle.json`, `imports.json`, numbered
+Terraform logs/plans/state, and per-module consumer receipts. Controller logs
+include `stackd.log`, `before-reopen.stackd.log` and `after-reopen.stackd.log`.
+Inspect `verified`, errors and completed stages together.
+
+## Cleanup
+
+Each import saves `before-import.tfstate` and restores it on import failure so
+ordinary teardown can still find the owned resource.
+
+The runner destroys its resources, checks native absence, restores captured
+account Region/global preferences, closes/detaches its owned local member, and
+stops its controller, issuer, password application and clock pump. KMS retains
+scheduled deletion windows; account and signing history are not physical erasure.
+Inspect failures before removing only the exact printed private directory.
+If you granted a private interpreter bind capability, remove it after use.
 
 ## Completed-stage procedure
 
@@ -237,7 +232,9 @@ Manager, KMS and log permissions; it receives no root credential or fake executi
 receipt. The application closes with this run; deleting a secret does not falsely
 reset an unrelated application's credential.
 
-## Import and deletion limits
+## Limitations
+
+### Import and deletion limits
 
 - Provider 6.68.0 has no importer for `aws_iam_policy_attachment`,
   `aws_iam_security_token_service_preferences`, or prerequisite
@@ -307,6 +304,7 @@ Official contracts and existing owner sources:
   [IAM certificates](../../docs/iam-certificates.md), [IAM service credentials](../../docs/iam-service-credentials.md),
   [STS preferences](../../docs/iam-sts-preferences.md), and [Account Regions](../../docs/account-regions.md) contracts.
 
-Main-agent checks after integration: the scoped OIDC discovery regression tests,
-repository build/syntax checks, both pinned identity runners and their complete
-consumer/import/reopen/teardown stages. Only exercised stages may be marked verified.
+Strict plan exit 2 remains failure, including a textual “No changes” result.
+The optional [Terraform Core correction](../README.md#terraform-core-refresh-only-correction-opt-in)
+is a separate locally patched consumer, not an official release. Keep its
+checksums and results separate from official-binary evidence.

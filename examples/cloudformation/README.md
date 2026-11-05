@@ -1,47 +1,55 @@
-# CloudFormation: create, update, delete with data-plane assertions
+# CloudFormation application
 
-Complete [shared preparation](../README.md) first. Neither Terraform nor Docker
-is required. This template uses existing `AWS::S3::Bucket`, `AWS::SQS::Queue`
-and `AWS::SSM::Parameter` resource owners, not custom-resource stand-ins.
+## Purpose
+
+Create an S3 bucket, SQS queue and SSM parameter from a CloudFormation template,
+use them from an application, update the parameter and delete the stack.
+
+## Prerequisites
+
+Complete [shared preparation](../README.md#prepare-once). Neither Terraform nor
+Docker is required.
+
+## Run
+
+From the repository root:
 
 ```sh
 "$EXAMPLE_PYTHON" examples/cloudformation/run.py --port 14662
 ```
 
-The runner owns a fresh controller/database and unique stack/resource names.
-Every CloudFormation, STS, S3, SQS and SSM SDK client uses that controller's
-explicit loopback endpoint and signs requests with fixture credentials. It:
+Use `--stackd PATH` to select an installed server or `--work-parent PATH` to
+select the parent of the new run directory. The runner starts a server with a
+new SQLite database and generates unique stack and resource names.
 
-1. Submits `template.json` with `CreateStack`, `Name=<unique name>`, and
-   `Revision=v1`, then polls `DescribeStacks` for `CREATE_COMPLETE`. Any terminal
-   failure/rollback is an error, not a successful readiness response.
-2. Consumes `DescribeStacks.Outputs`: `Bucket`, `QueueUrl`, `ParameterName`.
-   Reads SSM `v1`; puts binary object bytes; sends a manifest through SQS;
-   receives and checks the actual message identity/body; retrieves and compares
-   object bytes and SHA-256; deletes the message and object.
-3. Calls `UpdateStack` with `UsePreviousTemplate`, retains `Name`, changes
-   `Revision` to `v2`, and waits for `UPDATE_COMPLETE`. Outputs must remain
-   identical, proving the update did not replace these resource identities.
-   It repeats the signed data-plane assertions with `v2` and new payload bytes.
-4. Submits an identical update and requires the modeled `ValidationError`
-   containing `No updates`, not a pretend successful update.
-5. Calls `DeleteStack`, polls the unique stack ID for `DELETE_COMPLETE`, then
-   requires the bucket, queue and parameter to be absent through their owning
-   service APIs. Objects are explicitly removed before stack deletion.
+## Expected results
 
-The template is also ordinary JSON for SDK/CLI deployment; the safe runner is
-the complete runnable example because it owns endpoints, credentials, unique
-names, polling, assertions and teardown. It retains `template.json`,
-`stack-id.txt`, `outputs.json`, SQLite state and the controller log in the
-printed run directory. See [cleanup](../README.md#cleanup-and-evidence).
+1. `CreateStack` reaches `CREATE_COMPLETE` and returns the application outputs.
+2. SDK requests read SSM value `v1`, upload binary bytes to S3, send a manifest
+   through SQS and compare the received message and object with the originals.
+3. `UpdateStack` changes the SSM value to `v2` without replacing the resources.
+   The application checks run again with new object and message contents.
+4. An identical update returns `ValidationError` with `No updates`.
+5. `DeleteStack` reaches `DELETE_COMPLETE`, and SDK requests confirm that the
+   bucket, queue and parameter are absent.
 
-CloudFormation does not become a general AWS parity claim because this stack
-works. This example exercises these three resource types, basic parameter/
-`Fn::Sub`/`Ref` evaluation, outputs, an in-place SSM update and lifecycle cleanup.
-It does not claim change-set, nested-stack, rollback, service-role authorization
-or resource-replacement coverage.
+A failed or rolled-back stack, unexpected output or data mismatch fails the run.
 
-Primary contracts: [CreateStack](https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_CreateStack.html),
+## Cleanup
+
+The runner removes objects before deleting the stack and attempts stack deletion
+if an application check fails. It stops the server and retains `template.json`,
+`stack-id.txt`, `outputs.json`, the SQLite database and `stackd.log` in the printed
+run directory. Follow [shared cleanup](../README.md#cleanup-and-evidence) to
+remove that directory after inspection.
+
+## Limitations
+
+This example covers three resource types, parameters, `Fn::Sub`, `Ref`, outputs
+and an in-place update. It does not exercise change sets, nested stacks,
+rollback, service roles or resource replacement.
+
+AWS references: [CreateStack](https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_CreateStack.html),
 [UpdateStack](https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_UpdateStack.html),
-[DeleteStack](https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_DeleteStack.html),
-[template outputs](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/outputs-section-structure.html).
+[DeleteStack](https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_DeleteStack.html)
+and [template outputs](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/outputs-section-structure.html).

@@ -1,28 +1,56 @@
 # Current-provider API controls
 
+## Purpose
+
 This companion to `../terraform-api` declares 24 managed Terraform types,
 55 managed instances, and 11 data-source types across API Gateway REST/V2,
 AppSync, and Route53. The exact per-type boundaries and unimplemented families
 are retained in `coverage.json`; registration alone is not implementation.
 
-## Preparation and command
+## Prerequisites
+
+### Preparation and command
 
 Use official Terraform **1.16.6** and AWS provider **6.68.0**. The runner rejects
 another Terraform version and the configuration pins both versions exactly.
-Install Python dependencies from this directory's `requirements.txt` in a
-private virtual environment. Prepare a controller and its Linux amd64 Lambda
-telemetry helper side by side, plus Docker, OpenSSL, `dig`, and `psql`.
-Preinstall the five exact image digests named in `run.py`; image inspection must
-succeed before any resource is created. Nothing pulls images implicitly.
+Complete the shared [Python environment and controller build](../README.md#prepare-once),
+then install the extra client packages from the repository root:
 
 ```sh
-python -m pip install -r examples/terraform-api-controls/requirements.txt
-PATH="/absolute/path/to/terraform-1.16.6/bin:$PATH" \
-  python examples/terraform-api-controls/run.py \
-  --stackd /absolute/path/to/prepared/stackd \
-  --provider-mirror /absolute/path/to/provider/mirror \
+"$EXAMPLE_PYTHON" -m pip install -r examples/terraform-api-controls/requirements.txt
+```
+
+Prepare the Linux amd64 Lambda telemetry helper beside `stackd`, Docker
+CLI/Engine, OpenSSL, BIND `dig`, and PostgreSQL `psql`. Prepare the
+[Docker host and Lambda storage prerequisites](../../docs/runtime-containers.md).
+Preinstall the five exact digests from `run.py`:
+
+```sh
+docker pull ubuntu@sha256:2edbbc5dc405e9612ba3584ce95480277e3eb374407b5505fe26f17df77c7dbc
+docker pull --platform linux/amd64 public.ecr.aws/lambda/python@sha256:e369e098d9db9eafa3238fe827e4756e2016159908b9426b78e2051c08f647e3
+docker pull amazon/dynamodb-local@sha256:ff89bd48ff32cd8d9be5fee8873b65b8854dc408f1afe881be6eb00247bc0dab
+docker pull postgres@sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652
+docker pull mysql@sha256:0744ee5ef89ce6ccfa13de3e579fe6b9e27f93dd70da9c06d2c908b1b193fb8d
+```
+
+Nothing pulls images implicitly. The fixture uses the amd64 runtime/helper;
+other host architectures need separately prepared execution support.
+
+## Run
+
+From the repository root, with Terraform 1.16.6 selected on `PATH`:
+
+```sh
+"$EXAMPLE_PYTHON" examples/terraform-api-controls/run.py \
   --port 14803 --dns-port 15803 --http-port 16803
 ```
+
+`--provider-mirror /absolute/path/to/mirror` selects AWS 6.68.0 from an existing
+filesystem mirror without registry fallback. Omitting it permits registry
+installation. `--stackd /absolute/path/to/stackd` selects a prepared controller;
+`--work-parent /existing/directory` changes the new workspace's parent.
+`--docker-host` selects an existing local Unix-socket daemon (default:
+`DOCKER_HOST`, otherwise `unix:///var/run/docker.sock`).
 
 All three ports must be unused and distinct. The owned controller binds
 `0.0.0.0` so runtime containers can make callbacks; only run on a trusted host
@@ -83,7 +111,25 @@ failure**, including when the plan text says “No changes.” It is neither
 applied nor normalized to success. Real provider or owner drift is also a
 failure; the runner does not use `ignore_changes`, fake authority, or downgrades.
 
-## Evidence and limitations
+## Expected results
+
+A successful run finishes all consumers, eight imports, update, actual database
+reopen, strict refresh/normal plan gates and destroy. It prints
+`Current-provider API control lifecycle complete`. A strict-plan failure remains
+a nonzero result even if consumer and cleanup stages succeeded.
+
+## Cleanup
+
+The runner attempts Terraform destroy and exact SDK prerequisite cleanup on
+failure as well as success, checks absence/empty state, and stops its owned
+controller and TLS listener. The retained private directory contains sensitive
+keys, tokens, database credentials, `stackd.sqlite`, Terraform state/plans,
+`stackd.log` and numbered Terraform logs. Remove only that exact printed directory
+after owned processes have stopped and evidence is no longer needed.
+
+## Limitations
+
+### Evidence and limitations
 
 The printed private workspace is retained with mode0700 because state, tokens,
 keys and database credentials are sensitive. `evidence.json` records the exact
@@ -114,19 +160,15 @@ printed workspace after reviewing its evidence.
 
 ## Exercised result
 
-The retained run `/tmp/stackd-terraform-api-controls-2q1wxd1l` used account
-`392406071851`, official Terraform1.16.6/provider6.68.0, and the coherent private
-source manifest `.stackd/api-controls420-source-93qz5kr_/manifest.json`.
-All declared first/second-revision consumers, eight imports, current IAM and
-role effects, graceful database reopen and fresh socket consumers completed.
-Normal strict import/update/reopen plans each exited0. Terraform destroyed all
-55 instances; signed API/account/zone absence, empty state and actual DNS
-refusal passed; exact SDK prerequisites were cleaned up.
+Historical official Terraform **1.16.6** / AWS provider **6.68.0** evidence completed
+both revision consumers, eight imports, current IAM checks, database reopen,
+normal no-op plans and destruction of all 55 instances, but **failed** the final
+refresh-only gate with exit 2 despite no semantic changes. `coverage.json`
+preserves that bounded evidence; it is not a passing full lifecycle.
 
-The lifecycle **did not pass**: the final refresh-only plan exited2.
-`terraform-039.log` says “No changes”; `terraform-040.log` has no resource drift
-or resource changes and an identical before/after no-op `proof` output.
-The runner retained this as terminal failure and did not apply the plan.
-`coverage.json` records the exact evidence and earlier fixture/owner defects;
-its per-type aggregate lifecycle statuses are deliberately not promoted to a
-passing lifecycle based only on the successful stages.
+A separate run with the explicit local
+[Terraform Core correction](../README.md#terraform-core-refresh-only-correction-opt-in)
+passed the complete API-controls lifecycle. That binary is a **locally patched
+consumer**, not an official release or upstream-merged fix. Preserve its source,
+patch and binary checksums and keep official and patched results distinct.
+Do not downgrade a binary or weaken the strict gate to obtain a pass.

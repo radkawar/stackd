@@ -1372,7 +1372,7 @@ expired first receipts, then confirmed fresh receives with count two after the
 fix. The two original source IDs were acknowledged, with no reinsertion and no
 invented processing-result field. Fixture replay also compares SQS's native queue
 counters against ESM attempts, actual runtime starts and successful deletions;
-see [queue counter semantics](sqs-delivery.md#cloudwatch-queue-counters).
+see [queue counter semantics](sqs-delivery.md#cloudwatch-queue-metrics).
 
 Primary contracts:
 [SQS integration](https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html),

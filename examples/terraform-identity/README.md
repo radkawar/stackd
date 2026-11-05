@@ -1,5 +1,7 @@
 # Terraform identity lifecycle
 
+## Purpose
+
 This fixture uses **Terraform 1.15.9** and **AWS provider 6.68.0**. It uses the
 published provider and the checked-in checksum lock. It does not use a provider
 fork, a development override, an older provider, or native AWS credentials.
@@ -8,27 +10,31 @@ The fixture contains 38 resource instances from 34 resource types. It covers
 IAM, KMS, Secrets Manager, Identity Store, and Account Management. It does not
 establish full support for these services or for all provider resource types.
 
-**Evidence status:** the complete fixture after the owner changes is not yet
-run. The runner records only completed stages in its private `lifecycle.json`.
-A resource registration or an empty static API-gap list is not lifecycle proof.
-See the [provider inventory](../../docs/terraform-provider-apis.json).
+The runner records completed stages in its private `lifecycle.json`; only a
+complete successful run establishes this fixture's lifecycle result. See the
+[provider inventory](../../docs/terraform-provider-apis.json) for broader scope.
+
+## Prerequisites
+
+Complete the shared [Python environment and build setup](../README.md#prepare-once)
+and export `EXAMPLE_PYTHON`. Install Terraform **exactly 1.15.9** on `PATH`;
+`main.tf` and the runner both enforce it. AWS provider **6.68.0** is pinned with
+a checked-in checksum lock. Shared Python requirements suffice; no Docker or
+other runtime is needed.
 
 ## Run
 
-Prepare the current controller binary, Python 3, `boto3`, and Terraform 1.15.9.
-The API-only controller needs no Docker for this fixture. From the repository
-root:
+Run these commands from the repository root:
 
 ```sh
-go build -o bin/stackd ./cmd/stackd
-python3 examples/terraform-identity/run.py --port 14701
+"$EXAMPLE_PYTHON" examples/terraform-identity/run.py --port 14701
 ```
 
 To use an unpacked provider mirror with no direct download fallback:
 
 ```sh
-python3 examples/terraform-identity/run.py --port 14701 \
-  --provider-mirror /path/to/provider-mirror
+"$EXAMPLE_PYTHON" examples/terraform-identity/run.py --port 14701 \
+  --provider-mirror /absolute/path/to/provider-mirror
 ```
 
 The mirror must contain the official provider 6.68.0 package in this layout:
@@ -38,12 +44,6 @@ registry.terraform.io/hashicorp/aws/6.68.0/linux_amd64/
   terraform-provider-aws_v6.68.0_x5
 ```
 
-The available local package from the EIP diagnosis has this layout:
-
-```sh
-python3 examples/terraform-identity/run.py --port 14701 \
-  --provider-mirror /tmp/stackd-terraform-eip-59nmy6o_/.terraform/providers
-```
 
 Do not run `main.tf` against an existing account or endpoint. The runner is the
 safety boundary. It clears inherited AWS/Terraform environment overrides and
@@ -57,6 +57,19 @@ It contains secret values, access keys, Terraform state, plans, backups, and
 controller logs. These are local fixture secrets, not production secrets. Do
 not commit or publish that directory. The controller stops after the run. The
 runner retains only its owned directory so that a failure can be inspected.
+
+`--stackd /absolute/path/to/stackd` selects a prepared binary;
+`--work-parent /existing/directory` selects the parent of the new unique run
+directory. `--port` selects an unused unprivileged controller port. Omitting
+`--provider-mirror` permits the normal registry installation; an explicit mirror
+has no direct-download fallback.
+
+## Expected results
+
+A successful run prints completed stages and finishes the lifecycle after
+create, native consumers, imports, update, two database reopens and destroy.
+`lifecycle.json`, `outputs.json`, saved plans, state and `stackd.sqlite` stay in
+the printed directory. `stackd.log` is the active controller log.
 
 ## Lifecycle and real consumers
 
@@ -111,6 +124,20 @@ Primary contacts have no Delete API, and the provider removes only their state
 on destroy. The runner therefore restores its seeded before-image, even on
 failure. Alternate contacts have a real Delete API. No native account contact,
 account IAM setting, or shared sandbox is changed.
+
+## Cleanup
+
+The runner destroys owned resources and restores the primary-contact before-image,
+then removes its Identity Center prerequisite. The owned controller stops on
+exit. KMS deletion is scheduled, not immediate. A failed cleanup is not a
+successful lifecycle: keep the printed private workspace for diagnosis.
+After all owned processes stop and evidence is no longer needed, remove only
+that exact printed directory. Do not use an existing account or shared state.
+
+## Limitations
+
+The specific import, cryptographic and account cleanup boundaries above apply;
+the detailed resource table below is scope, not a full service-support claim.
 
 ### Import limits
 
@@ -176,41 +203,11 @@ current AWS API model.
 
 ## Diagnosed owner gaps and evidence
 
-A local diagnosis used the existing baseline binary, Terraform 1.15.9, and the
-published AWS provider 6.68.0. It attempted 37 resource instances. Thirty-four
-created; the group membership depended on the rejected directory user.
-Two genuine owner gaps blocked the full apply:
-
-- `CreateUser` rejected provider-supported `addresses` and `phone_numbers`.
-  The typed owner now accepts, reads, replaces, and clears these whole-list
-  attributes. Memory cloning and SQLite child tables preserve transaction and
-  scope ownership. Migration 413 adds the tables.
-- The provider sends an empty map for the unused KMS grant-constraint field.
-  The KMS owner treated that empty map as a second supplied constraint. Empty
-  maps now carry no constraint. Two nonempty alternatives still fail.
-
-The baseline signed IAM user read the actual `v1` secret bytes and decrypted
-provider-produced symmetric ciphertext. The wrong secret principal and a
-nonexistent directory were rejected. Baseline cleanup timed out with only the
-KMS key and key-policy Terraform entries left. The provider's default-policy
-source requires account discovery; this fixture enables it. The diagnosis then
-scheduled key deletion, deleted the directory prerequisite, and stopped its
-owned controller. This is bounded diagnosis evidence, not a completed lifecycle
-claim for the changed code.
-
-Owner tests added for parent verification cover typed contact create/read,
-replacement, null clearing, reopen, rollback, detached reader slices, foreign
-account rejection, invalid nested values/cardinality, deletion, and the KMS
-empty-map regression. After shared SQLC generation and formatting, the parent
-can run:
-
-```sh
-go test ./internal/services/iam ./internal/services/kms \
-  ./internal/services/secretsmanager ./internal/services/identitystore \
-  ./internal/services/account ./storage/identitystore ./storage/sqlite/identitystore
-python3 examples/terraform-identity/run.py --port 14701 \
-  --provider-mirror /tmp/stackd-terraform-eip-59nmy6o_/.terraform/providers
-```
+Historical diagnosis found unsupported Identity Store contact lists and empty-map
+KMS grant constraint handling. The fixture now exercises those boundaries through
+create/update/removal, signed consumers and SQLite reopen. The runner's own
+completed-stage record is authoritative for a new run; earlier partial applies
+are not a passing lifecycle. No private work-directory path is a prerequisite.
 
 ### AWS and provider contracts
 
