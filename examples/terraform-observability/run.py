@@ -415,8 +415,15 @@ def main():
                     elif kind == "aws_xray_resource_policy":
                         identifier = values["policy_name"]
                     require(identifier, "No import identity for " + address)
+                    backup = root / "before-import.tfstate"
+                    backup.write_text(terraform("state", "pull", capture=True).stdout)
                     terraform("state", "rm", address)
-                    terraform("import", "-input=false", address, identifier)
+                    try:
+                        terraform("import", "-input=false", address, identifier)
+                    except BaseException:
+                        # Restore ownership so normal failure cleanup can destroy it.
+                        terraform("state", "push", "-force", str(backup))
+                        raise
                 evidence["stages"].append("import")
                 noop()
                 variables.update(revision="updated", protected=True)

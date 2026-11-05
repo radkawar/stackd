@@ -334,8 +334,15 @@ def main():
                 imports[resource["address"]] = identifier
             (root / "imports.json").write_text(json.dumps(imports, indent=2) + "\n")
             for address, identifier in imports.items():
+                backup = root / "before-import.tfstate"
+                backup.write_text(terraform("state", "pull", capture=True).stdout)
                 terraform("state", "rm", address)
-                terraform("import", "-input=false", address, identifier)
+                try:
+                    terraform("import", "-input=false", address, identifier)
+                except BaseException:
+                    # Restore ownership so normal failure cleanup can destroy it.
+                    terraform("state", "push", "-force", str(backup))
+                    raise
             # Passwords are write-only; restore their desired Terraform state after import.
             terraform("apply", "-input=false", "-auto-approve")
             outputs = read_outputs()

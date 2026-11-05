@@ -1,79 +1,171 @@
-# Local application examples
+# Examples
 
-These are executable, assertion-bearing examples, not claims of AWS parity:
+Run local applications against stackd using Terraform, CloudFormation or the AWS
+SDK. Runners provision resources, check application results and remove the
+resources they created. Most start their own server; exceptions are noted below.
 
-- [Terraform](terraform/README.md): init, apply, consume outputs, transfer real
-  binary S3 bytes through an SQS message, read SSM, require a no-change plan,
-  repeat apply, destroy, and verify resource absence.
-- [Terraform EIPs with AWS provider 6.68.0](../docs/ec2.md#run-the-current-provider-lifecycle):
-  allocate two EIPs, verify signed attribute pagination, refresh without drift,
-  destroy, and assert resource absence in a fresh owned controller.
-- [VPC Flow Logs with AWS provider 6.68.0](../docs/ec2.md#vpc-flow-logs):
-  capture real allowed and denied UDP traffic and payload-free TCP connections.
-  An independent header-only witness checks TCP counts and flags against
-  CloudWatch Logs, gzip text and typed Parquet S3 records read with PyArrow.
-  Check direct same-VPC egress paths and absent ingress paths. Restart the
-  controller, verify Terraform refresh, and remove owned resources.
-- [CloudFormation](cloudformation/README.md): create the same application, consume
-  stack outputs, exercise its data plane, update SSM in place, reject an identical
-  update as a no-op, delete the stack, and verify resource absence.
-- [Docker Python Lambda live reload](lambda-hot-reload/README.md): invoke a real
-  runtime, edit its read-only host-mounted source, observe different subsequent
-  output and a new Init, while retaining function/deployment identity and `/tmp`.
+## Prepare once
+
+Run commands from the repository root. Install Python 3.10 or later and build
+stackd with the Go version specified in `go.mod`:
+
+```sh
+EXAMPLE_VENV="$(mktemp -d /tmp/stackd-example-venv.XXXXXX)"
+python3 -m venv "$EXAMPLE_VENV"
+"$EXAMPLE_VENV/bin/python" -m pip install -r examples/requirements.txt
+make build
+export EXAMPLE_PYTHON="$EXAMPLE_VENV/bin/python"
+```
+
+Alternatively, use an installed [release package](../docs/releases.md) and pass
+`--stackd /absolute/path/to/stackd` to the runner. Keep its Lambda telemetry
+helpers beside the executable. The example scripts still require this checkout.
+
+Additional requirements depend on the example:
+
+- Terraform examples need Terraform and the AWS provider. The basic and EIP
+  examples use provider **6.68.0** and accept Terraform >= 1.5, < 2. Other groups
+  have exact version requirements documented in their guides.
+- Lambda and engine examples need Docker and preinstalled images.
+- EC2 and EKS examples need the host, firmware and guest setup described in
+  [runtime deployment](../docs/runtimes.md).
+- Some groups have additional Python requirements; install the requirements file
+  listed in their guide into the same virtual environment.
+
+The shared requirements pin boto3, botocore, PyMongo and PyArrow. AWS CLI is not
+required by the basic runners. Downloads of Python packages, Go modules,
+Terraform providers and runtime images require network access. For offline use,
+prepare these dependencies and a provider mirror beforehand.
+
+## Run in fresh owned state
+
+Start with one of these examples; none requires Docker:
+
+```sh
+"$EXAMPLE_PYTHON" examples/terraform/run.py --port 14661
+"$EXAMPLE_PYTHON" examples/cloudformation/run.py --port 14662
+"$EXAMPLE_PYTHON" examples/terraform-eip/run.py --port 14664
+```
+
+| Example | What it does |
+| --- | --- |
+| [Terraform application](terraform/README.md) | Provisions S3, SQS and SSM; transfers an object through a queue manifest; checks a no-change plan; destroys the application. |
+| [CloudFormation application](cloudformation/README.md) | Creates the same application, updates its SSM parameter and deletes the stack. |
+| [Elastic IPs](terraform-eip/README.md) | Allocates two addresses, checks attribute pagination and refresh, then releases them. |
+| [Lambda live reload](lambda-hot-reload/README.md) | Edits a mounted Python source file and checks subsequent function output without redeployment. |
+| [VPC Flow Logs](terraform/vpc-flow-logs/README.md) | Sends UDP/TCP traffic and checks CloudWatch Logs and S3 text/Parquet delivery. |
+
+Use `--help` to inspect a runner's options. Runners using the shared helper accept:
+
+| Option | Purpose |
+| --- | --- |
+| `--stackd PATH` | Server executable; defaults to `bin/stackd`. |
+| `--port PORT` | Unused local API port. |
+| `--work-parent PATH` | Existing parent directory for a new run directory. |
+
+The shared helper prints the working directory and server command. It uses a
+new SQLite database, unique resource names and a dedicated server process,
+without connecting to an existing server or the repository's `data/` database.
+Restart checks reuse only that run's database and port.
+
+The [Auto Scaling example](terraform-compute/autoscaling/README.md) instead
+requires a caller-managed local server and prepared AMI. The
+[Flow Logs runner](terraform/vpc-flow-logs/README.md) manages its own server but
+uses separate `--binary` and `--state-directory` options.
 
 ## Service-specific Terraform workflows
 
-These runners cover larger service groups. Read each runner's options and its
-adjacent configuration before starting it; the basic example's prerequisites
-are not sufficient for every group. They create real runtime resources and
-perform destructive cleanup of their own resources.
+These examples require additional setup. Read the corresponding guide before
+running a group; some include containers, guests or workflows with known gaps.
 
-| Runner | Scope |
+| Group | Scope |
 | --- | --- |
-| [Identity](terraform-identity/run.py) | IAM, account and credential lifecycles |
-| [Identity extensions](terraform-identity-extensions/README.md) | Federation, keys, secret rotation and TLS consumers |
-| [API](terraform-api/run.py) | API deployment and request consumers |
-| [API controls](terraform-api-controls/README.md) | REST/WebSocket/GraphQL requests, authorizers and DNS |
-| [Messaging](terraform-messaging/run.py) | Queues, topics, routing, scheduling and configuration consumers |
-| [Storage](terraform-storage/run.py) | Object, table, block and native database consumers |
-| [Storage controls](terraform-storage-controls/run.py) | S3, DynamoDB and guest-backed EBS controls |
-| [Engines](terraform-engines/run.py) | Native cache, broker and search consumers |
-| [Compute](terraform-compute/compute.py) | Native function, container, Kubernetes and guest workflows |
-| [Analytics](terraform-analytics/run.py) | Real query, streaming and job execution |
-| [Analytics catalog](terraform-analytics-catalog/run.py) | Catalog and query configuration lifecycles |
-| [Governance](terraform-governance/run.py) | Organizations, sharing, SSO and resource groups |
-| [Observability](terraform-observability/run.py) | Logs, metrics, audit, security and delivery workflows |
+| [Identity](terraform-identity/README.md) | IAM, accounts and credentials |
+| [Identity extensions](terraform-identity-extensions/README.md) | Federation, keys, secret rotation and TLS |
+| [API](terraform-api/README.md) | API deployment and requests |
+| [API controls](terraform-api-controls/README.md) | REST, WebSocket, GraphQL, authorizers and DNS |
+| [Application controls](terraform-application-controls/README.md) | Authentication, jobs and deployment pipelines |
+| [Messaging](terraform-messaging/README.md) | Queues, topics, routing and scheduling |
+| [Storage](terraform-storage/README.md) | Objects, tables, block storage and databases |
+| [Storage controls](terraform-storage-controls/README.md) | S3, DynamoDB and guest-backed EBS controls |
+| [Engines](terraform-engines/README.md) | Caches, brokers and search |
+| [Compute](terraform-compute/README.md) | Functions, containers, Kubernetes and guests |
+| [Analytics](terraform-analytics/README.md) | Queries, streams and jobs |
+| [Analytics catalog](terraform-analytics-catalog/README.md) | Catalog and query configuration |
+| [Governance](terraform-governance/README.md) | Organizations, sharing, SSO and resource groups |
+| [Observability](terraform-observability/README.md) | Logs, metrics, audit and delivery |
 
-Presence here is not a passing coverage claim. The runners keep strict plan and
-native-consumer assertions; some workflows still fail on documented service or
-Terraform gaps. Retained lifecycle reports and service guides define the tested
-boundaries. Do not disable protection defaults or ignore drift to obtain a pass.
+A failed assertion or unexpected Terraform plan fails the runner. Consult each
+guide's limitations and retained reports before depending on a workflow.
 
-### Terraform Core refresh-only correction (opt-in)
+## Local credentials and networking
 
-Official Terraform 1.15.9 and 1.16.6 can report `No changes` but return exit 2
-for a refresh-only plan with unchanged data resources. The isolated reproduction
-also fails with built-in local remote state: no AWS provider or stackd is needed.
-Core's `ManagedResourcesEqual` compares data resources and data-only modules,
-including compact versus indented attribute JSON.
+The shared helper uses local account `738492615083` unless a runner selects
+another account. The account remains the same across restarts. These fixed
+example identities do not change stackd's random account selection for ordinary
+new instances. Use distinct fixture accounts for concurrent native runs sharing
+host networking.
 
-The [retained correction](../third_party/terraform-core/refresh-only-managed-resources.patch)
-targets upstream Terraform commit
-`7b8f1669b95119ac6021e05c9d10eae7cf75f60b` (v1.16.6). It compares only managed
-resource membership and values, without changing managed-object equality or
-output drift detection. Regression tests cover both comparison directions,
-data-only modules, managed membership, attributes, identity, private state,
-status and create-before-destroy. The state package tests and vet pass.
-With the local correction, both unchanged-data reproductions return zero;
-changing the remote-state source output still returns exit 2.
+SDK clients use loopback endpoints, `test` credentials and region `us-east-1`.
+The controller and Terraform subprocesses discard inherited AWS credentials,
+endpoint overrides, Terraform arguments and proxy settings. Terraform uses a
+private CLI configuration, a local backend and endpoints for each required AWS
+service. HTTPS examples supply and verify their own certificates.
 
-This is a **local patched consumer**, not an official Terraform release or an
-upstream-merged fix. No runner assertion, provider version or saved state is
-changed. The patch retains Terraform's
-[BUSL-1.1 license](../third_party/terraform-core/LICENSE); it is not part of
-stackd's Apache-2.0 runtime and no Terraform binary is bundled.
+The shared helper does not accept an AWS endpoint or an existing server. This
+does not restrict outbound connections made by application code or downloaded
+tools; use host/network controls for egress isolation. Lambda examples bind the
+API and callback listeners beyond loopback so containers can connect. Restrict
+inbound access to trusted clients before running them.
 
-To build it separately, leaving the installed Terraform binary unchanged:
+## Cleanup and evidence
+
+On success, runners delete their application resources. Runners using the shared
+helper also stop their server; they attempt cleanup on failure and retain the
+failure. A nonzero server exit fails the run. A shutdown timeout reports the
+live process ID rather than force-killing it. Caller-managed servers remain
+running.
+
+Run directories are retained for inspection. Depending on the example they
+contain `stackd.log`, SQLite state, Terraform plans/state, outputs and result
+reports. The shared helper appends server logs across restarts; individual
+runners may also save or rotate logs. These files can contain credentials or
+private keys. Do not commit or publish the run directory.
+
+After checking cleanup completed, remove only the exact directory printed by
+your run:
+
+```sh
+# Replace this path with the directory printed by the runner.
+rm -r -- /tmp/stackd-terraform-EXACT_RUN_SUFFIX
+```
+
+Do not use global Docker pruning to clean up an example. Runtime images remain
+installed for subsequent runs. Remove the Python environment when no runner is
+using it:
+
+```sh
+rm -r -- "$EXAMPLE_VENV"
+```
+
+## Terraform Core refresh-only correction (opt-in)
+
+Official Terraform 1.15.9 and 1.16.6 can print `No changes` but return exit 2 for
+refresh-only plans containing unchanged data resources. This also reproduces
+with Terraform's built-in remote-state data source, without the AWS provider or
+stackd. Some larger examples encounter this issue; their assertions are not
+relaxed to accept it.
+
+The [retained patch](../third_party/terraform-core/refresh-only-managed-resources.patch)
+targets Terraform v1.16.6 at commit
+`7b8f1669b95119ac6021e05c9d10eae7cf75f60b`. It corrects
+`ManagedResourcesEqual` to compare managed resources rather than data resources
+and data-only modules, while preserving managed-object and output drift checks.
+This is a local patch, not an official release or an upstream-merged fix.
+Terraform retains its [BUSL-1.1 license](../third_party/terraform-core/LICENSE);
+no Terraform binary is bundled with stackd.
+
+To build it without replacing your installed Terraform:
 
 ```sh
 STACKD_ROOT="$PWD"
@@ -91,116 +183,9 @@ PATH="$TF_WORK/bin:$PATH" "$EXAMPLE_PYTHON" examples/terraform-api-controls/run.
   --stackd "$STACKD_ROOT/bin/stackd"
 ```
 
-The release-version linker flag keeps the fixture's exact 1.16.6 version gate;
-it does not make this an official binary. Keep its source revision, patch and
-binary checksum with any run report. Do not combine patched-consumer evidence
-with official-binary acceptance.
-
-The API-controls lifecycle passed with this explicit patched build: create,
-eight imports, update, native consumers across controller reopen, strict
-refresh-only exit 0, destroy of all 55 Terraform resources, and SDK prerequisite
-cleanup. The [build receipt](../testdata/terraform-core/refresh-only.json) retains
-its exact source, patch and binary checksums. Other service groups are not
-covered by that run.
-
-## Prepare once
-
-Run from the repository root. Install Python 3.10+ and Go as required by `go.mod`.
-The basic Terraform example requires Terraform >= 1.5 and < 2; service-specific
-fixtures may require a newer version and a pinned AWS provider. Docker is required
-for Lambda and container-backed engine workflows. Guest-backed workflows also
-need their documented host, image and firmware prerequisites. An AWS CLI
-installation is optional: the runners use signed boto3 requests, not unsigned
-HTTP health checks. Use a disposable virtual environment outside the checkout:
-
-```sh
-EXAMPLE_VENV="$(mktemp -d /tmp/stackd-example-venv.XXXXXX)"
-python3 -m venv "$EXAMPLE_VENV"
-"$EXAMPLE_VENV/bin/python" -m pip install -r examples/requirements.txt
-make build
-export EXAMPLE_PYTHON="$EXAMPLE_VENV/bin/python"
-```
-
-The shared requirements pin boto3/botocore for the exercised AWS API models and
-PyMongo for native DocumentDB TLS/BSON consumers. These are example-client
-dependencies, not dependencies of the Go controller.
-
-`make build` also produces both static **Linux** Lambda telemetry helpers beside
-`bin/stackd`; building just the controller is insufficient for Lambda. Installing
-SDK packages, Go modules, Terraform providers and Docker images is explicit
-online preparation. The AWS application requests themselves remain local.
-For offline use, prepare the Python environment and provider mirror/cache and
-images before disconnecting; see the individual guides. No downloaded binary,
-provider, image, state, or real credential belongs in this checkout.
-
-## Run in fresh owned state
-
-```sh
-"$EXAMPLE_PYTHON" examples/terraform/run.py --port 14661
-"$EXAMPLE_PYTHON" examples/cloudformation/run.py --port 14662
-"$EXAMPLE_PYTHON" examples/terraform-eip/run.py --port 14664
-# Prepare the pinned Docker images before following the Lambda guide.
-```
-
-Each runner starts **its own** controller, rejects an occupied port, creates a
-unique directory with its own SQLite database/logs, provisions unique resource
-names, and stops only its own process. It does not connect to the repository's
-`data/` database or an existing server. Choose other unused unprivileged ports
-with `--port`; `--stackd /absolute/path/to/stackd` selects a prepared binary.
-`--work-parent /existing/directory` changes the parent of the new run directory.
-Reopen checks stop the owned process before they reuse its port and SQLite file.
-Closed TCP connections in `TIME_WAIT` do not block that restart; a live listener
-still causes the runner to fail.
-
-The shared controller helper defaults to fixture account `738492615083`.
-Runners can pass an explicit `account=` value; signed STS discovery must match
-that value. Keep the same account when reopening the owned SQLite database.
-Use distinct accounts for concurrent native runs that share host networking.
-These IDs are local fixture identities, not AWS credentials. Every SDK client has
-an explicit loopback endpoint, static `test` / `test` credentials, region
-`us-east-1`, disabled proxies, and no credential-chain fallback. HTTP is the
-default. HTTPS examples must pass their owned certificate, key and CA to the
-shared controller helper and trust that CA explicitly in SDK/provider clients.
-They do not disable certificate or hostname verification. The
-controller/Terraform subprocess environment drops inherited AWS credentials,
-endpoint overrides, Terraform arguments, and proxy settings. Terraform also
-uses a private CLI configuration, the local backend, and explicit endpoints for
-every provider service used here (EC2, IAM, STS, S3, SQS, SSM). There is no option to
-point these lifecycle runners at AWS or somebody else's running controller.
-
-This guards against accidental production provisioning; it is not an egress
-sandbox. For isolation from arbitrary application code or compromised tools,
-use host/network policy. Lambda deliberately binds the AWS API and Runtime API
-callbacks on non-loopback interfaces so containers can connect: review that
-example's firewall and Docker trust boundary first.
-
-## Cleanup and evidence
-
-On success the application resources are deleted through signed APIs and their
-absence is asserted; the controller exits gracefully. No `docker prune`, broad
-container removal, repository reset, or deletion of user-owned state is used.
-The fresh run directory is intentionally retained, including `stackd.log`,
-SQLite state, IaC outputs/state where applicable, and Lambda `evidence.json`.
-Its exact absolute path is printed before work starts. Delete **only that
-printed directory** after inspection:
-
-```sh
-# Replace with the exact newly created directory printed by your run.
-rm -r -- /tmp/stackd-terraform-EXACT_RUN_SUFFIX
-# Or the printed stackd-cloudformation-* / stackd-lambda-reload-* directory.
-```
-
-On an assertion/API error, cleanup still attempts the owned deployment deletion
-and graceful controller shutdown; errors are not converted into passing results.
-Keep the printed directory and log to diagnose failures. A shutdown timeout
-reports the specific live PID rather than force-killing it and claiming that
-runtime cleanup succeeded. Do not run global Docker cleanup to hide such a
-failure. Remove the disposable Python environment only when no runner uses it:
-
-```sh
-rm -r -- "$EXAMPLE_VENV"
-```
-
-The runners are designed to be executed by the integrating developer. Merely
-checking in these examples does not establish that a particular host, provider
-version, Docker VM, or service combination has passed them.
+The linker flag satisfies the example's version check; it does not make the
+binary an official release. Record the patch and binary checksum with results.
+The [API-controls run report](../testdata/terraform-core/refresh-only.json)
+records a completed lifecycle with this patched build, including imports,
+updates, restart, refresh and cleanup. It does not establish results for other
+groups or official Terraform binaries.

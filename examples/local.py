@@ -103,7 +103,7 @@ def controller(args, root, extra=(), containers=False, *, account=ACCOUNT,
         command.extend(["-tls-cert", str(Path(tls_certificate).resolve()),
                         "-tls-key", str(Path(tls_key).resolve())])
     print("Controller:", " ".join(command), flush=True)
-    with (root / "stackd.log").open("w") as log:
+    with (root / "stackd.log").open("a") as log:
         process = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT, env=environment())
         try:
             deadline = time.monotonic() + 60
@@ -127,6 +127,8 @@ def controller(args, root, extra=(), containers=False, *, account=ACCOUNT,
                 except subprocess.TimeoutExpired:
                     # Do not force-kill: graceful shutdown owns runtime-container cleanup.
                     raise RuntimeError(f"Controller PID {process.pid} did not stop; inspect {root / 'stackd.log'}")
+        require(process.returncode == 0,
+                f"Controller exited with status {process.returncode}; read {root / 'stackd.log'}")
 
 
 def expect_missing(call, codes, **kwargs):

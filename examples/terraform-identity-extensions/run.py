@@ -518,8 +518,15 @@ def main():
                         imported.update(module.imports(resources))
                     save(root / "imports.json", imported)
                     for address, identifier in imported.items():
+                        backup = root / "before-import.tfstate"
+                        backup.write_text(terraform("state", "pull", capture=True).stdout)
                         terraform("state", "rm", address)
-                        terraform("import", "-input=false", address, identifier)
+                        try:
+                            terraform("import", "-input=false", address, identifier)
+                        except BaseException:
+                            # Preserve ownership for ordinary failure cleanup.
+                            terraform("state", "push", "-force", str(backup))
+                            raise
                     reconciliation = terraform("plan", "-input=false", "-detailed-exitcode",
                                                "-out=import-reconcile.tfplan", check=False)
                     require(reconciliation.returncode in {0, 2}, "Native import reconciliation failed")
