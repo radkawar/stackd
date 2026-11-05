@@ -55,7 +55,10 @@ jobs:
       - name: Check native ownership and shared Iceberg metadata
         run: |
           go test -race -timeout 10m ./compute/eks ./compute/elbv2 ./engine/rds ./engine/athena ./internal/services/glue/icebergmeta
-          go test -race -timeout 5m . -run '^TestGlueIcebergREST'
+          go test -race -timeout 10m . -run '^Test(GlueIcebergREST|S3Tables)'
+          go test -race -timeout 10m ./internal/services/s3tables ./storage/s3tables ./storage/sqlite/s3tables
+          go test -race -timeout 10m ./internal/services/glue -run '^Test(S3TablesFederation|IcebergCommitReauthorizes|GluePartitionFilters)'
+          go test -race -timeout 5m ./internal/services/athena -run '^TestCTASDestinationEnforcement'
       - name: Check scoped authorization, reporting and SQLite boundaries
         run: |
           go test -race -timeout 10m ./internal/awsapi ./internal/services/iam ./internal/services/cloudtrail
@@ -219,7 +222,7 @@ jobs:
 
   native-analytics:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -232,10 +235,28 @@ jobs:
         run: |
           docker pull trinodb/trino@sha256:00125e40d063bc4816d165482f6044872b18b56026fb959d3b28ce1f96ffbbee
           docker pull apache/spark@sha256:9b0a6c2c860f5e7d18dd5270286fef32a09c7f5a7e2b0dbe5642de8a3a02ab3e
-      - name: Exercise real warm SQL ownership, cancellation and orphan cleanup
+          go build -o bin/stackd ./cmd/stackd
+          python3 -m venv "$RUNNER_TEMP/analytics-venv"
+          "$RUNNER_TEMP/analytics-venv/bin/pip" install \
+            'boto3==1.43.123' 'pyiceberg[pyarrow,glue]==0.10.0' 'pyarrow==26.0.1'
+      - name: Exercise real warm SQL ownership and native SQL parsers
         env:
           STACKD_ATHENA_NETWORK_DOCKER_HOST: unix:///var/run/docker.sock
-        run: go test ./engine/athena -count=1 -timeout 15m -run '^(TestDockerNetworkNative|TestWarmEngineNativeLifecycle)$' -v
+        run: go test ./engine/athena -count=1 -timeout 15m -run '^(TestDockerNetworkNative|TestWarmEngineNativeLifecycle|TestHiveDDLNativeFamilies|TestCTASParserNative)$' -v
+      - name: Exercise native Hive, ordinary Iceberg and managed catalogs
+        run: |
+          "$RUNNER_TEMP/analytics-venv/bin/python" scripts/aws/analytics_native_smoke.py \
+            --binary bin/stackd \
+            --state-directory "$RUNNER_TEMP/analytics-private" \
+            --output "$RUNNER_TEMP/analytics-result.json"
+      - name: Retain public-safe native analytics assertions
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-analytics
+          path: ${{ runner.temp }}/analytics-result.json
+          if-no-files-found: ignore
+          retention-days: 7
 
   native-ingress:
     runs-on: ubuntu-24.04

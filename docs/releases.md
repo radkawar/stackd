@@ -213,6 +213,12 @@ request-scoped IAM failure injection, publication locking, native EventBridge
 account principals, retained SNS confirmations, current resource ownership,
 crawler commits and CloudFormation recovery. Historical MQ migration replay is
 checked without race instrumentation; concurrent owner/request paths use it.
+The `native-analytics` job additionally builds a fresh SQLite controller and runs
+the actual Hive/CTAS, ordinary Glue REST, existing-table replacement and S3 Tables
+client scenarios with pinned PyIceberg/PyArrow clients. It requires clean process
+shutdown and uploads only client assertion receipts, not controller state,
+credentials or private native ownership receipts. These expanded gates apply to
+new branch builds and future tags; they do not retroactively change v0.1.1.
 Docker reload is a separately exercised prerequisite-heavy example, not an
 unexecuted hosted claim. GuardDuty's catalog check additionally fetches
 the exact upstream Git revision recorded in `docs/guardduty-findings.json` and
