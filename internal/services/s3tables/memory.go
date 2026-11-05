@@ -14,15 +14,17 @@ type memoryState struct {
 	namespaces map[string]Namespace
 	tables     map[string]Table
 	columns    map[string][]Column
+	tags       map[string]Tags
 }
 type MemoryRepository struct{ store *memory.Store[memoryState] }
 
 func NewMemoryRepository(d *memory.Domain) *MemoryRepository {
-	return &MemoryRepository{memory.New(d, memoryState{map[string]Bucket{}, map[string]Namespace{}, map[string]Table{}, map[string][]Column{}}, func(v memoryState) memoryState {
+	return &MemoryRepository{memory.New(d, memoryState{map[string]Bucket{}, map[string]Namespace{}, map[string]Table{}, map[string][]Column{}, map[string]Tags{}}, func(v memoryState) memoryState {
 		v.buckets = maps.Clone(v.buckets)
 		v.namespaces = maps.Clone(v.namespaces)
 		v.tables = maps.Clone(v.tables)
 		v.columns = maps.Clone(v.columns)
+		v.tags = maps.Clone(v.tags)
 		return v
 	})}
 }
@@ -100,6 +102,34 @@ func (r memoryReader) Table(sc Scope, b, n, name string) (Table, error) {
 	}
 	return Table{}, ErrNotFound
 }
+func (r memoryReader) TableByARN(sc Scope, arn string) (Table, error) {
+	if e := r.t.Check(false); e != nil {
+		return Table{}, e
+	}
+	v, ok := r.s.tables[arn]
+	if !ok || v.Scope != sc || v.Deleted {
+		return Table{}, ErrNotFound
+	}
+	return v, nil
+}
+func (r memoryReader) ResourceTags(sc Scope, arn string) (Tags, error) {
+	if _, e := r.Bucket(sc, arn); e != nil {
+		if _, e = r.TableByARN(sc, arn); e != nil {
+			return nil, e
+		}
+	}
+	return maps.Clone(r.s.tags[arn]), nil
+}
+func (w memoryWriter) PutResourceTags(sc Scope, arn string, tags Tags) error {
+	if _, e := w.ResourceTags(sc, arn); e != nil {
+		return e
+	}
+	if e := w.t.Check(true); e != nil {
+		return e
+	}
+	w.s.tags[arn] = maps.Clone(tags)
+	return nil
+}
 func (r memoryReader) TableColumns(sc Scope, arn string) ([]Column, error) {
 	if e := r.t.Check(false); e != nil {
 		return nil, e
@@ -167,6 +197,7 @@ func (w memoryWriter) DeleteBucket(sc Scope, arn string) error {
 		return e
 	}
 	delete(w.s.buckets, arn)
+	delete(w.s.tags, arn)
 	return nil
 }
 func (w memoryWriter) PutNamespace(v Namespace) error {
@@ -191,6 +222,9 @@ func (w memoryWriter) PutTable(v Table) error {
 		return e
 	}
 	w.s.tables[v.ARN] = v
+	if v.Deleted {
+		delete(w.s.tags, v.ARN)
+	}
 	return nil
 }
 func (w memoryWriter) PutTableColumns(sc Scope, arn string, columns []Column) error {

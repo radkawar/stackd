@@ -543,6 +543,33 @@ ARN or account-scoped `bucket/*` identifier. Child catalog IDs are
 `<account>:s3tablescatalog/<table-bucket>`. Native Glue creation, S3 Tables APIs,
 Iceberg REST and Trino share the same metadata head and typed column projection.
 
+Table buckets and tables support tags on creation, `TagResource`,
+`UntagResource` and `ListTagsForResource`. Tag updates merge atomically, enforce
+the 50-tag limit, survive SQLite restart and disappear with the resource.
+Renaming a table preserves its tags. Tagged creation additionally requires
+`s3tables:TagResource`; untagged creation does not.
+
+Authorization evaluates current `aws:RequestTag`, `aws:TagKeys`,
+`aws:ResourceTag` and `s3tables:TableBucketTag` conditions. Table resource tags
+are distinct from parent bucket tags. Changing either set affects subsequent
+control-plane and object requests, not only tag operations. The contracts are
+documented in AWS's [table tagging guide](https://docs.aws.amazon.com/AmazonS3/latest/userguide/table-tagging.html)
+and [table bucket tagging guide](https://docs.aws.amazon.com/AmazonS3/latest/userguide/table-bucket-tagging.html).
+`s3tables_tags_sdk_test.go` and `storage/s3tables/tags_test.go` cover lifecycle,
+limits, current IAM, isolation and rollback. A local CLI/boto3 smoke also
+verified object access after tag changes and SQLite restart. This is local
+behavioral evidence, not a native AWS tagging capture.
+
+The Go v2 signer sorts repeated query values before URI encoding. With mixed
+ASCII and Unicode tag keys, that can produce `SignatureDoesNotMatch` before
+`UntagResource` reaches the service. The SDK lifecycle fixture removes Unicode
+keys separately and still exercises batch removal of 50 ASCII keys.
+The read-only [native STS capture](../testdata/aws/sigv4/query-value-order.json)
+confirms encoded-value ordering succeeds while decoded-value ordering fails;
+it is signature evidence, not a native S3 Tables operation capture.
+`scripts/aws/sigv4_query_order_probe.py` repeats that comparison with an explicit
+profile and writes only status/error codes. Gateway verification is unchanged.
+
 The managed data path supports GET/HEAD, PUT and the multipart create/upload/
 list-parts/complete/abort lifecycle. Uploads and parts survive SQLite reopen;
 current IAM and table incarnation are checked at publication. Final objects,
@@ -619,8 +646,11 @@ The run also completed clean controller shutdown; this is local client evidence,
 not a claim that all AWS or connector behaviors are implemented.
 
 Remaining S3 Tables boundaries include policies, explicit encryption/storage
-configuration, tagging, replication, maintenance and object/multipart
+configuration, replication, maintenance and object/multipart
 [CloudTrail data events](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-tables-logging.html).
+Tagging alone does not complete Terraform S3 Tables support: provider 6.68.0
+also reads bucket/table maintenance and encryption configuration after creation.
+Those APIs remain unimplemented; the provider inventory records them separately.
 The implemented managed metadata format is v2. AWS supports
 [Iceberg v3 in S3 Tables](https://docs.aws.amazon.com/AmazonS3/latest/userguide/working-with-apache-iceberg-v3.html),
 but also explicitly states that Athena cannot read v3; local v3 metadata,

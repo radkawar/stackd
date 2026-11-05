@@ -17,11 +17,21 @@ func (s *Service) createTableBucket(ctx context.Context, tx Transaction, in *api
 		return nil, invalid("Invalid table bucket name")
 	}
 	arn := bucketARN(sc, name)
-	if e := s.authorize(ctx, "CreateTableBucket", arn, nil); e != nil {
+	if e := validateTags(in.Tags); e != nil {
 		return nil, e
 	}
-	if in.EncryptionConfiguration != nil || in.StorageClassConfiguration != nil || len(in.Tags) != 0 {
-		return nil, invalid("Explicit encryption, storage class and tags are not supported")
+	conditions := requestTagContext(in.Tags, nil)
+	addTagContext(conditions, "s3tables:TableBucketTag/", domainTags(in.Tags))
+	if e := s.authorize(ctx, "CreateTableBucket", arn, conditions); e != nil {
+		return nil, e
+	}
+	if len(in.Tags) != 0 {
+		if e := s.authorize(ctx, "TagResource", arn, conditions); e != nil {
+			return nil, e
+		}
+	}
+	if in.EncryptionConfiguration != nil || in.StorageClassConfiguration != nil {
+		return nil, invalid("Explicit encryption and storage class are not supported")
 	}
 	if _, e := tx.Bucket(sc, arn); e == nil {
 		return nil, conflict("Table bucket already exists")
@@ -31,6 +41,11 @@ func (s *Service) createTableBucket(ctx context.Context, tx Transaction, in *api
 	row := Bucket{Scope: sc, Name: name, ARN: arn, ID: uuid.NewString(), Created: s.clock.Now().UTC()}
 	if e := tx.PutBucket(row); e != nil {
 		return nil, e
+	}
+	if len(in.Tags) != 0 {
+		if e := tx.PutResourceTags(sc, arn, domainTags(in.Tags)); e != nil {
+			return nil, e
+		}
 	}
 	out := &api.CreateTableBucketOutput{}
 	text(&out.Arn, arn)

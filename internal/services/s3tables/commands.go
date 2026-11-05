@@ -24,6 +24,9 @@ func registerOperations(s *Service) {
 	bind(s, "GetTableMetadataLocation", s.GetTableMetadataLocation)
 	bind(s, "UpdateTableMetadataLocation", s.UpdateTableMetadataLocation)
 	bind(s, "CreateTable", s.CreateTable)
+	bind(s, "TagResource", s.TagResource)
+	bind(s, "UntagResource", s.UntagResource)
+	bind(s, "ListTagsForResource", s.ListTagsForResource)
 }
 func (s *Service) CreateTableBucket(ctx context.Context, in *api.CreateTableBucketInput) (*api.CreateTableBucketOutput, *awswire.Error) {
 	return command(s, ctx, "CreateTableBucket", in, s.createTableBucket)

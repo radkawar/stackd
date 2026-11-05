@@ -46,7 +46,7 @@ func (s *Service) dataTable(ctx context.Context, warehouse, action string) (Tabl
 		if v.Deleted {
 			return ErrNotFound
 		}
-		if e = s.authorize(r.Context(), action, v.ARN, tableAuthorizationContext(v)); e != nil {
+		if _, e = s.authorizeTagged(r.Context(), r, action, v.ARN, v.BucketARN, tableAuthorizationContext(v)); e != nil {
 			return e
 		}
 		out = v

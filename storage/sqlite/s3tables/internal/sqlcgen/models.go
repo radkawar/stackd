@@ -117,3 +117,12 @@ type S3tablesTable struct {
 	Purged           bool
 	CleanupAt        time.Time
 }
+
+type S3tablesTag struct {
+	Partition   string
+	AccountID   string
+	Region      string
+	ResourceArn string
+	Key         string
+	Value       string
+}

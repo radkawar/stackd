@@ -25,7 +25,7 @@ func (s *Service) table(ctx context.Context, r Reader, action, b, n, name string
 	if e != nil {
 		return Table{}, e
 	}
-	if e = s.authorize(ctx, action, v.ARN, tableAuthorizationContext(v)); e != nil {
+	if _, e = s.authorizeTagged(ctx, r, action, v.ARN, v.BucketARN, tableAuthorizationContext(v)); e != nil {
 		return Table{}, e
 	}
 	return v, nil
@@ -45,16 +45,36 @@ func (s *Service) admitCreate(ctx context.Context, r Reader, in *api.CreateTable
 	if !namePattern.MatchString(value(in.Name)) || value(in.Format) != "ICEBERG" {
 		return invalid("A valid table name and ICEBERG format are required")
 	}
-	// TODO: Comeback support explicit encryption/storage settings and tag lifecycle
-	// with their required authorization; default data encryption is not this API.
-	if in.EncryptionConfiguration != nil || in.StorageClassConfiguration != nil || len(in.Tags) > 0 {
-		return invalid("Explicit encryption, storage class and tags are not supported")
+	// TODO: Comeback support explicit encryption/storage settings with their
+	// required authorization; default data encryption is not this API.
+	if in.EncryptionConfiguration != nil || in.StorageClassConfiguration != nil {
+		return invalid("Explicit encryption and storage class are not supported")
 	}
-	if e := s.authorize(ctx, "CreateTable", b, namespaceAuthorizationContext(candidate.Namespace)); e != nil {
+	if e := validateTags(in.Tags); e != nil {
 		return e
 	}
+	if _, e := s.authorizeTagged(ctx, r, "CreateTable", b, b, requestTagContext(in.Tags, namespaceAuthorizationContext(candidate.Namespace))); e != nil {
+		return e
+	}
+	if len(in.Tags) != 0 {
+		conditions := requestTagContext(in.Tags, tableAuthorizationContext(candidate))
+		bucketTags, e := r.ResourceTags(sc, b)
+		if e != nil {
+			return e
+		}
+		addTagContext(conditions, "s3tables:TableBucketTag/", bucketTags)
+		if e = s.authorize(ctx, "TagResource", candidate.ARN, conditions); e != nil {
+			return e
+		}
+	}
 	if in.Metadata != nil {
-		if e := s.authorize(ctx, "PutTableData", candidate.ARN, tableAuthorizationContext(candidate)); e != nil {
+		conditions := tableAuthorizationContext(candidate)
+		bucketTags, e := r.ResourceTags(sc, b)
+		if e != nil {
+			return e
+		}
+		addTagContext(conditions, "s3tables:TableBucketTag/", bucketTags)
+		if e := s.authorize(ctx, "PutTableData", candidate.ARN, conditions); e != nil {
 			return e
 		}
 	}

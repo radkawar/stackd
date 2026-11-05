@@ -12,6 +12,7 @@ type (
 	Namespace        = service.Namespace
 	Table            = service.Table
 	Column           = service.Column
+	Tags             = service.Tags
 	Reader           = service.Reader
 	Transaction      = service.Transaction
 	Repository       = service.Repository

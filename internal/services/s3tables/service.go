@@ -69,7 +69,7 @@ func (s *Service) ExecuteCommand(ctx context.Context, d awsapi.DecodedRequest) (
 		return f(ctx)
 	}
 	// TODO: Comeback implement remaining modeled policy, encryption configuration,
-	// storage class, tagging, replication and maintenance operations before registration.
+	// storage class, replication and maintenance operations before registration.
 	e := failure("NotImplementedException", "This S3 Tables operation is not implemented", 501)
 	if err := s.RecordRequestError(ctx, d, e); err != nil {
 		return nil, wireError(err)
@@ -223,10 +223,14 @@ func (s *Service) bucket(ctx context.Context, r Reader, action, arn string, cond
 	if !strings.HasPrefix(arn, prefix) || !bucketPattern.MatchString(strings.TrimPrefix(arn, prefix)) {
 		return Bucket{}, ErrNotFound
 	}
-	if e := s.authorize(ctx, action, arn, conditions); e != nil {
+	v, e := r.Bucket(sc, arn)
+	if e != nil {
 		return Bucket{}, e
 	}
-	return r.Bucket(sc, arn)
+	if _, e = s.authorizeTagged(ctx, r, action, arn, arn, conditions); e != nil {
+		return Bucket{}, e
+	}
+	return v, nil
 }
 
 // Tokens are bound to the complete operation/scope/filter, never reusable across catalogs.

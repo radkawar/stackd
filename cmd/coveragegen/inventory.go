@@ -130,7 +130,7 @@ var evidence = map[string][]string{
 	"resourcegroupstaggingapi":  {"docs/behavior-references.md"},
 	"s3":                        {"docs/cloudtrail.md", "glue_iceberg_rest_test.go", "testdata/aws/s3/checksum_mode_case_20261103.json"},
 	"s3control":                 {"docs/cloudtrail.md"},
-	"s3tables":                  {"docs/behavior-references.md", "s3tables_sdk_test.go", "s3tables_glue_sdk_test.go", "s3tables_multipart_sdk_test.go", "s3tables_conditional_iam_sdk_test.go", "s3tables_encryption_sdk_test.go", "s3tables_crc64_sdk_test.go", "scripts/aws/athena_catalogs_smoke.py", "scripts/aws/s3tables_pyarrow_checksum_probe.py", "testdata/aws/s3tables/pyarrow_crc64nvme_20261105.json"},
+	"s3tables":                  {"docs/behavior-references.md", "s3tables_sdk_test.go", "s3tables_glue_sdk_test.go", "s3tables_multipart_sdk_test.go", "s3tables_conditional_iam_sdk_test.go", "s3tables_encryption_sdk_test.go", "s3tables_crc64_sdk_test.go", "s3tables_tags_sdk_test.go", "storage/s3tables/tags_test.go", "scripts/aws/athena_catalogs_smoke.py", "scripts/aws/s3tables_pyarrow_checksum_probe.py", "testdata/aws/s3tables/pyarrow_crc64nvme_20261105.json"},
 	"servicecatalogappregistry": {"docs/resourcegroups.md"},
 	"scheduler":                 {"docs/scheduler.md"},
 	"secretsmanager":            {"docs/secretsmanager.md"},

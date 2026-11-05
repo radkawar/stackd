@@ -100,6 +100,11 @@ func (s *Service) PublishTableCreate(ctx context.Context, in *api.CreateTableInp
 		if err = tx.PutTableColumns(candidate.Scope, candidate.ARN, prepared.columns); err != nil {
 			return nil, err
 		}
+		if len(in.Tags) != 0 {
+			if err = tx.PutResourceTags(candidate.Scope, candidate.ARN, domainTags(in.Tags)); err != nil {
+				return nil, err
+			}
+		}
 		out := &api.CreateTableOutput{}
 		text(&out.TableARN, candidate.ARN)
 		text(&out.VersionToken, candidate.VersionToken)

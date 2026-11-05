@@ -64,6 +64,12 @@ keeps service-specific accounting and error semantics authoritative.
   policies/configuration, maintenance and CloudTrail data events remain open;
   see `docs/behavior-references.md`. This source-build work is newer than v0.1.1.
 
+- [x] Implement S3 Tables bucket/table tagging, including tagged creation,
+  atomic merges and limits, durable deletion/rename behavior, and current
+  request/resource/parent-bucket tag conditions on control and data requests.
+  SDK/storage fixtures cover both repositories; a CLI/boto3 smoke verifies
+  tag-driven object denial and recovery across SQLite restart.
+
 - [ ] Implement genuine DynamoDB managed-key encryption across native table/index
   storage, Streams, backups and regional replicas. Pinned DynamoDB Local ignores
   SSE selection and stores readable SQLite bytes; an alias or key-generation

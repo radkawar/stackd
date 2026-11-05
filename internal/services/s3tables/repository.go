@@ -30,6 +30,9 @@ type Table struct {
 	Deleted, Purged bool
 }
 
+// Tags is the isolated user-defined tag set for one table or table bucket.
+type Tags map[string]string
+
 // Column is the typed Hive projection of an accepted Iceberg schema.
 type Column = icebergmeta.Column
 type Reader interface {
@@ -39,6 +42,8 @@ type Reader interface {
 	Namespace(Scope, string, string) (Namespace, error)
 	Namespaces(Scope, string) ([]Namespace, error)
 	Table(Scope, string, string, string) (Table, error)
+	TableByARN(Scope, string) (Table, error)
+	ResourceTags(Scope, string) (Tags, error)
 	Tables(Scope, string) ([]Table, error)
 	TableColumns(Scope, string) ([]Column, error)
 	Warehouse(Scope, string) (Table, error)
@@ -52,6 +57,7 @@ type Transaction interface {
 	DeleteNamespace(Scope, string, string) error
 	PutTable(Table) error
 	PutTableColumns(Scope, string, []Column) error
+	PutResourceTags(Scope, string, Tags) error
 	DeleteTable(Scope, string, string, string) error
 }
 type Repository interface {
