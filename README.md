@@ -1,33 +1,43 @@
 # stackd
 
-stackd is a local AWS emulator with Go control planes, AWS-compatible HTTP APIs,
-optional SQLite persistence, and real runtime/engine backends for supported
-compute and database workflows. Use it from AWS CLI, AWS SDKs, or Go tests.
+stackd is a local AWS emulator for application development and testing. It exposes
+AWS-compatible APIs for use with the AWS CLI, SDKs, Terraform and CloudFormation.
+The server is written in Go, with optional SQLite persistence. Compute and
+database services use separately configured containers, virtual machines and
+database engines.
 
-**Under active development; not complete AWS parity.** An API appearing in the
-[operation inventory](docs/services.json) does not mean its behavior is complete.
-Read the relevant service guide before depending on a workflow. Unsupported
-operations and unavailable runtime dependencies return errors, not fake success.
+stackd is under active development. Service and operation support varies; consult
+the [service documentation](docs/README.md) for supported workflows and limitations.
 
-Licensed under [Apache-2.0](LICENSE). Vendored dependencies retain their own
-license and attribution notices.
+## Installation
+
+Download a Linux or macOS archive from [GitHub Releases](https://github.com/radkawar/stackd/releases).
+See the [installation instructions](docs/releases.md#install-a-published-release)
+for platform selection, checksum verification and package layout.
+
+To build from source, install Go 1.26.5 or later:
+
+```sh
+git clone https://github.com/radkawar/stackd.git
+cd stackd
+go build -o bin/stackd ./cmd/stackd
+export PATH="$PWD/bin:$PATH"
+```
+
+Docker and an AWS account are not required to start the API server. Workloads
+that execute functions, containers or database queries need additional
+[runtime dependencies](docs/runtimes.md).
 
 ## Quick start
 
-Requirements: **Go 1.26.5 or newer**. AWS CLI v2 and `curl` are useful for the
-examples. The basic control plane requires neither Docker nor an AWS account.
-The first build downloads Go dependencies; runtime images are separate,
-explicit prerequisites for compute and engine workloads.
-
-From the repository root:
+Start the server with SQLite persistence:
 
 ```sh
-go build -o bin/stackd ./cmd/stackd
 mkdir -p data
-./bin/stackd -listen 127.0.0.1:4566 -database ./data/stackd.sqlite
+stackd -listen 127.0.0.1:4566 -database ./data/stackd.sqlite
 ```
 
-Leave the process running. In another terminal, use **local fixture credentials**:
+In another terminal, configure local credentials and make a request with AWS CLI v2:
 
 ```sh
 export AWS_ACCESS_KEY_ID=test
@@ -37,157 +47,59 @@ export AWS_EC2_METADATA_DISABLED=true
 export AWS_PAGER=""
 unset AWS_SESSION_TOKEN AWS_PROFILE AWS_DEFAULT_PROFILE
 
-curl --fail http://127.0.0.1:4566/_stackd/health
 aws --endpoint-url http://127.0.0.1:4566 sts get-caller-identity
 aws --endpoint-url http://127.0.0.1:4566 s3api create-bucket --bucket hello-stackd
 ```
 
-Fresh sandboxes generate a random 12-digit account ID. To set the ID at creation,
-use `--account-id 123456789012`. SQLite keeps the ID across restarts. A conflicting
-flag returns an error. Use STS to read the ID. See
-[account selection](docs/configuration.md) for upgrade rules.
-`test`/`test` is a local bootstrap root identity, **not an
-AWS credential or a secure multi-user login**. Keep the listener on loopback. Do
-not expose the API or local diagnostic endpoints to untrusted networks.
+Use the endpoint override on every request; without it, AWS clients normally
+connect to AWS. The `test` credentials provide local administrative access.
+Keep the server on a trusted network and do not use production AWS credentials.
 
-Press **Ctrl-C** to stop the controller. Start it again with the same database
-path to retain supported control-plane state. External runtimes have their own
-storage and shutdown rules; stopping the controller is not always enough to stop
-their containers or guests.
+Each new instance receives a random 12-digit account ID. Set
+`--account-id 123456789012` when creating an instance to choose one. The account
+ID is retained in SQLite; restarting with a different ID returns an error.
+
+Press Ctrl-C to stop the server. Restart it with the same database path to retain
+state, or omit `-database` for an in-memory instance. Runtime containers and guest
+disks have separate storage and shutdown requirements; see [Operations](docs/operations.md).
+
+The [getting-started guide](docs/getting-started.md) continues with S3 and SQS
+examples, persistence and cleanup.
 
 ## Deploy execution runtimes
 
-The quick start runs the API control plane only. Real functions, tasks, databases,
-virtual machines, and Kubernetes workloads require their native backends.
-**Use a dedicated, trusted Linux host** for the full runtime setup: rootful Docker,
-systemd/cgroup v2, and KVM for accelerated guests. The API controller also supports
-a native macOS build; opt-in Lambda/DynamoDB/Kinesis on Docker Desktop use its real
-Linux VM, not ECS's local-host contract. A user-reported Apple Silicon/Desktop
-run is recorded with its exact scope in the [Desktop recipe](docs/runtime-containers.md#native-macos-controller-with-docker-desktop).
-An API-only deployment needs no Docker.
+Install the dependencies for the services you need, then enable them with the
+corresponding runtime flags. Selecting a Docker host does not enable services or
+pull images.
 
-| Deployment | Prepare first | Enable in the controller |
-| --- | --- | --- |
-| Lambda, ECS, CodeBuild, DynamoDB, Kinesis | [Docker host, selected helpers, and installed images](docs/runtime-containers.md#shared-docker-host) | `-docker-host` plus, respectively, `-lambda-runtime`, `-ecs-runtime`, `-codebuild-runtime`, `-dynamodb-runtime`, `-kinesis-runtime` |
-| RDS, DocumentDB compatibility, OpenSearch, Kafka/MSK, Valkey, MQ, Glue/Athena | [Per-engine images, TLS, and state](docs/runtime-containers.md) | Docker plus the service's runtime flag |
-| Real EC2/EBS guests | [QEMU/KVM, firmware, networking, and imported guest images](docs/runtime-vms.md#qemukvm-ec2) | Docker, SQLite, and `-ec2-state-directory` |
-| EKS Kubernetes clusters | [Pinned k3d and k3s images](docs/runtime-vms.md#k3d-eks) | Docker, SQLite, and `-eks-state-directory` |
-| EKS managed EC2 workers | [Prepared worker AMIs and worker routing](docs/runtime-vms.md#k3d-eks) | Both EC2 and EKS runtimes |
-| Lambda managed-instance guests | [Guest Docker, SSM, runtime images, and Lambda agent](docs/runtime-vms.md#managed-instance-lambda) | EC2 plus the managed-Lambda selectors |
-| ALB sockets, ORC inventory, ECR scanning | [Relay/encoder/scanner preparation](docs/runtime-containers.md) | ALB/scanner helper flags; `-docker-host -inventory-orc-runtime` for ORC |
-
-Build the native controller (and, with `make build`, the static Linux helpers needed only by Lambda):
-
-```sh
-make build
-mkdir -p data
-```
-
-After following the linked installation/image preparation steps, choose one of
-these foreground launches. **Stop the previous controller first**; these are
-alternatives, not three processes sharing a database. Flags can be combined on
-one controller when all corresponding dependencies are prepared.
-
-### Docker-backed Lambda execution
-
-```sh
-./bin/stackd -listen 0.0.0.0:4566 -database ./data/stackd.sqlite \
-  -docker-host unix:///var/run/docker.sock -lambda-runtime
-```
-
-`-docker-host` selects Engine transport only; it does not enable any execution
-owner or pull images. The five flags listed above and `-inventory-orc-runtime`
-default to false; each enables only its own real boundary. ECS's local
-Linux/rootful/systemd/cgroup-v2 admission applies only when ECS is requested.
-Other engines retain their service-specific opt-ins, such as `-rds-runtime`.
-See the [container recipes](docs/runtime-containers.md), including the
-[native macOS / Docker Desktop recipe](docs/runtime-containers.md#native-macos-controller-with-docker-desktop).
-
-### QEMU/KVM guests
-
-On Linux x86-64, with QEMU tools, KVM access, firmware, and Docker prerequisites installed:
-
-```sh
-./bin/stackd -listen 0.0.0.0:4566 -database ./data/stackd.sqlite \
-  -docker-host unix:///var/run/docker.sock \
-  -ec2-state-directory ./data/ec2 \
-  -ec2-bios /usr/share/seabios/bios-256k.bin \
-  -ec2-uefi-code /usr/share/OVMF/OVMF_CODE_4M.fd \
-  -ec2-uefi-vars /usr/share/OVMF/OVMF_VARS_4M.fd
-```
-
-Those firmware paths are Debian/Ubuntu examples; verify your installed paths.
-There are no preloaded EC2 AMIs: follow the [guest image import and launch
-instructions](docs/runtime-vms.md#qemukvm-ec2) before calling `RunInstances`.
-
-### k3d Kubernetes
-
-After installing k3d v5.8.3 and the pinned node/helper images:
-
-```sh
-./bin/stackd -listen 0.0.0.0:4566 -database ./data/stackd.sqlite \
-  -docker-host unix:///var/run/docker.sock \
-  -eks-state-directory ./data/eks -eks-storage-reserve-gib 64 \
-  -eks-k3d "$PWD/bin/k3d-v5.8.3" \
-  -eks-listen-host 127.0.0.1 -eks-endpoint-host 127.0.0.1
-```
-
-Create and access clusters through the local EKS API; do not manually create
-similarly named k3d clusters and expect stackd to adopt them. Managed EC2 workers
-also need the QEMU runtime, prepared worker images, and host routing. See
-[EKS deployment and access](docs/runtime-vms.md#k3d-eks).
-
-The native storage reserve defaults to 64 GiB for nodefs/imagefs eviction and
-minimum reclaim, with capacity-derived image GC on the configured Docker daemon.
-It preserves native pressure handling and explicit memory/inode safety.
-The policy is retained at creation for bootstrap and future Fargate workers;
-**recreate a cluster to change its reserve**, not merely restart the controller.
-See [native storage policy](docs/eks.md#native-worker-storage-reserve).
-
-These examples broaden the API listener beyond loopback. Restrict network access,
-and configure origins reachable by both your host clients and workloads before
-provisioning resources; container loopback is not the host. See
-[runtime networking](docs/runtimes.md#networking-before-execution).
-For opt-in gateway DNS, explicit forwarding, managed resolver/CA trust,
-native-engine port pools, diagnostics and reversible host split DNS, use the
-[native networking recipes](docs/networking.md). Standard AWS HTTPS routing is
-an isolated opt-in mode, not a global DNS or trust change.
-Dependencies are prepared explicitly, not downloaded at execution time.
-Stopping the controller does **not** necessarily stop persistent guests, clusters,
-or engines; follow [owned-infrastructure shutdown](docs/operations.md#stop-all-infrastructure-belonging-to-one-instance).
-
-## Documentation
-
-| Need | Guide |
+| Workload | Setup guide |
 | --- | --- |
-| Install, start, make requests, and try S3/SQS | [Getting started](docs/getting-started.md) |
-| Configure credentials, endpoints, TLS, persistence, and service time | [Configuration](docs/configuration.md) |
-| Apply and destroy Terraform/CloudFormation applications with byte/message verification | [Executable IaC examples](examples/README.md) |
-| Edit local Lambda source and observe real Docker runtime reinitialization | [Live-reload example](examples/lambda-hot-reload/README.md) |
-| Install packaged CLIs or publish a tagged Linux/macOS release | [Releases](docs/releases.md) |
-| Deploy containers, databases, QEMU/KVM guests, and k3d clusters | [Runtime deployment overview](docs/runtimes.md), [container recipes](docs/runtime-containers.md), [VM/Kubernetes recipes](docs/runtime-vms.md) |
-| Configure native DNS, local CA trust, runtime networking, port pools, and reversible host split DNS | [Native networking](docs/networking.md) |
-| Restart, back up, inspect, troubleshoot, and shut down | [Operations](docs/operations.md) |
-| Find service-specific support and setup | [Documentation index](docs/README.md) |
-| Embed stackd in Go tests | [Embedding reference](docs/implementation-reference.md#embed-in-go-tests) |
-| Develop, generate contracts, and run verification | [Development reference](docs/implementation-reference.md#develop) |
+| Lambda, ECS, CodeBuild, databases and analytics | [Containers and engines](docs/runtime-containers.md) |
+| EC2 virtual machines and EKS clusters | [Virtual machines and Kubernetes](docs/runtime-vms.md) |
+| Endpoints, DNS, TLS and container connectivity | [Networking](docs/networking.md) |
 
-## What to expect
+Full runtime deployments require a trusted Linux host. macOS supports the API
+server and selected Docker Desktop workloads; see the
+[platform requirements](docs/runtime-containers.md#native-macos-controller-with-docker-desktop).
 
-- Point every client at your local endpoint; ordinary AWS CLI/SDK defaults target
-  real AWS. Examples use explicit endpoint overrides and local credentials.
-- Memory-only state is lost on exit. `-database` selects SQLite-backed state;
-  native engine volumes, guest disks, and other sidecars are additional state.
-- Real Lambda/container/database execution requires explicitly configured
-  runtimes and installed images. Start with the control-plane quick start, then
-  follow the [runtime guide](docs/runtimes.md) for your workload.
-- Normal builds use checked-in generated contracts. You do not need the AWS SDK
-  source checkout or native AWS credentials just to run the emulator.
-- Local development defaults, diagnostic endpoints, and Docker/guest access are
-  not a production security boundary.
+## Examples and documentation
 
-The former README is preserved in the
-[implementation and development reference](docs/implementation-reference.md).
-Detailed service documentation, native evidence, the
-[architecture](docs/architecture.md), and the [remaining backlog](TODO.md) remain
-available; the new entry points do not replace or remove them.
+- [Terraform and CloudFormation examples](examples/README.md)
+- [Lambda live reload](examples/lambda-hot-reload/README.md)
+- [Configuration](docs/configuration.md): accounts, credentials, endpoints and persistence
+- [Operations](docs/operations.md): backups, diagnostics and shutdown
+- [Service guides](docs/README.md)
+- [Embedding in Go tests](docs/implementation-reference.md#embed-in-go-tests)
+
+## Development
+
+See the [development reference](docs/implementation-reference.md#develop) for
+build, code-generation and test commands. The [architecture](docs/architecture.md)
+describes the implementation, and [TODO.md](TODO.md) tracks remaining work.
+Bug reports and feature requests are welcome on
+[GitHub Issues](https://github.com/radkawar/stackd/issues).
+
+## License
+
+stackd is licensed under the [Apache License, Version 2.0](LICENSE).
+Third-party components retain their respective licenses and notices.

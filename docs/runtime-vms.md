@@ -1,8 +1,10 @@
 # Deploying QEMU guests and k3d Kubernetes
 
-This guide deploys the existing native runtimes from a source checkout. It is not
-an all-runtime installer: stackd does not bundle firmware, a guest OS, k3d, or
-application images. Preparation and API provisioning are separate steps.
+Prepare a Linux host to run EC2 guests, EKS clusters or managed-instance Lambda.
+Install a [published release](releases.md#install-a-published-release) or build
+the controller from source, then install the dependencies for your selected
+runtime. Firmware, guest operating systems, k3d and application images are
+installed separately.
 
 - [QEMU/KVM EC2](#qemukvm-ec2) executes Linux HVM guests with real EBS disks.
 - [k3d EKS](#k3d-eks) executes Kubernetes in Docker. Its bootstrap worker does not
@@ -13,21 +15,19 @@ application images. Preparation and API provisioning are separate steps.
 
 The examples use a native **Linux x86_64** controller on the same host as the
 Docker daemon. Debian/Ubuntu package examples are scoped to that environment,
-not Docker Desktop, macOS, rootless Docker, or a remote daemon. They intentionally
-use local account `000000000000`, test credentials, and explicit local endpoints.
-Run the commands only on a host you own; dependency installation, image preparation
-and subsequent AWS-shaped API calls really create host resources.
+not Docker Desktop, macOS, rootless Docker or a remote daemon. They use local
+account `000000000000`, test credentials and local endpoints. Provisioning
+guests or clusters creates containers, disks and network interfaces on this host.
 
 ## Shared prerequisites
 
 ### Install the host dependencies
 
-Use a systemd host with cgroup v2 and local **rootful Docker Engine without
-user-namespace remapping** for these original EC2/EKS host-security contracts.
-`-docker-host` selects transport only: it does not construct Lambda or ECS for
-an EC2/EKS-only launch. Their independent opt-ins and Lambda telemetry/storage
-helpers are not prerequisites here. Docker socket access is effectively host-root
-authority; granting access is not an isolation boundary.
+Use a systemd host with cgroup v2 and local rootful Docker Engine without
+user-namespace remapping for EC2 and EKS.
+`-docker-host` selects the Engine connection; it does not enable Lambda or ECS.
+Their runtime flags and Lambda telemetry/storage helpers are not needed here.
+Docker-socket access grants host-root authority; restrict it to trusted users.
 
 For a fresh Ubuntu host, configure Docker's signed apt repository using the
 [official Ubuntu instructions](https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository).
@@ -93,7 +93,9 @@ existing daemon configuration to pass them. A containerized controller additiona
 needs the daemon host's existing `/run/lock` inode and matching host paths; the
 native-controller examples below avoid that extra deployment contract.
 
-From the repository root:
+For a source build, run from the repository root. With a published release,
+place the installed controller at `bin/stackd` or substitute its path below.
+Source scripts and optional helper builds still require a checkout.
 
 ```sh
 mkdir -p bin
@@ -102,13 +104,11 @@ go build -trimpath -o bin/stackd ./cmd/stackd
 CGO_ENABLED=0 go build -o bin/stackd-elbv2-node ./cmd/stackd-elbv2-node
 ```
 
-The native controller build is sufficient for EC2/EKS-only use: no Lambda
-telemetry binaries or storage image are required. There is no special EC2 guest
-kernel or k3d helper compiled by this command. The optional ALB relay is selected
-with `-elbv2-node-executable`; it is not required just to launch a guest or cluster.
+EC2/EKS-only deployments do not need Lambda telemetry helpers or its storage
+image. Build the optional ALB relay only if you need ALB sockets, and select it
+with `-elbv2-node-executable`.
 
-Provision the native-networking toolkit on the **selected daemon**, during
-your explicit connected preparation phase:
+Install the networking toolkit on the selected daemon before starting:
 
 ```sh
 export DOCKER_ENGINE=unix:///var/run/docker.sock
@@ -239,8 +239,8 @@ aws_local sts get-caller-identity
 aws_local ec2 describe-instance-types --instance-types t3.small
 ```
 
-Expect account `000000000000`. A responding API proves controller readiness,
-not guest readiness. Merely enabling the runtime creates no instance or AMI.
+Expect account `000000000000`. Next, import an AMI and launch a guest;
+starting the controller does not create either resource.
 
 ### Prepare and import a bootable image
 
@@ -252,13 +252,12 @@ or arbitrary AWS AMI ID is not a substitute. SSM and hibernation require additio
 in-guest preparation described in [SSM](ssm.md) and
 [EC2 hibernation](ec2.md#linux-hibernation).
 
-The retained guest workflows used prepared Ubuntu 24.04 images. Obtain an Ubuntu
-amd64 cloud disk from the [official cloud-image listing](https://cloud-images.ubuntu.com/noble/current/),
-retain its release/build identifier and verify the published signed checksums
-with your trusted Ubuntu keyring before conversion. The listing's `.img` is
-QCOW2, not raw; select firmware based on the image's actual boot support (the
-listing advertises UEFI/GPT), not its filename. For an already verified local
-QCOW2 input:
+Ubuntu 24.04 amd64 cloud disks have been used with this runtime. Download an image
+from the [official listing](https://cloud-images.ubuntu.com/noble/current/),
+record its release/build identifier, and verify its signed checksums with your
+trusted Ubuntu keyring. The listing's `.img` is QCOW2, not raw. Select firmware
+for the image's boot support (the listing advertises UEFI/GPT), not its filename.
+Convert the verified QCOW2 input:
 
 ```sh
 export SOURCE_IMAGE=/absolute/path/to/noble-server-cloudimg-amd64.img
@@ -585,11 +584,10 @@ supplies private join material later. Add repeated `--image-archive /path/to/arc
 options for offline workloads/add-ons; the script stages private archive copies
 and preserves digest-qualified OCI references. Keep the resulting image private.
 
-For 1.32 workers use the matching `v1.32.8+k3s1` binary/archive. Historical workflow
-captures used CUSTOM `v1.33.4+k3s1` worker images while the control plane later
-moved to `v1.33.5+k3s1`; do not relabel an old disk as a new release. Host k3s Docker
-images, the bootstrap worker's containerd images, and imported EC2 worker disks
-are three different artifact stores.
+For 1.32 workers, use the matching `v1.32.8+k3s1` binary and archive. Do not relabel
+an older prepared disk as a newer release. The host's k3s Docker images,
+bootstrap worker's containerd images and imported EC2 worker disks are separate
+artifact stores; prepare each one.
 
 Run the EBS import/AMI registration example above with `RAW_IMAGE` set to each
 prepared worker output, a unique `IMAGE_NAME`, and its actual boot mode. Retain
@@ -660,9 +658,8 @@ worker AMI uses UEFI:
   -eks-worker-advertise-host "$WORKER_HOST" -eks-node-images "$STATE/eks-node-images.json"
 ```
 
-Select worker advertisement **before creating the cluster that will own these
-workers**. The service guide's historical manual recovery investigations are not
-an automatic endpoint migration feature.
+Select the worker advertisement before creating the cluster.
+Restarting does not migrate existing cluster endpoints.
 
 #### Provision the worker network and node group
 
@@ -712,17 +709,14 @@ additional `eks-auth:AssumeRoleForPodIdentity` authority and official-agent imag
 as described in [Pod Identity](eks.md#pod-identity). The recipe above is node
 bootstrap, not a complete application/identity configuration.
 
-Observe actual kubelet versions and Ready conditions; correlate worker Node
-names with EC2 instance IDs and the node group's Auto Scaling membership. Then
-run a preloaded workload and check application traffic across workers and the
-bootstrap worker. A node-group record or a successful `RunInstances` alone is
-not Kubernetes capacity. `CREATE_FAILED`, `DEGRADED`, a nonempty health diagnostic,
-or a timeout requires diagnosis of the guest console, cloud-init/k3s, TLS,
-transport, routing and native logs. Do not replace failed joins with simulated
-success. The fuller signed API/import/rollout workload is
-[`scripts/eks_managed_workers_smoke.py`](../scripts/eks_managed_workers_smoke.py);
-it owns a separate controller and performs extensive mutations/cleanup, so it
-is a workflow reference rather than an installer to run against this deployment.
+Check kubelet versions and Ready conditions, and match worker Node names to EC2
+instance IDs and Auto Scaling membership. Run a preloaded workload and check
+traffic across the EC2 workers and bootstrap worker.
+For `CREATE_FAILED`, `DEGRADED`, health diagnostics or timeouts, inspect the guest
+console, cloud-init/k3s, TLS, routing and native logs.
+The [managed-worker workflow](../scripts/eks_managed_workers_smoke.py) includes
+signed API calls, image import, rollout and cleanup. It starts its own controller
+and mutates resources; do not run it as an installer against this deployment.
 
 ## Managed-instance Lambda
 

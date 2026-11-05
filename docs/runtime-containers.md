@@ -1,14 +1,35 @@
 # Deploying container and native engines
 
-This guide deploys the **source-built host controller**, not a published stackd server image. It covers every container/native-engine option in the [runtime matrix](runtimes.md). For QEMU/EC2, k3d/EKS and managed-Lambda guests, use [VM and Kubernetes deployment](runtime-vms.md). Commands below are operator preparation instructions, not actions performed automatically by stackd. Run from the repository root unless noted.
+Install a [published release](releases.md#install-a-published-release) or build
+from source, then prepare the container and engine dependencies you need below.
+For QEMU/EC2, k3d/EKS and managed-Lambda guests, use
+[VM and Kubernetes deployment](runtime-vms.md). Commands that build stackd or
+helper images run from the repository root. The launch examples use `bin/stackd`;
+place the package executables in `bin/` or substitute the installed path.
 
 ## Shared Docker host
 
-`-docker-host` selects Docker Engine transport only. Enable each needed owner explicitly with `-lambda-runtime`, `-ecs-runtime`, `-codebuild-runtime`, `-dynamodb-runtime`, `-kinesis-runtime` or `-inventory-orc-runtime`; all six default to false. No runtime is implicitly constructed for another owner, and no image is implicitly pulled. Other service-specific opt-ins remain unchanged. Use a dedicated, trusted **Linux host with local rootful Docker Engine, systemd and cgroup v2**, without user-namespace remapping, for ECS and the original EC2/EKS/ALB host-security contracts. ECS admission/toolkit requirements apply only when ECS is requested, not to database-only or Lambda-only launches.
+`-docker-host` selects the Docker Engine connection. Enable the services you need
+with `-lambda-runtime`, `-ecs-runtime`, `-codebuild-runtime`, `-dynamodb-runtime`,
+`-kinesis-runtime` or `-inventory-orc-runtime`; all six default to false.
+Other services have their own opt-in flags. Images must be installed beforehand.
 
-For that local Linux host setup, install Go **1.26.5 or newer** using the [official Go instructions](https://go.dev/doc/install). Install Docker Engine using the official instructions for [Ubuntu](https://docs.docker.com/engine/install/ubuntu/) or [Debian](https://docs.docker.com/engine/install/debian/); follow their repository/key setup before installing `docker-ce`, `docker-ce-cli`, `containerd.io` and `docker-buildx-plugin`. Use the distribution's systemd service, not rootless setup. Review Docker's [post-install privilege warning](https://docs.docker.com/engine/install/linux-postinstall/) and [cgroup-v2 requirements](https://docs.docker.com/engine/containers/runmetrics/). Docker-socket access is effectively host-root access. Native macOS controller builds are supported; see the [Docker Desktop recipe](#native-macos-controller-with-docker-desktop) for opt-in Lambda/DynamoDB/Kinesis, whose real Linux backends run inside the daemon VM rather than on macOS.
+ECS, EC2, EKS and ALB require a trusted Linux host with local rootful Docker
+Engine, systemd and cgroup v2, without user-namespace remapping.
+ECS admission and toolkit requirements do not apply to database-only or
+Lambda-only launches.
 
-For the full local Linux host contract, these are useful checks (they do not start customer workloads):
+For source builds, install Go **1.26.5 or newer** using the
+[official instructions](https://go.dev/doc/install). Install Docker Engine using
+the official [Ubuntu](https://docs.docker.com/engine/install/ubuntu/) or
+[Debian](https://docs.docker.com/engine/install/debian/) instructions, including
+repository and key setup for `docker-ce`, `docker-ce-cli`, `containerd.io` and
+`docker-buildx-plugin`. Use the distribution's systemd service, not rootless
+setup. Review Docker's [privilege warning](https://docs.docker.com/engine/install/linux-postinstall/)
+and [cgroup-v2 requirements](https://docs.docker.com/engine/containers/runmetrics/).
+For native macOS controllers, use the [Desktop recipe](#native-macos-controller-with-docker-desktop).
+
+Check the Linux host before continuing:
 
 ```sh
 uname -s
@@ -31,12 +52,18 @@ Expect Linux, PID 1 `systemd`, an active daemon, `cgroup2fs`, cgroup version `2`
 export DOCKER_HOST=unix:///var/run/docker.sock
 umask 077
 mkdir -p bin data
+```
+
+For a source build, also run:
+
+```sh
 make build
 ```
 
 `make build` builds the native `bin/stackd` controller and static Linux `lambda-telemetry-amd64` and `lambda-telemetry-arm64` helpers. A bare `go build -o bin/stackd ./cmd/stackd` builds only the controller, which is sufficient for non-Lambda consumers. For `-lambda-runtime`, install the helpers beside the executable or pass `-lambda-telemetry-directory /absolute/helper/directory`. Initial Go builds can download modules; prepare the module cache and binaries before disconnecting.
 
-Install the helper images needed by your selected owners explicitly (the toolkit is needed for ECS/native networking; the storage image is needed only for Lambda):
+Install the helper images your services need. The toolkit supports ECS and native
+networking; the storage image supports Lambda:
 
 ```sh
 docker pull nicolaka/netshoot@sha256:47b907d662d139d1e2f22bfe14f4efca1e3f1feed283572f47c970c780c03b61
@@ -96,45 +123,33 @@ All later launch snippets are **alternatives**, not controllers to run concurren
 
 ### Native macOS controller with Docker Desktop
 
-The native macOS controller build is supported. Opt-in Lambda, DynamoDB and Kinesis use Docker Desktop's **real Linux daemon VM**, not synthetic execution on macOS. ECS is intentionally omitted: its local Linux/rootful/systemd/cgroup-v2 admission is not a reason to disable these separate owners. EC2/EKS/ALB retain their original local Linux host-security contract.
+Native macOS controllers support opt-in Lambda, DynamoDB and Kinesis through
+Docker Desktop's Linux VM. ECS, EC2, EKS and ALB still require their local Linux
+host setup and are not covered by this recipe.
 
-**Reported Desktop evidence at `54c09a9`:** macOS Darwin 24.6.0 on Apple Silicon,
-Docker Desktop Engine 29.8.1 with the containerd image store and amd64 Rosetta
-execution, using this native-controller recipe on port 4568. The reported
-155-resource stack reached `CREATE_COMPLETE` in 88 seconds; actual DynamoDB
-(16 GSIs, TTL and stream), on-demand Kinesis, Cognito password login/JWKS,
-image-RIC and `provided.al2023` execution, SQS/Kinesis mappings, suffix-filtered
-S3 notification, and `rate(1 minute)` delivery worked. Ten image-code updates
-completed successfully; stack deletion and controller shutdown left no containers.
-This is user-reported platform evidence, not a locally repeated macOS run.
-The follow-up report at `0a531a1` confirms the B1–B8 compatibility fixes and
-three rendered Guard deployments: 156 resources in 89 seconds, retained nested
-cron stacks in 102 seconds, and retained developer email after captured-mail
-verification in 97 seconds. It also observes exact S3 CORS readback, two real
-`cron(* * * * ? *)` Lambda deliveries 54 seconds apart with constant input,
-SSM SecureString decrypted/ciphertext API reads, and a WebSocket-shaped stack
-reaching `CREATE_COMPLETE`. WebSocket message execution was not tested.
-These remain user-reported Desktop results, not locally repeated macOS runs.
+This recipe has user-reported results on Apple Silicon with Darwin 24.6.0,
+Docker Desktop Engine 29.8.1, the containerd image store and amd64 Rosetta
+execution. Those reports cover Lambda ZIP/image invocations and updates,
+DynamoDB indexes/TTL/streams, Kinesis, event mappings, scheduled delivery,
+Cognito login, S3 notifications/CORS and stack cleanup. They do not establish
+WebSocket message execution. See
+[CloudFormation deployments](behavior-references.md#cloudformation-deployments)
+for workflow details and limitations.
 
-Daemon-owned Lambda networking mounts the VM's existing `/run` at
-`/stackd-host-run` and creates its missing `lock` directory before acquiring
-the regular `stackd-public-network.lock` inode. No manual VM `/run/lock` setup
-is required. Local and daemon-owned controllers still use the same host inode;
-the helper verifies the selected Engine socket while holding the lock. This
-writable daemon-host mount belongs only to the trusted privileged setup helper,
-not customer containers. Docker-socket access already grants host-root authority.
-Function endpoints set MAC addresses through `NetworkingConfig.EndpointsConfig`,
-with all running/owner/network/IP/MAC/single-network authority checks retained.
-Docker's [API version history](https://docs.docker.com/reference/api/engine/version-history/)
-documents per-endpoint MAC support from API 1.44 and removal of legacy
-`Config.MacAddress` in API 1.52. The client selects the highest common supported
-API up to 1.44. Linux Engine 29.5 smoke evidence covers missing-directory
-creation, exclusive inode retention, wrong-Engine rejection, actual kernel MAC
-and rejection of a mismatched MAC or extra network; it is not a native Desktop run.
-See [CloudFormation deployments](behavior-references.md#cloudformation-deployments)
-for the retained compatibility boundaries.
+Lambda's privileged networking helper uses `/run/lock` inside the Docker VM,
+creating the directory if needed; no manual VM setup is required.
+Only trusted setup helpers receive the writable daemon-host `/run` mount,
+not function containers. Docker-socket access grants host-root authority.
+The helper checks daemon identity and holds the shared network lock while
+changing packet policy.
 
-Cross-building the controller does not boot macOS, contact Docker Desktop or establish VM capability/readiness. The portable EC2 control plane remains usable without `-ec2-state-directory`; explicitly enabling the native EC2 backend on a non-Linux controller returns `QEMU capability unavailable: guest and native disk execution requires a local Linux controller`. It does not substitute a Docker container for an EC2 guest. Keep that flag out of the Desktop recipe.
+Per-endpoint MAC configuration requires Docker API 1.44 or newer. The client
+negotiates a common supported API up to 1.44; see
+[Docker's API version history](https://docs.docker.com/reference/api/engine/version-history/).
+
+Do not add `-ec2-state-directory` to the Desktop launch. The EC2 control-plane
+APIs work without it, but QEMU guest and native disk execution require a local
+Linux controller.
 
 On Apple Silicon, build the controller for Darwin/arm64 and its Lambda helpers for Linux, not Darwin:
 
@@ -160,7 +175,8 @@ docker info --format 'OS={{.OSType}} Architecture={{.Architecture}} Security={{j
 
 For this recipe the selected endpoint must be `unix://<actualDesktopSocket>`, with `<actualDesktopSocket>` replaced by the absolute socket path reported above. Do not substitute an arbitrary remote daemon: host routing, daemon capabilities and privileged storage/network helpers must actually work inside the selected VM. Install the pinned Lambda storage image and the DynamoDB/Kinesis images from their sections below on this same Engine, plus the toolkit if using Lambda VPC networking. Pull the official Lambda runtime images only for the ZIP functions you intend to run.
 
-An image Lambda may instead use an explicitly built local image such as `local-unified:latest`. For an `x86_64` function on Apple Silicon, build it as **Linux/amd64** and include a real Lambda RIC or Runtime API bootstrap:
+For an image function, build your application with a Lambda RIC or Runtime API
+bootstrap. An `x86_64` function on Apple Silicon needs a Linux/amd64 image:
 
 ```sh
 # Your Dockerfile/build context must contain the real application and RIC/bootstrap.
@@ -171,7 +187,10 @@ docker image inspect local-unified:latest --format '{{.Os}}/{{.Architecture}} {{
 # Use linux/arm64 only when both the function architecture and installed image agree.
 ```
 
-Create the function with `PackageType=Image`, `Architectures=["x86_64"]` and `Code.ImageUri=local-unified:latest`, omitting ZIP-only `Runtime`/`Handler`. Admission resolves the installed tag to its real immutable image ID; it neither pulls an image nor invents an ECR upload. See [image-function packaging](lambda.md) for overrides and supported behavior.
+Create the function with `PackageType=Image`, `Architectures=["x86_64"]` and
+`Code.ImageUri=local-unified:latest`, omitting ZIP-only `Runtime`/`Handler`.
+Stackd resolves the installed tag to an immutable image ID without pulling it.
+See [image-function packaging](lambda.md).
 
 The host API and container Lambda recipe is:
 
@@ -190,11 +209,9 @@ Here `"$DESKTOP_DOCKER_HOST"` is the discovered `unix://<actualDesktopSocket>`, 
 
 The real RIC/bootstrap uses `AWS_LAMBDA_RUNTIME_API` for the separate [Lambda Runtime API](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-api.html) callback listener, **not** the AWS API at port 4567. `-lambda-runtime-listen 0.0.0.0:0` allocates a listener port per environment; `-lambda-callback-host host.docker.internal` advertises that port through [Desktop's built-in container-to-host DNS](https://docs.docker.com/desktop/features/networking/networking-how-tos/). No host-side resolution or shadow `/etc/hosts` mapping is installed for that name. Permit the Desktop backend to reach the host API and these allocated callback ports, while restricting all-interface listeners to trusted networks. Changing only the API port does not make the callbacks reachable.
 
-In the reported Desktop run, Lambda containers used Docker's default `bridge`
-network and reached host-published services through `host.docker.internal`.
-That bridge is inside Desktop's Linux VM, not the macOS host network. Use the
-configured compute origin and Runtime API callback origin; container loopback
-does not reach the host controller.
+Lambda containers on Docker's default `bridge` network run inside Desktop's
+Linux VM. Use `host.docker.internal` to reach host-published services; container
+loopback does not reach the host controller.
 
 The host-only public origin above is **not** suitable for returned URLs later consumed inside containers. For that topology, configure a shared hostname (for example `stackd.local`) to resolve to a reachable Mac-host IPv4 address from both host clients and containers before provisioning resources. Desktop's special `host.docker.internal` DNS name alone does not configure host-client DNS. With that prerequisite satisfied, replace the launch's two origin flags with:
 
@@ -216,13 +233,12 @@ unset AWS_SESSION_TOKEN AWS_PROFILE
 aws --endpoint-url http://127.0.0.1:4566 sts get-caller-identity
 ```
 
-Fresh sandboxes generate a random 12-digit account ID. Use `--account-id` to set
-the ID at creation. SQLite keeps it across restarts. Read the ID through STS.
-This check proves API access, not engine readiness. Check the service status and
-run a real native operation before you use the resource. A container-create
-response or elapsed time does not prove readiness. The service sections describe
-the supported provisioning steps. If containers use advertised resource URLs,
-use the shared reachable origin in **all** provisioning calls.
+Fresh instances generate a random 12-digit account ID. Use `--account-id` to
+choose it at creation; SQLite retains it across restarts. Read the ID through
+STS, then provision resources using the service sections below. Check the service
+status and a data-plane operation before using each resource.
+If containers consume advertised resource URLs, use the shared reachable origin
+in all provisioning calls.
 
 ## Lambda
 
@@ -338,24 +354,15 @@ docker pull apache/spark@sha256:9b0a6c2c860f5e7d18dd5270286fef32a09c7f5a7e2b0dbe
 
 Enable either boolean independently and omit the other engine's pulls if unused. The defaults are Glue Spark 3.5.4-amzn-0/Python 3.11, Python-shell Python 3.9 (not the full Glue analytics library bundle), Trino 476 and Spark 4.1.3 used **only** as a native Hive-DDL parser. Upstream installation references: [Trino Docker](https://trino.io/docs/current/installation/containers.html), [Apache Spark](https://spark.apache.org/docs/latest/). Immutable installed overrides are `-glue-spark-image`, `-glue-python-image`, `-athena-image` and `-athena-hive-ddl-image`.
 
-Athena selects its network boundary at adapter initialization, before queries.
-On Linux it runs the installed Trino image's `curl` once in Docker host-network
-mode against a random capability on a controller-owned loopback listener. A
-matching response proves shared loopback; a Unix socket path alone does not
-(it may forward to a remote daemon or Docker Desktop VM). Rootless/user-namespace
-engines and non-Linux controllers retain bridge mode. Engine/helper/cancellation
-failures are errors, not permission to silently select bridge mode.
+Athena checks whether the controller and Docker daemon share Linux loopback at
+startup. A local rootful Linux daemon uses host networking with Trino bound to
+`127.0.0.1` on an allocated port; it does not publish port 8080 or create query
+bridges. Stackd verifies the Trino process identity before submitting SQL.
+A port conflict fails startup.
 
-For a witnessed local Linux daemon, every query uses host networking: no bridge
-attachment, veth, published port, or host address change, including the first cold
-query. Trino's actual HTTP bind is `node.bind-ip=127.0.0.1`; its advertised
-internal/external addresses and discovery URI also use loopback. Stackd reserves
-an OS-allocated loopback port through container creation and releases the socket
-immediately before start, since Trino cannot inherit it. A competing bind fails
-startup; a private JMX worker probe must return the unpredictable execution's
-`node.id` before customer SQL is submitted. There is no port-conflict retry or
-fixed host port 8080. The controller-visible SQL host is derived as `127.0.0.1`;
-`-athena-endpoint-host` is used only for bridge mode.
+Remote daemons, rootless/user-namespace engines and non-Linux controllers use
+bridge mode. A Unix socket alone does not establish that a daemon is local.
+`-athena-endpoint-host` applies only to bridge mode.
 
 Local callbacks default to `127.0.0.1:0` and host `127.0.0.1`. Explicit
 `-athena-callback-listen` and `-athena-callback-host` values remain unchanged,
@@ -367,39 +374,29 @@ controller-to-daemon SQL routing and daemon-to-controller callback routing.
 Permit callbacks without exposing them to untrusted networks; these endpoints
 do not replace the main compute/public endpoints.
 
-Admission remains one active query per adapter; this change adds no parallel-query
-feature and no result cache. An exact-owned Trino engine stays warm per
-partition/account/region, with a two-minute idle deadline. Each query gets its own
-random cancellation handle, callback listener, capability and immutable caller
-handler. The JMX-only bootstrap contains no caller credentials. Native Trino 476
-`CREATE CATALOG`/`DROP CATALOG` installs fresh per-query Hive/Iceberg/Delta catalogs
-under the existing logical names, so explicit catalog SQL, database context and
-prepared statements do not need SQL rewriting. The old callback is revoked
-before later catalog publication: retained/background connector requests can
-never acquire a later caller. Only the private manager has catalog `owner`
-access; customer `all` access cannot create/drop catalogs or read the JMX probe.
-Before each reuse, stackd checks the running Docker incarnation, owner labels,
-immutable image and endpoint, then checks the native JMX node identity before
-publishing a new capability. It checks ownership again at query teardown.
-Failed witnesses retire the incarnation. Cleanup failures remain infrastructure
-errors even when a native SQL error occurred; an unremoved parser keeps its
-original ownership receipt for recovery.
+Athena allows one active query per adapter and keeps a Trino engine warm for
+each partition/account/region, with a two-minute idle timeout. There is no result
+cache. Each query receives separate callback authorization and fresh
+Hive/Iceberg/Delta catalogs. Previous callback authorization is revoked before
+the next query. Customer SQL can use catalogs but cannot create/drop them or
+read the private JMX probe.
+
+Stackd checks engine ownership, image, endpoint and process identity before
+reuse and at teardown. Failed identity checks retire the engine; cleanup
+failures are reported as infrastructure errors and retain recovery metadata.
 
 An explicit Glue catalog keeps its name and semantics when it collides with an
 internal connector alias. Only the private redirect aliases move; customer SQL
 is not rewritten.
 
-The runtime uses dynamic **file** catalog storage in container tmpfs; memory
-storage ignores startup files and would omit the JMX bootstrap. Native DROP does
-not interrupt running queries and some object-storage connectors do not release
-all resources immediately. In addition to idle teardown, stackd retires an
-engine after 64 queries to bound retained connector resources. A changed workgroup
-scan limit also retires its scoped engine: the physical-byte limit stays an
-unraisable cluster setting, not a customer-mutable session override. Cancellation
-addresses the observed native query ID; transport/cancellation ambiguity retires
-the current engine incarnation rather than sharing uncertain work with a later
-query. Stale completed-query handles never remove a later query's engine.
-Legacy bare cancellation handles cannot remove receipt-owned warm engines.
+Dynamic catalogs use file storage in container tmpfs. Engines retire after
+64 queries or a changed workgroup scan limit, in addition to the idle timeout.
+The workgroup physical-byte limit is a cluster setting that customer sessions
+cannot raise.
+
+Cancellation targets the native query ID. Ambiguous transport or cancellation
+results retire the engine before reuse. Completed or legacy cancellation
+handles cannot remove a later query's engine.
 
 Private fsynced ownership receipts precede native creation, and an exclusive
 kernel lock fences controller replacement. With SQLite, the CLI keeps them in
@@ -420,23 +417,16 @@ boundary described below, not an untrusted multi-tenant host. Native dynamic
 catalog SQL includes the ephemeral callback capability in Trino query history;
 it is not an AWS credential and is revoked at query completion.
 
-See [issue #9](https://github.com/radkawar/stackd/issues/9) for the co-located
-Chromium address-change failure this boundary addresses. Source contracts:
+For background on local networking, see
+[issue #9](https://github.com/radkawar/stackd/issues/9). Upstream references:
 [Trino 476 image tools](https://github.com/trinodb/trino/blob/476/core/docker/Dockerfile),
 [Airlift 336 bind configuration](https://github.com/airlift/airlift/blob/336/node/src/main/java/io/airlift/node/NodeConfig.java),
 [actual HTTP bind](https://github.com/airlift/airlift/blob/336/http-server/src/main/java/io/airlift/http/server/HttpServer.java),
 and [Trino JMX node identity](https://github.com/trinodb/trino/blob/476/plugin/trino-jmx/src/main/java/io/trino/plugin/jmx/JmxRecordSetProvider.java).
 
-The package regressions cover local/remote configuration, scoped engine reuse,
-caller/callback isolation, explicit catalog/session contracts, idle/shutdown
-cleanup, queued and native query-ID cancellation, late create cleanup, locked
-restart/orphan recovery, receipt path/foreign ownership rejection, foreign-worker
-rejection and witness errors. The opt-in fixtures execute real metadata queries
-with different callback capabilities on one pinned engine, test catalog-owner
-denial, and cancel an observed native query ID. They also check interface/address
-stability, loopback-only SQL access, idle expiry, Hive parsing, orphan recovery,
-foreign-port rejection and exact removal. Run on a quiet dedicated local Linux
-Docker host with both pinned images installed:
+To check Athena networking, engine reuse, callback isolation, cancellation and
+cleanup, run these tests on a quiet, dedicated Linux Docker host with both
+pinned images installed:
 
 ```sh
 go test ./engine/athena -run '^(TestDockerNetwork|TestWarmEngine)' -count=1 -timeout 2m
@@ -449,12 +439,11 @@ Pinned upstream support and cautions:
 [Trino 476 catalog management](https://github.com/trinodb/trino/blob/476/docs/src/main/sphinx/admin/properties-catalog.md),
 [CREATE CATALOG syntax](https://github.com/trinodb/trino/blob/476/docs/src/main/sphinx/sql/create-catalog.md),
 and [catalog owner/all access modes](https://github.com/trinodb/trino/blob/476/lib/trino-plugin-toolkit/src/main/java/io/trino/plugin/base/security/CatalogAccessControlRule.java).
-Dynamic management is experimental in 476, not a claim about an arbitrary newer
-engine. [Issue #16](https://github.com/radkawar/stackd/issues/16) describes the
-per-query startup cost addressed by scoped engine reuse; query timeouts and
-result-cache behavior are unchanged. The pinned file store reads its separate
-`etc/catalog-store.properties` from the launcher data directory, rather than the
-main server configuration. The managed bootstrap makes both paths explicit.
+Dynamic catalog management is experimental in Trino 476; use the pinned engine.
+Query timeouts and result-cache behavior are unchanged by engine reuse.
+The file catalog store reads `etc/catalog-store.properties` from the launcher
+data directory, separately from the main server configuration.
+Stackd configures both paths.
 
 Provision S3 scripts/data/output locations and IAM roles, then Glue `CreateJob`/`StartJobRun` or Athena `StartQueryExecution`. Poll `GetJobRun`/`GetQueryExecution` and retrieve real output rather than treating API acceptance as completion. The [analytics service guide](behavior-references.md#glue-and-athena-engines-evidence-and-boundaries) covers supported catalogs, job types and SQL boundaries. AWS-specific bookmarks, Lake Formation vending, Glue Parquet writer and Data Quality are not established by running ordinary Spark/Trino. SQLite keeps control state; preserve S3 data/output and native state too.
 
@@ -612,4 +601,9 @@ Use Ctrl-C/SIGTERM for graceful controller shutdown. Do not treat it as a univer
 
 Keep the stable SQLite path, Docker's exact-owned volumes/networks, MQ state/TLS files, installed helper paths and any external source/output data together. SQLite is control state, not a backup of all native engine bytes. Back up using the service's supported snapshot/backup path and retain ownership metadata. With in-memory repositories, graceful CLI shutdown attempts deletion of the native engines it owns; this does not cover every workload, crashes or SIGKILL. Never use blanket `docker system prune`, volume removal or unrelated-container cleanup as stackd shutdown.
 
-These are real engines and real customer-code execution with privileged setup components. The API's IAM model is not a host firewall or a hardened multi-tenant security boundary. Restrict API/callback/DNS/data listeners, trust local administrators and Docker users, avoid ambient cloud credentials, and isolate untrusted applications on an appropriate separate host/network. Continue with [Operations](operations.md), [SQLite limits](sqlite-state.md) and each service's lifecycle section for inventories, safe restarts and ownership recovery.
+Privileged setup helpers and Docker access require trusted operators.
+The API's IAM model does not isolate host processes or provide hardened
+multi-tenancy. Restrict API, callback, DNS and data listeners; avoid ambient cloud
+credentials; and run untrusted applications on a separate host/network.
+See [Operations](operations.md), [SQLite limits](sqlite-state.md) and each
+service's lifecycle section for restart and recovery instructions.

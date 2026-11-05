@@ -1,49 +1,12 @@
 # Tagged CLI releases
 
-The tag workflow in `.github/workflows/release.yml` builds CLI archives for:
-
-- Linux amd64 and arm64;
-- macOS (Darwin) amd64 and arm64.
-
-Every archive contains one directory named `stackd_<version>_<os>_<arch>` with:
-
-```text
-stackd
-lambda-telemetry-amd64
-lambda-telemetry-arm64
-LICENSE
-THIRD_PARTY_NOTICES.txt
-RELEASE.json
-```
-
-Both telemetry helpers are **static Linux executables**, including in macOS
-archives: Lambda containers run Linux. They remain alongside `stackd`, matching
-its default executable-directory helper lookup. Keep the three executables
-together when installing, or explicitly configure `-lambda-telemetry-directory`
-when enabling Lambda execution. `RELEASE.json` records the version, source
-commit, controller platform, Go toolchain, module versions, and whether local
-source was modified. Go build VCS metadata is disabled; that explicit manifest
-is the provenance record.
-
-`THIRD_PARTY_NOTICES.txt` includes upstream license/notice texts for the actual
-compiled module dependencies, the Go toolchain, and the retained AWS SDK notices
-for generated declarations. Missing upstream attribution fails packaging rather
-than silently omitting it. The release also publishes `SHA256SUMS` for all four
-archives. Checksums detect corruption; they are not a detached signature.
-
-These packages do **not** include Docker, container images, QEMU/guest images,
-k3d, Trivy, or optional ALB/ORC helpers. The packaging command and package smoke
-neither pull runtime images nor contact AWS. Prepare optional execution backends
-explicitly using [runtime-containers.md](runtime-containers.md) and
-[runtime-vms.md](runtime-vms.md). A Darwin controller does not enable the
-Linux-only QEMU guest/native disk execution boundary.
-
 ## Install a published release
 
-The public assets are on [GitHub Releases](https://github.com/radkawar/stackd/releases).
-The current release is `v0.1.1`: an experimental local sandbox, not complete AWS
-parity or a production security boundary. Choose the archive for the controller
-host, not the architecture of a future Lambda container.
+Download packages from [GitHub Releases](https://github.com/radkawar/stackd/releases).
+The current release is `v0.1.1`. Run stackd only on trusted networks.
+
+Packages support Linux and macOS (Darwin), on amd64 and arm64. Choose the
+platform of the host running stackd, not a future Lambda container:
 
 ```sh
 set -eu
@@ -67,9 +30,10 @@ mkdir -p data
 stackd -listen 127.0.0.1:4566 -database "$PWD/data/stackd.sqlite"
 ```
 
-Require the checksum command to report `OK` before extraction. Keep all three
-executables together; the two Linux helpers are intentionally included even on
-macOS. From another terminal, use explicit local credentials and endpoint:
+Require the checksum command to report `OK` before extraction. Checksums detect
+corruption; they are not detached signatures.
+
+From another terminal, use explicit local credentials and endpoint:
 
 ```sh
 unset AWS_SESSION_TOKEN AWS_PROFILE AWS_DEFAULT_PROFILE
@@ -77,21 +41,51 @@ AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_EC2_METADATA_DISABLED=true
   aws --region us-east-1 --endpoint-url http://127.0.0.1:4566 sts get-caller-identity
 ```
 
-The basic API needs no Docker. Install optional runtime prerequisites separately;
-see [executable Terraform/CloudFormation and Docker reload examples](../examples/README.md).
+The basic API needs no Docker. For application setup, see the
+[Terraform, CloudFormation and Docker reload examples](../examples/README.md).
+
+## Package contents
+
+Each archive contains a directory named `stackd_<version>_<os>_<arch>`:
+
+```text
+stackd
+lambda-telemetry-amd64
+lambda-telemetry-arm64
+LICENSE
+THIRD_PARTY_NOTICES.txt
+RELEASE.json
+```
+
+Keep all three executables together. Both telemetry helpers are static Linux
+executables, including in macOS archives, because Lambda containers run Linux.
+stackd looks for them alongside its own executable by default. If you install
+them elsewhere, set `-lambda-telemetry-directory` when enabling Lambda execution.
+
+`RELEASE.json` records the version, source commit, controller platform, Go
+toolchain, module versions and whether the source was modified. It replaces Go
+build VCS metadata, which packaging disables. `THIRD_PARTY_NOTICES.txt` contains
+the compiled dependencies' license and notice texts, Go toolchain attribution
+and retained AWS SDK notices for generated declarations. Missing attribution
+fails packaging. `SHA256SUMS` lists checksums for all four archives.
+
+Packages do not include Docker, container images, QEMU/guest images, k3d, Trivy,
+or optional ALB/ORC helpers. Prepare optional backends using
+[runtime-containers.md](runtime-containers.md) and [runtime-vms.md](runtime-vms.md).
+QEMU guest and native disk execution require a Linux controller. Neither
+packaging nor the package smoke test pulls runtime images or contacts AWS.
 
 ## Build and exercise locally
 
 Prerequisites:
 
-- Go **1.26.5 or newer**, stable release; the hosted workflow pins **1.26.5**;
-- Python **3.11 or newer** (including `hashlib.file_digest` and safe tar extraction);
-- Git, a source checkout, and a writable Go module/build cache;
-- AWS CLI v2 for the actual packaged API smoke (hosted jobs install **2.36.28**).
+- Go **1.26.5 or newer**, stable release; the hosted workflow pins **1.26.5**.
+- Python **3.11 or newer**, including `hashlib.file_digest` and safe tar extraction.
+- Git, a source checkout and writable Go module/build caches.
+- AWS CLI v2 for the package smoke test; hosted jobs install **2.36.28**.
 
-Go dependencies may need downloading during the first build. This is build-time
-module resolution, not a runtime image pull. The basic API smoke needs no Docker,
-AWS account, cloud credentials, or separately installed Python packages.
+The first build may download Go modules. The basic API smoke test needs no
+Docker, AWS account, cloud credentials or additional Python packages.
 
 From the repository root, choose a **new or empty** output directory:
 
@@ -100,16 +94,14 @@ python3 -B -P -m unittest discover -s scripts -p release_test.py
 python3 -B -P scripts/release.py build v0.0.0-local --output bin/releases-local
 ```
 
-This cross-compiles all four CLI targets and both Linux helpers. The packaging
-entrypoint explicitly sets `CGO_ENABLED=0`, `GOWORK=off`, `-mod=readonly`,
-`-trimpath`, and `-buildvcs=false`. It checks helper ELF architecture and absence
-of a dynamic interpreter. Archive members have fixed modes, UID/GID, ordering,
-and the source commit's timestamp; gzip headers have no filename or current
-wall-clock time. Reproducibility still depends on identical source, dependency
-contents, and Go toolchain; local modified source is honestly marked in the
-manifest, not treated as a tagged release.
+This builds all four controller targets and both Linux helpers. Packaging uses
+`CGO_ENABLED=0`, `GOWORK=off`, `-mod=readonly`, `-trimpath` and `-buildvcs=false`.
+It validates helper architecture and static linking, and normalizes archive
+metadata to the source commit's timestamp. Reproducible builds require the same
+source, dependency contents and Go toolchain. Modified local source is recorded
+in the manifest.
 
-Smoke the archive matching the **current host** (choose exactly one):
+Smoke-test the archive matching the **current host** (choose exactly one):
 
 ```sh
 # Linux x86-64:
@@ -122,139 +114,71 @@ python3 -B -P scripts/release.py smoke bin/releases-local/stackd_v0.0.0-local_da
 python3 -B -P scripts/release.py smoke bin/releases-local/stackd_v0.0.0-local_darwin_arm64.tar.gz
 ```
 
-For a faster native-only iteration, append `--platform linux/amd64` (or another
-listed platform) to `build`. Both telemetry helpers are still included. This is
-not equivalent to building or exercising all four releases.
+For a faster single-platform build, append `--platform linux/amd64` (or another
+listed platform) to `build`. Both telemetry helpers are still included; other
+controller platforms are not built or tested.
 
-The smoke verifies the archive checksum, extracts the actual archive, validates
-both helpers, and launches the extracted CLI on an ephemeral loopback port with
-an isolated SQLite database. It uses explicit local `test` fixture credentials,
-a nonsequential account ID, blank AWS config/credential paths, and no inherited
-AWS environment or proxy settings. It verifies STS account/root identity,
-creates an S3 bucket, writes and reads exact object bytes, restarts the controller
-against the same database, verifies persisted object bytes, removes the object
-and bucket, and requires clean process shutdown. Temporary files are removed.
-This is a concrete package/control-plane/storage smoke, **not** proof that
-optional native engines or complete AWS behavior work.
+The smoke test checks the archive checksum and helpers, then runs the packaged
+CLI on loopback with an isolated SQLite database and local credentials. It
+checks STS identity, an S3 byte round-trip, persistence after restart, deletion
+and clean shutdown. It removes temporary files and does not use inherited AWS
+credentials or proxy settings. Optional execution engines are not covered.
 
-To validate an **existing** clean tagged checkout without publishing anything:
+To validate an existing clean tagged checkout without publishing:
 
 ```sh
 python3 -B -P scripts/release.py build v1.2.3 --require-tag --output bin/releases-v1.2.3
 python3 -B -P scripts/release.py verify v1.2.3 "$(git rev-parse HEAD)" bin/releases-v1.2.3
 ```
 
-`verify` requires exactly the four platform archives, their complete executable
-and notice layout, and manifests from the same clean tagged source commit. It
-then generates the combined `SHA256SUMS`. On Linux, consumers can check downloaded
-files with `sha256sum --check SHA256SUMS`; on macOS use
-`shasum --algorithm 256 --check SHA256SUMS`.
+`verify` requires all four archives, their executable and notice files, and
+manifests from the same clean tagged commit. It generates `SHA256SUMS`. To check
+all downloaded archives, use `sha256sum --check SHA256SUMS` on Linux or
+`shasum --algorithm 256 --check SHA256SUMS` on macOS.
 
 ## GitHub publishing
 
-Only a **pushed tag** matching `v*` triggers the release workflow. The workflow
-then rejects anything other than a `v`-prefixed SemVer version, including leading
-zeros in numeric version/prerelease identifiers. Valid examples are `v1.2.3`,
-`v1.2.3-rc.1`, and `v1.2.3+build.4`. A prerelease identifier marks the GitHub
-release as a prerelease and does not replace the latest stable release.
+Release tags are immutable. Use the local build commands above to test packaging
+before tagging a version.
 
-The tag workflow first runs the reusable focused CI workflow, including retained
-generation checks, identity/deployment/encryption regressions and actual
-Terraform/CloudFormation application lifecycles. Packaging cannot start if those
-checks fail.
+1. Complete the local build and matching-host smoke test above, then run the
+   maintainer checks below.
+2. Push the approved release tag. Only pushed tags matching `v*` trigger the
+   [release workflow](../.github/workflows/release.yml). The tag must be a
+   `v`-prefixed SemVer version without leading zeros in numeric version or
+   prerelease identifiers, such as `v1.2.3`, `v1.2.3-rc.1` or `v1.2.3+build.4`.
+3. Check the workflow result and published assets. Prerelease tags produce
+   GitHub prereleases and do not replace the latest stable release.
 
-Each native runner checks out the same exact tag, verifies its peeled commit,
-builds its own archive with the pinned toolchain, and runs the packaged API
-smoke on that platform. A separate publication job downloads only artifacts
-from that workflow run, checks every archive manifest against the validated
-commit, creates combined checksums, creates a draft containing all assets, then
-publishes it. If any native job or artifact verification fails, no published
-release is created. An interrupted upload/publication can leave a draft;
-maintainers must inspect and remove that draft before retrying. The automation
-does not overwrite an existing release.
+The workflow runs the shared CI checks before packaging. Native runners build
+and smoke-test each platform from the same tagged commit. Publication verifies
+all four artifacts from that workflow run, generates checksums, uploads a draft
+and then publishes it. A failed check, package job or artifact verification
+prevents publication. Interrupted uploads can leave a draft; inspect and remove
+it before retrying. The workflow does not overwrite an existing release or
+create or move tags.
 
-Action dependencies are pinned to full commit SHAs. Checkout does not persist
-credentials. Workflow permissions are read-only except the final publication
-job's `contents: write`; publication uses GitHub's short-lived job token, not a
-stored repository secret. Concurrency serializes attempts for the same tag
-without canceling an in-progress release. Configure repository tag/ruleset
-protection so only authorized maintainers can create release tags. The workflow
-never creates or moves a tag, and ordinary branch/PR checks cannot publish.
+Action dependencies are pinned to full commit SHAs, and checkout does not
+persist credentials. Permissions are read-only except for `contents: write` in
+the publication job, which uses GitHub's short-lived job token rather than a
+stored repository secret. Attempts for the same tag are serialized without
+canceling an active release. Protect release tags with repository rulesets so
+only authorized maintainers can create them. Branch and pull-request checks
+cannot publish releases.
 
-[`v0.1.1`](https://github.com/radkawar/stackd/releases/tag/v0.1.1) was published
-from `956a81162d8722c2497b08f8b3253d451a918dcb` by
-[the tagged workflow](https://github.com/radkawar/stackd/actions/runs/41822332991).
-All four native package smokes and publication passed. The downloaded archives
-also passed checksum/manifest verification; the downloaded Linux amd64 CLI
-passed STS, S3 byte round-trip, SQLite restart, deletion and clean shutdown.
-Newer branch changes are not part of that immutable tag.
+The published [`v0.1.1`](https://github.com/radkawar/stackd/releases/tag/v0.1.1)
+was built from `956a81162d8722c2497b08f8b3253d451a918dcb` by the
+[tagged workflow](https://github.com/radkawar/stackd/actions/runs/41822332991).
+Newer branch features, including analytics changes, are not part of that tag.
 
-For future versions, local builds/smokes and workflow syntax checks are not
-evidence that hosted runners or publication succeeded. Do not create a
-tag/release merely to test tooling without the maintainer's release decision.
+## Maintainer checks
 
-## Focused CI, not a full integration claim
+See [the shared CI workflow](../.github/workflows/checks.yml) for the current
+checks and pinned tools, and [the release script](../scripts/release.py) for
+packaging and smoke-test details. The release workflow runs the checks defined
+at the tagged commit.
 
-`.github/workflows/checks.yml` runs on pull requests, branch pushes and release
-workflow calls. It checks Go formatting, release-tool contracts, targeted
-controller/identity/time/policy vet and staticcheck, focused race tests,
-deployment/encryption SDK regressions, `make build`, executable IaC examples and
-retained-source generators. Terraform is pinned to 1.15.9 for these CI examples.
-The independent `applications` job builds its own `bin/stackd` on a fresh
-Ubuntu 24.04 runner and runs all three CloudFormation, Terraform and Terraform
-EIP application scripts with the shared Python fixture requirements. Its Go
-setup disables cache restore/save so the focused job's combined race-build cache
-does not compete with provider installations for disk space. The `focused` job
-retains `make build` and all Go checks. Application diagnostics remain limited
-to `example-controller-logs` (`*.log`, seven-day retention), not Terraform state
-or the full application working directories.
-The independent `fixture-regressions` job covers explicit account fixtures,
-request-scoped IAM failure injection, publication locking, native EventBridge
-account principals, retained SNS confirmations, current resource ownership,
-crawler commits and CloudFormation recovery. Historical MQ migration replay is
-checked without race instrumentation; concurrent owner/request paths use it.
-The `native-analytics` job additionally builds a fresh SQLite controller and runs
-the actual Hive/CTAS, ordinary Glue REST, existing-table replacement and S3 Tables
-client scenarios with pinned PyIceberg/PyArrow clients. It requires clean process
-shutdown and uploads only client assertion receipts, not controller state,
-credentials or private native ownership receipts. These expanded gates apply to
-new branch builds and future tags; they do not retroactively change v0.1.1.
-Docker reload is a separately exercised prerequisite-heavy example, not an
-unexecuted hosted claim. GuardDuty's catalog check additionally fetches
-the exact upstream Git revision recorded in `docs/guardduty-findings.json` and
-verifies its source SHA-256 before generation; it never follows upstream HEAD.
-The generator records GitHub HTTPS repository URLs with a `.git` suffix.
-This gives the same provenance for GitHub Actions checkout and ordinary clones.
-The provider API check fetches the exact Terraform AWS revision recorded in
-`docs/terraform-provider-apis.json`. It checks the generated source map, not
-all provider resource behavior. The hosted EIP example uses AWS provider 6.68.0.
-Focused regressions also cover secure CloudFormation references, Athena result
-manifests, RDS requested capacity and Glue statistics. Native RDS acceptance
-remains separately exercised local engine evidence. Dedicated Docker jobs run
-warm Trino lifecycle checks, actual Flow Logs traffic and pod-route withdrawal,
-and the upstream EKS ingress workflow. The ingress job retains only sanitized
-assertions and diagnostic categories, never raw cluster state or credentials.
-Ingress failure reports include modeled health states and embedded helper line
-numbers; raw native error messages remain in the private fixture directory.
-The native network gate also checks cross-user lock exclusion and release after
-creation with `umask 077`. New shared lock files are explicitly readable by the
-capability-restricted helper; existing lock permissions are not changed.
-The SQLite gate freezes native commit and rollback to check WAL snapshot
-visibility, synchronous group acknowledgement, savepoint isolation, cancellation
-and shutdown ordering. The separate local
-[controller receipt](../testdata/integration/storage_concurrency_native.json)
-covers signed concurrent object traffic, actual audit delivery and restart.
-These match repository Makefile/hook conventions without invoking the full
-integration suite.
-
-AWS operation/coverage regeneration and SSM-agent regeneration require ignored
-upstream source checkouts; hosted CI does not pretend to verify them without
-those inputs. Online vocabulary refresh is also intentionally excluded. SQL
-checks use the Makefile-pinned SQLC version. The repository's known behavioral
-integration failures remain tracked separately; a green focused CI run is not
-`make check`, full integration success, or AWS parity.
-
-Maintainer syntax/check commands (run after changes are integrated):
+Run these maintainer checks after integrating changes:
 
 ```sh
 actionlint .github/workflows/checks.yml .github/workflows/release.yml
@@ -266,7 +190,7 @@ make generate-iam-check generate-oidc-check generate-simulation-check \
 # The GuardDuty/provider targets require the recorded clones, as prepared by CI.
 ```
 
-`actionlint` is an additional maintainer prerequisite, not vendored by stackd.
-The four local builds plus the matching-host API smoke above are the package
-acceptance commands; hosted native smoke on the other platforms remains gated
-on actual runner execution.
+`actionlint` must be installed separately. Some generation checks require
+ignored upstream source checkouts; consult the workflow for their preparation.
+The local commands exercise only the host platform. The release workflow must
+also pass its native package smoke tests on the other three platforms.

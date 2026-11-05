@@ -1,6 +1,8 @@
 # Optional runtimes
 
-The basic stackd API emulator needs **no Docker**. Start with [Getting started](getting-started.md) and [Configuration](configuration.md). Add native dependencies only for the execution paths you need. This guide describes the existing CLI, not a new deployment package or an automatic installer.
+Start with [Getting started](getting-started.md) to run the API emulator without
+Docker. Add execution runtimes when you need functions, containers, databases or
+virtual machines. Each runtime has separate prerequisites and opt-in flags.
 
 ## Choose a deployment recipe
 
@@ -15,15 +17,16 @@ reference below to combine the backends you need in one controller:
   firmware and guest-image import, pinned k3d/k3s installation, local EKS access,
   and the additional EC2 worker-image/network setup for managed node groups.
 
-There is no implicit “enable everything” mode or bundled VM image catalog.
-Prepare each selected backend, stop the previous controller, and start one
-controller with the combined flags and stable state paths. The
-[README deployment examples](../README.md#deploy-execution-runtimes) show the
-main launch shapes.
+Prepare the backends you need, then start one controller with their combined
+flags and stable state paths. Stop any previous controller before reusing its
+database. There is no bundled VM image catalog or “enable everything” option.
 
 ## Build first, provision dependencies separately
 
-The baseline source build is:
+Install a [published release](releases.md#install-a-published-release), or build
+from source with Go 1.26.5 or newer:
+
+Run from the repository root:
 
 ```sh
 mkdir -p bin data
@@ -31,19 +34,47 @@ go build -o bin/stackd ./cmd/stackd
 ./bin/stackd -listen 127.0.0.1:4566 -database ./data/stackd.sqlite
 ```
 
-Go 1.26.5 or newer is required. The initial build may download Go modules. That is separate from running the emulator: default operation does not contact AWS. Likewise, pulling or building an execution image is an explicit preparation step that may need network access. Runtime adapters consume **already installed images**; they do not silently pull missing images. Prepare dependencies before disconnecting for offline use. Application code or explicitly configured HTTP/SMTP integrations may themselves make network requests; “offline” is not an outbound firewall.
+The initial source build downloads Go modules unless cached. Install the required
+engine images for your execution architecture before starting a runtime:
+adapters use installed images and do not pull missing ones. Image override flags
+do not install images or enable runtimes.
 
-There is no implied published stackd Docker image or prebuilt release in these instructions. Use the source build. For Lambda, `go build` alone does not produce the telemetry helpers: `make build` additionally builds static Linux `lambda-telemetry-amd64` and `lambda-telemetry-arm64` next to `bin/stackd`. Install those artifacts together, or point `-lambda-telemetry-directory` at their directory.
+For Lambda source builds, use `make build` to produce `bin/stackd` and the static
+Linux `lambda-telemetry-amd64` and `lambda-telemetry-arm64` helpers. Install the
+helpers beside the controller, or set `-lambda-telemetry-directory`.
+Published-release installation instructions cover the packaged artifacts.
 
-Install the exact engine/helper images documented by each service, for the architecture you will execute. An override flag does not install an image. Missing runtime support, incompatible images or unsupported capabilities fail explicitly, rather than falling back to simulated successful execution.
+Prepare binaries, images and dependencies before disconnecting for offline use.
+Default API operation does not contact AWS, but application code and configured
+HTTP/SMTP integrations can make outbound requests. Use host/network policy to
+restrict egress.
 
 ## Shared Docker opt-in
 
-`-docker-host` defaults to empty and selects Engine transport only when supplied. It does **not** enable Lambda, ECS, CodeBuild, DynamoDB, Kinesis or ORC inventory. Their independent flags are `-lambda-runtime`, `-ecs-runtime`, `-codebuild-runtime`, `-dynamodb-runtime`, `-kinesis-runtime` and `-inventory-orc-runtime`, all defaulting to false. Each constructs only its own real boundary; there is no implicit compatibility shim or image pull. The other service-specific selectors remain unchanged.
+`-docker-host` selects the Docker Engine connection; it does not enable runtimes.
+Enable Lambda, ECS, CodeBuild, DynamoDB, Kinesis and ORC inventory separately with
+`-lambda-runtime`, `-ecs-runtime`, `-codebuild-runtime`, `-dynamodb-runtime`,
+`-kinesis-runtime` and `-inventory-orc-runtime`. All default to false.
+Other services use the selectors in the table below.
 
-Only when `-ecs-runtime` is requested does ECS require local rootful Linux Docker, without user-namespace remapping, with systemd and cgroup v2, and the installed pinned `compute/docker.ToolkitImage`. See [ECS setup](ecs.md#setup-and-supported-execution). Containerized controllers for the original local-host consumers must share the daemon host's existing `/run/lock` inode; helper privileges/mounts are not exposed to task containers. ECS/EC2/EKS/ALB retain that local Linux host-security contract; it is not a promise of Docker Desktop, rootless Docker or arbitrary remote-engine support for those consumers.
+ECS requires local rootful Linux Docker, systemd, cgroup v2, no user-namespace
+remapping and the pinned `compute/docker.ToolkitImage`; see
+[ECS setup](ecs.md#setup-and-supported-execution). ECS, EC2, EKS and ALB require
+that local Linux host setup, not Docker Desktop, rootless Docker or a remote
+daemon. Containerized controllers must share the daemon host's existing
+`/run/lock` inode. Task containers do not receive helper privileges or mounts.
 
-Lambda requires its preinstalled storage image and static Linux telemetry helpers, plus a real Linux daemon supporting privileged storage helpers, loop devices, ext4, `fallocate`, direct I/O and a daemon `/dev` bind. Function containers remain unprivileged. Its `/tmp` quota is disk-backed, not tmpfs charged against function memory. On Docker Desktop these helpers execute **inside the actual Linux VM**, not on macOS. Lambda VPC networking uses real daemon/VM network namespaces, bridges and nftables with daemon identity and shared kernel `flock` ownership; it does not borrow a macOS host lock to pretend to own VM packet policy. Native macOS controller builds are supported, and opt-in Desktop Lambda/DynamoDB/Kinesis is the intended real-VM contract; no actual macOS run was observed for this documentation change. See the [Desktop recipe](runtime-containers.md#native-macos-controller-with-docker-desktop), [Lambda setup](lambda.md#current-application-path) and [storage/recovery](lambda.md#temporary-storage-and-crash-recovery). Missing capabilities fail explicitly; arbitrary remote engines are not promised.
+Lambda requires the storage image and static Linux telemetry helpers, plus a
+Linux daemon supporting privileged storage helpers, loop devices, ext4,
+`fallocate`, direct I/O and a daemon `/dev` bind. Function containers remain
+unprivileged. Their `/tmp` quota uses disk, not memory-backed tmpfs.
+VPC networking uses daemon-host namespaces, bridges and nftables with a shared
+kernel lock. On Docker Desktop these facilities run inside the Linux VM.
+Native macOS controllers support opt-in Lambda, DynamoDB and Kinesis through
+Desktop; arbitrary remote engines are not supported by this recipe.
+See the [Desktop recipe](runtime-containers.md#native-macos-controller-with-docker-desktop),
+[Lambda setup](lambda.md#current-application-path) and
+[storage/recovery](lambda.md#temporary-storage-and-crash-recovery).
 
 For ORC inventory encoding, explicitly build the existing encoder image before use:
 
@@ -155,9 +186,9 @@ The EC2 CLI discovers `qemu-system-x86_64`, `qemu-img`, `qemu-nbd`, `qemu-io`, `
 
 ## Isolation, shutdown and retained state
 
-Native execution is real customer code and real engine processes, not a safe substitute for a security boundary:
+Execution runtimes run application code and engine processes with access to host resources:
 
-- Lambda functions use real runtime containers and disk-backed temporary storage. ECS owns real task network namespaces, cgroup limits, volumes and packet rules. Privileged setup helpers and access to Docker make the host/operator trusted; do not expose this to untrusted users as a hardened multi-tenant service.
+- Lambda uses runtime containers and disk-backed temporary storage. ECS manages task network namespaces, cgroup limits, volumes and packet rules. Privileged setup helpers and Docker access require trusted operators; this is not a hardened multi-tenant service.
 - Native database/search listeners commonly bind Docker-host loopback. The controller and relevant native clients must satisfy that network contract. Local host processes and Docker administrators remain trusted; an API IAM policy is not a host-local engine firewall.
 - SQLite retains control state, not a serialization of running processes or all native bytes. Separate volumes, guest disks, configuration directories and cluster state must be retained with it.
 - Graceful shutdown closes owned Lambda environments. Persistent ECS workloads, database engines, EC2 guests and EKS clusters have service-specific retention/reattachment behavior; **stopping stackd is not “stop all infrastructure.”** See [ECS recovery](ecs.md#runtime-ownership-dependencies-and-recovery), [RDS lifecycle](rds.md#ownership-and-lifecycle), [EKS ownership](eks.md#explicit-runtime-selection) and [SQLite limits](sqlite-state.md).

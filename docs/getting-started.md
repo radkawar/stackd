@@ -2,11 +2,18 @@
 
 [Documentation index](README.md) · [Configuration](configuration.md) · [Operations](operations.md)
 
-This guide runs one local control plane, retains its state in SQLite, and uses
-ordinary AWS clients against it. It does not launch containers, virtual machines,
-or resources in real AWS.
+Run a local stackd instance with persistent SQLite state, then use the AWS CLI
+or an SDK to create resources. The examples in this guide do not need Docker
+and do not create resources in AWS.
 
 ## 1. Build from source
+
+For a prebuilt binary, follow
+[Install a published release](releases.md#install-a-published-release).
+Place all three package executables in `bin/` to use the commands below unchanged.
+You can skip the source build and continue with step 2.
+
+To build from source:
 
 Install Go **1.26.5 or newer**, Git, and optionally AWS CLI v2 and `curl`.
 The Go version is declared in [go.mod](../go.mod). Runtime-specific Linux,
@@ -21,16 +28,15 @@ go build -o bin/stackd ./cmd/stackd
 ./bin/stackd -h
 ```
 
-Skip cloning if you already have the repository. Run subsequent shell commands
-from its root unless stated otherwise. A normal build uses checked-in generated
-code; it does not require the ignored AWS SDK source checkout in `clones/`.
-The initial build needs network access for Go modules unless your module cache
-has already been populated. No ready-made container image or release installer
-is required by this guide.
+Skip cloning if you already have the repository. Run the commands below from
+the repository root. With a published binary, use a working directory containing
+`bin/stackd`; the Go SDK example and source-generation commands require a checkout.
 
-For actual Lambda execution, `make build` also builds the Linux telemetry helper
-executables. That does not install Docker, runtime images, or the other native
-prerequisites.
+Source builds use checked-in generated code and do not need the AWS SDK checkout
+in `clones/`. The first build downloads Go modules unless they are already cached.
+For Lambda execution, `make build` also builds the Linux telemetry helpers.
+Install those helpers alongside the controller; Docker and runtime images must
+be installed separately.
 
 ## 2. Start a persistent local instance
 
@@ -50,9 +56,8 @@ In terminal B:
 curl --fail http://127.0.0.1:4566/_stackd/health
 ```
 
-A successful health response means the HTTP control plane is available. It is
-not proof that an optional database, guest, function, or other resource is ready.
-Those resources have service-specific readiness states.
+The health endpoint reports HTTP control-plane availability. Check each service's
+readiness state before using an optional database, guest or function.
 
 Omit `-database` for an ephemeral in-memory instance. Its resource state is lost
 when the process exits. Do not run two controllers against the same database.
@@ -101,9 +106,8 @@ aws --endpoint-url http://127.0.0.1:4566 s3api get-object \
 cmp data/hello.txt data/hello.download.txt
 ```
 
-`cmp` exits successfully when the retrieved bytes match. For this `us-east-1`
-example, no `CreateBucketConfiguration` is needed. S3 naming and authorization
-rules still apply; this is not a generic HTTP file server.
+`cmp` exits successfully when the retrieved bytes match. In `us-east-1`,
+`CreateBucketConfiguration` is not needed. S3 naming and authorization rules apply.
 
 ## 5. Send and receive an SQS message
 
@@ -235,13 +239,12 @@ names. `lifecycle_inventory.implemented_services` includes all 72 stackd service
 with registered owner behavior, including data-only APIs and services with no
 direct provider resource. It distinguishes direct resources from dependencies.
 
-On 2026-10-14, generation found all 1,730 resource types and 685 data-source types.
-Their names matched the installed, pinned provider's `terraform providers schema
--json` output exactly. This verifies inventory coverage, not resource behavior.
-The per-type API links cover the defining source files; they do not claim a
-complete transitive call graph. Shared helpers and initialization can add calls.
-Lifecycle and native-engine evidence default to `unverified`; registered APIs
-do not change that value to passed.
+The 2026-10-14 inventory contains 1,730 resource types and 685 data-source types,
+matching the pinned provider's `terraform providers schema -json` output.
+Per-type API links cover defining source files, not a complete transitive call
+graph: shared helpers and initialization can add calls. Lifecycle and
+native-engine status default to `unverified`; registering an API does not mark
+its behavior as tested.
 
 Without the checkout, `-retained-source` refreshes classifications from the
 retained source snapshot and current stackd operation inventory. It validates
@@ -257,9 +260,9 @@ go run ./cmd/terraformapisgen -retained-source -check
 - `outside-selected-service-scope`: the API is outside the current service selection.
 - `unresolved-or-ambiguous`: the retained inputs do not establish a clear mapping.
 
-This is a static source map, not a Terraform conformance score or IAM policy.
-Source frequency is not runtime frequency or resource popularity.
-Validate real create/read/update/delete workflows and their native data planes.
+Use this static map to plan API coverage, not as a conformance score or IAM
+policy. Source frequency does not measure runtime usage. Check the
+create/read/update/delete workflows and data-plane operations your application uses.
 For examples, see the [current-provider EIP lifecycle](ec2.md#run-the-current-provider-lifecycle)
 and [RDS capacity and SQL checks](rds.md#runnable-terraform-and-psql-proof).
 
@@ -267,8 +270,8 @@ and [RDS capacity and SQL checks](rds.md#runnable-terraform-and-psql-proof).
 
 - [Configuration](configuration.md): account identity, endpoints, TLS, service
   time, and persistent storage.
-- [Runtime prerequisites](runtimes.md): enable only the real backends your
-  application needs.
+- [Runtime prerequisites](runtimes.md): configure execution backends for your
+  application.
 - [Service guide index](README.md#service-guides): check the exact supported
   workflows and remaining limitations.
 - [Support inventory](services.json): modeled operation and registration data,
