@@ -322,12 +322,15 @@ func TestLegacyPostgresTrustReconcilesSameIncarnationBeforeExposure(t *testing.T
 	for _, eng := range []string{"postgres", "aurora-postgresql"} {
 		t.Run(eng, func(t *testing.T) {
 			now := time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC)
-			calls := 0
+			entered := make(chan engine.Specification, 1)
+			release := make(chan struct{})
 			publicCA := []byte("native-owned-public-ca")
-			s := New(Config{Clock: clock.NewManual(now), Cipher: testCipher{}, Runtime: controlledRuntime{ensure: func(_ context.Context, spec engine.Specification) (engine.Endpoint, error) {
-				calls++
-				if spec.ID != "incarnation-a" || spec.RetainedPort != 15432 || spec.Parameters["rds.force_ssl"] != "0" {
-					t.Fatalf("legacy migration changed native identity/data policy: %#v", spec)
+			s := New(Config{Clock: clock.NewManual(now), Cipher: testCipher{}, Runtime: controlledRuntime{ensure: func(ctx context.Context, spec engine.Specification) (engine.Endpoint, error) {
+				entered <- spec
+				select {
+				case <-release:
+				case <-ctx.Done():
+					return engine.Endpoint{}, ctx.Err()
 				}
 				return engine.Endpoint{Address: "127.0.0.1", Port: 15432, CA: publicCA}, nil
 			}}})
@@ -343,19 +346,30 @@ func TestLegacyPostgresTrustReconcilesSameIncarnationBeforeExposure(t *testing.T
 				seedDatabase(t, s, member)
 			}
 			seedDatabase(t, s, v)
-			if err := s.observeDatabase(t.Context(), v); err != nil {
+			if err := s.Start(); err != nil {
 				t.Fatal(err)
 			}
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+			select {
+			case spec := <-entered:
+				if spec.ID != "incarnation-a" || spec.RetainedPort != 15432 || spec.Parameters["rds.force_ssl"] != "0" {
+					t.Fatalf("legacy migration changed native identity/data policy: %#v", spec)
+				}
+			case <-ctx.Done():
+				t.Fatal("startup did not reconcile retained native ownership")
+			}
 			current := readDatabase(t, s, v.Key)
-			if calls != 0 || current.Status != "starting" || current.Operation != "reconcile" || current.RuntimeID != v.RuntimeID || current.Endpoint.Port != 15432 || instanceDTO(current).Endpoint != nil {
+			if current.Status != "starting" || current.Operation != "reconcile" || current.RuntimeID != v.RuntimeID || current.Endpoint.Port != 15432 || instanceDTO(current).Endpoint != nil {
 				t.Fatalf("untrusted endpoint was exposed or lost recovery ownership: %#v", current)
 			}
-			if err := (databaseJobs{s}).Run(t.Context(), selectDatabase(t, s)); err != nil {
+			close(release)
+			if _, err := s.jobs.RunDue(ctx, 10); err != nil {
 				t.Fatal(err)
 			}
 			publicCA[0] = 'X'
 			current = readDatabase(t, s, v.Key)
-			if calls != 1 || current.Status != "available" || current.RuntimeID != v.RuntimeID || string(current.Endpoint.CA) != "native-owned-public-ca" {
+			if current.Status != "available" || current.RuntimeID != v.RuntimeID || string(current.Endpoint.CA) != "native-owned-public-ca" {
 				t.Fatalf("native completion lost immutable incarnation trust: %#v", current)
 			}
 			if v.Key.Kind == "cluster" {

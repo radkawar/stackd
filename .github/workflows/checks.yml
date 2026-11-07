@@ -48,7 +48,7 @@ jobs:
           go test ./storage ./storage/sqlite -timeout 5m -run '^(TestMemoryAccountSelection.*|TestSQLiteAccountSelection.*|TestCloudFormationSecureDynamicReferencePinMigration)$'
           go test ./internal/services/athena -timeout 5m
           go test -race ./internal/services/cloudformation -timeout 5m
-          go test ./internal/services/rds ./storage/sqlite/rds ./cmd/terraformapisgen -timeout 5m
+          go test -race ./internal/services/rds ./storage/sqlite/rds ./cmd/terraformapisgen -timeout 5m
           go test -race ./internal/services/ec2 -timeout 5m -run '^TestEIPAttributesSDK'
           go test -race ./internal/integrations -timeout 5m -run '^(TestAthenaManifestRecordsOnlySuccessfulCommittedObjects|TestCFNSSOInstanceAndPermissionSetPrivateClaimsRejectCounterfeitAndForeignRecreation|TestCFNSSOPermissionSetUpdateOmitsAbsentNativeOptionalFields)$'
           go test ./internal/services/glue -timeout 5m -run '^TestTableStatisticsDeletionNativeIdempotence$'
@@ -174,6 +174,41 @@ jobs:
             generate-lambda-runtime-check generate-sql-check generate-mq-schema-check \
             generate-cloudformation-check generate-guardduty-findings-check \
             generate-terraform-apis-check
+
+  native-rds:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.26.5'
+          cache: true
+      - name: Prepare pinned database engines and native clients
+        run: |
+          docker pull postgres@sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652
+          docker pull mysql@sha256:0744ee5ef89ce6ccfa13de3e579fe6b9e27f93dd70da9c06d2c908b1b193fb8d
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          aws --version
+          go build -o bin/stackd ./cmd/stackd
+          python3 -m venv "$RUNNER_TEMP/rds-venv"
+          "$RUNNER_TEMP/rds-venv/bin/pip" install -r examples/requirements.txt
+      - name: Verify retained endpoints while native SQL is stalled
+        run: |
+          "$RUNNER_TEMP/rds-venv/bin/python" scripts/aws/rds_endpoint_stability_smoke.py \
+            --binary bin/stackd \
+            --state-directory "$RUNNER_TEMP/rds-private"
+      - name: Retain public-safe RDS assertions
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-rds
+          path: ${{ runner.temp }}/rds-private/report.json
+          if-no-files-found: ignore
+          retention-days: 7
 
   native-flow-logs:
     runs-on: ubuntu-24.04

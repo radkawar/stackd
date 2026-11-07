@@ -268,23 +268,11 @@ func (s *Service) ResolveDataCluster(ctx context.Context, arn string) (DataClust
 		return DataCluster{}, notFound("cluster")
 
 	}
-	var v Database
-	e = s.repository.View(ctx, func(r Reader) error {
-		var e error
-		v, e = r.Database(k)
-		return e
-	})
-	if e != nil {
-		return DataCluster{}, notFound("cluster")
-	}
-	if e = s.observeDatabase(ctx, v); e != nil {
-		return DataCluster{}, e
-	}
 	var out DataCluster
 	e = s.repository.View(ctx, func(r Reader) error {
 		v, e := r.Database(k)
 		if e != nil {
-			return e
+			return notFound("cluster")
 		}
 		members, e := r.Databases(k.Scope)
 		if e != nil {

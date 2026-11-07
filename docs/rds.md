@@ -142,6 +142,57 @@ into this durable configuration layout. Unattached local groups publish
 atomically. AWS's transient asynchronous cluster-group propagation and its
 pending-change reset rejection are not simulated with an invented delay.
 
+## Endpoint metadata and native readiness
+
+`DescribeDBInstances`, `DescribeDBClusters` and Data API cluster resolution read
+retained status, writer, endpoint and trust metadata without synchronous native
+probes. The scheduler owns authenticated readiness and recovery through periodic
+native `Ensure`, with generation/incarnation fences and real failure/retry
+behavior. Scheduled failures can change status and withhold the endpoint.
+
+Creation and controller-reopen gating are unchanged: endpoints remain withheld
+until the actual native process is attached and authenticated. Retained ports
+and trust do not bypass stopped, failed or untrusted-state gates; empty clusters
+still require a writer before SQL or Data API use.
+
+Data API execution still checks current IAM and Secrets Manager/KMS authority
+and authenticates the database user. SQL connection/query failures remain errors;
+retained `available` metadata is not a per-read liveness guarantee.
+
+AWS documents provisioned-instance discovery in
+[`DescribeDBInstances`](https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DescribeDBInstances.html),
+status and possibly absent creating-time endpoints in
+[`DBInstance`](https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DBInstance.html),
+connection address/port in [`Endpoint`](https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_Endpoint.html),
+and operational states in the [status guide](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/accessing-monitoring.html#Overview.DBInstance.Status).
+
+### Reproduce the endpoint stability regression
+
+[`rds_endpoint_stability_smoke.py`](../scripts/aws/rds_endpoint_stability_smoke.py)
+covers issue [#26](https://github.com/radkawar/stackd/issues/26). It requires Linux,
+a local Docker daemon/CLI, AWS CLI, `boto3`/`botocore`, host `psql`, both installed
+pinned images above and a fresh empty owned state directory:
+
+```sh
+python3 scripts/aws/rds_endpoint_stability_smoke.py \
+  --binary /tmp/stackd-rds \
+  --state-directory /tmp/stackd-rds-endpoint-stability \
+  --docker-host unix:///var/run/docker.sock
+```
+
+Publish only the state directory's `report.json`, not SQLite state, CA files
+or controller logs.
+
+The local Linux run passed for standalone PostgreSQL and an Aurora-compatible
+PostgreSQL writer. Each paused container retained status and endpoint through
+64 concurrent signed SDK reads and two signed CLI reads while SQL timed out.
+After unpause, `sslmode=verify-full` SQL recovered the committed row through the
+same process. Advancing manual time by 31 seconds exercised both periodic jobs
+without replacement; real stop/start withheld stopped endpoints and preserved
+endpoint, CA and data on recovery. Cleanup left no owned containers/volumes,
+reported no failures and stopped the controller normally. This is local
+regression evidence, not a Terraform lifecycle or AWS availability-parity claim.
+
 ## Standalone Terraform capacity and username contract
 
 `AllocatedStorage=20` is admitted for native standalone PostgreSQL and MySQL,

@@ -105,6 +105,14 @@ keeps service-specific accounting and error semantics authoritative.
   SDK race checks cover current IAM, isolation, pagination and association state.
   Terraform AWS 6.68.0 now completes allocation, refresh, no-change plans and destroy.
   PTR mutation still requires real DNS validation and publication.
+- [x] Fix [issue #26](https://github.com/radkawar/stackd/issues/26): keep RDS
+  describe and Data API cluster resolution independent of synchronous native
+  readiness probes. Scheduler-owned readiness/recovery and startup/trust fences
+  remain intact. Credential-deadline regressions and RDS/repository race checks
+  pass. The native PostgreSQL standalone/writer smoke retained endpoints during
+  paused-engine describe load, then proved verified-TLS SQL recovery, periodic
+  reconciliation, real stop/start and exact-owned cleanup; see the
+  [endpoint stability proof](docs/rds.md#reproduce-the-endpoint-stability-regression).
 - [x] Admit required standalone RDS capacity and underscore usernames without
   claiming physical cloud storage allocation. Terraform AWS 6.68.0 exercised
   PostgreSQL and MySQL creation at 20 GiB, immediate growth to 30 GiB, no-change

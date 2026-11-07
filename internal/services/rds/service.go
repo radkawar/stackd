@@ -188,25 +188,20 @@ func register[I, O any](s *Service, action string, fn func(context.Context, Tran
 		if err != nil {
 			return nil, wireError(err)
 		}
-		if needsObservation(action) {
-			err = s.observeScope(ctx)
-		}
 		var out *O
-		if err == nil {
-			err = s.repository.Attempt(ctx, func(tx Transaction) error {
-				var err error
-				out, err = fn(tx.Context(), tx, in)
-				if err != nil {
+		err = s.repository.Attempt(ctx, func(tx Transaction) error {
+			var err error
+			out, err = fn(tx.Context(), tx, in)
+			if err != nil {
+				return err
+			}
+			if s.documents != nil {
+				if err := s.documents.CheckCreate(tx.Context(), in); err != nil {
 					return err
 				}
-				if s.documents != nil {
-					if err := s.documents.CheckCreate(tx.Context(), in); err != nil {
-						return err
-					}
-				}
-				return s.recordCall(tx.Context(), action, in, out, nil)
-			})
-		}
+			}
+			return s.recordCall(tx.Context(), action, in, out, nil)
+		})
 		if err != nil {
 
 			rejected := wireError(err)
@@ -221,14 +216,6 @@ func register[I, O any](s *Service, action string, fn func(context.Context, Tran
 		s.jobs.Wake()
 		return out, nil
 	}
-}
-
-func needsObservation(action string) bool {
-	switch action {
-	case "DescribeDBInstances", "DescribeDBClusters", "ModifyDBInstance", "ModifyDBCluster", "StopDBInstance", "StopDBCluster", "CreateDBSnapshot", "CreateDBClusterSnapshot", "RebootDBInstance":
-		return true
-	}
-	return false
 }
 
 func (s *Service) RecordRequestError(ctx context.Context, r awsapi.DecodedRequest, e *awswire.Error) error {
